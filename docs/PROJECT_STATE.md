@@ -10,7 +10,8 @@
 | 产品代码 | Python 本机服务 `app.py`、任务网页 `web/index.html`，仅使用标准库 |
 | 数据方式 | 个人 Google Drive 同步文件夹中的独立 JSON 事件文件；程序追加，不覆盖已有记录 |
 | 自动测试 | 2026-10-27：15 PASS / 0 FAIL（临时回环 HTTP 服务及数据逻辑） |
-| 尚未验证 | Windows 实机启动、Google Drive 真实双向文件同步、ChatGPT 连接器往返读取，均 **NOT TESTED** |
+| Drive 云端准备 | 已用连接器创建 `AIWorkSpaceData/events`，上传并读回虚构任务 JSON（云端侧 PASS） |
+| 尚未验证 | Windows 实机启动、Drive 桌面同步，以及网页修改后 ChatGPT 再读到新值，均 **NOT TESTED** |
 | 当前限制 | 一次只处理基础任务名称和状态；同一版本冲突停止自动合并，不支持复杂协作 |
 | 公开安全 | 仅代码、需求、虚构测试；真实台账、私人路径/链接、密钥均不得上传 |
 
