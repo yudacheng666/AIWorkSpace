@@ -8,8 +8,8 @@
 | 仓库 | AIWorkSpace，Public，全新独立项目 |
 | 需求 | [REQUIREMENTS.md](REQUIREMENTS.md) V1 已确认 |
 | 产品代码 | Python 本机服务 `app.py`、任务网页 `web/index.html`，仅使用标准库 |
-| 上一轮自动测试 | **17 PASS / 0 FAIL**：GitHub Actions run 40821237608，Python 3.12 |
-| 最新代码 | 在上述通过版本后，新增事件 ID 内容冲突、跨任务重复 ID、API 冲突写入保护三项测试；当前完整套件为 19 项，最新运行结果待确认 |
+| 上一轮自动测试 | **19 PASS / 0 FAIL**：GitHub Actions run 40821419971，Python 3.12；日志显示 `Ran 19 tests ... OK` |
+| 最新代码 | 当前完整套件 19 项，新增事件 ID 内容冲突、跨任务重复 ID、API 冲突写入保护测试均通过 |
 | Windows 启动与网页显示 | **PASS（用户实测）**：`TASK-DEMO-001` 已在网页显示 |
 | 网页修改与 Drive 同步 | **PASS（用户实测 + 云端读回）**：网页状态更新为“进行中”；Drive 中出现独立 update 事件，`base_revision=1`、`status=doing` |
 | ChatGPT 云端读回 | **PASS**：通过 Drive 连接器读回网页更新事件；原始 create 事件仍保留 |
@@ -22,9 +22,8 @@
 
 ## 下一步
 
-1. 核实最新 19 项自动化测试结果；若失败，先修复再运行。
-2. 完成可用范围内的只读静态审查与 Public 仓库安全复核，并把结论记录在 PR。
-3. Codex 独立验收执行器可用时再做独立动态验收；不可用时如实保留阻塞，不得将 CI 代称 Codex。
-4. PR 保持 Draft，不合并 main；M1 未完成独立验收前不扩展额外功能。
+1. Codex 独立执行器可用时，对当前 PR head 进行只读独立验收，重点覆盖并发/重复事件、乱序和损坏文件、服务端冲突写入保护及公开仓库安全。
+2. 若 Codex 执行器仍不可用，明确保留阻塞，不把 GitHub Actions 冒充独立验收。
+3. PR 保持 Draft，不合并 main；独立验收完成前不扩展额外功能。
 
 **交接规则：** 新 AI 先读取根目录 `AGENTS.md`，再核实本文件、需求、决策与当前 GitHub 的实际分支、PR、提交和测试证据。
