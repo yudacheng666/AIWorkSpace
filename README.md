@@ -2,7 +2,7 @@
 
 个人 AI 工作台，先验证 **ChatGPT → Google Drive → 本地网页 → Google Drive → ChatGPT** 的任务闭环。不需要额外的 Google Cloud 项目、付费 API 或第三方 Python 库。
 
-**当前是首版候选，已通过自动化测试；Google Drive 双向同步和 Windows 实机使用仍待验证。**
+**当前是首版候选，自动化测试已通过；截至 2026-10-29，Windows 网页启动、Drive 双向同步、ChatGPT 读回和网页刷新验证均已通过。停止并重新启动本机服务后的持久性及并发冲突处理仍待验证。**
 
 ## 先在 Windows 运行
 
