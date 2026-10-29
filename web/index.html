@@ -40,6 +40,7 @@
     .save:hover { background: #1c4b9c; }
     .save:disabled { opacity: .48; cursor: not-allowed; }
     .message { min-height: 15px; font-size: 12px; margin: 11px 0 0; color: #6b7d93; }
+    .conflict-detail { margin: 12px 0 0; padding: 11px 13px; border-radius: 8px; background: #fff7e8; color: #8d571b; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
     .message.error, .alert { color: #a05222; }
     .empty { background: white; border: 1px dashed #cbd7e6; border-radius: 14px; padding: 56px 24px; text-align: center; }
     .empty strong { font-size: 18px; }
@@ -92,6 +93,10 @@
     }
 
     function row(task) {
+      const conflictFields = Array.isArray(task.conflict_fields) ? task.conflict_fields : [];
+      const candidates = Array.isArray(task.conflict_candidates) ? task.conflict_candidates : [];
+      const hasTitleConflict = task.conflict && conflictFields.includes("title");
+      const hasStatusConflict = task.conflict && conflictFields.includes("status");
       const card = element("article", "task");
       const top = element("div", "task-top");
       top.append(element("span", "task-id", task.task_id),
@@ -100,21 +105,30 @@
       const form = element("form", "task-form");
       const titleLabel = element("label", "", "任务名称");
       const title = element("input");
-      title.type = "text"; title.maxLength = 200; title.value = task.title;
+      title.type = "text"; title.maxLength = 200;
+      title.value = hasTitleConflict ? "任务名称存在冲突（未裁决）" : task.title;
       title.required = true; title.disabled = task.conflict;
       titleLabel.append(title);
       const statusLabel = element("label", "", "状态");
       const status = element("select");
-      for (const [key, value] of Object.entries(labels)) {
-        const option = element("option", "", value);
-        option.value = key; option.selected = task.status === key;
+      if (hasStatusConflict) {
+        const option = element("option", "", "状态存在冲突（未裁决）");
+        option.value = "__conflict__"; option.selected = true; option.disabled = true;
         status.append(option);
+      } else {
+        for (const [key, value] of Object.entries(labels)) {
+          const option = element("option", "", value);
+          option.value = key; option.selected = task.status === key;
+          status.append(option);
+        }
       }
       status.disabled = task.conflict;
       statusLabel.append(status);
       const button = element("button", "save", "保存修改");
       button.type = "submit"; button.disabled = task.conflict;
-      const message = element("p", "message", task.conflict ? "同一版本有多项更新，已停止写入。请先核查。" : "");
+      const message = element("p", "message", task.conflict
+        ? "检测到冲突，系统已停止写入。请先核查；冲突候选不是最终结论。"
+        : "");
       form.append(titleLabel, statusLabel, button);
       form.addEventListener("submit", async event => {
         event.preventDefault();
@@ -143,7 +157,25 @@
           message.textContent = `保存失败：${error.message}。请刷新后重试。`;
         } finally { isSaving = false; button.disabled = false; }
       });
-      card.append(top, form, message);
+      card.append(top, form);
+      if (task.conflict) {
+        const details = [];
+        const valuesFor = field => [...new Set(candidates
+          .map(candidate => candidate.changes && candidate.changes[field])
+          .filter(value => value !== undefined))];
+        if (hasTitleConflict) {
+          const values = valuesFor("title");
+          details.push(values.length ? `名称候选：${values.join(" / ")}` : "名称存在冲突，未裁决");
+        }
+        if (hasStatusConflict) {
+          const values = valuesFor("status").map(value => labels[value] || value);
+          details.push(values.length ? `状态候选：${values.join(" / ")}` : "状态存在冲突，未裁决");
+        }
+        if (!details.length) details.push("检测到重复、乱序或其他未裁决变更。当前显示值不能视为最终裁决。");
+        card.append(element("p", "conflict-detail",
+          `冲突详情（仅供核查）：${details.join("；")}。最后无争议值与冲突候选已区分；请先人工核查。`));
+      }
+      card.append(message);
       return card;
     }
 
@@ -157,8 +189,8 @@
         const data = await response.json();
         current = data.tasks;
         $("total").textContent = current.length;
-        $("active").textContent = current.filter(t => t.status === "todo" || t.status === "doing").length;
-        $("finished").textContent = current.filter(t => t.status === "done").length;
+        $("active").textContent = current.filter(t => !t.conflict && (t.status === "todo" || t.status === "doing")).length;
+        $("finished").textContent = current.filter(t => !t.conflict && t.status === "done").length;
         const list = $("tasks");
         if (!current.length) {
           const empty = element("div", "empty");
