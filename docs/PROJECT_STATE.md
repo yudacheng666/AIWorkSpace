@@ -25,8 +25,8 @@
 | 单机旧版本写入保护 | **PASS（Windows 实测）**：独立任务 `TASK-CONFLICT-PROBE-6512fe32` 第一次保存成功；同一旧 revision 的第二次保存返回 HTTP 409；最终标题为 `Conflict probe 6512fe32 - accepted save`，revision=3，`conflict=False`，原值保留。第一次验证的 `ORIGINAL_VALUE_PRESERVED=False` 源于 PowerShell 请求中文标题编码成问号；后续使用纯英文标题复验通过。测试事件保留在追加式历史中 |
 | 测试数据归档 | **云端归档 PASS**：已将当前 `events` 根目录下全部 10 个虚构测试/演示事件移动至 `events/_archive_test_events_20261029`，包括 `TASK-DEMO-001` 的冲突演示、双向同步测试和旧版本保护测试。未删除或改写任何 JSON；云端根目录现在只剩归档子文件夹。**待用户确认 Drive 桌面同步完成并刷新网页后，任务列表应为空** |
 | 单机范围限制 | 当前目标是公司 Windows 单机；不要求第二台电脑测试。已验证创建、网页修改、云端新增、断网期间修改后恢复同步、刷新持久性及旧版本写入保护。长时间稳定性、多次断网重连仍未专项验证 |
-| 报告文件 | Codex 报告路径：`/workspace/scratch/pr1-recheck-9f06969/REPORT.md`。这是执行环境中的本地路径，并非 GitHub 上可公开访问的 URL |
-| GitHub 评论回写 | Codex 直接发表评论被代理以 HTTP 403 拒绝；本次尝试通过已连接的 GitHub 集成另行回写。以实际返回结果为准 |
+| 报告文件 | Codex 独立复验结论与结果摘要已回写 PR #1 评论；公开仓库不保存不可访问的执行环境本地路径 |
+| GitHub 评论回写 | PR #1 已包含 Codex Linux 独立复验、Windows/云盘双向同步、断网恢复及旧版本写入保护结果 |
 | 公开安全 | Codex 限定范围扫描未发现密钥或隐私泄露；这不是对所有类型泄露的绝对保证 |
 
 ## 下一步
