@@ -230,9 +230,13 @@ def append_event(data_dir: Path, event: dict) -> Path:
             stream.write(payload)
             stream.flush()
             os.fsync(stream.fileno())
-        if destination.exists():
-            raise FileExistsError("event already exists")
-        os.replace(temp_name, destination)
+        # Hard-link publication is atomic and refuses to replace an existing event.
+        # Unlike os.replace(), concurrent writers cannot silently overwrite each other.
+        try:
+            os.link(temp_name, destination)
+        except FileExistsError:
+            raise FileExistsError("event already exists") from None
+        os.unlink(temp_name)
         temp_name = None
         return destination
     finally:
@@ -242,6 +246,21 @@ def append_event(data_dir: Path, event: dict) -> Path:
 
 def handler_factory(data_dir: Path):
     class Handler(BaseHTTPRequestHandler):
+        def allowed_hosts(self) -> set[str]:
+            # Exact allowlist tied to the actual listener port; no suffix/prefix matches.
+            port = self.server.server_port
+            return {f"127.0.0.1:{port}", f"localhost:{port}", f"[::1]:{port}"}
+
+        def local_request_allowed(self) -> bool:
+            host = self.headers.get("Host", "").strip().lower()
+            allowed = self.allowed_hosts()
+            if host not in allowed:
+                return False
+            origin = self.headers.get("Origin")
+            # Non-browser local clients may omit Origin. If present, it must match
+            # the exact same local authority; a rebinding hostname is never trusted.
+            return not origin or origin in {f"http://{item}" for item in allowed if item == host}
+
         def respond(self, code: int, body: bytes, mime: str = "application/json; charset=utf-8"):
             self.send_response(code)
             self.send_header("Content-Type", mime)
@@ -256,6 +275,8 @@ def handler_factory(data_dir: Path):
             self.respond(code, json.dumps(payload, ensure_ascii=False).encode("utf-8"))
 
         def do_GET(self):
+            if not self.local_request_allowed():
+                return self.json_response(403, {"error": "local requests only"})
             path = urlsplit(self.path).path
             if path == "/api/tasks":
                 return self.json_response(200, read_workspace(data_dir))
@@ -269,11 +290,7 @@ def handler_factory(data_dir: Path):
             match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/update", path)
             if not match:
                 return self.json_response(404, {"error": "not found"})
-            origin = self.headers.get("Origin")
-            host = self.headers.get("Host", "")
-            if not host.startswith(("127.0.0.1:", "localhost:")) or (
-                origin and origin not in {f"http://{host}"}
-            ):
+            if not self.local_request_allowed():
                 return self.json_response(403, {"error": "local requests only"})
             if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
                 return self.json_response(415, {"error": "JSON required"})
