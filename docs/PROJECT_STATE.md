@@ -42,17 +42,18 @@
 |---|---|
 | 开发分支 / PR | `feat/20261029-m2-web-task-create` / [PR #2](https://github.com/yudacheng666/AIWorkSpace/pull/2)，Draft，未合并 `main` |
 | 功能 | 服务端 `POST /api/tasks` 自动生成 UUID 编号、默认 todo、原子事件保存；网页新建任务表单 |
-| 首轮 Codex 独立验收 | **FAIL（测试 HEAD `4bc0fdb`）**：Chromium 检出 P2：任务甲保存请求未返回时用户填写任务乙草稿，甲成功响应清空乙的未保存草稿。其他已测试路径 PASS；公司 Windows/原生中文输入法/Google Drive NOT TESTED |
-| 修复 | **已提交，待独立复验**：提交前记录草稿内容与输入版本。异步成功响应仅在草稿未被编辑时清空；若用户正在填写新任务，保留草稿并提示尚未保存；失败不清空 |
+| Codex 独立验收 | 首轮 **FAIL（HEAD `4bc0fdb`）**：发现任务甲成功响应会清空后续任务乙草稿；修复后 Codex 在实际 Chromium 对最新修复 HEAD `8e8d4445a6e6787cefb5705c762b7c79e78e1a12` 定向复验 **PASS**，无新增已确认缺陷。原生 Windows 中文输入法仍 NOT TESTED |
+| 修复 | **已提交并通过 Codex 定向复验**：提交前记录草稿内容与输入版本。异步成功响应仅在草稿未被编辑时清空；若用户正在填写新任务，保留草稿并提示尚未保存；失败不清空 |
 | 自动化回归 | 29 项 Python 测试 + 5 项 Node 原生 UI 时序回归（包括延迟响应期间继续输入、输入后恢复原文、写入失败和防重复提交）；最新 [Actions #40898524442](https://github.com/yudacheng666/AIWorkSpace/actions/runs/40898524442) Linux 和 Windows **均 SUCCESS** |
 | Codex 原报告 | 用户提供了独立验收摘要和执行器中的报告/截图路径；ChatGPT 未能读取报告原件，不将本机执行器路径当作公开可访问链接；已在 PR #2 评论回写摘要及修复说明 |
-| 剩余风险 | 需 Codex Chromium 定向复验 P2；公司 Windows 实机与实际 Drive 同步未测；ChatGPT 直接在 Drive 创建 JSON 事件仍未打通 |
+| Windows + Drive 实机验收 | **PASS（2026-10-29）**：用户在公司 Windows 上以 `8771` 运行 PR #2 SHA `8e8d4445`，网页新建虚构任务 `M2测试：网页新建任务-20261029`，刷新后仍存在；通过已连接 Google Drive 实际读取到 `AIWorkSpaceData/events` 中对应 JSON 创建事件，标题、event ID、task ID、action=create、status=todo 均一致。公开仓库不记录私有 Drive 文件 ID 或本机路径 |
 
 ## 下一步
 
-1. **Codex Cloud 定向复验 PR #2 最新 HEAD**：重点操作“甲提交 → 未返回时输入乙 → 甲成功 → 乙仍保留且尚未被提交”，并检验旧标题不变时清空、失败保留、重复点击防重、中文输入和原功能回归。Codex 仅测试，不修改产品代码、测试、CI，不合并 PR。
-2. 只有定向复验 PASS 后，再安排公司 Windows 上的虚构任务新建、网页刷新和实际 Drive 上行同步验收。
-3. PR #2 保持 Draft；必须由用户明确批准才可合并 `main`；现有公司电脑的 8770 服务仍为 M1 基线。
-4. ChatGPT 直接写入 Google Drive JSON 尚未完成独立验证，不将网页新建误称作 AI 对话自动录入；后续再做，不新增付费 API。
+1. **已完成**：Codex 在 Chromium 定向复验原 P2 PASS；公司 Windows `8771` 网页新建、刷新持久性、Google Drive 中对应 JSON 事件核验均 PASS。
+2. **下一项重点**：验证 ChatGPT 对话产生的任务能否直接进入 Google Drive JSON 事件链路。当前只证明网页新建会生成并同步事件，不代表 ChatGPT 对话自动写入已打通。优先论证并测试无需付费 API 的最短方案。
+3. 原生 Windows 中文输入法尚未独立验收，可在后续实机使用中顺带检查，不阻塞已验证的普通中文输入/同步流程。
+4. PR #2 仍为 Draft，未合并 `main`；`8770` 旧 M1 服务保持不动，`8771` 为测试版本。合并前由用户明确批准。
+5. 不新增付费 API；先验证现有 ChatGPT + Drive 连接器/文件机制能否可靠写入，不能把网页手动新建误称作 AI 对话自动录入。
 
 **交接规则：** 新 AI 先读取根目录 `AGENTS.md`，再核实本文件、需求、决策、PR head 与最新 Actions 证据。不得把 Linux 复验 PASS 扩大解释为 Windows/云端/浏览器闭环 PASS。
