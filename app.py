@@ -293,7 +293,8 @@ def handler_factory(data_dir: Path):
         def do_POST(self):
             path = unquote(urlsplit(self.path).path)
             match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/update", path)
-            if not match:
+            creating = path == "/api/tasks"
+            if not creating and not match:
                 return self.json_response(404, {"error": "not found"})
             if not self.local_request_allowed():
                 return self.json_response(403, {"error": "local requests only"})
@@ -311,6 +312,25 @@ def handler_factory(data_dir: Path):
                 revision = payload.get("revision")
                 if not isinstance(title, str) or not 1 <= len(title.strip()) <= 200:
                     raise ValueError("title must be 1–200 characters")
+                if creating:
+                    if set(payload) != {"title"}:
+                        raise ValueError("new task accepts only title")
+                    with _write_lock:
+                        existing = {task["task_id"] for task in read_workspace(data_dir)["tasks"]}
+                        for _ in range(5):
+                            task_id = f"TASK-{uuid.uuid4().hex.upper()}"
+                            if task_id not in existing:
+                                break
+                        else:
+                            return self.json_response(409, {"error": "unable to allocate unique task ID"})
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "task_id": task_id, "action": "create",
+                                 "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": 0,
+                                 "changes": {"title": title.strip(), "status": "todo"}}
+                        append_event(data_dir, event)
+                    return self.json_response(201, {"saved": True, "task_id": task_id,
+                                                    "revision": 1})
                 if status not in STATUSES:
                     raise ValueError("invalid status")
                 if type(revision) is not int or revision < 1:
