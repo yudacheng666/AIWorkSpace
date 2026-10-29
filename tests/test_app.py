@@ -42,6 +42,24 @@ class DataTests(unittest.TestCase):
         self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["title"], "虚构测试任务")
         self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["revision"], 1)
 
+    def test_utf8_bom_event_from_external_writer_is_readable(self):
+        events = self.data_dir / "events"
+        events.mkdir()
+        payload = json.dumps(event(
+            "external-bom-event",
+            task_id="TASK-EXTERNAL-BOM",
+            changes={"title": "外部写入的虚构测试任务", "status": "todo"},
+        ), ensure_ascii=False, indent=2)
+        (events / "evt_external-bom-event.json").write_text(
+            payload, encoding="utf-8-sig"
+        )
+        state = read_workspace(self.data_dir)
+        self.assertEqual(state["warnings"], [])
+        self.assertEqual(len(state["tasks"]), 1)
+        self.assertEqual(state["tasks"][0]["task_id"], "TASK-EXTERNAL-BOM")
+        self.assertEqual(state["tasks"][0]["title"], "外部写入的虚构测试任务")
+        self.assertEqual(state["tasks"][0]["status"], "todo")
+
     def test_user_edit_preserves_original(self):
         original = append_event(self.data_dir, event())
         original_bytes = original.read_bytes()
