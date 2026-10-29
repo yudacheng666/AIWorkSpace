@@ -44,16 +44,17 @@
 | 功能 | 服务端 `POST /api/tasks` 自动生成 UUID 编号、默认 todo、原子事件保存；网页新建任务表单 |
 | Codex 独立验收 | 首轮 **FAIL（HEAD `4bc0fdb`）**：发现任务甲成功响应会清空后续任务乙草稿；修复后 Codex 在实际 Chromium 对最新修复 HEAD `8e8d4445a6e6787cefb5705c762b7c79e78e1a12` 定向复验 **PASS**，无新增已确认缺陷。原生 Windows 中文输入法仍 NOT TESTED |
 | 修复 | **已提交并通过 Codex 定向复验**：提交前记录草稿内容与输入版本。异步成功响应仅在草稿未被编辑时清空；若用户正在填写新任务，保留草稿并提示尚未保存；失败不清空 |
-| 自动化回归 | 29 项 Python 测试 + 5 项 Node 原生 UI 时序回归（包括延迟响应期间继续输入、输入后恢复原文、写入失败和防重复提交）；最新 [Actions #40898524442](https://github.com/yudacheng666/AIWorkSpace/actions/runs/40898524442) Linux 和 Windows **均 SUCCESS** |
+| 自动化回归 | 30 项 Python 测试 + 5 项 Node 原生 UI 时序回归（含外部 UTF-8 BOM JSON 兼容）；最新 [Actions #40906907875](https://github.com/yudacheng666/AIWorkSpace/actions/runs/40906907875) Linux 和 Windows **均 SUCCESS** |
 | Codex 原报告 | 用户提供了独立验收摘要和执行器中的报告/截图路径；ChatGPT 未能读取报告原件，不将本机执行器路径当作公开可访问链接；已在 PR #2 评论回写摘要及修复说明 |
 | Windows + Drive 实机验收 | **PASS（2026-10-29）**：用户在公司 Windows 上以 `8771` 运行 PR #2 SHA `8e8d4445`，网页新建虚构任务 `M2测试：网页新建任务-20261029`，刷新后仍存在；通过已连接 Google Drive 实际读取到 `AIWorkSpaceData/events` 中对应 JSON 创建事件，标题、event ID、task ID、action=create、status=todo 均一致。公开仓库不记录私有 Drive 文件 ID 或本机路径 |
+| ChatGPT → Drive 写入探针 | **Drive 上传 PASS；本机消费待验收**：ChatGPT 通过 Google Drive 连接器创建合成事件 `ChatGPT直写Drive链路验证-20261029` 并上传至 events 文件夹，云端读回确认 `actor=chatgpt`、`action=create`、`status=todo`。上传暂借临时 Google Doc 导出为 Markdown 产生无 BOM 的 UTF-8 JSON；临时文档已清理。另一次 plain-text 导出会带 UTF-8 BOM，故 `app.py` 已改用 `utf-8-sig` 读取并新增 BOM 回归测试；Linux/Windows CI 通过。等待公司电脑运行此最新代码，确认该事件能进入本机任务列表。公开仓库不记录私有 Drive 文件 ID或本机路径 |
 
 ## 下一步
 
-1. **已完成**：Codex 在 Chromium 定向复验原 P2 PASS；公司 Windows `8771` 网页新建、刷新持久性、Google Drive 中对应 JSON 事件核验均 PASS。
-2. **下一项重点**：验证 ChatGPT 对话产生的任务能否直接进入 Google Drive JSON 事件链路。当前只证明网页新建会生成并同步事件，不代表 ChatGPT 对话自动写入已打通。优先论证并测试无需付费 API 的最短方案。
-3. 原生 Windows 中文输入法尚未独立验收，可在后续实机使用中顺带检查，不阻塞已验证的普通中文输入/同步流程。
-4. PR #2 仍为 Draft，未合并 `main`；`8770` 旧 M1 服务保持不动，`8771` 为测试版本。合并前由用户明确批准。
-5. 不新增付费 API；先验证现有 ChatGPT + Drive 连接器/文件机制能否可靠写入，不能把网页手动新建误称作 AI 对话自动录入。
+1. **已完成**：Codex 在 Chromium 定向复验原 P2 PASS；公司 Windows `8771` 网页新建、刷新持久性、Google Drive 对应 JSON 事件核验均 PASS。
+2. **已完成（云端写入侧）**：ChatGPT 使用 Google Drive 连接器写入一个合成 `actor=chatgpt` 的创建事件并读回核验。该探针的 JSON 在 Drive 中已存在；上传文件有 BOM 兼容问题，已在本分支修复 `app.py`（`utf-8-sig`）并添加测试。
+3. **下一步实机动作**：待 CI PASS 后，用户在公司电脑下载最新 PR #2 HEAD，在同一数据目录用新端口 `8772` 启动。确认 Drive 桌面版同步完成后，检查任务 `ChatGPT直写Drive链路验证-20261029` 是否自动出现在网页列表并刷新仍存在；不手动创建这条任务。
+4. 原生 Windows 中文输入法尚未独立验收，可后续顺带检查。PR #2 仍为 Draft，未合并 `main`；`8770` 旧 M1 服务保持不动，`8771` 为上一版测试服务。
+5. 不新增付费 API；当前 ChatGPT→Drive 上传使用临时 Google Doc/export/upload 的连接器工作流，临时文档会清理。若后续要降低操作步骤，再单独优化，不把云端文件上传 PASS 冒充完整本机同步 PASS。
 
 **交接规则：** 新 AI 先读取根目录 `AGENTS.md`，再核实本文件、需求、决策、PR head 与最新 Actions 证据。不得把 Linux 复验 PASS 扩大解释为 Windows/云端/浏览器闭环 PASS。
