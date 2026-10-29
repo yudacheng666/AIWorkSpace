@@ -69,6 +69,22 @@ def validate_event(value: object) -> dict:
     return value
 
 
+def summarize_conflict_events(events: list[dict]) -> list[dict]:
+    """Return only the details needed to explain an unresolved conflict in the UI."""
+    ordered = sorted(events, key=lambda event: (
+        str(event.get("timestamp", "")), str(event.get("event_id", ""))
+    ))
+    return [
+        {
+            "event_id": event["event_id"],
+            "timestamp": event.get("timestamp", ""),
+            "actor": event["actor"],
+            "changes": dict(event["changes"]),
+        }
+        for event in ordered
+    ]
+
+
 def read_workspace(data_dir: Path) -> dict:
     """Reduce independent event files; never silently choose a concurrent edit."""
     event_dir = data_dir / "events"
@@ -101,12 +117,22 @@ def read_workspace(data_dir: Path) -> dict:
             warnings.append(f"{task_id}: waiting for task creation file")
             continue
         if len(roots) != 1:
+            root_candidates = summarize_conflict_events(roots)
+            root_fields = sorted({field for event in roots for field in event["changes"]})
             warnings.append(f"{task_id}: multiple creation events; needs review")
-            tasks.append({"task_id": task_id, "title": "创建记录冲突", "status": "todo",
-                          "revision": 0, "conflict": True})
+            tasks.append({
+                "task_id": task_id,
+                "title": "创建记录冲突" if "title" in root_fields else roots[0]["changes"]["title"].strip(),
+                "status": "todo",
+                "revision": 0,
+                "conflict": True,
+                "conflict_fields": root_fields,
+                "conflict_candidates": root_candidates,
+            })
             continue
         task = {"task_id": task_id, "title": roots[0]["changes"]["title"].strip(),
-                "status": "todo", "revision": 1, "conflict": False}
+                "status": "todo", "revision": 1, "conflict": False,
+                "conflict_fields": [], "conflict_candidates": []}
         by_revision: dict[int, list[dict]] = defaultdict(list)
         for event in updated[task_id]:
             by_revision[event["base_revision"]].append(event)
@@ -115,13 +141,23 @@ def read_workspace(data_dir: Path) -> dict:
             candidates = by_revision.pop(task["revision"])
             if len(candidates) != 1:
                 task["conflict"] = True
+                task["conflict_fields"] = sorted({
+                    field for candidate in candidates for field in candidate["changes"]
+                })
+                task["conflict_candidates"] = summarize_conflict_events(candidates)
                 warnings.append(f"{task_id}: conflicting edits of revision {task['revision']}")
                 break
             task.update(candidates[0]["changes"])
             task["title"] = task["title"].strip()
             task["revision"] += 1
         if by_revision:
+            remaining = [event for group in by_revision.values() for event in group]
             task["conflict"] = True
+            task["conflict_fields"] = sorted(
+                set(task["conflict_fields"]) |
+                {field for event in remaining for field in event["changes"]}
+            )
+            task["conflict_candidates"].extend(summarize_conflict_events(remaining))
             warnings.append(f"{task_id}: unresolved or out-of-order edits")
         tasks.append(task)
     return {"tasks": tasks, "warnings": warnings}
