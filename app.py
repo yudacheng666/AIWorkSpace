@@ -236,8 +236,13 @@ def append_event(data_dir: Path, event: dict) -> Path:
             os.link(temp_name, destination)
         except FileExistsError:
             raise FileExistsError("event already exists") from None
-        os.unlink(temp_name)
+        published_temp = temp_name
         temp_name = None
+        try:
+            os.unlink(published_temp)
+        except OSError:
+            # The event is already published; a leftover .part file is ignored by readers.
+            pass
         return destination
     finally:
         if temp_name and os.path.exists(temp_name):
