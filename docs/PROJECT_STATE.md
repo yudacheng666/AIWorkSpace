@@ -1,7 +1,7 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-29（北京时间）  
-当前阶段：**M1 核心双向同步闭环已在用户实际 Windows + Google Drive 环境完成关键实测；原两项 P2 已由 Codex 在 Linux 独立复验通过。仍需观察长期同步稳定性及多设备并发场景**
+当前阶段：**M1 核心双向同步闭环已在用户实际 Windows + 云盘同步目录 环境完成关键实测；原两项 P2 已由 Codex 在 Linux 独立复验通过。仍需观察长期同步稳定性及多设备并发场景**
 
 | 项目 | 当前事实 |
 |---|---|
@@ -14,12 +14,12 @@
 | P2 修复 B：Host/DNS rebinding | GET 与 POST 在处理请求前执行精确 Host allowlist 校验。复验确认恶意 Host 的 GET 返回 403，合法 localhost 访问正常 |
 | GitHub Actions | **23 PASS / 0 FAIL（Linux）+ 23 PASS / 0 FAIL（Windows）**：run [40827583905](https://github.com/yudacheng666/AIWorkSpace/actions/runs/40827583905)，Python 3.12；两套任务均 SUCCESS |
 | 扩展竞争测试 | **PASS**：Codex 在本机 Linux 额外执行 50 轮线程竞争、12 进程竞争和数据完整性检查 |
-| 实际 Windows + Google Drive 硬链接 | **PASS**：用户在 `D:\\SynologyDrive\\GoogleDrive\\AIWorkSpaceData` 下完成临时硬链接创建/读取测试。测试目录为临时探针，已清理；现有事件数据未受影响 |
+| 实际 Windows + 云盘同步目录 硬链接 | **PASS**：用户在 `D:\\LocalSync\\CloudSync\\AIWorkSpaceData` 下完成临时硬链接创建/读取测试。测试目录为临时探针，已清理；现有事件数据未受影响 |
 | 实际 Host 防护 | **PASS（用户本机实测）**：普通 Host `127.0.0.1:8770` 返回 200，合法 `localhost:8770` 返回 200，恶意 `attacker.example` 返回 403；新代码包含 Host allowlist 检查 |
 | Windows 本机完整测试 | **23/23 PASS**：用户在 Python 3.15 环境执行 `python -m unittest discover -s tests -v`；输出 `Ran 23 tests ... OK`。出现的 ResourceWarning 未导致测试失败 |
-| 本机网页创建 → Drive | **PASS**：测试任务 `TASK-DRIVE-TEST-4afb314a` 的创建事件已在 Google Drive `AIWorkSpaceData/events` 中核实 |
-| 本机网页修改 → Drive | **PASS**：用户修改测试任务标题后，Drive 中出现相应 update 事件；标题为 `测试专用：网页写入Drive-4afb314a-网页修改` |
-| Drive → 本机网页 | **PASS（用户实测）**：用户将独立事件 `evt_drive-reverse-0bf4ccb09c.json` 上传至 Drive `events` 文件夹并等待同步，随后确认任务 `TASK-DRIVE-REVERSE-0BF4CCB09C` 出现在本机网页 |
+| 本机网页创建 → 云端 | **PASS**：测试任务 `TASK-DRIVE-TEST-4afb314a` 的创建事件已在 云盘 `AIWorkSpaceData/events` 中核实 |
+| 本机网页修改 → 云端 | **PASS**：用户修改测试任务标题后，云端 中出现相应 update 事件；标题为 `测试专用：网页写入云端-4afb314a-网页修改` |
+| 云端 → 本机网页 | **PASS（用户实测）**：用户将独立事件 `evt_drive-reverse-0bf4ccb09c.json` 上传至 云端 `events` 文件夹并等待同步，随后确认任务 `TASK-DRIVE-REVERSE-0BF4CCB09C` 出现在本机网页 |
 | 双向同步范围限制 | 已验证创建/修改的代表性流程；**尚未验证**长时间稳定性、断网重连、两台设备同时编辑、长期并发压力及自动冲突恢复。两个测试任务及其事件文件目前保留在数据目录中；事件采用追加式历史，禁止手动删除事件文件来清理测试记录 |
 | 报告文件 | Codex 报告路径：`/workspace/scratch/pr1-recheck-9f06969/REPORT.md`。这是执行环境中的本地路径，并非 GitHub 上可公开访问的 URL |
 | GitHub 评论回写 | Codex 直接发表评论被代理以 HTTP 403 拒绝；本次尝试通过已连接的 GitHub 集成另行回写。以实际返回结果为准 |
@@ -28,7 +28,7 @@
 ## 下一步
 
 1. 将 Codex 本机 Linux 独立复验结论回写 PR #1；保留原始旧 head FAIL 记录，并明确新 head 的复验范围。
-2. 在用户实际 Windows + Google Drive 数据目录验证硬链接发布兼容性，并执行真实浏览器及双向同步闭环测试。
-3. 在实际 Drive 文件系统验证完成前，PR 保持 Draft，不合并 main。
+2. 在用户实际 Windows + 云盘同步目录 数据目录验证硬链接发布兼容性，并执行真实浏览器及双向同步闭环测试。
+3. 在实际 云端 文件系统验证完成前，PR 保持 Draft，不合并 main。
 
-**交接规则：** 新 AI 先读取根目录 `AGENTS.md`，再核实本文件、需求、决策、PR head 与最新 Actions 证据。不得把 Linux 复验 PASS 扩大解释为 Windows/Drive/浏览器闭环 PASS。
+**交接规则：** 新 AI 先读取根目录 `AGENTS.md`，再核实本文件、需求、决策、PR head 与最新 Actions 证据。不得把 Linux 复验 PASS 扩大解释为 Windows/云端/浏览器闭环 PASS。
