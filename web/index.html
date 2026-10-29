@@ -101,6 +101,7 @@
     const labels = {todo: "待处理", doing: "进行中", blocked: "受阻", done: "已完成"};
     let isSaving = false;
     let current = [];
+    let createDraftRevision = 0;
 
     function element(tag, className, value) {
       const el = document.createElement(tag);
@@ -224,12 +225,16 @@
       }
     }
 
+    $("new-task-title").addEventListener("input", () => { createDraftRevision++; });
+
     $("create-task").addEventListener("submit", async event => {
       event.preventDefault();
       const input = $("new-task-title");
       const message = $("create-message");
       const submit = $("create-submit");
-      const title = input.value.trim();
+      const originalDraft = input.value;
+      const draftRevisionAtSubmit = createDraftRevision;
+      const title = originalDraft.trim();
       if (isSaving) {
         message.textContent = "另一个操作正在保存，请稍后再提交。";
         return;
@@ -250,8 +255,12 @@
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
-        input.value = "";
-        message.textContent = `创建成功：${result.task_id}（待处理）`;
+        // A delayed response must not wipe the next task drafted while this save ran.
+        const draftUntouched = createDraftRevision === draftRevisionAtSubmit &&
+                               input.value === originalDraft;
+        if (draftUntouched) input.value = "";
+        message.textContent = `创建成功：${result.task_id}（待处理）` +
+          (draftUntouched ? "" : "；正在输入的下一条任务草稿已保留，尚未保存");
         await refresh(true);
       } catch (error) {
         message.className = "message error";
