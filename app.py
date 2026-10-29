@@ -100,7 +100,8 @@ def read_workspace(data_dir: Path) -> dict:
     created: dict[str, list[dict]] = defaultdict(list)
     updated: dict[str, list[dict]] = defaultdict(list)
     warnings: list[str] = []
-    seen: set[str] = set()
+    seen: dict[str, dict] = {}
+    duplicate_conflicts: dict[str, list[dict]] = defaultdict(list)
     if not event_dir.exists():
         return {"tasks": [], "warnings": []}
 
@@ -111,9 +112,19 @@ def read_workspace(data_dir: Path) -> dict:
             if path.stat().st_size > MAX_BODY:
                 raise ValueError("file too large")
             event = validate_event(json.loads(path.read_text(encoding="utf-8")))
-            if event["event_id"] in seen:
-                raise ValueError("duplicate event_id")
-            seen.add(event["event_id"])
+            previous = seen.get(event["event_id"])
+            if previous is not None:
+                if previous == event:
+                    warnings.append(f"{path.name}: duplicate event_id (identical event; ignored)")
+                    continue
+                warnings.append(f"{path.name}: duplicate event_id with conflicting content; needs review")
+                variants = duplicate_conflicts[event["event_id"]]
+                if not variants:
+                    variants.append(previous)
+                if event not in variants:
+                    variants.append(event)
+            else:
+                seen[event["event_id"]] = event
             destination = created if event["action"] == "create" else updated
             destination[event["task_id"]].append(event)
         except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
@@ -166,6 +177,38 @@ def read_workspace(data_dir: Path) -> dict:
             task["conflict_candidates"].extend(summarize_conflict_events(remaining))
             warnings.append(f"{task_id}: unresolved or out-of-order edits")
         tasks.append(task)
+
+    # A repeated event ID with different content is not a harmless duplicate.
+    # Freeze every affected task, even if the variants point at different task IDs
+    # or different revisions and therefore would not collide in the reducer above.
+    task_by_id = {task["task_id"]: task for task in tasks}
+    for event_id, variants in duplicate_conflicts.items():
+        by_task: dict[str, list[dict]] = defaultdict(list)
+        for event in variants:
+            by_task[event["task_id"]].append(event)
+        for task_id, task_variants in by_task.items():
+            task = task_by_id.get(task_id)
+            if task is None:
+                continue
+            task["conflict"] = True
+            task["conflict_fields"] = sorted(
+                set(task.get("conflict_fields", [])) | set(conflicting_fields(task_variants))
+            )
+            existing = {
+                (candidate.get("event_id"),
+                 json.dumps(candidate.get("changes", {}), ensure_ascii=False, sort_keys=True))
+                for candidate in task.get("conflict_candidates", [])
+            }
+            for candidate in summarize_conflict_events(task_variants):
+                signature = (
+                    candidate.get("event_id"),
+                    json.dumps(candidate.get("changes", {}), ensure_ascii=False, sort_keys=True),
+                )
+                if signature not in existing:
+                    task["conflict_candidates"].append(candidate)
+                    existing.add(signature)
+            warnings.append(f"{task_id}: event_id {event_id} has conflicting content; needs review")
+
     return {"tasks": tasks, "warnings": warnings}
 
 
