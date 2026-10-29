@@ -9,10 +9,12 @@ import threading
 import unittest
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import app as app_module  # noqa: E402
 from app import append_event, handler_factory, read_workspace, validate_event  # noqa: E402
 
 
@@ -112,6 +114,43 @@ class DataTests(unittest.TestCase):
         self.assertEqual(len(state["tasks"]), 1)
         self.assertTrue(any("duplicate" in w for w in state["warnings"]))
 
+    def test_concurrent_same_event_id_never_overwrites_existing_event(self):
+        first = event("demo-event-099", changes={"title": "并发写入甲", "status": "todo"})
+        second = event("demo-event-099", changes={"title": "并发写入乙", "status": "todo"})
+        barrier = threading.Barrier(2)
+        original_link = app_module.os.link
+        outcomes = []
+        outcomes_lock = threading.Lock()
+
+        def synchronized_link(source, destination):
+            # Force both writers to reach the atomic publication point together.
+            barrier.wait(timeout=3)
+            return original_link(source, destination)
+
+        def writer(value):
+            try:
+                path = append_event(self.data_dir, value)
+                result = ("success", json.loads(path.read_text(encoding="utf-8"))["changes"]["title"])
+            except Exception as exc:  # capture thread result for assertions in the main thread
+                result = ("error", type(exc).__name__)
+            with outcomes_lock:
+                outcomes.append(result)
+
+        with patch("app.os.link", side_effect=synchronized_link):
+            threads = [threading.Thread(target=writer, args=(value,)) for value in (first, second)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(timeout=5)
+
+        self.assertTrue(all(not thread.is_alive() for thread in threads), "writer thread hung")
+        self.assertEqual(sum(result[0] == "success" for result in outcomes), 1, outcomes)
+        self.assertEqual(sum(result == ("error", "FileExistsError") for result in outcomes), 1, outcomes)
+        files = list((self.data_dir / "events").glob("evt_demo-event-099.json"))
+        self.assertEqual(len(files), 1)
+        stored = json.loads(files[0].read_text(encoding="utf-8"))
+        self.assertIn(stored["changes"]["title"], {"并发写入甲", "并发写入乙"})
+
     def test_duplicate_event_id_with_different_content_freezes_task(self):
         append_event(self.data_dir, event())
         append_event(self.data_dir, event("demo-event-008", action="update", revision=1,
@@ -182,6 +221,34 @@ class ServerTests(unittest.TestCase):
             self.assertIn("冲突候选不是最终结论", html)
         with urlopen(self.base + "/api/tasks", timeout=3) as response:
             self.assertEqual(json.load(response)["tasks"][0]["title"], "虚构测试任务")
+
+    def test_get_rejects_untrusted_host_headers(self):
+        port = self.server.server_port
+        for host in ("attacker.example", f"127.0.0.1:{port}.attacker.example",
+                     f"localhost.attacker.example:{port}"):
+            with self.subTest(host=host):
+                request = Request(self.base + "/api/tasks", headers={"Host": host})
+                with self.assertRaises(HTTPError) as raised:
+                    urlopen(request, timeout=3)
+                self.assertEqual(raised.exception.code, 403)
+                self.assertIn("local requests only", raised.exception.read().decode("utf-8"))
+
+    def test_localhost_host_header_is_allowed(self):
+        host = f"localhost:{self.server.server_port}"
+        request = Request(self.base + "/api/tasks", headers={"Host": host})
+        with urlopen(request, timeout=3) as response:
+            self.assertEqual(response.status, 200)
+            self.assertEqual(json.load(response)["tasks"][0]["title"], "虚构测试任务")
+
+    def test_post_rejects_untrusted_host_header(self):
+        body = json.dumps({"title": "不应保存", "status": "doing", "revision": 1}).encode("utf-8")
+        request = Request(self.base + "/api/tasks/TASK-DEMO-001/update", data=body,
+                          method="POST", headers={"Content-Type": "application/json",
+                                                  "Host": "attacker.example"})
+        with self.assertRaises(HTTPError) as raised:
+            urlopen(request, timeout=3)
+        self.assertEqual(raised.exception.code, 403)
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["title"], "虚构测试任务")
 
     def test_http_save_then_read(self):
         status, result = self.request({"title": "网页更新", "status": "doing", "revision": 1})
