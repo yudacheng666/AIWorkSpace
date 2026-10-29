@@ -112,6 +112,25 @@ class DataTests(unittest.TestCase):
         self.assertEqual(len(state["tasks"]), 1)
         self.assertTrue(any("duplicate" in w for w in state["warnings"]))
 
+    def test_duplicate_event_id_with_different_content_freezes_task(self):
+        append_event(self.data_dir, event())
+        append_event(self.data_dir, event("demo-event-008", action="update", revision=1,
+                                           changes={"status": "doing"}))
+        conflicting = event("demo-event-008", action="update", revision=1,
+                            changes={"status": "blocked"})
+        (self.data_dir / "events" / "z_duplicate.json").write_text(
+            json.dumps(conflicting), encoding="utf-8"
+        )
+        state = read_workspace(self.data_dir)
+        task = state["tasks"][0]
+        self.assertTrue(task["conflict"])
+        self.assertEqual(task["conflict_fields"], ["status"])
+        self.assertEqual(
+            {candidate["changes"]["status"] for candidate in task["conflict_candidates"]},
+            {"doing", "blocked"},
+        )
+        self.assertTrue(any("conflicting content" in warning for warning in state["warnings"]))
+
 
 class ServerTests(unittest.TestCase):
     def setUp(self):
