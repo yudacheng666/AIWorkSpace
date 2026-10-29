@@ -85,6 +85,15 @@ def summarize_conflict_events(events: list[dict]) -> list[dict]:
     ]
 
 
+def conflicting_fields(events: list[dict]) -> list[str]:
+    """Fields whose candidate values differ across conflicting events."""
+    fields = {field for event in events for field in event["changes"]}
+    return sorted(
+        field for field in fields
+        if len({event["changes"].get(field) for event in events}) > 1
+    )
+
+
 def read_workspace(data_dir: Path) -> dict:
     """Reduce independent event files; never silently choose a concurrent edit."""
     event_dir = data_dir / "events"
@@ -118,7 +127,7 @@ def read_workspace(data_dir: Path) -> dict:
             continue
         if len(roots) != 1:
             root_candidates = summarize_conflict_events(roots)
-            root_fields = sorted({field for event in roots for field in event["changes"]})
+            root_fields = conflicting_fields(roots)
             warnings.append(f"{task_id}: multiple creation events; needs review")
             tasks.append({
                 "task_id": task_id,
@@ -141,9 +150,7 @@ def read_workspace(data_dir: Path) -> dict:
             candidates = by_revision.pop(task["revision"])
             if len(candidates) != 1:
                 task["conflict"] = True
-                task["conflict_fields"] = sorted({
-                    field for candidate in candidates for field in candidate["changes"]
-                })
+                task["conflict_fields"] = conflicting_fields(candidates)
                 task["conflict_candidates"] = summarize_conflict_events(candidates)
                 warnings.append(f"{task_id}: conflicting edits of revision {task['revision']}")
                 break
@@ -154,8 +161,7 @@ def read_workspace(data_dir: Path) -> dict:
             remaining = [event for group in by_revision.values() for event in group]
             task["conflict"] = True
             task["conflict_fields"] = sorted(
-                set(task["conflict_fields"]) |
-                {field for event in remaining for field in event["changes"]}
+                set(task["conflict_fields"]) | set(conflicting_fields(remaining))
             )
             task["conflict_candidates"].extend(summarize_conflict_events(remaining))
             warnings.append(f"{task_id}: unresolved or out-of-order edits")
