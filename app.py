@@ -111,7 +111,7 @@ def read_workspace(data_dir: Path) -> dict:
         try:
             if path.stat().st_size > MAX_BODY:
                 raise ValueError("file too large")
-            event = validate_event(json.loads(path.read_text(encoding="utf-8")))
+            event = validate_event(json.loads(path.read_text(encoding="utf-8-sig")))
             previous = seen.get(event["event_id"])
             if previous is not None:
                 if previous == event:
