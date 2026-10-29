@@ -74,7 +74,24 @@ class DataTests(unittest.TestCase):
         self.assertTrue(state["tasks"][0]["conflict"])
         self.assertEqual(state["tasks"][0]["title"], "虚构测试任务")
         self.assertEqual(state["tasks"][0]["revision"], 1)
+        self.assertEqual(state["tasks"][0]["conflict_fields"], ["title"])
+        self.assertEqual(len(state["tasks"][0]["conflict_candidates"]), 2)
         self.assertTrue(any("conflicting" in message for message in state["warnings"]))
+
+    def test_conflicting_status_values_are_explicitly_exposed(self):
+        append_event(self.data_dir, event())
+        append_event(self.data_dir, event("demo-event-006", action="update", revision=1,
+                                           actor="user", changes={"status": "doing"}))
+        append_event(self.data_dir, event("demo-event-007", action="update", revision=1,
+                                           actor="chatgpt", changes={"status": "blocked"}))
+        task = read_workspace(self.data_dir)["tasks"][0]
+        self.assertTrue(task["conflict"])
+        self.assertEqual(task["status"], "todo")  # base state only; UI must not present it as resolved
+        self.assertEqual(task["conflict_fields"], ["status"])
+        self.assertEqual(
+            {candidate["changes"]["status"] for candidate in task["conflict_candidates"]},
+            {"doing", "blocked"},
+        )
 
     def test_late_create_file_is_reconstructed_in_correct_order(self):
         append_event(self.data_dir, event("demo-event-004", action="update", revision=1,
@@ -124,7 +141,10 @@ class ServerTests(unittest.TestCase):
 
     def test_webpage_and_api_available(self):
         with urlopen(self.base + "/", timeout=3) as response:
-            self.assertIn("AIWorkSpace", response.read().decode("utf-8"))
+            html = response.read().decode("utf-8")
+            self.assertIn("AIWorkSpace", html)
+            self.assertIn("状态存在冲突（未裁决）", html)
+            self.assertIn("冲突候选不是最终结论", html)
         with urlopen(self.base + "/api/tasks", timeout=3) as response:
             self.assertEqual(json.load(response)["tasks"][0]["title"], "虚构测试任务")
 
