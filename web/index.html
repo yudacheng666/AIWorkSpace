@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIWorkSpace · 我的任务</title>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; color: #1c2940; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: #f5f7fb; }
+    .wrap { max-width: 1024px; margin: 0 auto; padding: 34px 26px 90px; }
+    .top { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin-bottom: 38px; }
+    .brand { font-weight: 780; color: #17315a; font-size: 18px; letter-spacing: -.4px; }
+    .brand small { display: block; color: #76839a; font-weight: 500; letter-spacing: 0; font-size: 12px; margin-top: 5px; }
+    .pill { border: 1px solid #d9e4ee; background: #fff; color: #50677d; font-size: 12px; border-radius: 99px; padding: 8px 13px; white-space: nowrap; }
+    .heading { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 18px; }
+    h1 { font-size: clamp(28px, 4vw, 37px); letter-spacing: -1.2px; line-height: 1.2; margin: 0; }
+    .subtitle { color: #718197; font-size: 14px; margin: 12px 0 0; }
+    button { font: inherit; cursor: pointer; border-radius: 10px; transition: background .15s, transform .15s; }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #9dc1f6; outline-offset: 2px; }
+    .refresh { border: 1px solid #d7e0ed; padding: 10px 17px; color: #274766; background: #fff; font-weight: 600; }
+    .refresh:hover { background: #eaf0f8; }
+    .stats { display: flex; gap: 12px; margin: 26px 0 28px; }
+    .stat { flex: 1; min-width: 0; background: #fff; border: 1px solid #e9edf4; border-radius: 14px; padding: 21px; }
+    .stat b { font-size: 28px; display: block; line-height: 1.2; }
+    .stat span { color: #8090a4; font-size: 13px; display: block; margin-top: 9px; }
+    .section-head { display: flex; justify-content: space-between; gap: 15px; align-items: center; margin-bottom: 14px; }
+    h2 { margin: 0; font-size: 16px; }
+    .sync { font-size: 12px; color: #8090a4; }
+    .task-list { display: grid; gap: 12px; }
+    .task { background: white; border: 1px solid #e6ecf4; border-radius: 14px; padding: 19px 22px; box-shadow: 0 3px 12px #243a5707; }
+    .task-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .task-id { font-size: 11px; font-weight: 700; letter-spacing: .4px; color: #6a7f96; }
+    .task-badge { font-size: 12px; border-radius: 7px; padding: 5px 9px; background: #f0f4fb; color: #507196; }
+    .task-badge.conflict { background: #fff3da; color: #976211; }
+    .task-form { display: grid; grid-template-columns: 1fr 156px auto; align-items: end; gap: 12px; }
+    label { display: grid; gap: 6px; min-width: 0; color: #7b899c; font-size: 12px; }
+    input, select { border: 1px solid #dce4ee; background: #fff; color: #263a53; border-radius: 9px; height: 40px; padding: 0 11px; font: inherit; font-size: 14px; width: 100%; }
+    .save { height: 40px; padding: 0 18px; background: #285baf; color: white; border: none; font-size: 13px; font-weight: 700; }
+    .save:hover { background: #1c4b9c; }
+    .save:disabled { opacity: .48; cursor: not-allowed; }
+    .message { min-height: 15px; font-size: 12px; margin: 11px 0 0; color: #6b7d93; }
+    .conflict-detail { margin: 12px 0 0; padding: 11px 13px; border-radius: 8px; background: #fff7e8; color: #8d571b; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+    .message.error, .alert { color: #a05222; }
+    .empty { background: white; border: 1px dashed #cbd7e6; border-radius: 14px; padding: 56px 24px; text-align: center; }
+    .empty strong { font-size: 18px; }
+    .empty p { font-size: 14px; line-height: 1.9; color: #728299; margin-bottom: 0; }
+    .alert { margin: 16px 0; padding: 15px 18px; border-radius: 10px; border: 1px solid #f0d6a6; background: #fff7e8; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+    .hint { margin-top: 28px; color: #8693a4; font-size: 12px; line-height: 1.8; }
+    @media (max-width: 650px) {
+      .wrap { padding: 25px 15px 65px; }
+      .top { margin-bottom: 30px; }
+      .stats { gap: 8px; }
+      .stat { padding: 15px; }
+      .task-form { grid-template-columns: 1fr 120px; }
+      .task-form .save { grid-column: 1 / -1; }
+      .task { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="top">
+      <div class="brand">AIWorkSpace <small>个人 AI 工作台 · 最小验证版</small></div>
+      <div class="pill">本机运行 · 不需要额外云服务</div>
+    </header>
+    <div class="heading">
+      <div><h1>我的任务</h1><p class="subtitle">从 ChatGPT 录入，在这里查看和更新。</p></div>
+      <button type="button" class="refresh" id="refresh">刷新任务</button>
+    </div>
+    <div class="stats" aria-label="任务统计">
+      <div class="stat"><b id="total">—</b><span>全部任务</span></div>
+      <div class="stat"><b id="active">—</b><span>待处理或进行中</span></div>
+      <div class="stat"><b id="finished">—</b><span>已完成</span></div>
+    </div>
+    <div class="section-head"><h2>任务列表</h2><div class="sync" id="sync" role="status">正在读取…</div></div>
+    <div class="alert" id="warnings" role="alert" hidden></div>
+    <section class="task-list" id="tasks" aria-label="任务列表"></section>
+    <p class="hint">数据由本机指定文件夹提供。Google Drive 同步存在延迟；如显示异常，请检查同步状态后点击“刷新任务”。遇到编辑冲突时，系统停止自动覆盖并提示核查。</p>
+  </main>
+  <script>
+    "use strict";
+    const $ = id => document.getElementById(id);
+    const labels = {todo: "待处理", doing: "进行中", blocked: "受阻", done: "已完成"};
+    let isSaving = false;
+    let current = [];
+
+    function element(tag, className, value) {
+      const el = document.createElement(tag);
+      if (className) el.className = className;
+      if (value !== undefined) el.textContent = value;
+      return el;
+    }
+
+    function row(task) {
+      const conflictFields = Array.isArray(task.conflict_fields) ? task.conflict_fields : [];
+      const candidates = Array.isArray(task.conflict_candidates) ? task.conflict_candidates : [];
+      const hasTitleConflict = task.conflict && conflictFields.includes("title");
+      const hasStatusConflict = task.conflict && conflictFields.includes("status");
+      const card = element("article", "task");
+      const top = element("div", "task-top");
+      top.append(element("span", "task-id", task.task_id),
+                 element("span", "task-badge" + (task.conflict ? " conflict" : ""),
+                         task.conflict ? "需要人工核查" : `修订 ${task.revision}`));
+      const form = element("form", "task-form");
+      const titleLabel = element("label", "", "任务名称");
+      const title = element("input");
+      title.type = "text"; title.maxLength = 200;
+      title.value = hasTitleConflict ? "任务名称存在冲突（未裁决）" : task.title;
+      title.required = true; title.disabled = task.conflict;
+      titleLabel.append(title);
+      const statusLabel = element("label", "", "状态");
+      const status = element("select");
+      if (hasStatusConflict) {
+        const option = element("option", "", "状态存在冲突（未裁决）");
+        option.value = "__conflict__"; option.selected = true; option.disabled = true;
+        status.append(option);
+      } else {
+        for (const [key, value] of Object.entries(labels)) {
+          const option = element("option", "", value);
+          option.value = key; option.selected = task.status === key;
+          status.append(option);
+        }
+      }
+      status.disabled = task.conflict;
+      statusLabel.append(status);
+      const button = element("button", "save", "保存修改");
+      button.type = "submit"; button.disabled = task.conflict;
+      const message = element("p", "message", task.conflict
+        ? "检测到冲突，系统已停止写入。请先核查；冲突候选不是最终结论。"
+        : "");
+      form.append(titleLabel, statusLabel, button);
+      form.addEventListener("submit", async event => {
+        event.preventDefault();
+        if (isSaving || task.conflict) return;
+        const nextStatus = status.value;
+        const completedNow = nextStatus === "done" && task.status !== "done";
+        if (completedNow && !window.confirm("确认亲自将此任务标记为完成？")) return;
+        if (title.value.trim() === task.title && nextStatus === task.status) {
+          message.textContent = "内容没有变化";
+          return;
+        }
+        isSaving = true; button.disabled = true; message.textContent = "正在保存…";
+        try {
+          const response = await fetch(`/api/tasks/${encodeURIComponent(task.task_id)}/update`, {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({title: title.value.trim(), status: nextStatus,
+                                  revision: task.revision, confirmed_done: nextStatus === "done"})
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "保存失败");
+          message.textContent = "已保存独立修改记录";
+          await refresh(true);
+          $("sync").textContent = "保存成功 · 页面已更新";
+        } catch (error) {
+          message.className = "message error";
+          message.textContent = `保存失败：${error.message}。请刷新后重试。`;
+        } finally { isSaving = false; button.disabled = false; }
+      });
+      card.append(top, form);
+      if (task.conflict) {
+        const details = [];
+        const valuesFor = field => [...new Set(candidates
+          .map(candidate => candidate.changes && candidate.changes[field])
+          .filter(value => value !== undefined))];
+        if (hasTitleConflict) {
+          const values = valuesFor("title");
+          details.push(values.length ? `名称候选：${values.join(" / ")}` : "名称存在冲突，未裁决");
+        }
+        if (hasStatusConflict) {
+          const values = valuesFor("status").map(value => labels[value] || value);
+          details.push(values.length ? `状态候选：${values.join(" / ")}` : "状态存在冲突，未裁决");
+        }
+        if (!details.length) details.push("检测到重复、乱序或其他未裁决变更。当前显示值不能视为最终裁决。");
+        card.append(element("p", "conflict-detail",
+          `冲突详情（仅供核查）：${details.join("；")}。最后无争议值与冲突候选已区分；请先人工核查。`));
+      }
+      card.append(message);
+      return card;
+    }
+
+    async function refresh(force = false) {
+      if (isSaving && !force) return;
+      if (!force && document.activeElement?.closest(".task")) return;
+      $("sync").textContent = "正在读取…";
+      try {
+        const response = await fetch("/api/tasks", {cache: "no-store"});
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        current = data.tasks;
+        $("total").textContent = current.length;
+        $("active").textContent = current.filter(t => !t.conflict && (t.status === "todo" || t.status === "doing")).length;
+        $("finished").textContent = current.filter(t => !t.conflict && t.status === "done").length;
+        const list = $("tasks");
+        if (!current.length) {
+          const empty = element("div", "empty");
+          empty.append(element("strong", "", "这里还没有任务"),
+                       element("p", "", "下一步由 ChatGPT 在指定的 Google Drive 数据目录创建一条虚构测试任务，等待同步后即可显示。"));
+          list.replaceChildren(empty);
+        } else list.replaceChildren(...current.map(row));
+        const warnings = $("warnings");
+        warnings.hidden = !data.warnings.length;
+        warnings.textContent = data.warnings.length ? `有 ${data.warnings.length} 项需要核查：${data.warnings.slice(0, 3).join("；")}` : "";
+        $("sync").textContent = `上次刷新 ${new Date().toLocaleTimeString()}`;
+      } catch (error) {
+        $("sync").textContent = `读取失败：${error.message}`;
+      }
+    }
+
+    $("refresh").addEventListener("click", () => refresh(true));
+    refresh(true);
+    setInterval(() => refresh(false), 5000);
+  </script>
+</body>
+</html>
