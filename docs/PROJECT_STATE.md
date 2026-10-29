@@ -1,7 +1,7 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-29（北京时间）  
-当前阶段：**M1 技术原型已合入 main；M2 网页新建任务已在开发分支完成第一轮实现和 CI 测试，待 Codex 独立验收及公司 Windows 实机测试；尚未合并 main**
+当前阶段：**M1 技术原型已合入 main；M2 PR #2 首轮 Codex Chromium 验收发现 1 项 P2（异步创建成功清空后续草稿），已修复并在 Linux/Windows CI 通过；待 Codex 定向复验及公司 Windows 实测；未合并 main**
 
 | 项目 | 当前事实 |
 |---|---|
@@ -36,24 +36,23 @@
 - 最新 CI：[run 40894115476](https://github.com/yudacheng666/AIWorkSpace/actions/runs/40894115476) 两个 job 分别为 Linux/Windows，均 SUCCESS。
 - 关键缺口（不能扩大结论）：现有网页能查看与编辑，但没有新建任务入口；过往通过 PowerShell 创建事件或人工上传到 Drive，**不能视为 ChatGPT 已经能够自动把用户口述任务直接创建为云端 JSON**。因此技术基线的实测通过，不等于日常使用型 AI 工作台的全部业务闭环通过。
 
-## M2 开发状态（2026-10-29）
+## M2 进度与验收（2026-10-29）
 
-| 项目 | 当前事实 |
+| 项目 | 状态与证据 |
 |---|---|
-| 开发分支 | `feat/20261029-m2-web-task-create` |
-| PR | [Draft PR #2](https://github.com/yudacheng666/AIWorkSpace/pull/2)，尚未合并，`main` 未改动产品代码 |
-| 新建任务接口 | **已实现（待独立验收）**：`POST /api/tasks`；服务端只接受 title，生成 UUID 任务编号；事件 `actor=user`，初始 `status=todo`、`base_revision=0`，沿用原子追加 |
-| 网页入口 | **已实现（待实机验收）**：新建任务输入、保存反馈、成功显示编号与刷新列表、失败提示先核对避免重复创建 |
-| 自动化测试 | **29/29 PASS，Linux + Windows**：[Actions run 40896374693](https://github.com/yudacheng666/AIWorkSpace/actions/runs/40896374693)。旧 23 项 + 新 6 项，含并发创建、无效输入、Host/Origin 防护、磁盘发布失败及中文任务 |
-| 尚未测试 | Codex Cloud 独立测试、公司 Windows 真正 GUI 交互、真实数据目录的 M2 新建/同步；**ChatGPT 直接向 Drive 上传独立 JSON 尚未打通** |
-| 部署与费用 | 只在公司电脑部署，不使用付费 API；当前本机 8770 服务仍为之前 M1 版本 |
+| 开发分支 / PR | `feat/20261029-m2-web-task-create` / [PR #2](https://github.com/yudacheng666/AIWorkSpace/pull/2)，Draft，未合并 `main` |
+| 功能 | 服务端 `POST /api/tasks` 自动生成 UUID 编号、默认 todo、原子事件保存；网页新建任务表单 |
+| 首轮 Codex 独立验收 | **FAIL（测试 HEAD `4bc0fdb`）**：Chromium 检出 P2：任务甲保存请求未返回时用户填写任务乙草稿，甲成功响应清空乙的未保存草稿。其他已测试路径 PASS；公司 Windows/原生中文输入法/Google Drive NOT TESTED |
+| 修复 | **已提交，待独立复验**：提交前记录草稿内容与输入版本。异步成功响应仅在草稿未被编辑时清空；若用户正在填写新任务，保留草稿并提示尚未保存；失败不清空 |
+| 自动化回归 | 29 项 Python 测试 + 5 项 Node 原生 UI 时序回归（包括延迟响应期间继续输入、输入后恢复原文、写入失败和防重复提交）；最新 [Actions #40898524442](https://github.com/yudacheng666/AIWorkSpace/actions/runs/40898524442) Linux 和 Windows **均 SUCCESS** |
+| Codex 原报告 | 用户提供了独立验收摘要和执行器中的报告/截图路径；ChatGPT 未能读取报告原件，不将本机执行器路径当作公开可访问链接；已在 PR #2 评论回写摘要及修复说明 |
+| 剩余风险 | 需 Codex Chromium 定向复验 P2；公司 Windows 实机与实际 Drive 同步未测；ChatGPT 直接在 Drive 创建 JSON 事件仍未打通 |
 
 ## 下一步
 
-1. CI 通过后，启动 Codex Cloud 对 PR #2 做**独立验收**；Codex 仅测试、回写报告，不修改产品代码和原测试。重点检查任务创建、刷新/中文、非法字段、并发事件、Host/Origin、失败反馈及避免静默覆盖。
-2. Codex PASS 后，用户在公司电脑更新本地代码并以虚构任务测试网页新建与云盘双向同步；先备份运行数据，避免覆盖当前服务。
-3. M2 PR #2 继续 Draft，未经用户明确批准不合并 `main`。
-4. 继续验证 ChatGPT 直接写入 Drive JSON 事件的可行性（当前仅人工上传的反向同步已通过），不把“网页新建”误称为“AI 自动录入”。
-5. 负责人、优先级、日期、提醒等放后续 M2/M3 子阶段，不在本 PR 扩张范围。
+1. **Codex Cloud 定向复验 PR #2 最新 HEAD**：重点操作“甲提交 → 未返回时输入乙 → 甲成功 → 乙仍保留且尚未被提交”，并检验旧标题不变时清空、失败保留、重复点击防重、中文输入和原功能回归。Codex 仅测试，不修改产品代码、测试、CI，不合并 PR。
+2. 只有定向复验 PASS 后，再安排公司 Windows 上的虚构任务新建、网页刷新和实际 Drive 上行同步验收。
+3. PR #2 保持 Draft；必须由用户明确批准才可合并 `main`；现有公司电脑的 8770 服务仍为 M1 基线。
+4. ChatGPT 直接写入 Google Drive JSON 尚未完成独立验证，不将网页新建误称作 AI 对话自动录入；后续再做，不新增付费 API。
 
 **交接规则：** 新 AI 先读取根目录 `AGENTS.md`，再核实本文件、需求、决策、PR head 与最新 Actions 证据。不得把 Linux 复验 PASS 扩大解释为 Windows/云端/浏览器闭环 PASS。
