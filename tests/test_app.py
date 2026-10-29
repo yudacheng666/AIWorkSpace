@@ -131,6 +131,22 @@ class DataTests(unittest.TestCase):
         )
         self.assertTrue(any("conflicting content" in warning for warning in state["warnings"]))
 
+    def test_duplicate_event_id_across_tasks_freezes_both_tasks(self):
+        append_event(self.data_dir, event())
+        append_event(self.data_dir, event("demo-event-009", task_id="TASK-DEMO-002",
+                                          changes={"title": "第二个虚构任务", "status": "todo"}))
+        append_event(self.data_dir, event("demo-event-010", task_id="TASK-DEMO-001",
+                                          action="update", revision=1,
+                                          changes={"status": "doing"}))
+        conflicting = event("demo-event-010", task_id="TASK-DEMO-002",
+                            action="update", revision=1, changes={"status": "blocked"})
+        (self.data_dir / "events" / "z_cross_task_duplicate.json").write_text(
+            json.dumps(conflicting), encoding="utf-8"
+        )
+        tasks = {task["task_id"]: task for task in read_workspace(self.data_dir)["tasks"]}
+        self.assertTrue(tasks["TASK-DEMO-001"]["conflict"])
+        self.assertTrue(tasks["TASK-DEMO-002"]["conflict"])
+
 
 class ServerTests(unittest.TestCase):
     def setUp(self):
@@ -178,6 +194,17 @@ class ServerTests(unittest.TestCase):
         self.request({"title": "第一次", "status": "doing", "revision": 1})
         status, _ = self.request({"title": "过期写入", "status": "blocked", "revision": 1})
         self.assertEqual(status, 409)
+
+    def test_api_rejects_write_when_task_has_unresolved_conflict(self):
+        append_event(self.data_dir, event("demo-event-011", action="update", revision=1,
+                                           actor="user", changes={"status": "doing"}))
+        append_event(self.data_dir, event("demo-event-012", action="update", revision=1,
+                                           actor="chatgpt", changes={"status": "blocked"}))
+        before = len(list((self.data_dir / "events").glob("*.json")))
+        status, _ = self.request({"title": "不应写入", "status": "todo", "revision": 1})
+        after = len(list((self.data_dir / "events").glob("*.json")))
+        self.assertEqual(status, 409)
+        self.assertEqual(after, before)
 
     def test_web_cannot_complete_without_confirmation(self):
         status, _ = self.request({"title": "虚构测试任务", "status": "done", "revision": 1})
