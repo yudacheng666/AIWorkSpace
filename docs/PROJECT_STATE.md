@@ -1,7 +1,7 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-30（北京时间）  
-当前阶段：**M1/M2/M3.1/M3.2 已合入 `main`；M3.2 PR #4 Squash 合并提交 `94a93bcb`。M3.3 编号执行步骤在 Draft PR #5 开发，产品代码固定 HEAD `c9e537c91ce38395657ef13054f2a5a220aa5777`；Linux/Windows CI 已通过，尚未 Codex 独立验收、未合并。**
+当前阶段：**M1/M2/M3.1/M3.2 已合入 `main`；M3.3 在 Draft PR #5 开发。第二项 P2 已修复，产品代码/测试 SHA `633b5304e843ca632dca095d42a7ec66d4baabe4` 的 Linux/Windows CI 均 PASS；等待 Codex 独立复验，未合并。**
 
 | 项目 | 当前事实 |
 |---|---|
