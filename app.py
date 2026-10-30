@@ -851,6 +851,10 @@ def handler_factory(data_dir: Path):
                     return
                 except UpdateError as exc:
                     return self.json_response(502, {"error": str(exc)})
+                except (ValueError, TypeError, UnicodeError, json.JSONDecodeError) as exc:
+                    return self.json_response(400, {"error": str(exc)})
+                except OSError:
+                    return self.json_response(500, {"error": "unable to start the update helper"})
                 finally:
                     if not helper_started:
                         if stage is not None:
