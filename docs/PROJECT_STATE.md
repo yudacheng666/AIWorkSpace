@@ -1,7 +1,7 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-30（北京时间）  
-当前阶段：**M1/M2/M3.1/M3.2/M3.3/M3.4 已合入 `main`。M3.4 [PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6) 于 2026-10-30 经用户批准 Squash 合并，合并提交 `5916744898ac3de1b82c4edf27c339ec9a0173c1`。固定产品/原测试 SHA `eb035c611a592cc01dc7b02138a4951b32a69036` 的 Linux/Windows CI 224 PASS / 0 FAIL；Codex 第四轮真实 Chromium 独立复验 PASS（已测范围），前三轮发现的三项草稿保护 P2 均已修复并通过指定路径复验。M3.4 未部署，公司 Windows 8770 未升级，真实 Drive 未访问。**
+当前阶段：**M1/M2/M3.1/M3.2/M3.3/M3.4 已合入 `main`。M3.4 [PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6) 于 2026-10-30 经用户批准 Squash 合并，合并提交 `5916744898ac3de1b82c4edf27c339ec9a0173c1`。固定产品/原测试 SHA `eb035c611a592cc01dc7b02138a4951b32a69036` 的 Linux/Windows CI 224 PASS / 0 FAIL；Codex 第四轮真实 Chromium 独立复验 PASS（已测范围），前三轮发现的三项草稿保护 P2 均已修复并通过指定路径复验。M3.4 未部署，公司 Windows 8770 未升级，真实 Drive 未访问。当前在独立分支开发网页内置软件更新中心；尚未合并、未部署、未在 Windows 实机验证。**
 
 | 项目 | 当前事实 |
 |---|---|
@@ -179,3 +179,15 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 5. **部署状态**：M3.4 仅合入 GitHub main，未部署到公司 Windows 8770；没有访问真实 Drive，也没有启用远程访问。未经用户明确要求，不自动部署、不修改本机服务或真实数据。
 6. **后续阶段**：M3.4 已完成。M3.5 或部署专项尚未形成经用户确认的范围；开始下一阶段前，先依据新的用户目标明确优先级与验收门槛，不自行扩建功能。
 
+
+## 内置软件更新中心（开发中，2026-10-30）
+
+- **用户目标**：首次下载安装后，后续在工作台网页内显示版本号、检查更新并一键更新，不再反复去 GitHub 下载 ZIP。
+- **分支**：feat/software-update-center-20261030，从 M3.4 main 基线 0a3c8f19808b270eea632e4c0ebddf5bc17cda6f 创建；Draft PR 待创建。尚未合并 main、未部署。
+- **方案**：新增 VERSION=1.0.0；网页显示版本和构建 SHA；更新源固定为 GitHub yudacheng666/AIWorkSpace 的 main；从 GitHub commit API 获取精确 SHA，再下载该 SHA 的 ZIPball。初次 ZIP 安装无构建登记时显示“未登记”，第一次网页更新完成登记。
+- **更新白名单**：仅 app.py、updater.py、VERSION、web/index.html；不更新测试/文档，不接受任意 URL，不执行远程脚本。压缩包校验路径穿越、符号链接、重复/缺失文件、CRC、大小、commit 根目录标识及 Python 语法。
+- **数据保护**：更新前检查应用目录与 --data-dir 不重叠；暂存位于应用目录内的专用隐藏目录；备份仅含程序白名单与本机元数据，位于数据目录之外。不会读取/修改/搬迁 events/、project_events/、step_events/。
+- **安装与回滚**：通过独立 helper 等待旧服务退出，备份程序、逐文件原子替换，写入本机 build SHA，再按原数据目录和端口启动新服务并验证 /api/update/status。新版本启动失败时恢复备份并重启旧版本。更新前网页阻止存在未保存草稿时开始。
+- **当前实现状态**：updater.py、版本文件、服务端版本/检查/安装 API、网页更新面板、更新器/接口/UI 回归测试已提交到功能分支；自动化尚未由 GitHub Actions 验证。尚未进行 Codex 独立验收。
+- **下一步**：检查完整 diff 与公开安全；运行 GitHub Actions Linux/Windows；修复所有失败；创建 Draft PR，固定产品/测试 SHA，交 Codex Cloud 独立验收更新包安全、数据目录字节不变、备份/回滚、Windows helper 重启。未经独立验收与用户批准，不合并、不部署。
+- **未测范围**：真实 Windows 文件锁和自动重启、不同 Python 启动方式、公司 8770、真实 Drive/真实台账、网络代理/企业防火墙及 GitHub API 限流。只允许隔离虚构目录测试。
