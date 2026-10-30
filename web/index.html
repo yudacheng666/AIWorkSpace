@@ -443,6 +443,7 @@
         panel.append(element("p", "step-order-warning",
           `步骤顺序存在冲突，已停止调整。当前顺序仅供核查。${candidates.length ? "候选顺序：" + candidates.join("；") : ""}`));
       }
+      const message = element("p", "step-message");
       const list = element("div", "step-list");
       if (!steps.length) {
         list.append(element("p", "step-empty", "尚未拆分执行步骤。可以在这里添加第一步。"));
@@ -450,7 +451,6 @@
         list.replaceChildren(...steps.map((step, index) => stepRow(task, step, index, message)));
       }
       panel.append(list);
-      const message = element("p", "step-message");
       const addForm = element("form", "step-add-form");
       const input = element("input");
       input.type = "text"; input.maxLength = 200; input.required = true;
