@@ -197,8 +197,8 @@ def validate_step_event(value: object) -> dict:
     ):
         raise ValueError("invalid step position")
     if value["action"] == "create":
-        if revision != 0 or "title" not in changes or "status" in changes:
-            raise ValueError("step create must start with a title and revision 0")
+        if revision != 0 or set(changes) != {"title", "position"}:
+            raise ValueError("step create requires title, position and revision 0")
     elif revision < 1 or "position" in changes:
         raise ValueError("step update must refer to an existing revision and cannot set position")
     if changes.get("status") == "done" and (
