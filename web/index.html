@@ -298,6 +298,7 @@
     let overviewView = "all";
     let selectedSelfOwner = "";
     const unsavedTaskEditors = new Set();
+    const unsavedPersistentEditors = new Set();
     let appliedQuery = {keyword: "", project: "", status: "", owner: "",
                         dateField: "due_date", dateFrom: "", dateTo: ""};
     const overviewViews = ["all", "mine", "followup", "due", "risk"];
@@ -310,15 +311,29 @@
       return el;
     }
 
-    function watchUnsavedEditor(form, snapshot) {
-      const initial = snapshot();
+    function watchUnsavedEditor(form, snapshot, registry = unsavedTaskEditors) {
+      let cleanSnapshot = snapshot();
       const update = () => {
-        if (snapshot() === initial) unsavedTaskEditors.delete(form);
-        else unsavedTaskEditors.add(form);
+        if (snapshot() === cleanSnapshot) registry.delete(form);
+        else registry.add(form);
       };
       form.addEventListener("input", update);
       form.addEventListener("change", update);
+      return {
+        markClean() {
+          cleanSnapshot = snapshot();
+          registry.delete(form);
+        }
+      };
     }
+
+    // Browser-level reload/close/navigation protection complements in-page
+    // confirmations. Never prompt when all task/step drafts are clean.
+    window.addEventListener("beforeunload", event => {
+      if (!unsavedTaskEditors.size && !unsavedPersistentEditors.size) return;
+      event.preventDefault();
+      event.returnValue = "";
+    });
 
     function confirmDiscardUnsaved() {
       if (!unsavedTaskEditors.size) return true;
@@ -1005,6 +1020,8 @@
         follow_up_date: $("new-task-follow").value
       };
     }
+    const createTaskDraftWatch = watchUnsavedEditor(
+      $("create-task"), createMetadataSnapshot, unsavedPersistentEditors);
 
     $("create-project").addEventListener("submit", async event => {
       event.preventDefault();
@@ -1091,6 +1108,7 @@
           $("new-task-due").value = "";
           $("new-task-planned").value = "";
           $("new-task-follow").value = "";
+          createTaskDraftWatch.markClean();
           // Keep project selection for quickly creating several tasks in one project.
         }
         message.textContent = `创建成功：${result.task_id}（待处理）` +
