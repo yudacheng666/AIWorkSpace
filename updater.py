@@ -199,6 +199,9 @@ def validate_archive_and_stage(
             entries = archive.infolist()
             if not entries or len(entries) > MAX_ARCHIVE_ENTRIES:
                 raise UpdateError("更新压缩包文件数量异常。")
+            if (sum(info.file_size for info in entries) > MAX_UNPACKED_BYTES or
+                    any(info.file_size > MAX_ENTRY_BYTES for info in entries)):
+                raise UpdateError("更新压缩包解压大小超过安全限制。")
             if archive.testzip() is not None:
                 raise UpdateError("更新压缩包完整性校验失败。")
             for info in entries:
@@ -446,13 +449,19 @@ def remove_stage(stage_dir: Path | str) -> None:
 def _pid_running(pid: int) -> bool:
     if os.name == "nt":
         try:
-            handle = ctypes.windll.kernel32.OpenProcess(0x00100000, False, pid)
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            kernel32.OpenProcess.argtypes = [ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong]
+            kernel32.OpenProcess.restype = ctypes.c_void_p
+            kernel32.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+            kernel32.WaitForSingleObject.restype = ctypes.c_ulong
+            kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+            handle = kernel32.OpenProcess(0x00100000, False, pid)
             if not handle:
                 return False
             try:
-                return ctypes.windll.kernel32.WaitForSingleObject(handle, 0) == 258
+                return kernel32.WaitForSingleObject(handle, 0) == 258
             finally:
-                ctypes.windll.kernel32.CloseHandle(handle)
+                kernel32.CloseHandle(handle)
         except Exception:
             return False
     try:
@@ -522,16 +531,18 @@ def run_update_helper(
     stage = _resolved(stage_dir)
     backup = None
     new_process = None
+    parent_stopped = False
     try:
         if not _wait_for_parent_exit(parent_pid, timeout=30):
             raise UpdateError("原工作台服务未能正常停止，未安装更新。")
+        parent_stopped = True
         version = read_version(stage)
         backup = apply_staged_update(root_path, data_path, stage, commit)
         new_process = _start_application(root_path, data_path, port)
         if _wait_for_build(port, commit, new_process, timeout=25):
             return 0
         raise UpdateError("新版本启动验证失败，正在恢复旧版本。")
-    except Exception as exc:
+    except Exception:
         _terminate(new_process)
         if backup is not None:
             try:
@@ -540,18 +551,22 @@ def run_update_helper(
                 _write_update_state(root_path, "failed", "unknown", commit,
                                     "更新失败，自动回滚未能完成；请保留备份并联系维护。")
                 return 2
-        try:
-            old_version = read_version(root_path)
-        except UpdateError:
-            old_version = "unknown"
-        _write_update_state(root_path, "rolled_back" if backup else "failed",
-                            old_version, commit,
-                            "更新未完成，已恢复旧版本。" if backup else "更新未完成，原版本未更改。")
-        try:
-            old_process = _start_application(root_path, data_path, port)
-            _wait_for_build(port, None, old_process, timeout=10)
-        except OSError:
-            pass
+        prior_state = _read_json(root_path / UPDATE_STATE_NAME) or {}
+        if not (prior_state.get("status") == "rolled_back" and prior_state.get("commit") == commit):
+            try:
+                old_version = read_version(root_path)
+            except UpdateError:
+                old_version = "unknown"
+            _write_update_state(
+                root_path, "rolled_back" if backup else "failed", old_version, commit,
+                "更新未完成，已恢复旧版本。" if backup else "更新未完成，原版本未更改。"
+            )
+        if parent_stopped:
+            try:
+                old_process = _start_application(root_path, data_path, port)
+                _wait_for_build(port, None, old_process, timeout=10)
+            except OSError:
+                pass
         return 1
     finally:
         remove_stage(stage)
