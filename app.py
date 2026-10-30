@@ -438,9 +438,9 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
                 warnings.append(f"{step_id}: event_id {event_id} has conflicting content")
         for task_id in {event["task_id"] for event in variants if event["action"] == "reorder"}:
             warnings.append(f"{task_id}: step-order event_id {event_id} has conflicting content")
-            by_task_order[task_id].extend(
-                event for event in variants if event["action"] == "reorder"
-            )
+            for event in variants:
+                if event["action"] == "reorder" and event not in by_task_order[task_id]:
+                    by_task_order[task_id].append(event)
 
     task_by_id = {task["task_id"]: task for task in tasks}
     for task_id, steps in steps_by_task.items():
