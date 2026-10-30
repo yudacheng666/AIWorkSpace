@@ -49,9 +49,9 @@ def step_event(event_id="step-event-001", task_id="TASK-DEMO-001",
 
 
 def step_order_event(event_id="step-order-001", task_id="TASK-DEMO-001",
-                     revision=0, step_ids=None):
+                     revision=0, step_ids=None, actor="user"):
     return {"version": 1, "event_id": event_id, "task_id": task_id,
-            "action": "reorder", "actor": "user",
+            "action": "reorder", "actor": actor,
             "base_revision": revision, "timestamp": "2026-10-30T00:00:00Z",
             "changes": {"step_ids": step_ids or ["STEP-" + "A" * 32]}}
 
@@ -205,6 +205,29 @@ class DataTests(unittest.TestCase):
             self.assertTrue(tasks[task_id]["steps"][0]["conflict"])
             self.assertIn("task_id", tasks[task_id]["steps"][0]["conflict_fields"])
 
+    def test_chatgpt_can_reorder_steps_but_cannot_mark_one_done(self):
+        append_event(self.data_dir, event())
+        first_id = "STEP-" + "8" * 32
+        second_id = "STEP-" + "9" * 32
+        append_step_event(self.data_dir, step_event(
+            "chatgpt-order-create-a", step_id=first_id,
+            changes={"title": "步骤甲"}))
+        append_step_event(self.data_dir, step_event(
+            "chatgpt-order-create-b", step_id=second_id,
+            changes={"title": "步骤乙"}))
+        append_step_event(self.data_dir, step_order_event(
+            "chatgpt-order-event", revision=0,
+            step_ids=[second_id, first_id], actor="chatgpt"))
+        task = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual([step["step_id"] for step in task["steps"]],
+                         [second_id, first_id])
+        done_event = step_event(
+            "chatgpt-cannot-complete", step_id=first_id,
+            action="update", revision=1, changes={"status": "done"},
+            actor="chatgpt", confirmed_done=True)
+        with self.assertRaises(ValueError):
+            append_step_event(self.data_dir, done_event)
+
     def test_step_order_conflict_does_not_freeze_task_or_step_contents(self):
         append_event(self.data_dir, event())
         ids = ["STEP-" + "E" * 32, "STEP-" + "F" * 32]
@@ -263,9 +286,6 @@ class DataTests(unittest.TestCase):
             step_event(action="update", revision=1, changes={"position": 2}),
             step_order_event(step_ids=["STEP-" + "A" * 32, "STEP-" + "A" * 32]),
         ]
-        invalid_order = step_order_event()
-        invalid_order["actor"] = "chatgpt"
-        invalid.append(invalid_order)
         for item in invalid:
             with self.subTest(event=item), self.assertRaises(ValueError):
                 validate_step_event(item)
