@@ -132,26 +132,25 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - 开发分支：`feat/m3-03-numbered-task-steps`；[Draft PR #5](https://github.com/yudacheng666/AIWorkSpace/pull/5)，从合并后的 main `94a93bcb` 创建，尚未合并。
 - 范围：任务可拆成有稳定编号的执行步骤，记录步骤状态与顺序；任务/步骤完成均须用户明确确认。
 - 数据模型：独立 `step_events/` 追加式事件流；每步独立 STEP ID 与 revision；顺序由任务级完整 STEP ID 列表事件维护。旧任务无步骤时无需迁移；原事件不覆盖。
-- 规则：STEP ID 为 `STEP-<32位大写十六进制>`；每任务最多 100 步；标题 1–200 字；状态 `todo/doing/blocked/done`。步骤内容冲突只冻结涉事步骤；顺序冲突只冻结排序；父任务冲突阻止步骤写入。Host/Origin 本机校验、409 和原子不覆盖写入继续保留。
-- **首轮独立验收 FAIL（1 项 P2）**：固定 HEAD `4d9e25f94195ce6f0c7964a253d4965ea7d0dc85`。Codex [报告](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6518205090)确认：已有排序 `[A,C,B]`，C 的创建事件尚未同步；网页只显示 A、B，点击下移后 POST `[B,A]`，服务端错误地追加新排序，省略 C。原历史排序文件未被覆盖。正常同步场景下创建/编辑/排序/完成确认通过；剩余乱序/重复、并发/409、边界与 Host 专项因失败停止，仍为 NOT TESTED。
-- **P2 根因**：`read_steps` 将排序事件中未知 STEP ID 过滤出可见列表；网页仅从可见步骤构造排序；服务端仅校验可见步骤集合，未识别排序引用的步骤创建事件尚未同步。
-- **修复已提交，待 CI 与独立复验**：
-  - `app.py`：检测当前生效排序引用的未知 STEP ID，输出 `step_order_incomplete` 与 `step_order_missing_ids`；API 在该状态返回 409，不追加错误排序。
-  - `web/index.html`：显示尚未同步步骤提示，禁用上移/下移；直接触发回调也不会发出排序 POST。步骤内容编辑仍可继续。
-  - `tests/test_app.py`：新增完整 API 回归，复现 `[A,C,B]` 缺 C、确认排序请求被拒且事件字节不变；C 同步后原顺序恢复，允许重新排序。
-  - `tests/test_create_ui.mjs`：新增 UI 回归，确认提示、按钮禁用、无 POST，且步骤内容编辑仍可用。
-  - 修复提交：`d4bde4b6ec6ee2bf7b30ddf30940698b8dadcd60`（服务端）、`1fb46d39e62009f6c2b98ed35747b124f92e37d9`（网页）、`38f054ae3a3ee041fe43605eaa8eeadcd4586c62`（Python 回归）、`0c815dad7e28c1ccd82a2b3487711e8dc4d11cd7`（Node 回归）。
-  - 产品代码与测试固定 SHA：`0c815dad7e28c1ccd82a2b3487711e8dc4d11cd7`。GitHub Actions [#41026355970](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41026355970)：Linux 与 Windows 均 SUCCESS，每个平台 **Python 73 PASS + Node UI 23 PASS，0 FAIL、0 skipped**。
-  - 已测产品/测试 SHA：`0c815dad7e28c1ccd82a2b3487711e8dc4d11cd7`；其后的 PR 分支提交仅更新 README、PROJECT_STATE、DECISIONS 等文档，未改变产品代码或测试。新一轮工作必须重新读取 PR 实时 HEAD。
-  - 自动化回归已 PASS；Codex 对修复后的部分同步场景尚未独立复验，故原 P2 **尚未关闭**。
-- 未访问真实 Google Drive，未部署公司 Windows 8770，未修改 main；本机测试实例保持原状。真实 Drive 延迟同步、公司 Windows UI、原生中文输入法、长期/断电耐久性仍未测试。
-- 验收边界：CI 通过不等于 P2 关闭；必须让 Codex 对修复后固定 HEAD 重新执行部分同步复现，并完成首轮失败后尚未执行的独立专项。Codex 只验收，不改产品、原测试或 CI。
+- 规则：STEP ID 为 `STEP-<32位大写十六进制>`；每任务最多 100 步；标题 1–200 字；状态 `todo/doing/blocked/done`。**step_events 内 event_id 全局唯一**：相同 ID 相同内容的重复文件可忽略；相同 ID 不同内容必须冻结所有受影响步骤/排序流，冲突变体不得作为有效 revision 应用。步骤内容冲突只冻结涉事步骤；顺序冲突只冻结排序；父任务冲突阻止步骤写入。Host/Origin 本机校验、409 和原子不覆盖写入继续保留。
+- **首轮独立验收 FAIL（1 项 P2，已修复并定向复验通过）**：固定 HEAD `4d9e25f94195ce6f0c7964a253d4965ea7d0dc85`。部分同步时既有排序 `[A,C,B]` 而 C 创建事件未同步，网页只显示 A/B，原代码允许写入 `[B,A]` 丢掉 C 引用。原始历史文件未覆盖。证据：[Codex 报告](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6518205090)。
+- **原 P2 修复后的独立复验 PASS**：固定 HEAD `ce7ae429b903acf2839b14c05478639400ff72cd`。Codex [报告](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6518742643)确认：缺 C 时页面警告、排序禁用、API 409 且文件字节不变；C 到达后恢复 `[A,C,B]`，之后合法重排成功且只追加一条事件。
+- **第二项独立验收 FAIL（新 P2）**：同一排序 `event_id=order-event-001`，一个事件 `base_revision=0, [A,B]`，另一个事件 `base_revision=1, [B,A]`。旧代码只告警，仍按连续 revision 接受两者，得到 `step_order_revision=2`、`step_order_conflict=false`，页面继续允许排序。Codex 已按要求停止；独立并发、100 步/非法输入、Host/Origin 等剩余专项仍 NOT TESTED。证据及截图/日志：[PR #5 报告](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6518742643)。
+- **第二项 P2 修复已提交，自动化 CI PASS，等待独立复验**：
+  - `app.py`：建立每个受影响 task 的重复排序 ID 冲突集合；冲突涉及的 revision 不进入排序归约；只保留最后一个无冲突前缀，所有冲突变体作为候选；API 因 `step_order_conflict` 返回 409。步骤内容编辑不受影响。
+  - `tests/test_app.py`：新增 3 项回归：同 ID 跨 revision 必须冻结；API 不得写入冲突排序且历史字节不变、步骤仍可编辑；不同 ID 的合法连续 revision 仍正常应用。
+  - 修复提交：`ad0f981d04adb2652909a69a156310c8757ba6ae`（服务端）；`633b5304e843ca632dca095d42a7ec66d4baabe4`（Python 回归）。
+  - 产品代码/测试固定 SHA 与当前 PR HEAD：`633b5304e843ca632dca095d42a7ec66d4baabe4`。
+  - GitHub Actions [#41029302644](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41029302644)：Linux、Windows 均 SUCCESS；每个平台 **Python 76 PASS + Node UI 23 PASS，0 FAIL、0 skipped**。
+- **当前状态：新 P2 尚未由 Codex 独立复验关闭。** CI PASS 不能替代独立 Chromium/API 实操。
+- 未访问真实 Google Drive，未部署公司 Windows 8770，未修改 main；本机测试实例保持原状。公司 Windows UI、真实 Drive 步骤同步、原生中文输入法、长期/断电耐久性仍未测试。
 
 ## 下一步
 
-1. Actions `41026355970` 已通过：Linux/Windows 每个平台 73 Python + 23 Node 全部 PASS。下一步委托 Codex 对修复后最新固定 HEAD 做独立复验。
-2. Codex 先复测原 P2（含 C 同步后恢复），再完成首轮因停止而 NOT TESTED 的乱序/重复、独立并发与 409、父任务冲突、100 步/非法输入、Host/Origin 等专项。不得重复跑已通过的完整 Chromium 场景。
-3. Codex 回写证据后，ChatGPT 审核并修复新发现的问题；必要时定向复验。**未经用户明确批准不合并 PR #5。**
-4. 不升级公司 Windows 8770，不访问真实 Drive，不测试远程访问；远程访问继续按 D012 暂缓。M3.3 完成后再进入 M3.4。
+1. 委托 Codex 对固定 PR HEAD `633b5304e843ca632dca095d42a7ec66d4baabe4` 定向复验新 P2：同一排序 event_id、不同内容、跨 revision 时必须冻结排序，API 返回 409、不新增/覆盖事件、候选保留；不同 event_id 的合法连续排序必须仍可应用；步骤内容编辑仍可用。
+2. 同时补齐前两轮因失败停止而尚未执行的独立专项：同 revision 并发/旧 revision 409、不同 ID 同 revision 排序冲突、父任务冲突、100 步上限、非法标题/状态/STEP ID/排序成员、Host/Origin。本轮不要重复首轮已 PASS 的完整创建/编辑/完成确认流程；部分同步 P2 已在 `ce7ae42` 定向复验 PASS，可做最小回归确认而非重跑全套。
+3. Codex 只独立验收，不修改产品、原测试、CI 或 PR 分支；使用隔离虚构数据，不访问真实 Drive、不部署公司 Windows 8770。失败时保留证据并停止。
+4. ChatGPT 审核独立报告，若有新缺陷再做最小修复。**未经用户明确批准不合并 PR #5。**
+5. 不升级公司 Windows 8770，不访问真实 Drive，不测试远程访问；远程访问继续按 D012 暂缓。M3.3 完成后再进入 M3.4。
 
 **交接规则：** 新 AI 应先读 `AGENTS.md`、`docs/REQUIREMENTS.md`、本文件和 `docs/DECISIONS.md`，核实 main、PR 最新 HEAD、CI 及独立验收报告；不能把 CI SUCCESS 当作独立实操已通过。
