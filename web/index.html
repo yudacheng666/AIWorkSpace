@@ -127,10 +127,22 @@
     .empty strong { font-size: 18px; }
     .empty p { font-size: 14px; line-height: 1.9; color: #728299; margin-bottom: 0; }
     .alert { margin: 16px 0; padding: 15px 18px; border-radius: 10px; border: 1px solid #f0d6a6; background: #fff7e8; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+    .update-panel { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 20px 0 26px; padding: 16px 18px; background: #fff; border: 1px solid #e6ecf4; border-radius: 14px; }
+    .update-copy { display: grid; gap: 5px; min-width: 0; }
+    .update-title-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
+    .update-title { color: #263a53; font-size: 14px; font-weight: 750; }
+    .update-version { color: #718197; font-size: 12px; }
+    .update-message { margin: 0; color: #718197; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+    .update-actions { display: flex; flex-wrap: wrap; gap: 8px; flex-shrink: 0; }
+    .update-actions button { min-height: 36px; padding: 0 13px; border: 1px solid #dce4ee; background: #fff; color: #405771; font-size: 12px; }
+    .update-actions button:disabled { opacity: .5; cursor: not-allowed; }
+    .update-actions .save { border: 0; }
     .hint { margin-top: 28px; color: #8693a4; font-size: 12px; line-height: 1.8; }
     @media (max-width: 650px) {
       .wrap { padding: 25px 15px 65px; }
       .top { margin-bottom: 30px; }
+      .update-panel { align-items: stretch; flex-direction: column; }
+      .update-actions button { flex: 1; }
       .stats { gap: 8px; }
       .stat { padding: 15px; }
       .create-panel { padding: 17px 16px; }
@@ -152,6 +164,19 @@
       <div class="brand">AIWorkSpace <small>个人 AI 工作台 · 最小验证版</small></div>
       <div class="pill">本机运行 · 不需要额外云服务</div>
     </header>
+    <section class="update-panel" aria-labelledby="update-heading">
+      <div class="update-copy">
+        <div class="update-title-row">
+          <strong class="update-title" id="update-heading">软件更新</strong>
+          <span class="update-version" id="app-version">正在读取版本…</span>
+        </div>
+        <p class="update-message" id="update-message">更新只替换程序文件，不修改任务、项目、步骤及数据目录。</p>
+      </div>
+      <div class="update-actions">
+        <button type="button" id="check-update">检查更新</button>
+        <button type="button" class="save" id="apply-update" hidden disabled>立即更新</button>
+      </div>
+    </section>
     <div class="heading">
       <div><h1>我的任务</h1><p class="subtitle">从 ChatGPT 录入，在这里查看和更新。</p></div>
       <button type="button" class="refresh" id="refresh">刷新任务</button>
@@ -292,6 +317,8 @@
     const priorities = {normal: "普通", low: "低", high: "高", urgent: "紧急"};
     const metadataFields = ["owner", "priority", "due_date", "planned_date", "follow_up_date"];
     let isSaving = false;
+    let latestUpdate = null;
+    let updateBusy = false;
     let current = [];
     let currentProjects = [];
     let createDraftRevision = 0;
@@ -1170,6 +1197,113 @@
       refreshOverviewControls();
       renderTaskList();
     });
+
+    async function loadUpdateStatus() {
+      try {
+        const response = await fetch("/api/update/status", {cache: "no-store"});
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const build = data.build_short || "未登记";
+        $("app-version").textContent = `v${data.version} · build ${build}`;
+        if (data.last_update?.status === "rolled_back") {
+          $("update-message").textContent = data.last_update.message ||
+            "上次更新未完成，旧版本已恢复。可以重新检查更新。";
+        }
+      } catch (error) {
+        $("app-version").textContent = "版本信息暂不可用";
+        $("update-message").textContent = `无法读取本机版本：${error.message}`;
+      }
+    }
+
+    async function checkForUpdates() {
+      if (updateBusy) return;
+      const button = $("check-update");
+      button.disabled = true;
+      $("update-message").textContent = "正在检查 GitHub main 最新版本…";
+      try {
+        const response = await fetch("/api/update/check", {cache: "no-store"});
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+        latestUpdate = data.update_available ? data : null;
+        if (latestUpdate) {
+          const label = data.latest_version === data.version ? "发现新构建" : `发现新版本 v${data.latest_version}`;
+          $("update-message").textContent =
+            `${label} · build ${data.latest_short}。更新说明：${data.latest_message}`;
+          $("apply-update").hidden = false;
+          $("apply-update").disabled = false;
+        } else {
+          $("update-message").textContent =
+            `当前已是 GitHub main 最新构建（v${data.version} · ${data.latest_short}）。`;
+          $("apply-update").hidden = true;
+          $("apply-update").disabled = true;
+        }
+      } catch (error) {
+        latestUpdate = null;
+        $("apply-update").hidden = true;
+        $("apply-update").disabled = true;
+        $("update-message").textContent = `检查更新失败：${error.message}。工作台数据功能不受影响。`;
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function applyUpdate() {
+      if (!latestUpdate || updateBusy) return;
+      if (isSaving || unsavedTaskEditors.size || unsavedPersistentEditors.size) {
+        $("update-message").textContent = "请先保存或处理未保存的任务/步骤草稿，再更新软件。";
+        return;
+      }
+      if (!window.confirm("将下载并验证 GitHub 官方更新，备份当前程序后自动安装并重启工作台。任务和项目数据目录不会被修改。现在更新吗？")) return;
+      updateBusy = true;
+      $("check-update").disabled = true;
+      $("apply-update").disabled = true;
+      $("update-message").textContent = "正在下载更新并进行来源、压缩包和文件安全校验…";
+      const expectedCommit = latestUpdate.latest_commit;
+      try {
+        const response = await fetch("/api/update/apply", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({commit: expectedCommit})
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+        $("update-message").textContent = "更新包已验证。工作台正在关闭旧服务、备份并安装新版本，随后会自动重启…";
+        const deadline = Date.now() + 60000;
+        while (Date.now() < deadline) {
+          await new Promise(resolve => setTimeout(resolve, 1200));
+          try {
+            const statusResponse = await fetch(`/api/update/status?check=${Date.now()}`, {cache: "no-store"});
+            if (!statusResponse.ok) continue;
+            const status = await statusResponse.json();
+            if (status.build_commit === expectedCommit) {
+              $("update-message").textContent = `更新成功：v${status.version} · build ${expectedCommit.slice(0, 7)}。正在重新载入页面…`;
+              window.location.reload();
+              return;
+            }
+            if (status.last_update?.commit === expectedCommit &&
+                status.last_update?.status === "rolled_back") {
+              $("update-message").textContent = "更新未能完成，已自动恢复旧版本。任务数据未修改。请稍后重新检查更新。";
+              updateBusy = false;
+              $("check-update").disabled = false;
+              $("apply-update").disabled = false;
+              return;
+            }
+          } catch (_) {
+            // The old server is expected to be unavailable while the helper replaces files.
+          }
+        }
+        $("update-message").textContent = "更新仍在进行或服务尚未恢复。请等待片刻后刷新页面；不要重复启动更新。";
+      } catch (error) {
+        $("update-message").textContent = `更新未启动：${error.message}。旧版本保持不变。`;
+        updateBusy = false;
+        $("check-update").disabled = false;
+        $("apply-update").disabled = false;
+      }
+    }
+
+    $("check-update").addEventListener("click", checkForUpdates);
+    $("apply-update").addEventListener("click", applyUpdate);
+    loadUpdateStatus();
 
     $("refresh").addEventListener("click", () => refresh(true, true));
     refresh(true);
