@@ -745,14 +745,131 @@ def handler_factory(data_dir: Path):
             path = unquote(urlsplit(self.path).path)
             task_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/update", path)
             project_match = re.fullmatch(r"/api/projects/(PROJECT-[A-F0-9]{32})/update", path)
+            step_create_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps", path)
+            step_update_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/update", path)
+            step_reorder_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/reorder", path)
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
-            if not (creating_task or creating_project or task_match or project_match):
+            if not (creating_task or creating_project or task_match or project_match or
+                    step_create_match or step_update_match or step_reorder_match):
                 return self.json_response(404, {"error": "not found"})
             if not self.local_request_allowed():
                 return self.json_response(403, {"error": "local requests only"})
             try:
                 payload = self.read_payload()
+                if step_create_match:
+                    if set(payload) != {"title"}:
+                        raise ValueError("step create accepts only title")
+                    title = payload["title"]
+                    if not isinstance(title, str) or not 1 <= len(title.strip()) <= 200:
+                        raise ValueError("step title must be 1–200 characters")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        task = next((item for item in workspace["tasks"]
+                                     if item["task_id"] == step_create_match.group(1)), None)
+                        if task is None:
+                            return self.json_response(404, {"error": "task not found"})
+                        if task["conflict"]:
+                            return self.json_response(409, {"error": "task has an unresolved conflict; refresh"})
+                        if len(task.get("steps", [])) >= MAX_STEPS_PER_TASK:
+                            return self.json_response(409, {"error": "task has reached the 100-step limit"})
+                        step_id = f"STEP-{uuid.uuid4().hex.upper()}"
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "task_id": task["task_id"], "step_id": step_id,
+                                 "action": "create", "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": 0, "changes": {"title": title.strip()}}
+                        append_step_event(data_dir, event)
+                    return self.json_response(201, {"saved": True, "task_id": task["task_id"],
+                                                    "step_id": step_id, "revision": 1})
+
+                if step_update_match:
+                    allowed = {"title", "status", "revision", "confirmed_done"}
+                    if set(payload) - allowed or "revision" not in payload:
+                        raise ValueError("step update requires revision and optional title/status")
+                    if not ({"title", "status"} & set(payload)):
+                        raise ValueError("step update requires a changed field")
+                    revision = payload["revision"]
+                    if type(revision) is not int or revision < 1:
+                        raise ValueError("invalid step revision")
+                    if "title" in payload and (
+                        not isinstance(payload["title"], str) or
+                        not 1 <= len(payload["title"].strip()) <= 200
+                    ):
+                        raise ValueError("step title must be 1–200 characters")
+                    if "status" in payload and payload["status"] not in STATUSES:
+                        raise ValueError("invalid step status")
+                    if payload.get("status") == "done" and payload.get("confirmed_done") is not True:
+                        raise ValueError("step completion needs user confirmation")
+                    if payload.get("confirmed_done") is True and payload.get("status") != "done":
+                        raise ValueError("confirmed_done is only valid when completing a step")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        task = next((item for item in workspace["tasks"]
+                                     if item["task_id"] == step_update_match.group(1)), None)
+                        if task is None:
+                            return self.json_response(404, {"error": "task not found"})
+                        if task["conflict"]:
+                            return self.json_response(409, {"error": "task has an unresolved conflict; refresh"})
+                        step = next((item for item in task.get("steps", [])
+                                     if item["step_id"] == step_update_match.group(2)), None)
+                        if step is None:
+                            return self.json_response(404, {"error": "step not found"})
+                        if step["conflict"] or step["revision"] != revision:
+                            return self.json_response(409, {"error": "step changed or has a conflict; refresh"})
+                        changes = {}
+                        if "title" in payload and payload["title"].strip() != step["title"]:
+                            changes["title"] = payload["title"].strip()
+                        if "status" in payload and payload["status"] != step["status"]:
+                            changes["status"] = payload["status"]
+                        if not changes:
+                            return self.json_response(200, {"saved": False, "step_id": step["step_id"],
+                                                            "revision": step["revision"]})
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "task_id": task["task_id"], "step_id": step["step_id"],
+                                 "action": "update", "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": revision, "changes": changes}
+                        if changes.get("status") == "done":
+                            event["confirmed_done"] = True
+                        append_step_event(data_dir, event)
+                    return self.json_response(200, {"saved": True, "step_id": step["step_id"],
+                                                    "revision": revision + 1})
+
+                if step_reorder_match:
+                    if set(payload) != {"step_ids", "revision"}:
+                        raise ValueError("step reorder requires step_ids and revision")
+                    revision = payload["revision"]
+                    step_ids = payload["step_ids"]
+                    if type(revision) is not int or revision < 0:
+                        raise ValueError("invalid step-order revision")
+                    if (not isinstance(step_ids, list) or len(step_ids) > MAX_STEPS_PER_TASK
+                            or any(not isinstance(item, str) or not STEP_ID.fullmatch(item) for item in step_ids)
+                            or len(set(step_ids)) != len(step_ids)):
+                        raise ValueError("invalid step_ids")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        task = next((item for item in workspace["tasks"]
+                                     if item["task_id"] == step_reorder_match.group(1)), None)
+                        if task is None:
+                            return self.json_response(404, {"error": "task not found"})
+                        if task["conflict"]:
+                            return self.json_response(409, {"error": "task has an unresolved conflict; refresh"})
+                        if task["step_order_conflict"]:
+                            return self.json_response(409, {"error": "step order has an unresolved conflict; refresh"})
+                        current_ids = [item["step_id"] for item in task.get("steps", [])]
+                        if len(step_ids) != len(current_ids) or set(step_ids) != set(current_ids):
+                            raise ValueError("step_ids must contain every current step exactly once")
+                        if revision != task["step_order_revision"]:
+                            return self.json_response(409, {"error": "step order changed; refresh"})
+                        if step_ids == current_ids:
+                            return self.json_response(200, {"saved": False,
+                                                            "revision": revision})
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "task_id": task["task_id"], "action": "reorder",
+                                 "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": revision, "changes": {"step_ids": step_ids}}
+                        append_step_event(data_dir, event)
+                    return self.json_response(200, {"saved": True, "revision": revision + 1})
+
                 if creating_project:
                     if set(payload) != {"name"}:
                         raise ValueError("project create accepts only name")
