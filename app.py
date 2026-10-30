@@ -486,7 +486,10 @@ def read_workspace(data_dir: Path) -> dict:
     duplicate_conflicts: dict[str, list[dict]] = defaultdict(list)
     project_state = read_projects(data_dir)
     if not event_dir.exists():
-        return {"tasks": [], "projects": project_state["projects"], "warnings": project_state["warnings"]}
+        tasks: list[dict] = []
+        warnings.extend(project_state["warnings"])
+        read_steps(data_dir, tasks, warnings)
+        return {"tasks": tasks, "projects": project_state["projects"], "warnings": warnings}
 
     for path in sorted(event_dir.glob("*.json")):
         if not path.is_file():
