@@ -184,18 +184,23 @@ def validate_step_event(value: object) -> dict:
         raise ValueError("unknown step event fields")
     if not isinstance(value.get("step_id"), str) or not STEP_ID.fullmatch(value["step_id"]):
         raise ValueError("invalid step_id")
-    if set(changes) - {"title", "status"}:
+    if set(changes) - {"title", "status", "position"}:
         raise ValueError("unknown step fields")
     if "title" in changes and (not isinstance(changes["title"], str)
                                or not 1 <= len(changes["title"].strip()) <= 200):
         raise ValueError("step title must be 1–200 characters")
     if "status" in changes and changes["status"] not in STATUSES:
         raise ValueError("invalid step status")
+    if "position" in changes and (
+        type(changes["position"]) is not int or
+        not 1 <= changes["position"] <= MAX_STEPS_PER_TASK
+    ):
+        raise ValueError("invalid step position")
     if value["action"] == "create":
-        if revision != 0 or set(changes) != {"title"}:
+        if revision != 0 or "title" not in changes or "status" in changes:
             raise ValueError("step create must start with a title and revision 0")
-    elif revision < 1:
-        raise ValueError("step update must refer to an existing revision")
+    elif revision < 1 or "position" in changes:
+        raise ValueError("step update must refer to an existing revision and cannot set position")
     if changes.get("status") == "done" and (
         value["actor"] != "user" or value.get("confirmed_done") is not True
     ):
@@ -369,6 +374,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
                 "conflict": True, "conflict_fields": ["title"],
                 "conflict_candidates": summarize_conflict_events(roots),
                 "created_at": root.get("timestamp", ""),
+                "created_position": root["changes"].get("position"),
             }
         else:
             root = roots[0]
@@ -378,6 +384,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
                 "revision": 1, "conflict": False,
                 "conflict_fields": [], "conflict_candidates": [],
                 "created_at": root.get("timestamp", ""),
+                "created_position": root["changes"].get("position"),
             }
             if len(task_ids) != 1:
                 step["conflict"] = True
@@ -442,7 +449,10 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
     for task in tasks:
         task_id = task["task_id"]
         defaults = sorted(steps_by_task.get(task_id, []),
-                          key=lambda step: (str(step.get("created_at", "")), step["step_id"]))
+                          key=lambda step: (
+                              0 if type(step.get("created_position")) is int else 1,
+                              step.get("created_position") if type(step.get("created_position")) is int else 0,
+                              str(step.get("created_at", "")), step["step_id"]))
         order_revision = 0
         order_ids: list[str] = []
         order_conflict = False
