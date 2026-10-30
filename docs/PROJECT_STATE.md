@@ -156,7 +156,7 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - **最新固定产品/测试 SHA**：`9e0b84e59041b1d8da6d23958e13449e374cbf4b`（产品 commit `0103ae8d`，测试 commit `9e0b84e5`）。[Actions #41049397248](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41049397248) Linux/Windows 均 SUCCESS；每平台 Python 76 + Node 34 PASS，合计 **220 PASS / 0 FAIL / 0 skipped**。
 - **独立验收当前结论**：固定 SHA `46d4a8a7` 和 `a84779c1` 两轮均 FAIL，各发现一项 P2；第二轮 P2 已修复并通过新 CI，但 SHA `9e0b84e5` 尚未由 Codex 独立复验。M3.4 **NOT READY TO MERGE**。
 - **停止后 NOT TESTED**：浏览器整页刷新对步骤草稿的单独实测、查询场景步骤级 409/部分同步排序的额外回归、新建任务表单相邻专项的独立 Chromium 验收。其他未测：公司 Windows、真实 Drive、原生 IME、多浏览器/多客户端、长期/断电耐久性、远程访问。
-- 安全范围：测试虚构任务，不访问真实 Drive、公司 Windows 8770，不修改远程访问/Host/Origin；公开 GitHub 无真实资料。PR #6 保持 Draft；不合并、不部署，main 不变。
+- 首轮验收时的安全范围：仅测试虚构任务，不访问真实 Drive、公司 Windows 8770，不修改远程访问/Host/Origin；公开 GitHub 无真实资料。当时 PR #6 保持 Draft；后续第四轮独立验收 PASS、用户批准后已合入 main。整个 M3.4 过程未部署。
 
 - **第三轮独立验收发现的 P2**：[Codex 报告](https://github.com/yudacheng666/AIWorkSpace/pull/6#issuecomment-6521932524)，固定产品/测试 SHA `9e0b84e59041b1d8da6d23958e13449e374cbf4b`。任务 A 原保存标题 X，改为 Y 并成功保存；任务 B 同时保留未保存草稿，导致 `refresh(true)` 被草稿保护阻止、列表未重绘；随后 B 恢复原值，再将 A 从已保存 Y 改回旧 X，watcher 因 cleanSnapshot 仍为 X 而错误移除 dirty 标记，整页刷新无确认，未保存 X 丢失。已保存事件没有被覆盖。
 - **第三项 P2 修复**：产品 commits `ce0d6d4fd4061184c86c83df432e9bef2729ea79` 与 `eb035c611a592cc01dc7b02138a4951b32a69036`。`watchUnsavedEditor().markClean(savedSnapshot)` 将 clean baseline 推进到成功请求实际提交的快照，并立即按当前表单值重新计算 dirty；无论保存期间是否又有新输入，基线都必须代表已持久化的提交快照。若保存期间又有新输入，新输入仍保留 dirty；恢复到刚保存的快照才清除，恢复到保存前旧值仍为 dirty。任务编辑和步骤编辑保存成功均采用此规则，解决兄弟草稿导致刷新暂缓时的旧基线问题。
@@ -172,7 +172,7 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 
 ## M3.4 合并后状态与下一步
 
-1. **合并已完成**：[PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6) 于 2026-10-30 经用户明确批准 Squash 合并；merge commit：`5916744898ac3de1b82c4edf27c339ec9a0173c1`。合并后 `main` 与该 merge commit 一致。
+1. **合并已完成**：[PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6) 于 2026-10-30 经用户明确批准 Squash 合并；merge commit：`5916744898ac3de1b82c4edf27c339ec9a0173c1`。`main` 已包含该 merge commit；合并后仅追加 README 与 PROJECT_STATE 的文档状态更新，未改动产品或测试代码。
 2. **代码与自动化证据**：固定产品/原测试 SHA `eb035c611a592cc01dc7b02138a4951b32a69036`；[Actions #41051917241](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41051917241) Linux/Windows 每平台 76 Python + 36 Node PASS，合计 224 PASS / 0 FAIL / 0 skipped。
 3. **独立验收证据**：[Codex 第四轮报告](https://github.com/yudacheng666/AIWorkSpace/pull/6#issuecomment-6522552189)：PASS（已执行范围），Node 定向 5 PASS，74 次整页刷新事件文件完整性 PASS；三项草稿保护 P2 均已修复并通过指定场景复验。
 4. **未测边界**：公司 Windows 原生 M3.4、真实 Drive、Windows 原生 IME、其他浏览器、多客户端、长期/断电耐久性、远程访问/部署、物理 F5/关闭窗口及未重复的完整页面内草稿矩阵仍 NOT TESTED。不得把 M3.4 的已测范围 PASS 扩大为全部环境/所有行为均无缺陷。
