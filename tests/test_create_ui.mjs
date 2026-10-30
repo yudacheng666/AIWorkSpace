@@ -496,6 +496,33 @@ test("M3.3 moving a step submits the complete stable ID order and order revision
   assert.deepEqual(page.stepReordered, [{step_ids: [b, a], revision: 3}]);
 });
 
+test("M3.3 partial-sync order references disable reordering but preserve step editing", async () => {
+  const a = "STEP-" + "A".repeat(32);
+  const b = "STEP-" + "B".repeat(32);
+  const page = taskEditHarness({
+    task_id: "TASK-M3-03-PARTIAL-SYNC", title: "父任务", status: "todo",
+    revision: 1, conflict: false, project_id: null, related_project_ids: [],
+    step_order_incomplete: true, step_order_missing_ids: ["STEP-" + "C".repeat(32)],
+    steps: [
+      {step_id: a, title: "步骤甲", status: "todo", revision: 1, conflict: false, conflict_fields: []},
+      {step_id: b, title: "步骤乙", status: "todo", revision: 1, conflict: false, conflict_fields: []}
+    ]
+  });
+  const warning = page.stepPanel.children.find(item => item.className === "step-order-warning");
+  assert.ok(warning, "partial synchronization must be visible to the user");
+  assert.match(warning.textContent, /尚未同步/);
+  const list = page.stepPanel.children.find(item => item.className === "step-list");
+  const firstRow = list.children[0];
+  const actions = firstRow.children[2];
+  assert.equal(actions.children[0].disabled, true);
+  assert.equal(actions.children[1].disabled, true);
+  await actions.children[1].handlers.get("click")();
+  assert.deepEqual(page.stepReordered, [], "incomplete order must not issue a POST");
+  const form = firstRow.children[1].children.find(item => item.className === "step-edit-form");
+  assert.equal(form.children[0].children[0].disabled, false,
+               "partial order synchronization must not freeze step content editing");
+});
+
 test("M3.3 a conflicted step is frozen without freezing its sibling", () => {
   const page = taskEditHarness({
     task_id: "TASK-M3-03-CONFLICT", title: "父任务", status: "todo",
