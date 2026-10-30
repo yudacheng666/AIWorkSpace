@@ -38,10 +38,14 @@ def project_event(event_id="project-event-001", project_id="PROJECT-" + "A" * 32
 def step_event(event_id="step-event-001", task_id="TASK-DEMO-001",
                step_id="STEP-" + "A" * 32, action="create", revision=0,
                changes=None, actor="chatgpt", **other):
+    if changes is None:
+        changes = {"title": "虚构执行步骤"}
+    if action == "create" and "position" not in changes:
+        changes = {**changes, "position": 1}
     return {"version": 1, "event_id": event_id, "task_id": task_id,
             "step_id": step_id, "action": action, "actor": actor,
             "base_revision": revision, "timestamp": "2026-10-30T00:00:00Z",
-            "changes": changes or {"title": "虚构执行步骤"}, **other}
+            "changes": changes, **other}
 
 
 def step_order_event(event_id="step-order-001", task_id="TASK-DEMO-001",
