@@ -2,7 +2,14 @@
 
 个人 AI 工作台，先验证 **ChatGPT → Google Drive → 本地网页 → Google Drive → ChatGPT** 的任务闭环。不需要额外的 Google Cloud 项目、付费 API 或第三方 Python 库。
 
-**当前阶段：** M1/M2/M3.1/M3.2/M3.3/M3.4 均已合入 `main`。M3.4 [PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6) 已于 2026-10-30 经用户批准 Squash 合并，合并提交 `5916744898ac3de1b82c4edf27c339ec9a0173c1`。固定产品/原测试 SHA `eb035c611a592cc01dc7b02138a4951b32a69036` 的 Linux/Windows CI 均 SUCCESS（224 PASS / 0 FAIL）；Codex 第四轮真实 Chromium 独立复验 PASS（已测范围），Node 定向 5 PASS，74 次整页刷新前后事件文件名及字节一致。当前新增独立功能阶段：内置软件更新中心，在分支 `feat/software-update-center-20261030` 开发，尚未合并/部署。公司 Windows 8770 未升级，真实 Drive 未访问。
+**当前阶段：** M1/M2/M3.1/M3.2/M3.3/M3.4 均已合入 `main`。M3.4 [PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6) 已于 2026-10-30 经用户批准 Squash 合并，合并提交 `5916744898ac3de1b82c4edf27c339ec9a0173c1`。固定产品/原测试 SHA `eb035c611a592cc01dc7b02138a4951b32a69036` 的 Linux/Windows CI 均 SUCCESS（224 PASS / 0 FAIL）；Codex 第四轮真实 Chromium 独立复验 PASS（已测范围），Node 定向 5 PASS，74 次整页刷新前后事件文件名及字节一致。当前新增独立功能阶段：内置软件更新中心 [Draft PR #7](https://github.com/yudacheng666/AIWorkSpace/pull/7)，Codex Linux 隔离独立验收 PASS；开发侧新增 Windows 原生 helper 进程级测试并通过双平台 CI。真实 Windows 网页完整更新及真实 GitHub main 成功更新仍 NOT TESTED；尚未合并/部署。公司 Windows 8770 未升级，真实 Drive 未访问。
+
+## 软件更新中心（PR #7，尚未合并）
+
+- 当前版本 `1.0.0` 与短 build SHA 会在页面显示；检查固定 GitHub main 的最新版后，可在网页中申请一键更新。
+- 下载、校验、备份、安装、重启及失败回滚仅操作白名单程序文件；任务/项目/步骤事件数据目录不参与更新。
+- [Codex Linux 独立验收](https://github.com/yudacheng666/AIWorkSpace/pull/7#issuecomment-6524335908) PASS（已测范围）；[CI #41067205073](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41067205073) 通过 Windows 隔离原生 helper 重启/故障回滚两项新增专项。该 Windows 测试使用模拟 HTTP 应用，不等于真实网页端到端验收。
+- **发布限制**：PR #7 未合并前 `main` 不存在 `VERSION`，真实 main 更新检查返回 404 是预期的发布前阻塞；正式发布后需单独验证真实下载链路。公司 Windows 8770、真实 Drive、真实 Windows 完整流程尚未验证或部署。
 
 ## M3.4：首页工作总览与查询（已合入 main，尚未部署）
 
