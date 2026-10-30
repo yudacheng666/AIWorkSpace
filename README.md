@@ -147,6 +147,7 @@ ChatGPT 创建项目时，先向 `project_events/` 写入独立项目创建事�
 - 创建步骤：生成全新的 STEP ID 和 event ID，`base_revision=0`，`position=当前步骤数量+1`，写入 `step_events/evt_<event_id>.json`。
 - 修改步骤：使用该步骤当前 revision，只写本次确实改变的 `title` 或非 `done` 状态；不写 `position`，不改父任务或兄弟步骤。
 - 排序：仅在用户明确要求调整顺序时写入；使用当前 `step_order_revision`，`step_ids` 必须包含该任务全部现有 STEP ID 且各出现一次。
+- `step_events/` 内所有事件的 `event_id` 必须唯一。相同 ID、相同内容的重复文件可忽略；相同 ID、不同内容必须冻结所有受影响的步骤/排序流，冲突变体不得作为有效 revision 应用。不得因为 `base_revision` 恰好连续，就接受复用 ID 的冲突事件。
 - **ChatGPT 不得写入 `status: done`**。用户须在网页中亲自确认完成；`actor` 字段只是声明，不是身份认证。
 - 如果父任务、步骤或顺序存在冲突，或 `step_order_incomplete=true`，不得从当前可见步骤拼出新的完整排序；先等待 Drive 同步并刷新。服务端拒绝未同步完成的排序，不允许静默丢弃隐藏 STEP ID。
 
