@@ -313,7 +313,8 @@
     }
 
     async function saveStepOrder(task, from, to, message) {
-      if (isSaving || task.conflict || task.step_order_conflict) return;
+      if (isSaving || task.conflict || task.step_order_conflict ||
+          task.step_order_incomplete) return;
       const ids = task.steps.map(step => step.step_id);
       if (to < 0 || to >= ids.length || from < 0 || from >= ids.length) return;
       [ids[from], ids[to]] = [ids[to], ids[from]];
@@ -413,12 +414,13 @@
       const actions = element("div", "step-actions");
       const up = element("button", "", "上移");
       up.type = "button";
-      up.disabled = task.conflict || task.step_order_conflict || index === 0;
+      up.disabled = task.conflict || task.step_order_conflict ||
+        task.step_order_incomplete || index === 0;
       up.addEventListener("click", () => saveStepOrder(task, index, index - 1, message));
       const down = element("button", "", "下移");
       down.type = "button";
       down.disabled = task.conflict || task.step_order_conflict ||
-        index === task.steps.length - 1;
+        task.step_order_incomplete || index === task.steps.length - 1;
       down.addEventListener("click", () => saveStepOrder(task, index, index + 1, message));
       actions.append(up, down);
       row.append(actions);
@@ -447,6 +449,11 @@
           (candidate.changes?.step_ids || []).join(" → ")).filter(Boolean);
         panel.append(element("p", "step-order-warning",
           `步骤顺序存在冲突，已停止调整。当前顺序仅供核查。${candidates.length ? "候选顺序：" + candidates.join("；") : ""}`));
+      }
+      if (task.step_order_incomplete) {
+        const missingCount = (task.step_order_missing_ids || []).length;
+        panel.append(element("p", "step-order-warning",
+          `步骤顺序引用了 ${missingCount || "部分"} 个尚未同步的步骤，已暂停调整。请等待 Google Drive 同步完成并刷新。`));
       }
       const message = element("p", "step-message");
       const list = element("div", "step-list");
