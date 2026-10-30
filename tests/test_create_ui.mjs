@@ -19,6 +19,7 @@ function harness() {
       className: "",
       disabled: false,
       hidden: false,
+      selectedOptions: [],
       append() {},
       replaceChildren() {},
       addEventListener(type, handler) { handlers.set(type, handler); },
@@ -35,13 +36,18 @@ function harness() {
   let resolveResponse;
   const pendingResponse = new Promise(resolve => { resolveResponse = resolve; });
   const posted = [];
+  const projectPosted = [];
   const fetch = async (path, options) => {
     if (path === "/api/tasks" && options?.method === "POST") {
       posted.push(JSON.parse(options.body));
       return pendingResponse;
     }
+    if (path === "/api/projects" && options?.method === "POST") {
+      projectPosted.push(JSON.parse(options.body));
+      return {ok: true, json: async () => ({saved: true, project_id: "PROJECT-MOCK-001"})};
+    }
     assert.equal(path, "/api/tasks");
-    return {ok: true, json: async () => ({tasks: [], warnings: []})};
+    return {ok: true, json: async () => ({tasks: [], projects: [], warnings: []})};
   };
   vm.runInNewContext(match[1], {
     document, fetch, setInterval() {}, Date,
@@ -60,7 +66,11 @@ function harness() {
     resolveResponse({ok: status >= 200 && status < 300, status,
                      json: async () => payload});
   };
-  return {type, save, respond, input, message, submit, posted};
+  const projectInput = document.getElementById("new-project-name");
+  const projectForm = document.getElementById("create-project");
+  const createProject = () => projectForm.handlers.get("submit")({preventDefault() {}});
+  return {type, save, respond, input, message, submit, posted, projectPosted,
+          projectInput, createProject, document};
 }
 
 test("a late success response must not erase a different draft", async () => {
@@ -126,4 +136,29 @@ test("submit again during a pending request does not create duplicates", async (
   page.respond();
   await saving;
   assert.equal(page.input.value, "任务乙");
+});
+
+
+test("new task submission includes selected primary and related projects", async () => {
+  const page = harness();
+  const primary = page.document.getElementById("new-task-project");
+  const related = page.document.getElementById("new-task-related");
+  primary.value = "PROJECT-PRIMARY";
+  related.selectedOptions = [{value: "PROJECT-RELATED"}];
+  page.type("项目任务");
+  const saving = page.save();
+  assert.deepEqual(page.posted[0], {
+    title: "项目任务",
+    project_id: "PROJECT-PRIMARY",
+    related_project_ids: ["PROJECT-RELATED"],
+  });
+  page.respond();
+  await saving;
+});
+
+test("project creation sends only the project name", async () => {
+  const page = harness();
+  page.projectInput.value = "新项目";
+  await page.createProject();
+  assert.deepEqual(page.projectPosted, [{name: "新项目"}]);
 });
