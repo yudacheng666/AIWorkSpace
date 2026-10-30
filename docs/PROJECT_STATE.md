@@ -1,13 +1,13 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-30（北京时间）  
-当前阶段：**M1/M2/M3.1/M3.2/M3.3 已合入 `main`；M3.4 在 Draft PR #6 开发。Codex 三轮独立验收发现三项 P2：浏览器整页刷新丢草稿、新建表单恢复原值仍误提示、任务保存后兄弟草稿阻止重绘导致旧基线误判干净。前三项修复均已提交；最新产品 SHA `eb035c61`（测试回归 commit `389c2427`）的 Linux/Windows CI 均 PASS（224 PASS）。等待 Codex 对最新修复版独立复验；PR 未合并，公司 Windows 8770 未升级。**
+当前阶段：**M1/M2/M3.1/M3.2/M3.3/M3.4 已合入 `main`。M3.4 [PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6) 于 2026-10-30 经用户批准 Squash 合并，合并提交 `5916744898ac3de1b82c4edf27c339ec9a0173c1`。固定产品/原测试 SHA `eb035c611a592cc01dc7b02138a4951b32a69036` 的 Linux/Windows CI 224 PASS / 0 FAIL；Codex 第四轮真实 Chromium 独立复验 PASS（已测范围），前三轮发现的三项草稿保护 P2 均已修复并通过指定路径复验。M3.4 未部署，公司 Windows 8770 未升级，真实 Drive 未访问。**
 
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | AIWorkSpace，Public；PR #1 已以 squash 方式合并到 `main`，合并提交 `84fd0d234d799148c7a925a2d49408b11bd69481`；当前只在公司 Windows 电脑部署 |
-| 当前代码基线 | `main` 已包含 M1 + M2 + M3.1 + M3.2 + M3.3；PR #5 Squash 合并提交 `932f6f9aeb1a83ce537be43e6476674bf717300e`（M3.3 原验证 SHA `633b5304e843ca632dca095d42a7ec66d4baabe4`） |
-| 最近合并 PR | [PR #5：M3.3 编号执行步骤](https://github.com/yudacheng666/AIWorkSpace/pull/5)，用户批准 Squash 合并；Codex 固定产品/测试 SHA `633b5304` 独立验收 PASS，Linux/Windows 每平台 76 Python + 23 Node PASS；下一阶段 M3.4 |
+| 当前代码基线 | `main` 已包含 M1 + M2 + M3.1 + M3.2 + M3.3 + M3.4；M3.4 PR #6 Squash 合并提交 `5916744898ac3de1b82c4edf27c339ec9a0173c1`（产品/原测试固定验收 SHA `eb035c611a592cc01dc7b02138a4951b32a69036`） |
+| 最近合并 PR | [PR #6：M3.4 首页工作总览与组合查询](https://github.com/yudacheng666/AIWorkSpace/pull/6)，用户批准 Squash 合并；Codex 固定产品/原测试 SHA `eb035c61` 独立验收 PASS（已测范围），Linux/Windows CI 每平台 76 Python + 36 Node PASS；之前 [PR #5：M3.3 编号执行步骤](https://github.com/yudacheng666/AIWorkSpace/pull/5) 已合入 |
 | M1 Codex 验证的代码提交（历史） | `9f06969164e773cf08f03e5d2d02de52c38d688b`；M2 另行在 PR #2 进行 Chromium 复验与 CI |
 | 原独立验收 | Codex 对旧 head `37cde4c` 判定 **FAIL，2 项 P2**：同事件 ID 并发写入静默覆盖；GET 接口接受任意 Host |
 | 修复后 Codex 复验 | **PASS（本机 Linux 复验范围）**：两项原 P2 均通过；完整测试 23 PASS / 0 FAIL；额外 50 轮线程竞争、12 进程竞争及数据完整性检查通过；未发现新增已确认 P1/P2；限定安全扫描未发现密钥或隐私泄露 |
@@ -140,9 +140,9 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - **限制与安全**：公开仓库仅虚构数据；Codex 证据位于独立 audit 分支，不写入产品 PR；未部署/升级公司电脑 8770，未访问真实 Drive，未修改 main；远程访问依 D012 延后。
 - **合并结果**：用户于 2026-10-30 明确批准。已将 PR #5 从 Draft 转 Ready 并以 Squash 合并至 main，合并 SHA `932f6f9aeb1a83ce537be43e6476674bf717300e`。CI 及 Codex 独立验收结果仅覆盖上述已测范围，不代表公司 Windows 或真实 Drive 已部署/验证。
 
-## M3.4 首页工作总览与查询（第三项 P2 已修复，待独立复验，2026-10-30）
+## M3.4 首页工作总览与查询（已合入 main，独立验收 PASS（已测范围），尚未部署，2026-10-30）
 
-- 开发分支：`feat/m3-04-workspace-overview-search`，base main `b209da970434b71bb4e1b97e86bfdf1fa0483e98`；[Draft PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6)，尚未合并、未部署到公司 Windows。
+- 开发分支：`feat/m3-04-workspace-overview-search`；[PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6) 已于 2026-10-30 Squash 合并，merge commit `5916744898ac3de1b82c4edf27c339ec9a0173c1`。main 当前包含 M3.4；尚未部署到公司 Windows。
 - 当前最小切片：在现有 `web/index.html` 增加任务总览卡片、用户选择“本人负责人名称”、今日亲自处理／待跟进他人／7 天内到期／逾期受阻或冲突只读分类，并提供按任务/步骤编号与名称、主要或关联项目、任务状态、负责人、三个日期字段区间的组合查询。仅使用现有 `GET /api/tasks` 返回的数据，不修改 `app.py` 的数据模型、事件流或 API。
 - **重要口径**：今日亲自处理=选择的本人的负责人且计划执行日期已到，未完成且未冲突；跟进他人=不同于本人、有负责人且跟进日期已到，未完成且未冲突；七天内到期=今天到第 7 天（含两端）且未完成、未冲突；逾期/受阻/冲突=截止已过、blocked 或 task.conflict；任务可以同时进入多个口径，计数不可相加为总数。日期按访问页面的本地日历。
 - **不冒充审批数据**：当前数据没有“待审核/决策”结构字段，也没有可信登录身份；页面明确展示不可自动识别，不能用普通优先级/任务状态猜测审批或把未配置的“本人”显示成 0。身份由用户在当前页面人工选择与负责人一致的名称，不保存、也不写入事件。
@@ -163,14 +163,19 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - **新增回归**：测试 commit `389c24273766efad612ee68aba34c512a5ad88e7`，分别覆盖任务编辑和步骤编辑：A/Y 保存成功，B 兄弟草稿拒绝放弃导致列表不重绘；B 恢复干净后，将 A 改回保存前旧值，beforeunload 仍必须拦截。测试明确令 in-page discard confirm 返回 false，确保真实覆盖延迟重绘路径。
 - **最新固定 CI checkout SHA**：`eb035c611a592cc01dc7b02138a4951b32a69036`（产品代码 commit `eb035c61`；回归测试文件最后更新 commit `389c2427`，测试 blob 未在之后改变）。[Actions #41051917241](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41051917241) Linux/Windows 均 SUCCESS；每平台 Python 76 + Node 36 PASS，合计 **224 PASS / 0 FAIL / 0 skipped**。
 - **第三轮验收已测范围**：新建表单 8 字段恢复、原生刷新保护、正常保存、页面内保护、步骤 409、部分同步恢复均 PASS；Node 定向 3 PASS。64 次整页刷新前后已保存事件文件字节一致。新 P2 确认后立即停止，未继续扩展其他未测范围。
-- **独立验收当前结论**：前三轮固定 SHA `46d4a8a7`、`a84779c1`、`9e0b84e5` 均 FAIL，各发现一项 P2；三项均已有修复及双平台 CI 回归，但最新 SHA `eb035c61` 尚未由 Codex 独立复验。M3.4 **NOT READY TO MERGE**。
-- **当前仍 NOT TESTED**：第三项 P2 修复版 `eb035c61` 的真实 Chromium 集成复验。特别是任务/步骤保存成功但兄弟草稿阻止重绘、兄弟草稿恢复后再改回保存前值的 beforeunload；保存期间再次输入的新草稿保留（本次代码将基线推进到提交快照，但该竞态仍需独立实测）；完整步骤草稿整页刷新；部分同步恢复后再次合法重排。公司 Windows、真实 Drive、原生 IME、多浏览器/多客户端、长期/断电耐久性、远程访问仍 NOT TESTED。
-- 安全范围不变：只使用虚构隔离数据，不访问真实 Drive、公司 Windows 8770；PR #6 保持 Draft，不合并、不部署，main 不变。
+- **独立验收最终结论**：前三轮固定 SHA `46d4a8a7`、`a84779c1`、`9e0b84e5` 各发现一项 P2；三项修复后，第四轮在固定 SHA `eb035c61` 上对指定任务/步骤路径独立复验 PASS。三项 P2 均关闭；未发现新增已确认 P1/P2/P3。M3.4 已获用户批准并 Squash 合入 main。
+- **第四轮独立复验 PASS**：[Codex 报告及证据](https://github.com/yudacheng666/AIWorkSpace/pull/6#issuecomment-6522552189)，固定产品/原测试 checkout SHA `eb035c611a592cc01dc7b02138a4951b32a69036`，真实 Chromium + 独立虚构数据。任务与步骤均覆盖 X→Y 保存、兄弟草稿阻止重绘、兄弟草稿恢复、再改回旧 X；整页 reload 出现原生 beforeunload，取消后旧 X 与全页面输入保留。保存期间新输入保护 PASS；新建任务 8 字段修改/恢复、正常任务/步骤/新增步骤/新建任务保存、页面内刷新/切视图/应用/清除、实际自动轮询、保存失败、步骤级 409、部分同步排序恢复及恢复后合法排序均 PASS（以报告明确列出的执行范围为准）。Node 定向 5 PASS / 0 FAIL；74 次整页刷新前后事件文件名及字节一致，无覆盖/删除，草稿未自动提交；未发现新增已确认 P1/P2/P3。
+- **最新固定产品/原测试 SHA 与 CI**：`eb035c611a592cc01dc7b02138a4951b32a69036`（测试回归最后更新 commit `389c2427`，之后测试文件未变）。[Actions #41051917241](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41051917241) Linux/Windows 均 SUCCESS，每平台 Python 76 + Node 36 PASS，合计 **224 PASS / 0 FAIL / 0 skipped**。CI 224 PASS 与 Codex 独立 Node 5 PASS 是不同执行环境和证据，不混算。
+- **仍 NOT TESTED（不得扩大 PASS 结论）**：公司 Windows 原生 M3.4、真实 Google Drive、Windows 原生 IME、其他浏览器、多客户端一致性、长期/断电耐久性、远程访问与部署；未重复旧总览日期全套及所有草稿类型的页面内完整矩阵；物理键盘 F5 和关闭窗口未实测，本轮以真实 Chromium `Page.reload` 验证整页导航；步骤编辑请求期间自身输入控件处于 disabled，未强行解除禁用注入输入。
+- 安全范围：测试使用隔离虚构数据；未访问真实 Drive、公司 Windows 8770；未部署或启用远程访问。PR #6 已合并；合并不代表部署。
+- 安全范围不变：只使用虚构隔离数据，不访问真实 Drive、公司 Windows 8770；PR #6 已合并，不部署，main 未执行部署操作。
 
-## M3.4 下一步
+## M3.4 合并后状态与下一步
 
-1. **最新 CI 已完成**：固定产品/测试 checkout SHA `eb035c611a592cc01dc7b02138a4951b32a69036` 对应 [Actions #41051917241](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41051917241) Linux/Windows 均 SUCCESS，每平台 76 Python + 36 Node PASS，合计 **224 PASS / 0 FAIL / 0 skipped**。
-2. **待 Codex Cloud 独立复验**：必须使用 `eb035c611a592cc01dc7b02138a4951b32a69036`（或仅文档更新后的最新 PR HEAD，但不得改变产品/测试 blob），真实 Chromium 使用隔离数据重测：任务 A 从 X 改 Y 保存成功，同时任务 B 保留草稿并拒绝丢弃，确认列表未重绘；B 恢复原值后，将 A 从已保存 Y 改回保存前 X，beforeunload 必须再次拦截，取消刷新后 X 保留。对步骤编辑执行同样测试；另检查保存期间产生的新输入仍保持 dirty，恢复到刚保存的快照后应清除，恢复到保存前旧值仍应拦截。复验保存成功后干净状态无多余提示，并回归此前通过的 8 字段恢复、正常任务/步骤保存、页面内保护、步骤 409、部分同步排序。
-3. Codex 只测试，不改产品、原测试、CI、PR 分支；发现 P1/P2 立即停止并回写证据。
-4. 只有双平台 CI SUCCESS + Codex 独立复验 PASS + 用户明确批准，才可合并。不得自行合并或部署。
-5. 不自动升级公司 Windows 8770、不接触真实 Drive 数据、不测试远程访问；远程访问继续按 D012 暂缓。
+1. **合并已完成**：[PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6) 于 2026-10-30 经用户明确批准 Squash 合并；merge commit：`5916744898ac3de1b82c4edf27c339ec9a0173c1`。合并后 `main` 与该 merge commit 一致。
+2. **代码与自动化证据**：固定产品/原测试 SHA `eb035c611a592cc01dc7b02138a4951b32a69036`；[Actions #41051917241](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41051917241) Linux/Windows 每平台 76 Python + 36 Node PASS，合计 224 PASS / 0 FAIL / 0 skipped。
+3. **独立验收证据**：[Codex 第四轮报告](https://github.com/yudacheng666/AIWorkSpace/pull/6#issuecomment-6522552189)：PASS（已执行范围），Node 定向 5 PASS，74 次整页刷新事件文件完整性 PASS；三项草稿保护 P2 均已修复并通过指定场景复验。
+4. **未测边界**：公司 Windows 原生 M3.4、真实 Drive、Windows 原生 IME、其他浏览器、多客户端、长期/断电耐久性、远程访问/部署、物理 F5/关闭窗口及未重复的完整页面内草稿矩阵仍 NOT TESTED。不得把 M3.4 的已测范围 PASS 扩大为全部环境/所有行为均无缺陷。
+5. **部署状态**：M3.4 仅合入 GitHub main，未部署到公司 Windows 8770；没有访问真实 Drive，也没有启用远程访问。未经用户明确要求，不自动部署、不修改本机服务或真实数据。
+6. **后续阶段**：M3.4 已完成。M3.5 或部署专项尚未形成经用户确认的范围；开始下一阶段前，先依据新的用户目标明确优先级与验收门槛，不自行扩建功能。
+
