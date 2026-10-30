@@ -1,12 +1,13 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-30（北京时间）  
-当前阶段：**M1/M2 技术基线已合入 main；M2 已在用户原公司 Windows 电脑以唯一正式实例运行（8770）。用户确认网页打开、既有任务读取、网页新建→刷新→Drive 同步，以及 ChatGPT→Drive 写入→网页刷新显示均成功。M2 双向任务闭环收尾完成；下一步进入 M3 个人工作管理能力开发。**
+当前阶段：**M1/M2 已合入 main，M2 双向任务闭环已在用户原公司 Windows 电脑 8770 正式实例确认通过。M3.1 项目与任务归属已进入 PR #3（Draft），代码已完成首轮修复；代码提交 `ef997074` 的 Linux/Windows Python + Node CI 均 PASS，README/项目状态文档更新后的最新 PR head 仍待 CI 最终确认。未合并 main。**
 
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | AIWorkSpace，Public；PR #1 已以 squash 方式合并到 `main`，合并提交 `84fd0d234d799148c7a925a2d49408b11bd69481`；当前只在公司 Windows 电脑部署 |
 | 当前代码基线 | `main` 已包含 M1 + M2；PR #2 `feat/20261029-m2-web-task-create` 已 squash 合并，合并提交 `d31f0e2dff7a6c1bf9f3f4ae5754f6d47eadd5bb` |
+| 当前开发 PR | [PR #3：M3.1 轻量项目结构与任务归属](https://github.com/yudacheng666/AIWorkSpace/pull/3)，分支 `feat/m3-01-project-structure`，Draft，未合并；项目事件、任务主要/相关项目、项目分组 UI 已实现 |
 | M1 Codex 验证的代码提交（历史） | `9f06969164e773cf08f03e5d2d02de52c38d688b`；M2 另行在 PR #2 进行 Chromium 复验与 CI |
 | 原独立验收 | Codex 对旧 head `37cde4c` 判定 **FAIL，2 项 P2**：同事件 ID 并发写入静默覆盖；GET 接口接受任意 Host |
 | 修复后 Codex 复验 | **PASS（本机 Linux 复验范围）**：两项原 P2 均通过；完整测试 23 PASS / 0 FAIL；额外 50 轮线程竞争、12 进程竞争及数据完整性检查通过；未发现新增已确认 P1/P2；限定安全扫描未发现密钥或隐私泄露 |
@@ -92,8 +93,9 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 ## 下一步
 
 1. M2 收尾：**完成**。公司 Windows 唯一正式实例已在 `http://127.0.0.1:8770/` 打开；用户确认既有任务正常显示、网页新建后刷新正常且 Drive 同步完成；ChatGPT 写入 Drive 的虚构事件经用户刷新后成功显示。此前网页编辑→Drive、断网恢复、刷新持久性及 409 旧版本保护均已有验收证据。本轮不再重复整套 M2 测试。
-2. **开始 M3.1**：先实现轻量项目记录、稳定项目编号、任务主要项目/相关项目关联、未归类任务和按项目查看。项目/任务事件需保持追加式与历史兼容。
-3. M3.1 开发完成后，创建 PR 并运行 Linux/Windows CI；再安排一次独立审查，重点检查旧事件兼容、项目引用一致性、并发与冲突保护。只有与本阶段代码相关的实机项目/任务流程需要用户验证。
-4. M3.1 不扩展到负责人、日期、步骤、复杂首页或提醒；这些按 M3.2–M3.5 顺序推进，避免一次做大。
+2. **M3.1 开发中**：[PR #3](https://github.com/yudacheng666/AIWorkSpace/pull/3) 已实现独立项目事件、稳定项目编号、创建/重命名、任务主要项目与相关项目关联、未归类收件箱和按项目分组显示。旧任务事件无须迁移；项目事件与任务事件均追加保存，项目引用未同步时任务仍保留并提示。
+3. **测试证据**：M3.1 代码提交 `ef99707498758227c03bbb93c5b78bbb1a2aab7e` 的 38 项 Python 测试与 7 项 Node UI 回归，Linux + Windows CI 均 PASS：[Actions #41008763261](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41008763261)。随后 README 文档更新形成新 PR head，最终 head CI 仍需核实；未完成 Codex 独立审查，也未进行公司电脑 M3.1 实机验收。
+4. 下一步先确认 PR #3 最新 head 的 CI 全部 PASS，再安排 Codex 独立审查；审查通过后向用户呈报是否合并。**PR 未经用户批准不得合并**。
+5. M3.1 不扩展到负责人、日期、步骤、复杂首页或提醒；这些按 M3.2–M3.5 顺序推进，避免一次做大。
 
 **交接规则：** 新 AI 先读取根目录 `AGENTS.md`，再核实本文件、需求、决策、PR head 与最新 Actions 证据。不得把 Linux 复验 PASS 扩大解释为 Windows/云端/浏览器 PASS。
