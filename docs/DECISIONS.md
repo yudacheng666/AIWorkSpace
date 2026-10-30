@@ -24,4 +24,6 @@
 
 | D019（内置软件更新中心） | 工作台显示语义版本与构建 SHA；更新源固定为公开仓库 yudacheng666/AIWorkSpace 的 main。网页检查后由用户点击一键更新；更新包仅安装 app.py、updater.py、VERSION、web/index.html，使用独立 helper 停止/重启服务。更新前备份程序，校验 GitHub commit、ZIP 完整性/路径/符号链接及文件清单；新版本启动失败自动回滚。任何更新操作必须与 --data-dir 隔离，禁止接触任务/项目/步骤事件数据 | 用户希望首次下载安装后不再反复从 GitHub 手动下载。固定源、白名单文件、独立备份、数据目录隔离和回滚降低一键更新风险；不增加云服务、Token 或远程访问。Windows 实机自动重启和真实数据隔离需单独验收后才可部署 |
 
+| D020（Windows 更新端到端验收） | 软件更新功能的 Windows 关键链路由 GitHub-hosted Windows Runner 在隔离临时安装目录、虚构 data-dir 和真实 Chromium 浏览器中执行真实 app.py + updater helper；只 mock 固定官方 GitHub API/raw/zipball 响应，其他外部网络 fail-closed。必须覆盖网页一键更新成功、旧服务退出、新服务原端口/data-dir 重启，以及新版本启动失败后的旧程序/旧服务回滚和数据 SHA 不变 | Codex Cloud 当前仅有 Linux 执行环境；GitHub Windows Runner 可提供可重复、无公司数据风险的原生 Windows 验收。stub helper 测试不能代替真实应用网页链路；真实 GitHub main 发布下载需合并后另行隔离验证 |
+
 当前为低复杂度个人原型。事件 JSON 中的 actor 是声明字段，不是身份认证；任何 AI 写入都不得冒充用户已确认完成。若未来要求强身份保证，需另行设计可信写入路径，不在首版临时引入复杂认证。
