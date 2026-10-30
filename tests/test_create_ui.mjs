@@ -643,14 +643,15 @@ function overviewHarness(tasks, projects = [], allowWrites = false) {
       const body = JSON.parse(options.body);
       const taskId = decodeURIComponent(path.split("/")[3] || "");
       const task = tasks.find(item => item.task_id === taskId);
-      if (path.endsWith("/update") && task) Object.assign(task, body);
-      else if (path.endsWith("/steps") && task) {
-        task.steps.push({step_id: "STEP-" + "A".repeat(32), title: body.title,
-                         status: "todo", revision: 1, conflict: false});
-      } else if (path.includes("/steps/") && path.endsWith("/update") && task) {
+      if (path.includes("/steps/") && path.endsWith("/update") && task) {
         const stepId = path.split("/steps/")[1].split("/")[0];
         const step = task.steps.find(item => item.step_id === stepId);
         if (step) Object.assign(step, body);
+      } else if (path.endsWith("/steps") && task) {
+        task.steps.push({step_id: "STEP-" + "A".repeat(32), title: body.title,
+                         status: "todo", revision: 1, conflict: false});
+      } else if (path.endsWith("/update") && task) {
+        Object.assign(task, body);
       }
       return {ok: true, json: async () => ({
         saved: true, step_id: "STEP-" + "A".repeat(32), revision: 2
