@@ -1,0 +1,7 @@
+{
+  "status": "failed",
+  "message": "无法连接 GitHub；请检查网络后重试。",
+  "cause_type": "HTTPError",
+  "http_status": 404,
+  "note": "Live public check failed; mock-source success does not establish live GitHub access."
+}

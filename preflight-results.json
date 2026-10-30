@@ -1,0 +1,144 @@
+[
+  {
+    "case": "version unknown",
+    "status": "PASS"
+  },
+  {
+    "case": "mock latest available",
+    "status": "PASS"
+  },
+  {
+    "case": "draft blocks update",
+    "status": "PASS"
+  },
+  {
+    "case": "user declines install",
+    "status": "PASS"
+  },
+  {
+    "case": "known current build no update",
+    "status": "PASS"
+  },
+  {
+    "case": "offline UI",
+    "status": "PASS"
+  },
+  {
+    "case": "Host Origin and invalid update payload",
+    "status": "PASS"
+  },
+  {
+    "case": "archive traversal",
+    "status": "PASS",
+    "rejection": "更新压缩包包含路径穿越内容。",
+    "payload_sha256": "933df637882c6008d566b1a6b2e7ec028191319a1b24874b820f703c2582b577"
+  },
+  {
+    "case": "archive absolute",
+    "status": "PASS",
+    "rejection": "更新压缩包包含不安全路径。",
+    "payload_sha256": "cc1673365bbdf56205c84c347287a47c17ba691080fb248da72235c173dedc6d"
+  },
+  {
+    "case": "archive backslash",
+    "status": "PASS",
+    "rejection": "更新压缩包包含不安全路径。",
+    "payload_sha256": "d1979566a1a01c1a29d9f21e1fbbd2c1a502080e20fd6cd829471c8804dafb4b"
+  },
+  {
+    "case": "archive symlink",
+    "status": "PASS",
+    "rejection": "更新压缩包包含符号链接，已拒绝安装。",
+    "payload_sha256": "79f348abdc1a83cfa1caa1f3f23be72eeb4f903f48aeeeb4d0e2a7d51b5f37c5"
+  },
+  {
+    "case": "archive duplicate app",
+    "status": "PASS",
+    "rejection": "更新压缩包包含重复的程序文件。",
+    "payload_sha256": "4cb696e71e55036881759d82561138376f1c24bbd456772ea7a6f2abbdfe2062"
+  },
+  {
+    "case": "archive missing updater",
+    "status": "PASS",
+    "rejection": "更新压缩包缺少必要的程序文件。",
+    "payload_sha256": "0b870ecb6cf586bb60d4eddbf4bdae359c02a8a314ea9759bb3249a0fe82db79"
+  },
+  {
+    "case": "archive wrong commit root",
+    "status": "PASS",
+    "rejection": "更新压缩包与目标 GitHub 仓库/提交不匹配。",
+    "payload_sha256": "3180cfd9d28c88dd5b65fa6fd78698d51ef335761a54f99945a4b89be16aabd9"
+  },
+  {
+    "case": "archive crc corrupt",
+    "status": "PASS",
+    "rejection": "更新压缩包完整性校验失败。",
+    "payload_sha256": "7867126f1ec220b042b28629ee1e3419d81c53d84014608e70b215f0dc196d55"
+  },
+  {
+    "case": "archive syntax invalid",
+    "status": "PASS",
+    "rejection": "更新包中的 Python 文件未通过语法校验。",
+    "payload_sha256": "66d3e999c16c44c37c803c44276ce4fac4ff885c254bbbb7cd3027ed7b69601c"
+  },
+  {
+    "case": "archive invalid version",
+    "status": "PASS",
+    "rejection": "更新版本号格式无效。",
+    "payload_sha256": "262a879f0286a7a969bb95ffe122d15971ad2621f493410b56e9bd47d164f4e3"
+  },
+  {
+    "case": "archive oversize entry",
+    "status": "PASS",
+    "rejection": "更新压缩包解压大小超过安全限制。",
+    "payload_sha256": "6dbe605c58365b19caf853662e1d9bcbe5974027a6cf3a2008904a697389d8ac"
+  },
+  {
+    "case": "archive oversize archive",
+    "status": "PASS",
+    "rejection": "更新压缩包为空或超过大小限制。",
+    "payload_sha256": "1b55f713d105dc0e7be77b11a4b2db46534405560d7dfe4265d1e6dac74441aa"
+  },
+  {
+    "case": "archive invalid zip",
+    "status": "PASS",
+    "rejection": "更新压缩包无法读取或完整性校验失败。",
+    "payload_sha256": "a3989126344744ef800dbc88bf7e744853f3f2eac75c9ab3301f4e845ef22078"
+  },
+  {
+    "case": "allowlist excludes arbitrary scripts",
+    "status": "PASS"
+  },
+  {
+    "case": "overlap application",
+    "status": "PASS"
+  },
+  {
+    "case": "overlap .",
+    "status": "PASS"
+  },
+  {
+    "case": "overlap application/web",
+    "status": "PASS"
+  },
+  {
+    "case": "API invalid JSON",
+    "status": "PASS"
+  },
+  {
+    "case": "API invalid SHA",
+    "status": "PASS"
+  },
+  {
+    "case": "untrusted redirect",
+    "status": "PASS"
+  },
+  {
+    "case": "stale non-main commit not downloaded",
+    "status": "PASS"
+  },
+  {
+    "case": "targeted task step writes",
+    "status": "PASS"
+  }
+]

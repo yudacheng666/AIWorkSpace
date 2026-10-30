@@ -1,0 +1,46 @@
+{
+  "fixed_sha": "42573a34c3190b46c28c1573e98fbca202924a9c",
+  "source_files_unchanged": 14,
+  "independent_preflight_cases": 29,
+  "original_python_updater_tests": 17,
+  "original_python_api_tests": 5,
+  "original_node_update_tests": 2,
+  "isolated_linux_e2e": [
+    {
+      "case": "success",
+      "status": "PASS",
+      "data_files": 5,
+      "all_data_bytes_unchanged": true,
+      "valid_backup": true,
+      "concurrent_update_status": 409
+    },
+    {
+      "case": "startup-failure-rollback",
+      "status": "PASS",
+      "data_files": 5,
+      "all_data_bytes_unchanged": true,
+      "valid_backup": true,
+      "concurrent_update_status": 409
+    }
+  ],
+  "trace_local_origins": {
+    "e2e-success-trace.zip": [
+      "127.0.0.1:45053"
+    ],
+    "preflight-trace.zip": [
+      "127.0.0.1:38697"
+    ],
+    "e2e-startup-failure-rollback-first-trace.zip": [
+      "127.0.0.1:60725"
+    ],
+    "e2e-startup-failure-rollback-trace.zip": [
+      "127.0.0.1:45367"
+    ]
+  },
+  "native_windows": "NOT TESTED: no independent Windows executor",
+  "real_main_positive_check": "NOT TESTED: main VERSION HTTP404",
+  "first_attempt_disposition": [
+    "preflight payload lacked required task status; corrected harness, targeted rerun PASS",
+    "rollback stage cleanup asserted before helper completion; bounded wait added, rollback-only rerun PASS"
+  ]
+}

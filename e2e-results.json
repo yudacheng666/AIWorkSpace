@@ -1,0 +1,302 @@
+[
+  {
+    "case": "success",
+    "port": 45053,
+    "fixture": {
+      "fixed_archive_sha": "42573a34c3190b46c28c1573e98fbca202924a9c",
+      "old_version": "0.9.0",
+      "old_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "home_override": "Path.home mocked to isolated-home; HOME env unchanged",
+      "transport": "only official GitHub commit/version/archive URLs mocked; localhost real",
+      "fault": null
+    },
+    "before_data": {
+      "history.bin": "c49c465551909f5ca8d775d05998157c773836fff04f13179eee0b3518138899",
+      "step_events/evt_fictional-e2e-step.json": "f8876c87a62b193154d049cca29dada335d226879a90740a9b268f2d4628ba4c",
+      "project_events/evt_fictional-e2e-project.json": "b71c6ae286c94da1ab6d520f0bd38821952532a7650989c028fdd156bea7a7b9",
+      "events/evt_fictional-e2e-task.json": "1cb65ef8b82c0356858c1d77b4da24c8416e3ae8f4e6ac34f066080b46a9e55d",
+      "events/archive/old.txt": "7b76039bd3d381d52afb648799a0db0f5cbfea387f2812fd2a187214cae1eea7"
+    },
+    "concurrent_post": {
+      "status": 409,
+      "body": {
+        "error": "update already in progress"
+      }
+    },
+    "status": "PASS",
+    "final_status": {
+      "version": "1.0.0",
+      "build_commit": "42573a34c3190b46c28c1573e98fbca202924a9c",
+      "build_short": "42573a3",
+      "build_known": true,
+      "last_update": {
+        "status": "installed",
+        "version": "1.0.0",
+        "commit": "42573a34c3190b46c28c1573e98fbca202924a9c",
+        "message": "更新安装成功。",
+        "updated_at": "2026-10-30T13:40:32+00:00"
+      }
+    },
+    "after_data": {
+      "history.bin": "c49c465551909f5ca8d775d05998157c773836fff04f13179eee0b3518138899",
+      "step_events/evt_fictional-e2e-step.json": "f8876c87a62b193154d049cca29dada335d226879a90740a9b268f2d4628ba4c",
+      "project_events/evt_fictional-e2e-project.json": "b71c6ae286c94da1ab6d520f0bd38821952532a7650989c028fdd156bea7a7b9",
+      "events/evt_fictional-e2e-task.json": "1cb65ef8b82c0356858c1d77b4da24c8416e3ae8f4e6ac34f066080b46a9e55d",
+      "events/archive/old.txt": "7b76039bd3d381d52afb648799a0db0f5cbfea387f2812fd2a187214cae1eea7"
+    },
+    "data_bytes_unchanged": true,
+    "backup_valid": true,
+    "backup_files": {
+      "manifest.json": "9cfacca4c123b7f4c02d2ea46130970aac64fca9b13cca7d3dd94bb685eaf9ea",
+      ".aiworkspace-build.json": "d59f79cf95cbc4807cc60d5493d4c69c20547492894bc6c879c0495e65223b05",
+      "VERSION": "9d8c94f1ad3ea96b1e2ac4914fda4cb93c76b4a3e0d8cc6dd8976d6c0b227d15",
+      "updater.py": "ee3526465f096b91c88e66ba1fa9ecf5dae5308307d5f8c0ccb6f7e68d51579e",
+      "app.py": "813cec7a847370e174610c539d2043bae5b6f16f9891c8c874bd20482a3b2e88",
+      "web/index.html": "88213edb9ff2e67a2f3728475e38f3db7fdc202097e711ab904a9cb7ee6a0cfe"
+    },
+    "program_after": {
+      "app.py": "813cec7a847370e174610c539d2043bae5b6f16f9891c8c874bd20482a3b2e88",
+      "updater.py": "ee3526465f096b91c88e66ba1fa9ecf5dae5308307d5f8c0ccb6f7e68d51579e",
+      "VERSION": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
+      "web/index.html": "88213edb9ff2e67a2f3728475e38f3db7fdc202097e711ab904a9cb7ee6a0cfe"
+    },
+    "network": [
+      {
+        "pid": 54092,
+        "url": "https://api.github.com/repos/yudacheng666/AIWorkSpace/commits/main"
+      },
+      {
+        "pid": 54092,
+        "url": "https://raw.githubusercontent.com/yudacheng666/AIWorkSpace/42573a34c3190b46c28c1573e98fbca202924a9c/VERSION"
+      },
+      {
+        "pid": 54092,
+        "url": "https://api.github.com/repos/yudacheng666/AIWorkSpace/commits/main"
+      },
+      {
+        "pid": 54092,
+        "url": "https://raw.githubusercontent.com/yudacheng666/AIWorkSpace/42573a34c3190b46c28c1573e98fbca202924a9c/VERSION"
+      },
+      {
+        "pid": 54092,
+        "url": "https://api.github.com/repos/yudacheng666/AIWorkSpace/zipball/42573a34c3190b46c28c1573e98fbca202924a9c"
+      }
+    ],
+    "dialogs": [
+      {
+        "type": "confirm",
+        "message": "将下载并验证 GitHub 官方更新，备份当前程序后自动安装并重启工作台。任务和项目数据目录不会被修改。现在更新吗？",
+        "accepted": true
+      }
+    ],
+    "posts": [
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:45053/api/update/apply",
+        "body": "{\"commit\":\"42573a34c3190b46c28c1573e98fbca202924a9c\"}"
+      }
+    ],
+    "responses": [
+      {
+        "url": "http://127.0.0.1:45053/api/update/apply",
+        "status": 202
+      }
+    ],
+    "processes": [
+      {
+        "pid": 54152,
+        "argv": [
+          "/tmp/tmpucnpkcgw/success/application/app.py",
+          "--data-dir",
+          "/tmp/tmpucnpkcgw/success/fictional-data",
+          "--port",
+          "45053"
+        ]
+      },
+      {
+        "pid": 54150,
+        "argv": [
+          "/tmp/tmpucnpkcgw/success/application/updater.py",
+          "--apply",
+          "--stage-dir",
+          "/tmp/tmpucnpkcgw/success/application/.aiworkspace-update-staging-4ead35f5a94c413db768dc94e07ce4e8",
+          "--root",
+          "/tmp/tmpucnpkcgw/success/application",
+          "--data-dir",
+          "/tmp/tmpucnpkcgw/success/fictional-data",
+          "--commit",
+          "42573a34c3190b46c28c1573e98fbca202924a9c",
+          "--port",
+          "45053",
+          "--parent-pid",
+          "54092"
+        ]
+      },
+      {
+        "pid": 54092,
+        "argv": [
+          "/tmp/tmpucnpkcgw/success/application/app.py",
+          "--data-dir",
+          "/tmp/tmpucnpkcgw/success/fictional-data",
+          "--port",
+          "45053"
+        ]
+      }
+    ]
+  },
+  {
+    "case": "startup-failure-rollback",
+    "port": 45367,
+    "fixture": {
+      "fixed_archive_sha": "42573a34c3190b46c28c1573e98fbca202924a9c",
+      "old_version": "0.9.0",
+      "old_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "home_override": "Path.home mocked to isolated-home; HOME env unchanged",
+      "transport": "only official GitHub commit/version/archive URLs mocked; localhost real",
+      "fault": "new app exits71 via external sitecustomize before app.main"
+    },
+    "before_data": {
+      "history.bin": "c49c465551909f5ca8d775d05998157c773836fff04f13179eee0b3518138899",
+      "step_events/evt_fictional-e2e-step.json": "f8876c87a62b193154d049cca29dada335d226879a90740a9b268f2d4628ba4c",
+      "project_events/evt_fictional-e2e-project.json": "b71c6ae286c94da1ab6d520f0bd38821952532a7650989c028fdd156bea7a7b9",
+      "events/evt_fictional-e2e-task.json": "1cb65ef8b82c0356858c1d77b4da24c8416e3ae8f4e6ac34f066080b46a9e55d",
+      "events/archive/old.txt": "7b76039bd3d381d52afb648799a0db0f5cbfea387f2812fd2a187214cae1eea7"
+    },
+    "concurrent_post": {
+      "status": 409,
+      "body": {
+        "error": "update already in progress"
+      }
+    },
+    "status": "PASS",
+    "final_status": {
+      "version": "0.9.0",
+      "build_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "build_short": "bbbbbbb",
+      "build_known": true,
+      "last_update": {
+        "status": "rolled_back",
+        "version": "0.9.0",
+        "commit": "42573a34c3190b46c28c1573e98fbca202924a9c",
+        "message": "更新未完成，已恢复旧版本。",
+        "updated_at": "2026-10-30T13:41:24+00:00"
+      }
+    },
+    "after_data": {
+      "history.bin": "c49c465551909f5ca8d775d05998157c773836fff04f13179eee0b3518138899",
+      "step_events/evt_fictional-e2e-step.json": "f8876c87a62b193154d049cca29dada335d226879a90740a9b268f2d4628ba4c",
+      "project_events/evt_fictional-e2e-project.json": "b71c6ae286c94da1ab6d520f0bd38821952532a7650989c028fdd156bea7a7b9",
+      "events/evt_fictional-e2e-task.json": "1cb65ef8b82c0356858c1d77b4da24c8416e3ae8f4e6ac34f066080b46a9e55d",
+      "events/archive/old.txt": "7b76039bd3d381d52afb648799a0db0f5cbfea387f2812fd2a187214cae1eea7"
+    },
+    "data_bytes_unchanged": true,
+    "backup_valid": true,
+    "backup_files": {
+      "manifest.json": "9cfacca4c123b7f4c02d2ea46130970aac64fca9b13cca7d3dd94bb685eaf9ea",
+      ".aiworkspace-build.json": "d59f79cf95cbc4807cc60d5493d4c69c20547492894bc6c879c0495e65223b05",
+      "VERSION": "9d8c94f1ad3ea96b1e2ac4914fda4cb93c76b4a3e0d8cc6dd8976d6c0b227d15",
+      "updater.py": "ee3526465f096b91c88e66ba1fa9ecf5dae5308307d5f8c0ccb6f7e68d51579e",
+      "app.py": "813cec7a847370e174610c539d2043bae5b6f16f9891c8c874bd20482a3b2e88",
+      "web/index.html": "88213edb9ff2e67a2f3728475e38f3db7fdc202097e711ab904a9cb7ee6a0cfe"
+    },
+    "program_after": {
+      "app.py": "813cec7a847370e174610c539d2043bae5b6f16f9891c8c874bd20482a3b2e88",
+      "updater.py": "ee3526465f096b91c88e66ba1fa9ecf5dae5308307d5f8c0ccb6f7e68d51579e",
+      "VERSION": "9d8c94f1ad3ea96b1e2ac4914fda4cb93c76b4a3e0d8cc6dd8976d6c0b227d15",
+      "web/index.html": "88213edb9ff2e67a2f3728475e38f3db7fdc202097e711ab904a9cb7ee6a0cfe"
+    },
+    "network": [
+      {
+        "pid": 54324,
+        "url": "https://api.github.com/repos/yudacheng666/AIWorkSpace/commits/main"
+      },
+      {
+        "pid": 54324,
+        "url": "https://raw.githubusercontent.com/yudacheng666/AIWorkSpace/42573a34c3190b46c28c1573e98fbca202924a9c/VERSION"
+      },
+      {
+        "pid": 54324,
+        "url": "https://api.github.com/repos/yudacheng666/AIWorkSpace/commits/main"
+      },
+      {
+        "pid": 54324,
+        "url": "https://raw.githubusercontent.com/yudacheng666/AIWorkSpace/42573a34c3190b46c28c1573e98fbca202924a9c/VERSION"
+      },
+      {
+        "pid": 54324,
+        "url": "https://api.github.com/repos/yudacheng666/AIWorkSpace/zipball/42573a34c3190b46c28c1573e98fbca202924a9c"
+      }
+    ],
+    "dialogs": [
+      {
+        "type": "confirm",
+        "message": "将下载并验证 GitHub 官方更新，备份当前程序后自动安装并重启工作台。任务和项目数据目录不会被修改。现在更新吗？",
+        "accepted": true
+      }
+    ],
+    "posts": [
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:45367/api/update/apply",
+        "body": "{\"commit\":\"42573a34c3190b46c28c1573e98fbca202924a9c\"}"
+      }
+    ],
+    "responses": [
+      {
+        "url": "http://127.0.0.1:45367/api/update/apply",
+        "status": 202
+      }
+    ],
+    "processes": [
+      {
+        "pid": 54379,
+        "argv": [
+          "/tmp/tmpkjtyb8oz/startup-failure-rollback/application/app.py",
+          "--data-dir",
+          "/tmp/tmpkjtyb8oz/startup-failure-rollback/fictional-data",
+          "--port",
+          "45367"
+        ]
+      },
+      {
+        "pid": 54378,
+        "argv": [
+          "/tmp/tmpkjtyb8oz/startup-failure-rollback/application/app.py",
+          "--data-dir",
+          "/tmp/tmpkjtyb8oz/startup-failure-rollback/fictional-data",
+          "--port",
+          "45367"
+        ]
+      },
+      {
+        "pid": 54376,
+        "argv": [
+          "/tmp/tmpkjtyb8oz/startup-failure-rollback/application/updater.py",
+          "--apply",
+          "--stage-dir",
+          "/tmp/tmpkjtyb8oz/startup-failure-rollback/application/.aiworkspace-update-staging-54fb3cc04399483eba8ebaf2f89a7e04",
+          "--root",
+          "/tmp/tmpkjtyb8oz/startup-failure-rollback/application",
+          "--data-dir",
+          "/tmp/tmpkjtyb8oz/startup-failure-rollback/fictional-data",
+          "--commit",
+          "42573a34c3190b46c28c1573e98fbca202924a9c",
+          "--port",
+          "45367",
+          "--parent-pid",
+          "54324"
+        ]
+      },
+      {
+        "pid": 54324,
+        "argv": [
+          "/tmp/tmpkjtyb8oz/startup-failure-rollback/application/app.py",
+          "--data-dir",
+          "/tmp/tmpkjtyb8oz/startup-failure-rollback/fictional-data",
+          "--port",
+          "45367"
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,32 @@
+PASS version unknown
+PASS mock latest available
+PASS draft blocks update
+PASS user declines install
+PASS known current build no update
+PASS offline UI
+PASS Host Origin and invalid update payload
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/zipfile/__init__.py:1625: UserWarning: Duplicate name: 'yudacheng666-AIWorkSpace-42573a3/app.py'
+  return self._open_to_write(zinfo, force_zip64=force_zip64)
+PASS archive traversal
+PASS archive absolute
+PASS archive backslash
+PASS archive symlink
+PASS archive duplicate app
+PASS archive missing updater
+PASS archive wrong commit root
+PASS archive crc corrupt
+PASS archive syntax invalid
+PASS archive invalid version
+PASS archive oversize entry
+PASS archive oversize archive
+PASS archive invalid zip
+PASS allowlist excludes arbitrary scripts
+PASS overlap application
+PASS overlap .
+PASS overlap application/web
+PASS API invalid JSON
+PASS API invalid SHA
+PASS untrusted redirect
+PASS stale non-main commit not downloaded
+PASS targeted task step writes
+PASS all preflight Chromium and independent archive checks

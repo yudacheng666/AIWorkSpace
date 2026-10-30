@@ -1,0 +1,11 @@
+PASS E2E success : same port/data-dir restart, native helper, valid external backup, data bytes identical
+Traceback (most recent call last):
+  File "/workspace/scratch/pr7-audit-42573a3/e2e.py", line 84, in <module>
+    backups=list((home/'.aiworkspace'/'update-backups').glob('*/manifest.json'));assert len(backups)==1;backup=backups[0].parent;assert all((backup/n).read_bytes()==b for n,b in oldprogram.items());assert not list(root.glob('.aiworkspace-update-staging-*'))
+                                                                                                                                                                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+Traceback (most recent call last):
+  File "/workspace/scratch/pr7-audit-42573a3/e2e.py", line 84, in <module>
+    backups=list((home/'.aiworkspace'/'update-backups').glob('*/manifest.json'));assert len(backups)==1;backup=backups[0].parent;assert all((backup/n).read_bytes()==b for n,b in oldprogram.items());assert not list(root.glob('.aiworkspace-update-staging-*'))
+                                                                                                                                                                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

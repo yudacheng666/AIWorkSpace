@@ -1,0 +1,81 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/tasks",
+    "body": null,
+    "status": 403,
+    "response": "{\"error\": \"local requests only\"}"
+  },
+  {
+    "method": "GET",
+    "path": "/api/update/status",
+    "body": null,
+    "status": 403,
+    "response": "{\"error\": \"local requests only\"}"
+  },
+  {
+    "method": "GET",
+    "path": "/api/update/check",
+    "body": null,
+    "status": 403,
+    "response": "{\"error\": \"local requests only\"}"
+  },
+  {
+    "method": "POST",
+    "path": "/api/update/apply",
+    "body": {
+      "commit": "42573a34c3190b46c28c1573e98fbca202924a9c"
+    },
+    "status": 403,
+    "response": "{\"error\": \"local requests only\"}"
+  },
+  {
+    "method": "POST",
+    "path": "/api/update/apply",
+    "body": {
+      "commit": "../../evil"
+    },
+    "status": 400,
+    "response": "{\"error\": \"invalid update commit\"}"
+  },
+  {
+    "method": "POST",
+    "path": "/api/update/apply",
+    "body": {
+      "commit": "42573a34c3190b46c28c1573e98fbca202924a9c",
+      "url": "https://attacker.example"
+    },
+    "status": 400,
+    "response": "{\"error\": \"update requires the checked GitHub commit\"}"
+  },
+  {
+    "method": "POST",
+    "path": "/api/update/apply",
+    "body": {
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "status": 400,
+    "response": "{\"error\": \"invalid update commit\"}"
+  },
+  {
+    "method": "POST",
+    "path": "/api/tasks/TASK-FICTIONAL/update",
+    "body": {
+      "title": "虚构更新前合法编辑",
+      "status": "todo",
+      "revision": 1
+    },
+    "status": 200,
+    "response": "{\"saved\": true, \"task_id\": \"TASK-FICTIONAL\"}"
+  },
+  {
+    "method": "POST",
+    "path": "/api/tasks/TASK-FICTIONAL/steps/STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/update",
+    "body": {
+      "title": "虚构步骤合法编辑",
+      "revision": 1
+    },
+    "status": 200,
+    "response": "{\"saved\": true, \"step_id\": \"STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\", \"revision\": 2}"
+  }
+]

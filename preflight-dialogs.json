@@ -1,0 +1,7 @@
+[
+  {
+    "case": "user declines install",
+    "type": "confirm",
+    "message": "将下载并验证 GitHub 官方更新，备份当前程序后自动安装并重启工作台。任务和项目数据目录不会被修改。现在更新吗？"
+  }
+]

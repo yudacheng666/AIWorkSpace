@@ -1,0 +1,18 @@
+{
+  "initial": {
+    "history.bin": "43b4d1617101c8ea3bc7a4976d5b0d231c157871172548db905f6f801c5bdba5",
+    "step_events/evt_fixture-step-001.json": "5296470a66b3930b7ba392ee9a6b74080c8835bb55d29f9cc2510cdd377be4a7",
+    "project_events/evt_fixture-project-001.json": "7623d430c5b5cdda6b7a9b5487db86db77cab8e59acea25d60609e78b7d157e6",
+    "events/evt_fixture-task-001.json": "313be0cf1ac120d9c58b4666d127bc1954eceaddee023ed22969453c576d667b",
+    "events/archived/old.txt": "2a81536bc620d876ecfae6a620f696a8cf49ec3df5bdbb9b62f070114bc7beaf"
+  },
+  "final": {
+    "history.bin": "43b4d1617101c8ea3bc7a4976d5b0d231c157871172548db905f6f801c5bdba5",
+    "step_events/evt_22ab6de0-184b-4815-9974-43594218ee53.json": "44d75ec40ac0280ccadff819e0f396ad762f96f6dce123e30d434e1d5222c02c",
+    "step_events/evt_fixture-step-001.json": "5296470a66b3930b7ba392ee9a6b74080c8835bb55d29f9cc2510cdd377be4a7",
+    "project_events/evt_fixture-project-001.json": "7623d430c5b5cdda6b7a9b5487db86db77cab8e59acea25d60609e78b7d157e6",
+    "events/evt_c93abf33-7a79-4bdb-97c7-24194b7a5e46.json": "d20d74ee81cd8fafe98d6ce49cc7e24798ad87e357860d0e1811f2f442333b15",
+    "events/evt_fixture-task-001.json": "313be0cf1ac120d9c58b4666d127bc1954eceaddee023ed22969453c576d667b",
+    "events/archived/old.txt": "2a81536bc620d876ecfae6a620f696a8cf49ec3df5bdbb9b62f070114bc7beaf"
+  }
+}

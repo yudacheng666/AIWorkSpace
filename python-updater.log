@@ -1,0 +1,22 @@
+test_apply_update_backups_code_and_never_changes_data (test_updater.UpdaterTests.test_apply_update_backups_code_and_never_changes_data) ... ok
+test_archive_rejects_corrupt_crc (test_updater.UpdaterTests.test_archive_rejects_corrupt_crc) ... ok
+test_archive_rejects_invalid_version_and_python_syntax (test_updater.UpdaterTests.test_archive_rejects_invalid_version_and_python_syntax) ... ok
+test_archive_rejects_path_traversal (test_updater.UpdaterTests.test_archive_rejects_path_traversal) ... ok
+test_archive_rejects_symlink_entries (test_updater.UpdaterTests.test_archive_rejects_symlink_entries) ... ok
+test_archive_rejects_wrong_commit_root_and_missing_files (test_updater.UpdaterTests.test_archive_rejects_wrong_commit_root_and_missing_files) ... ok
+test_archive_stages_only_allowlisted_application_files (test_updater.UpdaterTests.test_archive_stages_only_allowlisted_application_files) ... ok
+test_backup_must_be_outside_data_directory (test_updater.UpdaterTests.test_backup_must_be_outside_data_directory) ... ok
+test_install_failure_exposes_backup_for_helper_retry (test_updater.UpdaterTests.test_install_failure_exposes_backup_for_helper_retry) ... ok
+test_install_failure_rolls_back_already_replaced_files (test_updater.UpdaterTests.test_install_failure_rolls_back_already_replaced_files) ... ok
+test_prepare_update_rejects_stale_or_non_main_commit (test_updater.UpdaterTests.test_prepare_update_rejects_stale_or_non_main_commit) ... ok
+test_rollback_restores_previous_program_and_removes_new_metadata (test_updater.UpdaterTests.test_rollback_restores_previous_program_and_removes_new_metadata) ... ok
+test_update_check_rejects_redirects_to_untrusted_hosts (test_updater.UpdaterTests.test_update_check_rejects_redirects_to_untrusted_hosts) ... ok
+test_update_check_reports_no_update_for_registered_current_build (test_updater.UpdaterTests.test_update_check_reports_no_update_for_registered_current_build) ... ok
+test_update_check_uses_fixed_main_commit_and_version (test_updater.UpdaterTests.test_update_check_uses_fixed_main_commit_and_version) ... ok
+test_update_layout_rejects_data_directory_overlapping_code (test_updater.UpdaterTests.test_update_layout_rejects_data_directory_overlapping_code) ... ok
+test_version_and_build_status_without_registered_build (test_updater.UpdaterTests.test_version_and_build_status_without_registered_build) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.096s
+
+OK

@@ -1,0 +1,10 @@
+test_update_status_reports_local_version_without_network (test_app.ServerTests.test_update_status_reports_local_version_without_network) ... ok
+test_update_check_uses_fixed_repository_check_result (test_app.ServerTests.test_update_check_uses_fixed_repository_check_result) ... ok
+test_update_apply_rejects_invalid_commit_without_starting_helper (test_app.ServerTests.test_update_apply_rejects_invalid_commit_without_starting_helper) ... ok
+test_update_apply_requires_same_origin (test_app.ServerTests.test_update_apply_requires_same_origin) ... ok
+test_update_apply_starts_only_the_checked_commit (test_app.ServerTests.test_update_apply_starts_only_the_checked_commit) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 2.569s
+
+OK
