@@ -985,3 +985,86 @@ test("M3.4 browser reload prompts for dirty task and step edits, and clears afte
   assert.equal(page.beforeUnload().prevented, false,
                "successful step creation clears the dirty editor before rerender");
 });
+
+
+test("M3.4 successful task save advances clean baseline when sibling draft defers rerender", async () => {
+  const taskA = overviewTask("TASK-SAVED-A", {title: "保存前标题X"});
+  const taskB = overviewTask("TASK-DRAFT-B", {title: "兄弟任务原始标题B"});
+  const page = overviewHarness([taskA, taskB], [], true);
+  await page.api.refresh(true);
+
+  const cardFor = id => page.el("tasks").children[0].children.find(card =>
+    card.children?.[0]?.children?.[0]?.textContent === id);
+  const formFor = id => cardFor(id).children.find(node => node.className === "task-form");
+  const inputFor = id => formFor(id).children[0].children[0];
+  const formA = formFor("TASK-SAVED-A");
+  const formB = formFor("TASK-DRAFT-B");
+  const titleA = inputFor("TASK-SAVED-A");
+  const titleB = inputFor("TASK-DRAFT-B");
+
+  titleA.value = "保存成功的新标题Y";
+  formA.handlers.get("input")();
+  titleB.value = "兄弟任务未保存草稿";
+  formB.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, true);
+
+  await formA.handlers.get("submit")({preventDefault() {}});
+  assert.equal(taskA.title, "保存成功的新标题Y", "the server has persisted Y");
+  assert.equal(formFor("TASK-SAVED-A"), formA,
+               "sibling draft must defer list rerender and keep A's editor mounted");
+  assert.equal(page.beforeUnload().prevented, true,
+               "the remaining sibling draft continues to protect the page");
+
+  titleB.value = "兄弟任务原始标题B";
+  formB.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, false,
+               "reverting the sibling draft leaves no unrelated dirty editor");
+
+  titleA.value = "保存前标题X";
+  formA.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, true,
+               "reverting A to its pre-save value is a new unsaved change against persisted Y");
+  assert.equal(titleA.value, "保存前标题X",
+               "the new draft remains present until the user chooses whether to leave");
+});
+
+test("M3.4 successful step save advances clean baseline when sibling draft defers rerender", async () => {
+  const taskA = overviewTask("TASK-STEP-SAVED", {
+    title: "步骤所属任务",
+    steps: [{step_id: "STEP-SAVED-BASELINE", title: "保存前步骤X",
+             status: "todo", revision: 1, conflict: false}]
+  });
+  const taskB = overviewTask("TASK-STEP-SIBLING", {title: "兄弟任务原始标题B"});
+  const page = overviewHarness([taskA, taskB], [], true);
+  await page.api.refresh(true);
+
+  const cardFor = id => page.el("tasks").children[0].children.find(card =>
+    card.children?.[0]?.children?.[0]?.textContent === id);
+  const formFor = id => cardFor(id).children.find(node => node.className === "task-form");
+  const titleB = formFor("TASK-STEP-SIBLING").children[0].children[0];
+  const cardA = cardFor("TASK-STEP-SAVED");
+  const panelA = cardA.children.find(node => node.className === "steps-panel");
+  const stepRow = panelA.children.find(node => node.className === "step-list")
+    .children.find(node => node.className === "step-row");
+  const stepForm = stepRow.children[1].children.find(node => node.className === "step-edit-form");
+  const stepTitle = stepForm.children[0].children[0];
+  const siblingForm = formFor("TASK-STEP-SIBLING");
+
+  stepTitle.value = "保存成功的新步骤Y";
+  stepForm.handlers.get("input")();
+  titleB.value = "兄弟任务未保存草稿";
+  siblingForm.handlers.get("input")();
+  await stepForm.handlers.get("submit")({preventDefault() {}});
+  assert.equal(taskA.steps[0].title, "保存成功的新步骤Y");
+  assert.equal(cardFor("TASK-STEP-SAVED"), cardA,
+               "sibling draft must defer list rerender and keep the step editor mounted");
+
+  titleB.value = "兄弟任务原始标题B";
+  siblingForm.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, false);
+
+  stepTitle.value = "保存前步骤X";
+  stepForm.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, true,
+               "reverting a saved step to its pre-save value is still an unsaved edit");
+});
