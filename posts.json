@@ -1,0 +1,149 @@
+[
+  {
+    "url": "http://127.0.0.1:35755/api/tasks/TASK-LEGACY/update",
+    "body": {
+      "title": "虚构：只改旧任务标题",
+      "status": "todo",
+      "revision": 1,
+      "confirmed_done": false
+    }
+  },
+  {
+    "url": "http://127.0.0.1:35755/api/tasks",
+    "body": {
+      "title": "虚构：五字段任务",
+      "project_id": "PROJECT-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "owner": "虚构负责人甲",
+      "priority": "urgent",
+      "due_date": "2028-02-29",
+      "planned_date": "2026-11-01",
+      "follow_up_date": "2026-11-09"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:35755/api/tasks/TASK-07E4A715BB784586A9A5BA347F775650/update",
+    "body": {
+      "title": "虚构：五字段任务",
+      "status": "todo",
+      "revision": 1,
+      "confirmed_done": false,
+      "due_date": "2027-12-01"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:35755/api/tasks/TASK-07E4A715BB784586A9A5BA347F775650/update",
+    "body": {
+      "title": "虚构：五字段任务",
+      "status": "todo",
+      "revision": 2,
+      "confirmed_done": false,
+      "due_date": null
+    }
+  },
+  {
+    "url": "http://127.0.0.1:35755/api/tasks/TASK-07E4A715BB784586A9A5BA347F775650/update",
+    "body": {
+      "title": "虚构：五字段任务",
+      "status": "todo",
+      "revision": 3,
+      "confirmed_done": false,
+      "planned_date": "2027-12-02"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:35755/api/tasks/TASK-07E4A715BB784586A9A5BA347F775650/update",
+    "body": {
+      "title": "虚构：五字段任务",
+      "status": "todo",
+      "revision": 4,
+      "confirmed_done": false,
+      "planned_date": null
+    }
+  },
+  {
+    "url": "http://127.0.0.1:35755/api/tasks/TASK-07E4A715BB784586A9A5BA347F775650/update",
+    "body": {
+      "title": "虚构：五字段任务",
+      "status": "todo",
+      "revision": 5,
+      "confirmed_done": false,
+      "follow_up_date": "2027-12-03"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:35755/api/tasks/TASK-07E4A715BB784586A9A5BA347F775650/update",
+    "body": {
+      "title": "虚构：五字段任务",
+      "status": "todo",
+      "revision": 6,
+      "confirmed_done": false,
+      "follow_up_date": null
+    }
+  },
+  {
+    "url": "http://127.0.0.1:35755/api/tasks/TASK-07E4A715BB784586A9A5BA347F775650/update",
+    "body": {
+      "title": "虚构：五字段任务",
+      "status": "todo",
+      "revision": 7,
+      "confirmed_done": false,
+      "owner": null
+    }
+  },
+  {
+    "url": "http://127.0.0.1:35755/api/tasks/TASK-07E4A715BB784586A9A5BA347F775650/update",
+    "body": {
+      "title": "虚构：五字段任务",
+      "status": "todo",
+      "revision": 8,
+      "confirmed_done": false,
+      "priority": "normal"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:35755/api/tasks/TASK-MISSING/update",
+    "body": {
+      "title": "虚构：TASK-MISSING",
+      "status": "todo",
+      "revision": 1,
+      "confirmed_done": false,
+      "follow_up_date": "2026-12-20"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:35755/api/tasks",
+    "body": {
+      "title": "虚构：异步任务甲",
+      "project_id": "PROJECT-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "owner": "虚构负责人甲",
+      "priority": "urgent",
+      "due_date": "2028-02-29",
+      "planned_date": "2026-11-01",
+      "follow_up_date": "2026-11-09"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:35755/api/tasks",
+    "body": {
+      "title": "虚构：仅元数据异步草稿",
+      "project_id": "PROJECT-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "owner": "虚构负责人乙",
+      "priority": "high",
+      "due_date": "2029-01-01",
+      "planned_date": "2029-02-02",
+      "follow_up_date": "2029-03-03"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:35755/api/tasks",
+    "body": {
+      "title": "虚构：仅元数据异步草稿",
+      "project_id": "PROJECT-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "owner": "虚构：仅负责人已改",
+      "priority": "high",
+      "due_date": "2029-01-01",
+      "planned_date": "2029-02-02",
+      "follow_up_date": "2030-04-05"
+    }
+  }
+]

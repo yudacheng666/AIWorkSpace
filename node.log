@@ -1,0 +1,23 @@
+✔ a late success response must not erase a different draft (32.664096ms)
+✔ untouched input clears only after confirmed success (2.239393ms)
+✔ a draft edited and restored to the same text is still preserved (1.443472ms)
+✔ failed create retains the current draft and reports uncertainty (4.296528ms)
+✔ submit again during a pending request does not create duplicates (2.093152ms)
+✔ new task submission includes selected primary and related projects (3.203368ms)
+✔ project creation sends only the project name (2.033817ms)
+✔ P2: changing title preserves unsynced primary and related project IDs (5.407612ms)
+✔ P2: explicitly unassign primary without losing still-unsynced related project (2.492419ms)
+✔ M3.2 create submits five independent fields (2.535236ms)
+✔ M3.2 create keeps changed owner and date drafts after late response (2.366754ms)
+✔ M3.2 create clears unchanged metadata fields after confirmed save (2.160217ms)
+✔ M3.2 edit only follow-up date preserves other metadata and missing project refs (3.458656ms)
+✔ M3.2 edit can clear a date and owner without resetting priority (4.091245ms)
+✔ M3.2 legacy task title-only edit sends no new metadata fields (3.325971ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 203.318244

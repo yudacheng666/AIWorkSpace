@@ -1,0 +1,10 @@
+PASS legacy defaults and title-only UI edit send no new metadata; original create bytes unchanged
+PASS real Chromium five-field create, leap date, default reset after confirmed success, project preserved
+PASS independent date modify+clear: due_date other metadata/project unchanged; POST only selected metadata key
+PASS independent date modify+clear: planned_date other metadata/project unchanged; POST only selected metadata key
+PASS independent date modify+clear: follow_up_date other metadata/project unchanged; POST only selected metadata key
+PASS owner clear, priority reset, date-only edit preserves unsynced project refs
+PASS delayed real save: original five fields persisted; next title/owner/priority/all dates retained verbatim; duplicate blocked; next draft not submitted
+PASS metadata-only edits preserved on late success; disk error retains draft/no files
+PASS 8 concurrent metadata HTTP updates: exactly1x200,7x409; winner retained
+PASS all five metadata conflict candidates rendered, null shown unset, affected row frozen409, others readable
