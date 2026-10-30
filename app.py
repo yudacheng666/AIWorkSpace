@@ -428,6 +428,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
         steps_by_task[step["task_id"]].append(step)
 
     # A reused event ID with different content freezes each affected step/order stream.
+    duplicate_order_conflicts: dict[str, list[dict]] = defaultdict(list)
     for event_id, variants in duplicate_conflicts.items():
         affected_steps = {event["step_id"] for event in variants if event["action"] != "reorder"}
         for step_id in affected_steps:
@@ -443,9 +444,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
                 warnings.append(f"{step_id}: event_id {event_id} has conflicting content")
         for task_id in {event["task_id"] for event in variants if event["action"] == "reorder"}:
             warnings.append(f"{task_id}: step-order event_id {event_id} has conflicting content")
-            for event in variants:
-                if event["action"] == "reorder" and event not in by_task_order[task_id]:
-                    by_task_order[task_id].append(event)
+            duplicate_order_conflicts[task_id].extend(variants)
 
     task_by_id = {task["task_id"]: task for task in tasks}
     for task_id, steps in steps_by_task.items():
@@ -460,12 +459,31 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
                               str(step.get("created_at", "")), step["step_id"]))
         order_revision = 0
         order_ids: list[str] = []
-        order_conflict = False
-        order_candidates: list[dict] = []
+        duplicate_order_variants = duplicate_order_conflicts.get(task_id, [])
+        duplicate_order_ids = {
+            event["event_id"] for event in duplicate_order_variants
+            if event["action"] == "reorder" and event["task_id"] == task_id
+        }
+        duplicate_order_revisions = {
+            event["base_revision"] for event in duplicate_order_variants
+            if event["action"] == "reorder" and event["task_id"] == task_id
+        }
+        order_conflict = bool(duplicate_order_ids)
+        order_candidates: list[dict] = (
+            summarize_conflict_events(duplicate_order_variants)
+            if duplicate_order_variants else []
+        )
         order_updates: dict[int, list[dict]] = defaultdict(list)
         for event in by_task_order.get(task_id, []):
             order_updates[event["base_revision"]].append(event)
         while order_revision in order_updates:
+            # Do not apply any event at a revision implicated in an event-ID collision.
+            # Keep the last unambiguous prefix and expose all colliding variants as candidates.
+            if order_revision in duplicate_order_revisions:
+                warnings.append(
+                    f"{task_id}: step-order event_id collision at revision {order_revision}"
+                )
+                break
             candidates = order_updates.pop(order_revision)
             if len(candidates) != 1:
                 order_conflict = True
@@ -486,8 +504,12 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
             order_revision += 1
         if order_updates:
             order_conflict = True
-            remaining = [event for group in order_updates.values() for event in group]
-            order_candidates.extend(summarize_conflict_events(remaining))
+            remaining = [
+                event for group in order_updates.values() for event in group
+                if event["event_id"] not in duplicate_order_ids
+            ]
+            if remaining:
+                order_candidates.extend(summarize_conflict_events(remaining))
             warnings.append(f"{task_id}: unresolved or out-of-order step order")
         known = {step["step_id"]: step for step in defaults}
         missing_order_ids = [step_id for step_id in order_ids if step_id not in known]
