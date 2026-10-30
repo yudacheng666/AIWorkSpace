@@ -1,19 +1,19 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-30（北京时间）  
-当前阶段：**M1/M2/M3.1 已合入 `main`，M3.1 Squash 合并提交 `58107526`。M3.2 负责人、优先级与三个独立日期字段已在 Draft PR #4 开发，并新增兼容/字段更新/非法日期/草稿回归测试；尚未 Codex 独立验收，未合并 `main`。**
+当前阶段：**M1/M2/M3.1/M3.2 已合入 `main`；M3.2 PR #4 Squash 合并提交 `94a93bcb`。M3.3 编号执行步骤在 `feat/m3-03-numbered-task-steps` 开发，尚未独立验收、未合并。**
 
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | AIWorkSpace，Public；PR #1 已以 squash 方式合并到 `main`，合并提交 `84fd0d234d799148c7a925a2d49408b11bd69481`；当前只在公司 Windows 电脑部署 |
-| 当前代码基线 | `main` 已包含 M1 + M2 + M3.1；PR #3 已 Squash 合并，提交 `581075266f94ac26feba8d68bf243f04243bda5d` |
-| 最近合并 PR | [PR #3：M3.1 轻量项目结构与任务归属](https://github.com/yudacheng666/AIWorkSpace/pull/3)，2026-10-30 用户批准 Squash 合并；合并前 HEAD `aaf89a7` Codex 定向复验 PASS；新阶段进入 M3.2 |
+| 当前代码基线 | `main` 已包含 M1 + M2 + M3.1 + M3.2；PR #4 Squash 合并提交 `94a93bcb6fc0bd5123f43925ffa9981edfc20150` |
+| 最近合并 PR | [PR #4：M3.2 任务管理字段](https://github.com/yudacheng666/AIWorkSpace/pull/4)，用户批准 Squash 合并；固定 HEAD `1c9324b` Codex 独立验收 PASS，Linux/Windows CI 各 53 Python + 15 Node PASS；新阶段进入 M3.3 |
 | M1 Codex 验证的代码提交（历史） | `9f06969164e773cf08f03e5d2d02de52c38d688b`；M2 另行在 PR #2 进行 Chromium 复验与 CI |
 | 原独立验收 | Codex 对旧 head `37cde4c` 判定 **FAIL，2 项 P2**：同事件 ID 并发写入静默覆盖；GET 接口接受任意 Host |
 | 修复后 Codex 复验 | **PASS（本机 Linux 复验范围）**：两项原 P2 均通过；完整测试 23 PASS / 0 FAIL；额外 50 轮线程竞争、12 进程竞争及数据完整性检查通过；未发现新增已确认 P1/P2；限定安全扫描未发现密钥或隐私泄露 |
 | P2 修复 A：并发事件丢失 | `append_event` 改用原子硬链接发布，不再以可覆盖目标文件的 `os.replace` 作为最终发布操作。并发复验确认相同事件 ID 最多一个成功，事件未覆盖 |
 | P2 修复 B：Host/DNS rebinding | GET 与 POST 在处理请求前执行精确 Host allowlist 校验。复验确认恶意 Host 的 GET 返回 403，合法 localhost 访问正常 |
-| GitHub Actions | **23 PASS / 0 FAIL（Linux）+ 23 PASS / 0 FAIL（Windows）**：run [40827583905](https://github.com/yudacheng666/AIWorkSpace/actions/runs/40827583905)，Python 3.12；两套任务均 SUCCESS |
+| GitHub Actions（M1 技术基线历史） | **23 PASS / 0 FAIL（Linux）+ 23 PASS / 0 FAIL（Windows）**：run [40827583905](https://github.com/yudacheng666/AIWorkSpace/actions/runs/40827583905)，Python 3.12；两套任务均 SUCCESS |
 | 扩展竞争测试 | **PASS**：Codex 在本机 Linux 额外执行 50 轮线程竞争、12 进程竞争和数据完整性检查 |
 | 实际 Windows 同步目录硬链接 | **PASS**：用户在实际 Windows 云盘同步数据目录下完成临时硬链接创建/读取测试；具体本机路径不写入公开仓库。测试目录为临时探针，已清理；现有事件数据未受影响 |
 | 实际 Host 防护 | **PASS（用户本机实测）**：普通 Host `127.0.0.1:8770` 返回 200，合法 `localhost:8770` 返回 200，恶意 `attacker.example` 返回 403；新代码包含 Host allowlist 检查 |
@@ -122,23 +122,29 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 
 ## M3.2 负责人、优先级与日期字段（2026-10-30）
 
-- 开发分支：`feat/m3-02-task-management-fields`；[PR #4：M3.2 任务管理字段](https://github.com/yudacheng666/AIWorkSpace/pull/4)，**Draft，未合并**。
-- 本阶段新增任务字段：
-  - `owner`：可选负责人名称（1-100字符或 null）；暂不增加账户、人员名册和团队权限。
-  - `priority`：`normal`（默认）/ `low` / `high` / `urgent`，字段可后续修改。
-  - `due_date`：截止日期；`planned_date`：计划执行日期；`follow_up_date`：下次跟进日期。均采用严格 YYYY-MM-DD 本地日期或 null；三者独立，不做自动计算或提醒。
-- 新旧任务兼容：历史 JSON 无需改写，缺失字段按负责人空、普通优先级、三个日期未设置呈现；更新只追加新 JSON，既有 event 不覆盖。
-- 网页新建/编辑同步提供五个字段；已修改字段才写入 update，避免误清除已有项目关联及其他日期。异步创建时修改的新草稿应保留。
-- 保护边界：任务完成需用户明确确认；Host/Origin、本机访问、版本 409、并发冲突与项目同步延迟保护沿用原实现。
-- 自动回归：Python 在 44 项基础上增加字段日历合法性、空值、旧历史兼容、只改一个日期保留其他信息、旧版本写入保护；Node 在 9 项基础上增加 UI 新建/修改/清除/晚返回草稿保留。以最终 PR SHA CI 结果为准，未独立验收前不能宣布 PASS。
-- 非本阶段：执行步骤、自动提醒、总览、团队权限、远程访问。
-- 本机 8770 仍为可随时停止的测试实例；不因此删除真实 Google Drive 事件，不自动升级部署。
+- [PR #4：M3.2 任务管理字段](https://github.com/yudacheng666/AIWorkSpace/pull/4) 已由用户批准并以 Squash 方式合入 main；固定验收 HEAD `1c9324b991161c08fcaada8d0e2bd78c91cdc0c9`，合并提交 `94a93bcb6fc0bd5123f43925ffa9981edfc20150`。
+- Codex 独立验收 [报告](https://github.com/yudacheng666/AIWorkSpace/pull/4#issuecomment-6516549509)：**PASS（已测范围）**。五字段、三日期独立修改/清除、旧数据兼容、冲突/409、异步草稿及失败保护通过；未发现新增已确认 P1/P2/P3。
+- GitHub Actions [#41013700472](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41013700472) 与 [#41013705760](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41013705760)：Linux/Windows 每个平台 **53 Python + 15 Node PASS，0 FAIL**。
+- NOT TESTED：公司 Windows 上 M3.2 新字段 UI、真实 Drive 对新字段的端到端同步、原生中文输入法、长时间运行与断电耐久性；本次不因此升级本机 8770。
+
+## M3.3 编号执行步骤（开发中，2026-10-30）
+
+- 开发分支：`feat/m3-03-numbered-task-steps`，从合并后的 main `94a93bcb` 创建；尚未创建 PR、尚未合并。
+- 范围来自已确认路线：任务可拆成有稳定编号的执行步骤，记录步骤状态与顺序；任务/步骤完成均须用户明确确认。
+- 步骤编号：`STEP-<32位大写十六进制>`；每任务最多 100 步；步骤标题 1–200 字；状态沿用 `todo/doing/blocked/done`。
+- 数据模型：新增 `step_events/` 追加式事件目录；每个步骤独立 revision，新增/修改不改写父任务或其他步骤历史。步骤创建事件明确记录初始 position；顺序调整用一条包含完整 step ID 序列的任务级事件，避免多文件重排出现半完成状态。
+- 冲突：步骤内容同 revision 并发只冻结涉事步骤；顺序冲突只冻结排序，不冻结步骤读取/内容编辑；父任务本身冲突时阻止步骤写入。所有 API 继续执行 Host/Origin 本机校验、409 revision 保护与原子不覆盖写入。
+- 完成保护：步骤标记 done 必须网页用户明确确认；ChatGPT 可以创建步骤、修改标题及非 done 状态，不得代替用户完成步骤。
+- 兼容性：历史任务没有 step_events 时显示空步骤，不迁移、不改写旧事件。暂不支持删除步骤、嵌套子步骤、自动提醒、团队权限。
+- 当前代码/测试已提交到该分支：`app.py`、`web/index.html`、Python 与 Node 回归测试、README 与决策文档。当前最终 HEAD 与 CI 结果待本阶段最后一次测试后回填；尚未独立验收。
+- 未访问真实 Google Drive，未部署公司 Windows 8770，未修改 main；本机实例可继续保持原状。
 
 ## 下一步
 
-1. 先核对 PR #4 最终 HEAD 的 Linux/Windows GitHub Actions 与公开仓库文件范围；修复自动化测试发现的问题。
-2. CI 全部成功后安排 Codex Cloud 对 PR #4 独立真实 Chromium 和 API 专项验收，重点验证三个日期相互独立、已有值只改一个字段不覆盖其他字段、旧数据兼容、非法日期拒绝、并发冲突以及迟到响应不丢草稿。Codex 不修改产品代码、测试或 CI。
-3. Codex 报告写回 PR #4 后由 ChatGPT 处理 P2 问题；通过后再请用户批准合并。**未经用户批准不合并 main**。
-4. 此阶段无须用户重复 M1/M2/M3.1 已通过的实机验收，远程访问仍按 D012 暂缓。
+1. 完成 M3.3 Python/Node 自动化回归，核实 Linux/Windows Actions 在同一最终 HEAD 全部 SUCCESS；修复所有失败，不将中间 SHA 的 PASS 当作最终结论。
+2. 自动化全部通过后，创建 Draft PR #5，并将固定 HEAD、数据格式、变更文件与验收边界写入 PR。
+3. 委托 Codex 独立真实 Chromium/API 验收：步骤编号稳定、创建顺序、上下移排序、单步编辑、完成确认、历史追加、同 revision 冲突隔离、409、父任务冲突保护、乱序/重复同步及旧任务兼容。Codex 不修改产品代码、测试或 CI。
+4. Codex 报告写回后，ChatGPT 修复 P1/P2/P3；通过后再请用户批准合并。未经用户批准不合并 main。
+5. 不重复要求用户重测已通过的 M1/M2/M3.1/M3.2；实机验收仅在需要验证 M3.3 公司 Windows 界面/Drive 闭环时安排，且只测公司电脑。远程访问继续按 D012 暂缓。
 
 **交接规则：** 新 AI 应先读 AGENTS.md、需求、状态、决策，核实 main、PR 最新 HEAD、CI 及独立验收报告；不能把 CI SUCCESS 当作独立实操已通过。
