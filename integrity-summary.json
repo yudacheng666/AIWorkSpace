@@ -1,0 +1,30 @@
+{
+  "fixed_sha": "eb035c611a592cc01dc7b02138a4951b32a69036",
+  "source_files_unchanged": 11,
+  "reload_attempts": 74,
+  "all_reload_filenames_bytes_identical": true,
+  "all_previous_event_hashes_preserved_across_saved_appends": true,
+  "initial_files": 4,
+  "final_files": 16,
+  "browser_post_count": 11,
+  "browser_post_status_counts": {
+    "200": 7,
+    "201": 2,
+    "500": 1,
+    "409": 1
+  },
+  "direct_api_reorder_probe": {
+    "expected_status": 409,
+    "assertion_completed": true,
+    "note": "http.client request separate from browser requests; see probe partial-sync assertion and PASS log."
+  },
+  "native_dialogs": 38,
+  "native_cancel": 32,
+  "native_accept": 6,
+  "custom_confirm": 7,
+  "browser_origins": [
+    "127.0.0.1:45861"
+  ],
+  "draft_state_records": 74,
+  "result": "PASS within executed scope; no confirmed new P1/P2/P3"
+}

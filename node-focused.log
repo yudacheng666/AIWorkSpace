@@ -1,0 +1,13 @@
+✔ M3.4 browser reload prompts for an unsaved new-task form, but not after reset or save (41.932395ms)
+✔ M3.4 new-task form clears beforeunload when every field returns to its original value (3.206787ms)
+✔ M3.4 browser reload prompts for dirty task and step edits, and clears after successful saves (13.459883ms)
+✔ M3.4 successful task save advances clean baseline when sibling draft defers rerender (8.01283ms)
+✔ M3.4 successful step save advances clean baseline when sibling draft defers rerender (11.304062ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 267.12561

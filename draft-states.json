@@ -1,0 +1,7412 @@
+[
+  {
+    "case": "clean page",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构任务原始标题",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构步骤原始标题",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "task saved Y sibling restored then old X cancel",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构任务原始标题",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构步骤原始标题",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构任务原始标题",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构步骤原始标题",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "task restored to persisted Y is clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task保存后基线Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构步骤原始标题",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "step saved Y sibling restored then old X cancel",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task保存后基线Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构步骤原始标题",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task保存后基线Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构步骤原始标题",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "step restored to persisted Y is clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task保存后基线Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step保存后基线Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "task input during save remains protected",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构请求期间后续输入Z",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step保存后基线Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构请求期间后续输入Z",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step保存后基线Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "task after inflight save old X still dirty",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task保存后基线Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step保存后基线Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task保存后基线Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step保存后基线Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "task after inflight save persisted Y clears prompt",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step保存后基线Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "step input during save remains protected",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构请求期间后续输入Z",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构请求期间后续输入Z",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "step after inflight save old X still dirty",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step保存后基线Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step保存后基线Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "step after inflight save persisted Y clears prompt",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "single field new-task-title cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          "虚构逐字段任务"
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          "虚构逐字段任务"
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "single field new-task-title restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "single field new-task-project cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          "PROJECT-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          "PROJECT-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "single field new-task-project restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "single field new-task-related cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          "PROJECT-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          "PROJECT-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "single field new-task-related restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "single field new-task-owner cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          "虚构逐字段负责人"
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          "虚构逐字段负责人"
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "single field new-task-owner restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "single field new-task-priority cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "high"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "high"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "single field new-task-priority restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "single field new-task-due cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          "2030-02-03"
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          "2030-02-03"
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "single field new-task-due restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "single field new-task-planned cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          "2030-02-04"
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          "2030-02-04"
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "single field new-task-planned restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "single field new-task-follow cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          "2030-02-05"
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          "2030-02-05"
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "single field new-task-follow restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "all eight fields dirty cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          "虚构逐字段任务"
+        ],
+        [
+          "new-task-project",
+          "PROJECT-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        ],
+        [
+          "new-task-related",
+          "PROJECT-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        ],
+        [
+          "new-task-owner",
+          "虚构逐字段负责人"
+        ],
+        [
+          "new-task-priority",
+          "high"
+        ],
+        [
+          "new-task-due",
+          "2030-02-03"
+        ],
+        [
+          "new-task-planned",
+          "2030-02-04"
+        ],
+        [
+          "new-task-follow",
+          "2030-02-05"
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          "虚构逐字段任务"
+        ],
+        [
+          "new-task-project",
+          "PROJECT-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        ],
+        [
+          "new-task-related",
+          "PROJECT-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        ],
+        [
+          "new-task-owner",
+          "虚构逐字段负责人"
+        ],
+        [
+          "new-task-priority",
+          "high"
+        ],
+        [
+          "new-task-due",
+          "2030-02-03"
+        ],
+        [
+          "new-task-planned",
+          "2030-02-04"
+        ],
+        [
+          "new-task-follow",
+          "2030-02-05"
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "all eight fields restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "only remaining new-task-title cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          "虚构逐字段任务"
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          "虚构逐字段任务"
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "last remaining new-task-title restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "only remaining new-task-project cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          "PROJECT-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          "PROJECT-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "last remaining new-task-project restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "only remaining new-task-related cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          "PROJECT-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          "PROJECT-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "last remaining new-task-related restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "only remaining new-task-owner cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          "虚构逐字段负责人"
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          "虚构逐字段负责人"
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "last remaining new-task-owner restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "only remaining new-task-priority cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "high"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "high"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "last remaining new-task-priority restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "only remaining new-task-due cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          "2030-02-03"
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          "2030-02-03"
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "last remaining new-task-due restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "only remaining new-task-planned cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          "2030-02-04"
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          "2030-02-04"
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "last remaining new-task-planned restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "only remaining new-task-follow cancel reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          "2030-02-05"
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          "2030-02-05"
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "last remaining new-task-follow restored clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "task-title cancel browser reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构任务未保存草稿",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构任务未保存草稿",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "task-title revert to clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "task-title accept browser reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构任务未保存草稿",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "task-metadata cancel browser reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构负责人未保存草稿",
+            "normal",
+            "2030-01-02",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构负责人未保存草稿",
+            "normal",
+            "2030-01-02",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "task-metadata revert to clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "task-metadata accept browser reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构负责人未保存草稿",
+            "normal",
+            "2030-01-02",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "step-edit cancel browser reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构步骤未保存修改",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构步骤未保存修改",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "step-edit revert to clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "step-edit accept browser reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构步骤未保存修改",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "step-add cancel browser reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": "虚构新增步骤未保存草稿"
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": "虚构新增步骤未保存草稿"
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "step-add revert to clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "step-add accept browser reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": "虚构新增步骤未保存草稿"
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "new-task cancel browser reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          "虚构新任务未保存草稿"
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          "虚构新负责人"
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          "2030-02-03"
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          "虚构新任务未保存草稿"
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          "虚构新负责人"
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          "2030-02-03"
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "new-task revert to clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "new-task accept browser reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          "虚构新任务未保存草稿"
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          "虚构新负责人"
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          "2030-02-03"
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "new-task-metadata-only cancel browser reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          "虚构仅负责人草稿"
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          "2031-04-05"
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          "虚构仅负责人草稿"
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          "2031-04-05"
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "new-task-metadata-only revert to clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "new-task-metadata-only accept browser reload",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          "虚构仅负责人草稿"
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          "2031-04-05"
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构task请求已提交Y",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "after task saved successfully",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构已保存任务新标题",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构step请求已提交Y",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "after step saved successfully",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构已保存任务新标题",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构已保存步骤新标题",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "after new step saved successfully",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构已保存任务新标题",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构已保存步骤新标题",
+            "todo",
+            "虚构新增步骤已保存",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "after new task saved successfully",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-915AE8AFDF1245D987DFEE9A0FFE9380",
+          "title": "虚构查询中创建任务",
+          "meta": [
+            "虚构创建负责人",
+            "normal",
+            "2030-03-04",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "persistent new-task draft after query rerender",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          "虚构持续新建草稿"
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          "虚构持续负责人"
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-915AE8AFDF1245D987DFEE9A0FFE9380",
+          "title": "虚构查询中创建任务",
+          "meta": [
+            "虚构创建负责人",
+            "normal",
+            "2030-03-04",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构已保存任务新标题",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构已保存步骤新标题",
+            "todo",
+            "虚构新增步骤已保存",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          "虚构持续新建草稿"
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          "虚构持续负责人"
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-915AE8AFDF1245D987DFEE9A0FFE9380",
+          "title": "虚构查询中创建任务",
+          "meta": [
+            "虚构创建负责人",
+            "normal",
+            "2030-03-04",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构已保存任务新标题",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构已保存步骤新标题",
+            "todo",
+            "虚构新增步骤已保存",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "persistent new-task restored after rerender",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-915AE8AFDF1245D987DFEE9A0FFE9380",
+          "title": "虚构查询中创建任务",
+          "meta": [
+            "虚构创建负责人",
+            "normal",
+            "2030-03-04",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构已保存任务新标题",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构已保存步骤新标题",
+            "todo",
+            "虚构新增步骤已保存",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "after in-page draft restored",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-915AE8AFDF1245D987DFEE9A0FFE9380",
+          "title": "虚构查询中创建任务",
+          "meta": [
+            "虚构创建负责人",
+            "normal",
+            "2030-03-04",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构已保存任务新标题",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构已保存步骤新标题",
+            "todo",
+            "虚构新增步骤已保存",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "after failed save retain prompt",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-915AE8AFDF1245D987DFEE9A0FFE9380",
+          "title": "虚构查询中创建任务",
+          "meta": [
+            "虚构创建负责人",
+            "normal",
+            "2030-03-04",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构失败保存草稿",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构已保存步骤新标题",
+            "todo",
+            "虚构新增步骤已保存",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-915AE8AFDF1245D987DFEE9A0FFE9380",
+          "title": "虚构查询中创建任务",
+          "meta": [
+            "虚构创建负责人",
+            "normal",
+            "2030-03-04",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构失败保存草稿",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构已保存步骤新标题",
+            "todo",
+            "虚构新增步骤已保存",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "failed draft restored to clean",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-915AE8AFDF1245D987DFEE9A0FFE9380",
+          "title": "虚构查询中创建任务",
+          "meta": [
+            "虚构创建负责人",
+            "normal",
+            "2030-03-04",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构已保存任务新标题",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构已保存步骤新标题",
+            "todo",
+            "虚构新增步骤已保存",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "step409 draft retains native protection",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构已保存任务新标题",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构旧版本步骤草稿",
+            "todo",
+            "虚构新增步骤已保存",
+            "todo"
+          ],
+          "newStep": ""
+        }
+      ]
+    },
+    "after_cancel": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构已保存任务新标题",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构旧版本步骤草稿",
+            "todo",
+            "虚构新增步骤已保存",
+            "todo"
+          ],
+          "newStep": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "after legal reorder following partial sync recovery",
+    "before_reload": {
+      "create": [
+        [
+          "new-task-title",
+          ""
+        ],
+        [
+          "new-task-project",
+          ""
+        ],
+        [
+          "new-task-related",
+          ""
+        ],
+        [
+          "new-task-owner",
+          ""
+        ],
+        [
+          "new-task-priority",
+          "normal"
+        ],
+        [
+          "new-task-due",
+          ""
+        ],
+        [
+          "new-task-planned",
+          ""
+        ],
+        [
+          "new-task-follow",
+          ""
+        ]
+      ],
+      "tasks": [
+        {
+          "id": "TASK-915AE8AFDF1245D987DFEE9A0FFE9380",
+          "title": "虚构查询中创建任务",
+          "meta": [
+            "虚构创建负责人",
+            "normal",
+            "2030-03-04",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-MAIN",
+          "title": "虚构已保存任务新标题",
+          "meta": [
+            "虚构甲",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [
+            "虚构迟到步骤",
+            "todo",
+            "虚构外部步骤新版本",
+            "todo",
+            "虚构新增步骤已保存",
+            "todo"
+          ],
+          "newStep": ""
+        },
+        {
+          "id": "TASK-SECOND",
+          "title": "虚构第二任务原始标题",
+          "meta": [
+            "虚构乙",
+            "normal",
+            "",
+            "",
+            ""
+          ],
+          "steps": [],
+          "newStep": ""
+        }
+      ]
+    }
+  }
+]

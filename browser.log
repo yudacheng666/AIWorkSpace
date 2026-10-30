@@ -1,0 +1,34 @@
+PASS third-P2 task : server Y saved, B refusal keeps identical editor, B reverted then old X native-confirm/cancel retains, persisted Y clears prompt
+PASS third-P2 step : server Y saved, B refusal keeps identical editor, B reverted then old X native-confirm/cancel retains, persisted Y clears prompt
+PASS inflight task : real server saved Y before response; task newer Z retained/dirty; old X dirty, persisted Y clean; no extra POST
+PASS inflight step : real server saved Y before response; step input disabled, sibling Z retained/dirty; old X dirty, persisted Y clean; no extra POST
+PASS new-task independent field new-task-title : dirty native prompt/cancel preserves; restored clean no prompt; zero writes
+PASS new-task independent field new-task-project : dirty native prompt/cancel preserves; restored clean no prompt; zero writes
+PASS new-task independent field new-task-related : dirty native prompt/cancel preserves; restored clean no prompt; zero writes
+PASS new-task independent field new-task-owner : dirty native prompt/cancel preserves; restored clean no prompt; zero writes
+PASS new-task independent field new-task-priority : dirty native prompt/cancel preserves; restored clean no prompt; zero writes
+PASS new-task independent field new-task-due : dirty native prompt/cancel preserves; restored clean no prompt; zero writes
+PASS new-task independent field new-task-planned : dirty native prompt/cancel preserves; restored clean no prompt; zero writes
+PASS new-task independent field new-task-follow : dirty native prompt/cancel preserves; restored clean no prompt; zero writes
+PASS one remaining field new-task-title : native confirmation remains until last field restored; zero writes
+PASS one remaining field new-task-project : native confirmation remains until last field restored; zero writes
+PASS one remaining field new-task-related : native confirmation remains until last field restored; zero writes
+PASS one remaining field new-task-owner : native confirmation remains until last field restored; zero writes
+PASS one remaining field new-task-priority : native confirmation remains until last field restored; zero writes
+PASS one remaining field new-task-due : native confirmation remains until last field restored; zero writes
+PASS one remaining field new-task-planned : native confirmation remains until last field restored; zero writes
+PASS one remaining field new-task-follow : native confirmation remains until last field restored; zero writes
+PASS all eight fields/multiple/one-remaining cases zero POST, saved filenames and bytes unchanged
+PASS native task-title : beforeunload shown; cancel retains entire UI; restore clean=no prompt; accept navigates; all saved event bytes unchanged
+PASS native task-metadata : beforeunload shown; cancel retains entire UI; restore clean=no prompt; accept navigates; all saved event bytes unchanged
+PASS native step-edit : beforeunload shown; cancel retains entire UI; restore clean=no prompt; accept navigates; all saved event bytes unchanged
+PASS native step-add : beforeunload shown; cancel retains entire UI; restore clean=no prompt; accept navigates; all saved event bytes unchanged
+PASS native new-task : beforeunload shown; cancel retains entire UI; restore clean=no prompt; accept navigates; all saved event bytes unchanged
+PASS native new-task-metadata-only : beforeunload shown; cancel retains entire UI; restore clean=no prompt; accept navigates; all saved event bytes unchanged
+PASS all native cancel/revert/accept cases are zero POST and initial filenames/bytes identical
+PASS successful task edit/step edit/step add/new-task create under query clear prompts; no native confirm after saved clean page
+PASS in-page refresh/view/apply/reset cancellation and real automatic poll retain draft, no writes; persistent new-task registry survives query rerender
+PASS step-level409 under active query, no writes, dirty native prompt remains; explicit app refresh loads latest version
+PASS partial sync under query: disabled reorder, direct409 byte-identical; late create restores complete order with original event intact
+PASS legal browser reorder after missing step arrives; every previous event byte unchanged
+PASS all planned independent Chromium/API cases completed; no confirmed P1/P2
