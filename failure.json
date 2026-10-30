@@ -1,0 +1,49 @@
+{
+  "fixed_sha": "4d9e25f94195ce6f0c7964a253d4965ea7d0dc85",
+  "original_order_event": {
+    "version": 1,
+    "event_id": "partial-order-001",
+    "task_id": "TASK-PARTIAL",
+    "action": "reorder",
+    "actor": "chatgpt",
+    "base_revision": 0,
+    "changes": {
+      "step_ids": [
+        "STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "STEP-CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+        "STEP-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+      ]
+    }
+  },
+  "new_order_event": {
+    "version": 1,
+    "event_id": "3f50a955-8c60-4f61-a4e2-17c4d1f9d9dd",
+    "task_id": "TASK-PARTIAL",
+    "action": "reorder",
+    "actor": "user",
+    "timestamp": "2026-10-30T08:09:35Z",
+    "base_revision": 1,
+    "changes": {
+      "step_ids": [
+        "STEP-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      ]
+    }
+  },
+  "post": {
+    "url": "http://127.0.0.1:39793/api/tasks/TASK-PARTIAL/steps/reorder",
+    "body": {
+      "step_ids": [
+        "STEP-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      ],
+      "revision": 1
+    }
+  },
+  "visible_steps": [
+    "STEP-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  ],
+  "hidden_step_id": "STEP-CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+  "original_event_byte_preserved": true
+}

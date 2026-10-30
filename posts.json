@@ -1,0 +1,68 @@
+[
+  {
+    "url": "http://127.0.0.1:39793/api/tasks/TASK-BROWSER/steps",
+    "body": {
+      "title": "虚构步骤1"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:39793/api/tasks/TASK-BROWSER/steps",
+    "body": {
+      "title": "虚构步骤2"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:39793/api/tasks/TASK-BROWSER/steps",
+    "body": {
+      "title": "虚构步骤3"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:39793/api/tasks/TASK-BROWSER/steps/STEP-7E3AA09FDD1D4FE39654A6F4076C1F18/update",
+    "body": {
+      "revision": 1,
+      "title": "虚构步骤1-已编辑",
+      "status": "doing"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:39793/api/tasks/TASK-BROWSER/steps/reorder",
+    "body": {
+      "step_ids": [
+        "STEP-4F5F05B27560484B8A24FE156190ABBC",
+        "STEP-7E3AA09FDD1D4FE39654A6F4076C1F18",
+        "STEP-C35316210B9842E3AD23023A1B3BF287"
+      ],
+      "revision": 0
+    }
+  },
+  {
+    "url": "http://127.0.0.1:39793/api/tasks/TASK-BROWSER/steps/reorder",
+    "body": {
+      "step_ids": [
+        "STEP-7E3AA09FDD1D4FE39654A6F4076C1F18",
+        "STEP-4F5F05B27560484B8A24FE156190ABBC",
+        "STEP-C35316210B9842E3AD23023A1B3BF287"
+      ],
+      "revision": 1
+    }
+  },
+  {
+    "url": "http://127.0.0.1:39793/api/tasks/TASK-BROWSER/steps/STEP-7E3AA09FDD1D4FE39654A6F4076C1F18/update",
+    "body": {
+      "revision": 2,
+      "status": "done",
+      "confirmed_done": true
+    }
+  },
+  {
+    "url": "http://127.0.0.1:39793/api/tasks/TASK-PARTIAL/steps/reorder",
+    "body": {
+      "step_ids": [
+        "STEP-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      ],
+      "revision": 1
+    }
+  }
+]

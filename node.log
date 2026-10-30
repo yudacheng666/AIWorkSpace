@@ -1,0 +1,30 @@
+✔ a late success response must not erase a different draft (34.862269ms)
+✔ untouched input clears only after confirmed success (1.517269ms)
+✔ a draft edited and restored to the same text is still preserved (3.109622ms)
+✔ failed create retains the current draft and reports uncertainty (1.424642ms)
+✔ submit again during a pending request does not create duplicates (1.636835ms)
+✔ new task submission includes selected primary and related projects (4.764439ms)
+✔ project creation sends only the project name (1.992776ms)
+✔ P2: changing title preserves unsynced primary and related project IDs (3.673885ms)
+✔ P2: explicitly unassign primary without losing still-unsynced related project (1.69392ms)
+✔ M3.2 create submits five independent fields (1.40803ms)
+✔ M3.2 create keeps changed owner and date drafts after late response (1.75105ms)
+✔ M3.2 create clears unchanged metadata fields after confirmed save (1.71759ms)
+✔ M3.2 edit only follow-up date preserves other metadata and missing project refs (1.947171ms)
+✔ M3.2 edit can clear a date and owner without resetting priority (1.964299ms)
+✔ M3.2 legacy task title-only edit sends no new metadata fields (5.653392ms)
+✔ M3.3 adds a numbered step through the task-scoped endpoint (1.874375ms)
+✔ M3.3 keeps a new step draft typed while an earlier step is saving (2.468577ms)
+✔ M3.3 edits one step without touching its task or sibling steps (3.800686ms)
+✔ M3.3 completing a step requires explicit confirmation (5.129224ms)
+✔ M3.3 moving a step submits the complete stable ID order and order revision (2.852561ms)
+✔ M3.3 a conflicted step is frozen without freezing its sibling (1.973811ms)
+✔ M3.3 an order conflict disables reorder but leaves step editing available (5.189503ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 218.110373

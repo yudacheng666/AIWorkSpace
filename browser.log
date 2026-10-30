@@ -1,0 +1,5 @@
+PASS old task with no steps shows empty list, no migration
+PASS real Chromium stable IDs, numbering/create order, isolated title/status edit; parent revision, other steps and five fields unchanged
+PASS up/down reorder and reload preserve IDs/order
+PASS completion confirm cancel=no event, confirm=done; ChatGPT actor rejected by event validator; original history intact
+FAIL P2 partial sync reorder: original [A,C,B], C create missing; browser reordered visible rows and POST succeeded with [B,A], new full-order record drops C silently. Original order bytes remain intact.

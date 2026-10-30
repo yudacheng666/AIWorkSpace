@@ -1,0 +1,142 @@
+PASS old task with no steps shows empty list, no migration
+Traceback (most recent call last):
+  File "/workspace/scratch/pr5-audit-4d9e25f/browser.py", line 23, in <module>
+    p.screenshot(path=str(OUT/'01-created-steps.png'),full_page=True);before=state('TASK-BROWSER');rows=card('TASK-BROWSER').locator('.step-row');rows.nth(0).locator('.step-edit-form input').fill('虚构步骤1-已编辑');rows.nth(0).locator('.step-edit-form select').select_option('doing');rows.nth(0).locator('.step-edit-form button').click();expect(rows.nth(0).locator('.step-edit-form input')).to_have_value('虚构步骤1-已编辑');expect(card('TASK-BROWSER').locator('.step-message')).to_contain_text('步骤已保存')
+                                                                                                                                                                                                                                                                                                                                                                                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/sync_api/_generated.py", line 22016, in to_contain_text
+    self._sync(
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_sync_base.py", line 115, in _sync
+    return task.result()
+           ^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_assertions.py", line 303, in to_contain_text
+    await self._expect_impl(
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_assertions.py", line 128, in _expect_impl
+    _record_soft_or_raise(
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/playwright/_impl/_assertions.py", line 60, in _record_soft_or_raise
+    raise error
+AssertionError: Locator expected to contain text '步骤已保存'
+Actual value:  
+Call log:
+  - Expect "to_contain_text" with timeout 5000ms
+  - waiting for locator(".task").filter(has=locator(".task-id").filter(has_text="TASK-BROWSER")).locator(".step-message")
+    14 × locator resolved to <p class="step-message"></p>
+       - unexpected value ""
+
+Aria snapshot:
+- main:
+  - text: AIWorkSpace 个人 AI 工作台 · 最小验证版 本机运行 · 不需要额外云服务
+  - heading "我的任务" [level=1]
+  - paragraph: 从 ChatGPT 录入，在这里查看和更新。
+  - button "刷新任务"
+  - region "新建任务":
+    - heading "新建任务" [level=2]
+    - paragraph: 创建后自动生成任务编号，初始状态为「待处理」。
+    - text: 任务名称
+    - textbox "任务名称":
+      - /placeholder: 输入要处理的事项
+    - text: 主要所属项目
+    - combobox "主要所属项目":
+      - option "未归类 / 收件箱" [selected]
+    - text: 关联项目（可多选）
+    - listbox "关联项目（可多选）"
+    - button "创建任务"
+    - text: 负责人
+    - textbox "负责人":
+      - /placeholder: 可留空
+    - text: 优先级
+    - combobox "优先级":
+      - option "普通" [selected]
+      - option "低"
+      - option "高"
+      - option "紧急"
+    - text: 截止日期
+    - textbox "截止日期"
+    - text: 计划执行日期
+    - textbox "计划执行日期"
+    - text: 下次跟进日期
+    - textbox "下次跟进日期"
+    - paragraph: 三个日期相互独立，留空表示未设置；负责人可后续补充。
+    - status
+  - region "项目管理":
+    - heading "项目管理" [level=2]
+    - paragraph: 项目有独立编号；任务可归属一个主要项目，也可关联其他项目。项目不会因没有任务而自动删除。
+    - text: 新项目名称
+    - textbox "新项目名称":
+      - /placeholder: 输入项目名称
+    - button "创建项目"
+    - status
+    - paragraph: 还没有项目。可以先创建项目，再把任务归入项目；也可以暂时放在未归类收件箱。
+  - text: 1 全部任务 1 待处理或进行中 0 已完成
+  - heading "任务列表" [level=2]
+  - status: 上次刷新 08:09:15
+  - region "任务列表":
+    - strong: 未归类 / 收件箱
+    - text: 1 项任务
+    - article:
+      - text: TASK-BROWSER 未归类 / 收件箱 · 修订 1 任务名称
+      - textbox "任务名称": 虚构：TASK-BROWSER
+      - text: 状态
+      - combobox "状态":
+        - option "待处理" [selected]
+        - option "进行中"
+        - option "受阻"
+        - option "已完成"
+      - text: 主要所属项目
+      - combobox "主要所属项目":
+        - option "未归类 / 收件箱" [selected]
+      - text: 关联项目（可多选）
+      - listbox "关联项目（可多选）"
+      - button "保存修改"
+      - text: 负责人
+      - textbox "负责人": 虚构负责人
+      - text: 优先级
+      - combobox "优先级":
+        - option "普通"
+        - option "低"
+        - option "高" [selected]
+        - option "紧急"
+      - text: 截止日期
+      - textbox "截止日期": 2026-12-31
+      - text: 计划执行日期
+      - textbox "计划执行日期": 2026-11-01
+      - text: 下次跟进日期
+      - textbox "下次跟进日期": 2026-11-02
+      - strong: 执行步骤
+      - text: 0/3 已完成 · 最多 100 步 1. STEP-7F96B24DED7B4760991B152F33B5A33C 步骤内容
+      - textbox "步骤内容": 虚构步骤1-已编辑
+      - text: 步骤状态
+      - combobox "步骤状态":
+        - option "待处理"
+        - option "进行中" [selected]
+        - option "受阻"
+        - option "已完成"
+      - button "保存步骤"
+      - button "上移" [disabled]
+      - button "下移"
+      - text: 2. STEP-1E12F01A7E0B4BCC9F2D311DC41DC3D8 步骤内容
+      - textbox "步骤内容": 虚构步骤2
+      - text: 步骤状态
+      - combobox "步骤状态":
+        - option "待处理" [selected]
+        - option "进行中"
+        - option "受阻"
+        - option "已完成"
+      - button "保存步骤"
+      - button "上移"
+      - button "下移"
+      - text: 3. STEP-96F5832EB7C6483B9DD3C078717CAC8E 步骤内容
+      - textbox "步骤内容": 虚构步骤3
+      - text: 步骤状态
+      - combobox "步骤状态":
+        - option "待处理" [selected]
+        - option "进行中"
+        - option "受阻"
+        - option "已完成"
+      - button "保存步骤"
+      - button "上移"
+      - button "下移" [disabled]
+      - textbox "添加下一项执行步骤"
+      - button "添加步骤"
+      - paragraph
+      - paragraph
+  - paragraph: 数据由本机指定文件夹提供。Google Drive 同步存在延迟；如显示异常，请检查同步状态后点击“刷新任务”。遇到编辑冲突时，系统停止自动覆盖并提示核查。
