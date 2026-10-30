@@ -171,8 +171,8 @@ def validate_step_event(value: object) -> dict:
         if set(value) - {"version", "event_id", "task_id", "action", "actor",
                          "timestamp", "base_revision", "changes"}:
             raise ValueError("unknown step-order event fields")
-        if value["actor"] != "user" or set(changes) != {"step_ids"}:
-            raise ValueError("step order can only be changed by the user")
+        if set(changes) != {"step_ids"}:
+            raise ValueError("step-order changes must contain only step_ids")
         step_ids = changes["step_ids"]
         if (not isinstance(step_ids, list) or not 1 <= len(step_ids) <= MAX_STEPS_PER_TASK
                 or any(not isinstance(item, str) or not STEP_ID.fullmatch(item) for item in step_ids)
