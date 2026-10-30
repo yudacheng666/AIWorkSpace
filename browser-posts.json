@@ -1,0 +1,66 @@
+[
+  {
+    "url": "http://127.0.0.1:40993/api/projects",
+    "body": {
+      "name": "虚构项目甲"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:40993/api/projects",
+    "body": {
+      "name": "虚构项目乙"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:40993/api/tasks",
+    "body": {
+      "title": "虚构：跨项目任务",
+      "project_id": "PROJECT-DA401FEEFE1D49359ED3C99D54F6EE7A",
+      "related_project_ids": [
+        "PROJECT-FBB657EEAAE0489A9A400D5823E02FEF"
+      ]
+    }
+  },
+  {
+    "url": "http://127.0.0.1:40993/api/projects/PROJECT-DA401FEEFE1D49359ED3C99D54F6EE7A/update",
+    "body": {
+      "name": "虚构项目甲-重命名",
+      "revision": 1
+    }
+  },
+  {
+    "url": "http://127.0.0.1:40993/api/tasks/TASK-5E58F6CCB8B041E3825BED5D2F3A096D/update",
+    "body": {
+      "title": "虚构：跨项目任务",
+      "status": "todo",
+      "revision": 1,
+      "confirmed_done": false,
+      "project_id": "PROJECT-FBB657EEAAE0489A9A400D5823E02FEF",
+      "related_project_ids": [
+        "PROJECT-DA401FEEFE1D49359ED3C99D54F6EE7A"
+      ]
+    }
+  },
+  {
+    "url": "http://127.0.0.1:40993/api/tasks/TASK-5E58F6CCB8B041E3825BED5D2F3A096D/update",
+    "body": {
+      "title": "虚构：跨项目任务",
+      "status": "todo",
+      "revision": 2,
+      "confirmed_done": false,
+      "project_id": null,
+      "related_project_ids": []
+    }
+  },
+  {
+    "url": "http://127.0.0.1:40993/api/tasks/TASK-MISSING-001/update",
+    "body": {
+      "title": "虚构：只修改标题",
+      "status": "todo",
+      "revision": 1,
+      "confirmed_done": false,
+      "project_id": null,
+      "related_project_ids": []
+    }
+  }
+]

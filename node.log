@@ -1,0 +1,15 @@
+✔ a late success response must not erase a different draft (56.33466ms)
+✔ untouched input clears only after confirmed success (1.480858ms)
+✔ a draft edited and restored to the same text is still preserved (1.67627ms)
+✔ failed create retains the current draft and reports uncertainty (2.166823ms)
+✔ submit again during a pending request does not create duplicates (2.497624ms)
+✔ new task submission includes selected primary and related projects (5.778272ms)
+✔ project creation sends only the project name (2.07562ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 190.620531

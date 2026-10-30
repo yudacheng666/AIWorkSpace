@@ -1,0 +1,13 @@
+{
+  ".github/workflows/tests.yml": "38f195dea68aa08c571dbf0af2b6c957cef490493b2c5842e8f1c28bfa1ee004",
+  ".gitignore": "43cb8e667f389a0991262b56560639c63875e613bea764b1acee48c4def55af7",
+  "AGENTS.md": "d7fd6229ca3bb23c33927686ed93e6ad683698ca2e728abde6dd5e291d78a441",
+  "README.md": "4086fb1501f02b4af2422057dcbff0fc9015c475c15f64585d461654149a0a4d",
+  "app.py": "731db52b4828822e6d18a3dfd18d6f87ffe8043db92f11fbe666a7f435f648c1",
+  "docs/DECISIONS.md": "511b73c31ac8696d74b692a10026c84281fe38447a0744e3d04f7d9675babbab",
+  "docs/PROJECT_STATE.md": "a55dac6892c135026a46cdb58bd3612bf3cad1e9534b7250dc75d7074443ca4a",
+  "docs/REQUIREMENTS.md": "ed9a6c61aa95689603d19c20487215008a2f77821690e325dfad82b396d5576e",
+  "tests/test_app.py": "0aaeea56c396a0d085c33d0cbe0a35a9190ab418d18221f205b7b79b621bb5ff",
+  "tests/test_create_ui.mjs": "7002af62e078c156fac2e8832cc8c1ac2cbd2e53f0de77c4d39b31b8e24b2c4b",
+  "web/index.html": "d504c80bfb145628a5a1b420df733a53816faf1d63e36c1c0f1e1b9a83424508"
+}

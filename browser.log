@@ -1,0 +1,32 @@
+PASS browser legacy inbox, create two Chinese projects, create primary A/related B task, grouping and selectors
+PASS browser rename appends history; edit primary/related; explicit unassignment returns inbox; original project/task files intact
+FAIL P2 missing references: title-only UI edit sends project_id=null/related_project_ids=[] and silently removes both references. Last POST: {"url": "http://127.0.0.1:40993/api/tasks/TASK-MISSING-001/update", "body": {"title": "虚构：只修改标题", "status": "todo", "revision": 1, "confirmed_done": false, "project_id": null, "related_project_ids": []}}
+PASS project conflict UI disables rename
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 34862)
+Traceback (most recent call last):
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socketserver.py", line 766, in __init__
+    self.handle()
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/http/server.py", line 440, in handle
+    self.handle_one_request()
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/http/server.py", line 428, in handle_one_request
+    method()
+  File "/tmp/pr3-audit-8341816/app.py", line 466, in do_GET
+    return self.json_response(200, read_workspace(data_dir))
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/pr3-audit-8341816/app.py", line 292, in read_workspace
+    task["conflict_fields"] = conflicting_fields(candidates)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/pr3-audit-8341816/app.py", line 131, in conflicting_fields
+    return sorted(
+           ^^^^^^^
+  File "/tmp/pr3-audit-8341816/app.py", line 133, in <genexpr>
+    if len({event["changes"].get(field) for event in events}) > 1
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: unhashable type: 'list'
+----------------------------------------
+FAIL P2 task related list conflict: real browser entire workspace read fails instead of showing conflict
