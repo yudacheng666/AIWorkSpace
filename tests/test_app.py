@@ -232,10 +232,13 @@ class DataTests(unittest.TestCase):
             step_event(action="create", revision=1),
             step_event(action="update", revision=0),
             step_event(changes={"unknown": True}),
+            step_event(changes={"title": "非法位置", "position": 0}),
+            step_event(action="update", revision=1, changes={"position": 2}),
             step_order_event(step_ids=["STEP-" + "A" * 32, "STEP-" + "A" * 32]),
-            step_order_event(actor="chatgpt") if False else None,
         ]
-        invalid = [item for item in invalid if item is not None]
+        invalid_order = step_order_event()
+        invalid_order["actor"] = "chatgpt"
+        invalid.append(invalid_order)
         for item in invalid:
             with self.subTest(event=item), self.assertRaises(ValueError):
                 validate_step_event(item)
@@ -911,6 +914,10 @@ class ServerTests(unittest.TestCase):
         self.assertEqual((first_status, second_status), (201, 201))
         self.assertRegex(first["step_id"], r"^STEP-[A-F0-9]{32}$")
         self.assertNotEqual(first["step_id"], second["step_id"])
+        initial = read_workspace(self.data_dir)["tasks"][0]["steps"]
+        self.assertEqual([step["step_id"] for step in initial],
+                         [first["step_id"], second["step_id"]])
+        self.assertEqual([step["position"] for step in initial], [1, 2])
         code, result = self.update_step(first["step_id"], {
             "title": "第一步已修改", "status": "doing", "revision": 1})
         self.assertEqual(code, 200)
