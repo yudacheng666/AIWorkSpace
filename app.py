@@ -23,6 +23,7 @@ from urllib.parse import unquote, urlsplit
 ROOT = Path(__file__).resolve().parent
 TASK_ID = re.compile(r"^TASK-[A-Za-z0-9-]{1,50}$")
 PROJECT_ID = re.compile(r"^PROJECT-[A-F0-9]{32}$")
+STEP_ID = re.compile(r"^STEP-[A-F0-9]{32}$")
 EVENT_ID = re.compile(r"^[A-Za-z0-9-]{8,80}$")
 STATUSES = {"todo", "doing", "blocked", "done"}
 PRIORITIES = {"low", "normal", "high", "urgent"}
@@ -31,6 +32,7 @@ TASK_MANAGEMENT_FIELDS = ("owner", "priority", *DATE_FIELDS)
 TASK_DEFAULTS = {"owner": None, "priority": "normal",
                  "due_date": None, "planned_date": None, "follow_up_date": None}
 MAX_BODY = 16_384
+MAX_STEPS_PER_TASK = 100
 _write_lock = threading.Lock()
 
 
@@ -147,6 +149,67 @@ def validate_project_event(value: object) -> dict:
     return value
 
 
+def validate_step_event(value: object) -> dict:
+    """Validate append-only execution-step and per-task ordering events."""
+    if not isinstance(value, dict) or value.get("version") != 1:
+        raise ValueError("version must be 1")
+    if not isinstance(value.get("event_id"), str) or not EVENT_ID.fullmatch(value["event_id"]):
+        raise ValueError("invalid event_id")
+    if not isinstance(value.get("task_id"), str) or not TASK_ID.fullmatch(value["task_id"]):
+        raise ValueError("invalid task_id")
+    if value.get("action") not in {"create", "update", "reorder"}:
+        raise ValueError("invalid step action")
+    if value.get("actor") not in {"chatgpt", "user"}:
+        raise ValueError("invalid actor")
+    revision = value.get("base_revision")
+    if type(revision) is not int or revision < 0:
+        raise ValueError("invalid base_revision")
+    changes = value.get("changes")
+    if not isinstance(changes, dict) or not changes:
+        raise ValueError("changes must be a nonempty object")
+    if value["action"] == "reorder":
+        if set(value) - {"version", "event_id", "task_id", "action", "actor",
+                         "timestamp", "base_revision", "changes"}:
+            raise ValueError("unknown step-order event fields")
+        if set(changes) != {"step_ids"}:
+            raise ValueError("step-order changes must contain only step_ids")
+        step_ids = changes["step_ids"]
+        if (not isinstance(step_ids, list) or not 1 <= len(step_ids) <= MAX_STEPS_PER_TASK
+                or any(not isinstance(item, str) or not STEP_ID.fullmatch(item) for item in step_ids)
+                or len(set(step_ids)) != len(step_ids)):
+            raise ValueError("invalid step_ids")
+        return value
+    if set(value) - {"version", "event_id", "task_id", "step_id", "action", "actor",
+                     "timestamp", "base_revision", "changes", "confirmed_done"}:
+        raise ValueError("unknown step event fields")
+    if not isinstance(value.get("step_id"), str) or not STEP_ID.fullmatch(value["step_id"]):
+        raise ValueError("invalid step_id")
+    if set(changes) - {"title", "status", "position"}:
+        raise ValueError("unknown step fields")
+    if "title" in changes and (not isinstance(changes["title"], str)
+                               or not 1 <= len(changes["title"].strip()) <= 200):
+        raise ValueError("step title must be 1–200 characters")
+    if "status" in changes and changes["status"] not in STATUSES:
+        raise ValueError("invalid step status")
+    if "position" in changes and (
+        type(changes["position"]) is not int or
+        not 1 <= changes["position"] <= MAX_STEPS_PER_TASK
+    ):
+        raise ValueError("invalid step position")
+    if value["action"] == "create":
+        if revision != 0 or set(changes) != {"title", "position"}:
+            raise ValueError("step create requires title, position and revision 0")
+    elif revision < 1 or "position" in changes:
+        raise ValueError("step update must refer to an existing revision and cannot set position")
+    if changes.get("status") == "done" and (
+        value["actor"] != "user" or value.get("confirmed_done") is not True
+    ):
+        raise ValueError("step completion needs explicit user confirmation")
+    if value.get("confirmed_done") is True and changes.get("status") != "done":
+        raise ValueError("confirmed_done is only valid when completing a step")
+    return value
+
+
 def summarize_conflict_events(events: list[dict]) -> list[dict]:
     """Return only the details needed to explain an unresolved conflict in the UI."""
     ordered = sorted(events, key=lambda event: (
@@ -260,6 +323,214 @@ def read_projects(data_dir: Path) -> dict:
     return {"projects": projects, "warnings": warnings}
 
 
+def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
+    """Attach ordered, independently versioned steps to tasks without rewriting history."""
+    directory = data_dir / "step_events"
+    by_step: dict[str, list[dict]] = defaultdict(list)
+    by_task_order: dict[str, list[dict]] = defaultdict(list)
+    seen: dict[str, dict] = {}
+    duplicate_conflicts: dict[str, list[dict]] = defaultdict(list)
+    if directory.exists():
+        for path in sorted(directory.glob("*.json")):
+            if not path.is_file():
+                continue
+            try:
+                if path.stat().st_size > MAX_BODY:
+                    raise ValueError("file too large")
+                event = validate_step_event(json.loads(path.read_text(encoding="utf-8-sig")))
+                previous = seen.get(event["event_id"])
+                if previous is not None:
+                    if previous == event:
+                        warnings.append(f"{path.name}: duplicate step event_id (identical; ignored)")
+                        continue
+                    variants = duplicate_conflicts[event["event_id"]]
+                    if not variants:
+                        variants.append(previous)
+                    if event not in variants:
+                        variants.append(event)
+                    warnings.append(f"{path.name}: duplicate step event_id with conflicting content")
+                else:
+                    seen[event["event_id"]] = event
+                if event["action"] == "reorder":
+                    by_task_order[event["task_id"]].append(event)
+                else:
+                    by_step[event["step_id"]].append(event)
+            except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
+                warnings.append(f"{path.name}: {exc}")
+
+    steps_by_task: dict[str, list[dict]] = defaultdict(list)
+    steps_by_id: dict[str, dict] = {}
+    for step_id, events in by_step.items():
+        roots = [event for event in events if event["action"] == "create"]
+        task_ids = {event["task_id"] for event in events}
+        if len(roots) != 1:
+            warnings.append(f"{step_id}: missing or multiple step creation events")
+            if not roots:
+                continue
+            root = roots[0]
+            for task_id in sorted({event["task_id"] for event in roots}):
+                task_root = next(event for event in roots if event["task_id"] == task_id)
+                placeholder = {
+                    "task_id": task_id, "step_id": step_id,
+                    "title": "步骤创建记录冲突", "status": "todo", "revision": 0,
+                    "conflict": True, "conflict_fields": ["title", "task_id"],
+                    "conflict_candidates": summarize_conflict_events(roots),
+                    "created_at": task_root.get("timestamp", ""),
+                    "created_position": task_root["changes"].get("position"),
+                }
+                steps_by_task[task_id].append(placeholder)
+                steps_by_id.setdefault(step_id, placeholder)
+            continue
+        else:
+            root = roots[0]
+            step = {
+                "task_id": root["task_id"], "step_id": step_id,
+                "title": root["changes"]["title"].strip(), "status": "todo",
+                "revision": 1, "conflict": False,
+                "conflict_fields": [], "conflict_candidates": [],
+                "created_at": root.get("timestamp", ""),
+                "created_position": root["changes"].get("position"),
+            }
+            if len(task_ids) != 1:
+                step["conflict"] = True
+                step["conflict_fields"] = ["task_id"]
+                step["conflict_candidates"] = summarize_conflict_events(events)
+                warnings.append(f"{step_id}: events reference different parent tasks")
+            updates: dict[int, list[dict]] = defaultdict(list)
+            for event in events:
+                if event["action"] == "update":
+                    updates[event["base_revision"]].append(event)
+            while step["revision"] in updates:
+                candidates = updates.pop(step["revision"])
+                if len(candidates) != 1:
+                    step["conflict"] = True
+                    step["conflict_fields"] = sorted(
+                        set(step["conflict_fields"]) |
+                        {field for event in candidates for field in event["changes"]}
+                    )
+                    step["conflict_candidates"].extend(summarize_conflict_events(candidates))
+                    warnings.append(f"{step_id}: conflicting edits at revision {step['revision']}")
+                    break
+                step.update(candidates[0]["changes"])
+                if "title" in step:
+                    step["title"] = step["title"].strip()
+                step["revision"] += 1
+            if updates:
+                remaining = [event for group in updates.values() for event in group]
+                step["conflict"] = True
+                step["conflict_fields"] = sorted(
+                    set(step["conflict_fields"]) |
+                    {field for event in remaining for field in event["changes"]}
+                )
+                step["conflict_candidates"].extend(summarize_conflict_events(remaining))
+                warnings.append(f"{step_id}: unresolved or out-of-order step edits")
+        steps_by_id[step_id] = step
+        steps_by_task[step["task_id"]].append(step)
+
+    # A reused event ID with different content freezes each affected step/order stream.
+    duplicate_order_conflicts: dict[str, list[dict]] = defaultdict(list)
+    for event_id, variants in duplicate_conflicts.items():
+        affected_steps = {event["step_id"] for event in variants if event["action"] != "reorder"}
+        for step_id in affected_steps:
+            step = steps_by_id.get(step_id)
+            if step:
+                step["conflict"] = True
+                step["conflict_fields"] = sorted(
+                    set(step["conflict_fields"]) | {"event_id"}
+                )
+                step["conflict_candidates"].extend(summarize_conflict_events(
+                    [event for event in variants if event.get("step_id") == step_id]
+                ))
+                warnings.append(f"{step_id}: event_id {event_id} has conflicting content")
+        for task_id in {event["task_id"] for event in variants if event["action"] == "reorder"}:
+            warnings.append(f"{task_id}: step-order event_id {event_id} has conflicting content")
+            duplicate_order_conflicts[task_id].extend(variants)
+
+    task_by_id = {task["task_id"]: task for task in tasks}
+    for task_id, steps in steps_by_task.items():
+        if task_id not in task_by_id:
+            warnings.append(f"{task_id}: step records are waiting for the parent task to sync")
+    for task in tasks:
+        task_id = task["task_id"]
+        defaults = sorted(steps_by_task.get(task_id, []),
+                          key=lambda step: (
+                              0 if type(step.get("created_position")) is int else 1,
+                              step.get("created_position") if type(step.get("created_position")) is int else 0,
+                              str(step.get("created_at", "")), step["step_id"]))
+        order_revision = 0
+        order_ids: list[str] = []
+        duplicate_order_variants = duplicate_order_conflicts.get(task_id, [])
+        duplicate_order_ids = {
+            event["event_id"] for event in duplicate_order_variants
+            if event["action"] == "reorder" and event["task_id"] == task_id
+        }
+        duplicate_order_revisions = {
+            event["base_revision"] for event in duplicate_order_variants
+            if event["action"] == "reorder" and event["task_id"] == task_id
+        }
+        order_conflict = bool(duplicate_order_ids)
+        order_candidates: list[dict] = (
+            summarize_conflict_events(duplicate_order_variants)
+            if duplicate_order_variants else []
+        )
+        order_updates: dict[int, list[dict]] = defaultdict(list)
+        for event in by_task_order.get(task_id, []):
+            order_updates[event["base_revision"]].append(event)
+        while order_revision in order_updates:
+            # Do not apply any event at a revision implicated in an event-ID collision.
+            # Keep the last unambiguous prefix and expose all colliding variants as candidates.
+            if order_revision in duplicate_order_revisions:
+                warnings.append(
+                    f"{task_id}: step-order event_id collision at revision {order_revision}"
+                )
+                break
+            candidates = order_updates.pop(order_revision)
+            if len(candidates) != 1:
+                order_conflict = True
+                order_candidates.extend(summarize_conflict_events(candidates))
+                warnings.append(f"{task_id}: conflicting step order at revision {order_revision}")
+                break
+            candidate_ids = list(candidates[0]["changes"]["step_ids"])
+            foreign_ids = [
+                step_id for step_id in candidate_ids
+                if step_id in steps_by_id and steps_by_id[step_id]["task_id"] != task_id
+            ]
+            if foreign_ids:
+                order_conflict = True
+                order_candidates.extend(summarize_conflict_events(candidates))
+                warnings.append(f"{task_id}: step order references steps belonging to another task")
+                break
+            order_ids = candidate_ids
+            order_revision += 1
+        if order_updates:
+            order_conflict = True
+            remaining = [
+                event for group in order_updates.values() for event in group
+                if event["event_id"] not in duplicate_order_ids
+            ]
+            if remaining:
+                order_candidates.extend(summarize_conflict_events(remaining))
+            warnings.append(f"{task_id}: unresolved or out-of-order step order")
+        known = {step["step_id"]: step for step in defaults}
+        missing_order_ids = [step_id for step_id in order_ids if step_id not in known]
+        if missing_order_ids:
+            warnings.append(
+                f"{task_id}: step order references {len(missing_order_ids)} step(s) "
+                "whose creation events have not synced"
+            )
+        ordered = [known[step_id] for step_id in order_ids if step_id in known]
+        ordered_ids = {step["step_id"] for step in ordered}
+        ordered.extend(step for step in defaults if step["step_id"] not in ordered_ids)
+        for index, step in enumerate(ordered, start=1):
+            step["position"] = index
+        task["steps"] = ordered
+        task["step_order_revision"] = order_revision
+        task["step_order_conflict"] = order_conflict
+        task["step_order_incomplete"] = bool(missing_order_ids)
+        task["step_order_missing_ids"] = missing_order_ids
+        task["step_order_candidates"] = order_candidates
+
+
 def read_workspace(data_dir: Path) -> dict:
     """Reduce independent event files; never silently choose a concurrent edit."""
     event_dir = data_dir / "events"
@@ -270,7 +541,10 @@ def read_workspace(data_dir: Path) -> dict:
     duplicate_conflicts: dict[str, list[dict]] = defaultdict(list)
     project_state = read_projects(data_dir)
     if not event_dir.exists():
-        return {"tasks": [], "projects": project_state["projects"], "warnings": project_state["warnings"]}
+        tasks: list[dict] = []
+        warnings.extend(project_state["warnings"])
+        read_steps(data_dir, tasks, warnings)
+        return {"tasks": tasks, "projects": project_state["projects"], "warnings": warnings}
 
     for path in sorted(event_dir.glob("*.json")):
         if not path.is_file():
@@ -397,6 +671,7 @@ def read_workspace(data_dir: Path) -> dict:
         task["related_project_names"] = related_names
         if task["project_missing"]:
             warnings.append(f"{task['task_id']}: referenced project has not synced or is unavailable")
+    read_steps(data_dir, tasks, warnings)
     warnings.extend(project_state["warnings"])
     return {"tasks": tasks, "projects": project_state["projects"], "warnings": warnings}
 
@@ -442,6 +717,11 @@ def append_event(data_dir: Path, event: dict) -> Path:
 def append_project_event(data_dir: Path, event: dict) -> Path:
     validate_project_event(event)
     return _append_json_event(data_dir, event, "project_events")
+
+
+def append_step_event(data_dir: Path, event: dict) -> Path:
+    validate_step_event(event)
+    return _append_json_event(data_dir, event, "step_events")
 
 
 def validate_project_references(workspace: dict, project_id: object,
@@ -523,14 +803,137 @@ def handler_factory(data_dir: Path):
             path = unquote(urlsplit(self.path).path)
             task_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/update", path)
             project_match = re.fullmatch(r"/api/projects/(PROJECT-[A-F0-9]{32})/update", path)
+            step_create_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps", path)
+            step_update_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/update", path)
+            step_reorder_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/reorder", path)
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
-            if not (creating_task or creating_project or task_match or project_match):
+            if not (creating_task or creating_project or task_match or project_match or
+                    step_create_match or step_update_match or step_reorder_match):
                 return self.json_response(404, {"error": "not found"})
             if not self.local_request_allowed():
                 return self.json_response(403, {"error": "local requests only"})
             try:
                 payload = self.read_payload()
+                if step_create_match:
+                    if set(payload) != {"title"}:
+                        raise ValueError("step create accepts only title")
+                    title = payload["title"]
+                    if not isinstance(title, str) or not 1 <= len(title.strip()) <= 200:
+                        raise ValueError("step title must be 1–200 characters")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        task = next((item for item in workspace["tasks"]
+                                     if item["task_id"] == step_create_match.group(1)), None)
+                        if task is None:
+                            return self.json_response(404, {"error": "task not found"})
+                        if task["conflict"]:
+                            return self.json_response(409, {"error": "task has an unresolved conflict; refresh"})
+                        if len(task.get("steps", [])) >= MAX_STEPS_PER_TASK:
+                            return self.json_response(409, {"error": "task has reached the 100-step limit"})
+                        step_id = f"STEP-{uuid.uuid4().hex.upper()}"
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "task_id": task["task_id"], "step_id": step_id,
+                                 "action": "create", "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": 0, "changes": {"title": title.strip(),
+                                              "position": len(task.get("steps", [])) + 1}}
+                        append_step_event(data_dir, event)
+                    return self.json_response(201, {"saved": True, "task_id": task["task_id"],
+                                                    "step_id": step_id, "revision": 1})
+
+                if step_update_match:
+                    allowed = {"title", "status", "revision", "confirmed_done"}
+                    if set(payload) - allowed or "revision" not in payload:
+                        raise ValueError("step update requires revision and optional title/status")
+                    if not ({"title", "status"} & set(payload)):
+                        raise ValueError("step update requires a changed field")
+                    revision = payload["revision"]
+                    if type(revision) is not int or revision < 1:
+                        raise ValueError("invalid step revision")
+                    if "title" in payload and (
+                        not isinstance(payload["title"], str) or
+                        not 1 <= len(payload["title"].strip()) <= 200
+                    ):
+                        raise ValueError("step title must be 1–200 characters")
+                    if "status" in payload and payload["status"] not in STATUSES:
+                        raise ValueError("invalid step status")
+                    if payload.get("status") == "done" and payload.get("confirmed_done") is not True:
+                        raise ValueError("step completion needs user confirmation")
+                    if payload.get("confirmed_done") is True and payload.get("status") != "done":
+                        raise ValueError("confirmed_done is only valid when completing a step")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        task = next((item for item in workspace["tasks"]
+                                     if item["task_id"] == step_update_match.group(1)), None)
+                        if task is None:
+                            return self.json_response(404, {"error": "task not found"})
+                        if task["conflict"]:
+                            return self.json_response(409, {"error": "task has an unresolved conflict; refresh"})
+                        step = next((item for item in task.get("steps", [])
+                                     if item["step_id"] == step_update_match.group(2)), None)
+                        if step is None:
+                            return self.json_response(404, {"error": "step not found"})
+                        if step["conflict"] or step["revision"] != revision:
+                            return self.json_response(409, {"error": "step changed or has a conflict; refresh"})
+                        changes = {}
+                        if "title" in payload and payload["title"].strip() != step["title"]:
+                            changes["title"] = payload["title"].strip()
+                        if "status" in payload and payload["status"] != step["status"]:
+                            changes["status"] = payload["status"]
+                        if not changes:
+                            return self.json_response(200, {"saved": False, "step_id": step["step_id"],
+                                                            "revision": step["revision"]})
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "task_id": task["task_id"], "step_id": step["step_id"],
+                                 "action": "update", "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": revision, "changes": changes}
+                        if changes.get("status") == "done":
+                            event["confirmed_done"] = True
+                        append_step_event(data_dir, event)
+                    return self.json_response(200, {"saved": True, "step_id": step["step_id"],
+                                                    "revision": revision + 1})
+
+                if step_reorder_match:
+                    if set(payload) != {"step_ids", "revision"}:
+                        raise ValueError("step reorder requires step_ids and revision")
+                    revision = payload["revision"]
+                    step_ids = payload["step_ids"]
+                    if type(revision) is not int or revision < 0:
+                        raise ValueError("invalid step-order revision")
+                    if (not isinstance(step_ids, list) or len(step_ids) > MAX_STEPS_PER_TASK
+                            or any(not isinstance(item, str) or not STEP_ID.fullmatch(item) for item in step_ids)
+                            or len(set(step_ids)) != len(step_ids)):
+                        raise ValueError("invalid step_ids")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        task = next((item for item in workspace["tasks"]
+                                     if item["task_id"] == step_reorder_match.group(1)), None)
+                        if task is None:
+                            return self.json_response(404, {"error": "task not found"})
+                        if task["conflict"]:
+                            return self.json_response(409, {"error": "task has an unresolved conflict; refresh"})
+                        if task["step_order_conflict"]:
+                            return self.json_response(409, {"error": "step order has an unresolved conflict; refresh"})
+                        if task["step_order_incomplete"]:
+                            return self.json_response(
+                                409,
+                                {"error": "step order references steps whose creation events have not synced; wait for sync and refresh"},
+                            )
+                        current_ids = [item["step_id"] for item in task.get("steps", [])]
+                        if len(step_ids) != len(current_ids) or set(step_ids) != set(current_ids):
+                            raise ValueError("step_ids must contain every current step exactly once")
+                        if revision != task["step_order_revision"]:
+                            return self.json_response(409, {"error": "step order changed; refresh"})
+                        if step_ids == current_ids:
+                            return self.json_response(200, {"saved": False,
+                                                            "revision": revision})
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "task_id": task["task_id"], "action": "reorder",
+                                 "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": revision, "changes": {"step_ids": step_ids}}
+                        append_step_event(data_dir, event)
+                    return self.json_response(200, {"saved": True, "revision": revision + 1})
+
                 if creating_project:
                     if set(payload) != {"name"}:
                         raise ValueError("project create accepts only name")
