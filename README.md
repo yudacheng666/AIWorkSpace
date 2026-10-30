@@ -2,14 +2,14 @@
 
 个人 AI 工作台，先验证 **ChatGPT → Google Drive → 本地网页 → Google Drive → ChatGPT** 的任务闭环。不需要额外的 Google Cloud 项目、付费 API 或第三方 Python 库。
 
-**当前阶段：** M1/M2/M3.1/M3.2/M3.3/M3.4 及内置软件更新中心均已合入 `main`。软件更新中心 [PR #7](https://github.com/yudacheng666/AIWorkSpace/pull/7) 于 2026-10-30 获用户批准并 Squash 合并（`ecac63dd1c03d1aa3ba02433bdcafb3d1139b7d2`）；[Actions #41074274048](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41074274048) Linux/Windows 全部成功，276 PASS / 0 FAIL / 6 个设计性 SKIP；Codex Linux 独立验收 PASS（已测范围），Windows 真实 app.py + Chromium 更新成功及失败回滚 E2E 2 PASS。正式 GitHub main 的 `VERSION=1.0.0` 与 latest commit API 已通过连接器访问核对；真实 ZIP 下载、实际发布源端到端安装及公司 Windows 8770 仍未测试。**代码合并不代表本机部署。**
+**当前阶段：** M1/M2/M3.1/M3.2/M3.3/M3.4 及内置软件更新中心均已合入 `main`。软件更新中心 [PR #7](https://github.com/yudacheng666/AIWorkSpace/pull/7) 于 2026-10-30 获用户批准并 Squash 合并（`ecac63dd1c03d1aa3ba02433bdcafb3d1139b7d2`）；[Actions #41074274048](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41074274048) Linux/Windows 全部成功，276 PASS / 0 FAIL / 6 个设计性 SKIP；Codex Linux 独立验收 PASS（已测范围），Windows 真实 app.py + Chromium 更新成功及失败回滚 E2E 2 PASS。正式 GitHub main 的 API/raw VERSION、真实 ZIP 下载及 Windows 隔离安装和程序启动已 PASS（[QA PR #8](https://github.com/yudacheng666/AIWorkSpace/pull/8)，[Actions #41077145985](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41077145985)）；公司 Windows 8770 和真实 Drive 尚未测试或部署。**代码合并不代表本机部署。**
 
 ## 软件更新中心（PR #7 已合并，尚未部署）
 
 - 当前版本 `1.0.0` 与短 build SHA 会在页面显示；检查固定 GitHub main 的最新版后，可在网页中申请一键更新。
 - 下载、校验、备份、安装、重启及失败回滚仅操作白名单程序文件；任务/项目/步骤事件数据目录不参与更新。
 - [Codex Linux 独立验收](https://github.com/yudacheng666/AIWorkSpace/pull/7#issuecomment-6524335908) PASS（已测范围）；[CI #41073083681](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41073083681) 的 GitHub-hosted Windows Runner 使用真实 app.py、updater helper 和 Chromium，完成一键更新成功及启动失败回滚 **2 PASS**，并上传[截图、Playwright trace、日志及数据哈希证据](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41073083681/artifacts/12986271493)。此前 Windows helper mock 服务专项仍保留为单元级补充，不冒充网页 E2E。
-- **发布状态**：`main` 已包含正式 `VERSION=1.0.0`；连接器已成功读取 `raw.githubusercontent.com` 的 main 版本文件和 GitHub API 的 main commit，确认旧 404 阻塞已解除。Windows 隔离 E2E 的 GitHub ZIP 仍由固定源 mock 提供，**真实 main ZIP 下载/解包/安装尚未完成隔离验证**。公司 Windows 8770、真实 Drive、企业网络及长期运行未验证或部署。
+- **发布状态**：`main` 包含正式 `VERSION=1.0.0`；[QA PR #8](https://github.com/yudacheng666/AIWorkSpace/pull/8) 已在 GitHub-hosted Windows Runner 上不使用 GitHub mock，真实访问 API/main、RAW VERSION 和官方 zipball，使用生产 `updater.py` 完成白名单/ZIP 校验、隔离应用安装、备份与真实 `app.py` 本地启动；版本/build 正确，虚构数据哈希未变。[CI 证据](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41077145985) 1 PASS。该真实来源烟测与此前 mock 版本的浏览器/helper/失败回滚 E2E 是两项互补验证，不能视为同一条真实公网浏览器完整链路。**公司 Windows 8770、真实 Drive、企业网络及长期运行未验证或部署。**
 
 ## M3.4：首页工作总览与查询（已合入 main，尚未部署）
 
