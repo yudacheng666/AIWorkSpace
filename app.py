@@ -276,8 +276,10 @@ def read_workspace(data_dir: Path) -> dict:
                 "conflict_candidates": root_candidates,
             })
             continue
-        task = {"task_id": task_id, "title": roots[0]["changes"]["title"].strip(),
-                "status": "todo", "revision": 1, "conflict": False,
+        task = {"task_id": task_id, **roots[0]["changes"],
+                "title": roots[0]["changes"]["title"].strip(),
+                "status": roots[0]["changes"].get("status", "todo"),
+                "revision": 1, "conflict": False,
                 "conflict_fields": [], "conflict_candidates": []}
         by_revision: dict[int, list[dict]] = defaultdict(list)
         for event in updated[task_id]:
@@ -416,41 +418,6 @@ def validate_project_references(workspace: dict, project_id: object,
         project = projects.get(related_id)
         if not isinstance(related_id, str) or not PROJECT_ID.fullmatch(related_id) or not project or project["conflict"]:
             raise ValueError("related project does not exist or needs conflict review")
-
-    """Publish one complete JSON file with a random name; never edit live data."""
-    validate_event(event)
-    directory = data_dir / "events"
-    directory.mkdir(parents=True, exist_ok=True)
-    destination = directory / f"evt_{event['event_id']}.json"
-    if destination.exists():
-        raise FileExistsError("event already exists")
-    payload = json.dumps(event, ensure_ascii=False, indent=2) + "\n"
-    temp_name: str | None = None
-    try:
-        with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".part",
-                                         prefix=".pending-", dir=directory,
-                                         delete=False) as stream:
-            temp_name = stream.name
-            stream.write(payload)
-            stream.flush()
-            os.fsync(stream.fileno())
-        # Hard-link publication is atomic and refuses to replace an existing event.
-        # Unlike os.replace(), concurrent writers cannot silently overwrite each other.
-        try:
-            os.link(temp_name, destination)
-        except FileExistsError:
-            raise FileExistsError("event already exists") from None
-        published_temp = temp_name
-        temp_name = None
-        try:
-            os.unlink(published_temp)
-        except OSError:
-            # The event is already published; a leftover .part file is ignored by readers.
-            pass
-        return destination
-    finally:
-        if temp_name and os.path.exists(temp_name):
-            os.unlink(temp_name)
 
 
 def handler_factory(data_dir: Path):
