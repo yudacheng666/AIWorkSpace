@@ -1093,14 +1093,14 @@ test("M3.4 successful step save advances clean baseline when sibling draft defer
 test("update center displays the installed version and checks the fixed latest build", async () => {
   const page = harness();
   await new Promise(resolve => setImmediate(resolve));
-  assert.match(page.document.getElementById("app-version").textContent, /v1\\.0\\.0/);
+  assert.match(page.document.getElementById("app-version").textContent, /v1\.0\.0/);
   assert.match(page.document.getElementById("app-version").textContent, /abcdef0/);
 
   await page.document.getElementById("check-update").handlers.get("click")();
   assert.deepEqual(page.updateCalls, ["check"]);
   assert.equal(page.document.getElementById("apply-update").hidden, false);
   assert.equal(page.document.getElementById("apply-update").disabled, false);
-  assert.match(page.document.getElementById("update-message").textContent, /1\\.1\\.0/);
+  assert.match(page.document.getElementById("update-message").textContent, /1\.1\.0/);
 });
 
 test("update UI never starts while a task draft is unsaved", async () => {
