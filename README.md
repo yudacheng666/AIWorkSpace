@@ -2,7 +2,7 @@
 
 个人 AI 工作台，先验证 **ChatGPT → Google Drive → 本地网页 → Google Drive → ChatGPT** 的任务闭环。不需要额外的 Google Cloud 项目、付费 API 或第三方 Python 库。
 
-**当前阶段：** M1/M2/M3.1/M3.2 均已合入 `main`（M3.2 Squash 合并提交 `94a93bcb`）。M3.3 编号执行步骤正在独立分支开发，尚未合并；仍以本机单用户工作台为目标。
+**当前阶段：** M1/M2/M3.1/M3.2 均已合入 `main`（M3.2 Squash 合并提交 `94a93bcb`）。M3.3 编号执行步骤在 [Draft PR #5](https://github.com/yudacheng666/AIWorkSpace/pull/5) 开发，尚未合并；仍以本机单用户工作台为目标。
 
 ## 先在 Windows 运行
 
@@ -91,7 +91,7 @@ ChatGPT 创建项目时，先向 `project_events/` 写入独立项目创建事�
 }
 ```
 
-## M3.3：编号执行步骤（开发分支，尚未合并）
+## M3.3：编号执行步骤（Draft PR #5，尚未合并）
 
 - 每项任务可拆分最多 100 个执行步骤；每一步有稳定编号 `STEP-<32位大写十六进制>`，与显示顺序分开保存。
 - 步骤名称 1–200 字；状态沿用任务状态：`todo`（待处理）、`doing`（进行中）、`blocked`（受阻）、`done`（已完成）。
