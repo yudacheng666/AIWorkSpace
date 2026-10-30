@@ -1,7 +1,7 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-30（北京时间）  
-当前阶段：**M1/M2 已合入 main，M2 双向任务闭环已在用户原公司 Windows 电脑 8770 正式实例确认通过。M3.1 项目与任务归属已完成首轮开发，PR #3 保持 Draft；最新 HEAD `98513127` 的 Linux + Windows CI 均 PASS（每个平台 38 Python + 7 Node UI 测试）。尚未完成 Codex 独立审查，未合并 main。**
+当前阶段：**M1/M2 已合入 main，M2 双向任务闭环已在用户原公司 Windows 电脑 8770 正式实例确认通过。M3.1 项目与任务归属已完成首轮开发，PR #3 保持 Draft；产品代码 HEAD `7076f797` 的 Linux + Windows CI 均 PASS（每个平台 38 Python + 7 Node UI 测试）。尚未完成 Codex 独立审查，未合并 main。**
 
 | 项目 | 当前事实 |
 |---|---|
@@ -102,7 +102,7 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 
 1. M2 收尾：**完成**。公司 Windows 唯一正式实例已在 `http://127.0.0.1:8770/` 打开；用户确认既有任务正常显示、网页新建后刷新正常且 Drive 同步完成；ChatGPT 写入 Drive 的虚构事件经用户刷新后成功显示。此前网页编辑→Drive、断网恢复、刷新持久性及 409 旧版本保护均已有验收证据。本轮不再重复整套 M2 测试。
 2. **M3.1 开发中**：[PR #3](https://github.com/yudacheng666/AIWorkSpace/pull/3) 已实现独立项目事件、稳定项目编号、创建/重命名、任务主要项目与相关项目关联、未归类收件箱和按项目分组显示。旧任务事件无须迁移；项目事件与任务事件均追加保存，项目引用未同步时任务仍保留并提示。
-3. **测试证据**：PR #3 最新 HEAD `98513127e85193593e2cd0355364f9f3676156cd` 的 Linux + Windows CI 均 SUCCESS：[Actions #41008923482](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41008923482)。每个平台均为 **38 Python tests PASS + 7 Node UI tests PASS**。早期开发提交的失败已根据 CI 日志修复并在最新 HEAD 重新通过。
+3. **测试证据**：M3.1 产品代码 HEAD `7076f797ba444cbcbceea33350c2cf57aba1ed9f` 的 Linux + Windows CI 均 SUCCESS：[Actions #41009184975](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41009184975)。每个平台均为 **38 Python tests PASS + 7 Node UI tests PASS**。早期开发提交的失败已根据 CI 日志修复；最终产品代码提交重新通过全部测试。
 4. 下一步先确认 PR #3 最新 head 的 CI 全部 PASS，再安排 Codex 独立审查；审查通过后向用户呈报是否合并。**PR 未经用户批准不得合并**。
 5. M3.1 不扩展到负责人、日期、步骤、复杂首页或提醒；这些按 M3.2–M3.5 顺序推进，避免一次做大。
 
