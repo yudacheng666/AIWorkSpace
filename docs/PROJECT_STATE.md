@@ -1,7 +1,7 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-30（北京时间）  
-当前阶段：**M1/M2/M3.1/M3.2/M3.3/M3.4 已合入 `main`。M3.4 [PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6) 于 2026-10-30 经用户批准 Squash 合并，合并提交 `5916744898ac3de1b82c4edf27c339ec9a0173c1`。固定产品/原测试 SHA `eb035c611a592cc01dc7b02138a4951b32a69036` 的 Linux/Windows CI 224 PASS / 0 FAIL；Codex 第四轮真实 Chromium 独立复验 PASS（已测范围），前三轮发现的三项草稿保护 P2 均已修复并通过指定路径复验。M3.4 未部署，公司 Windows 8770 未升级，真实 Drive 未访问。当前在独立分支开发网页内置软件更新中心；尚未合并、未部署、未在 Windows 实机验证。**
+当前阶段：**M1/M2/M3.1/M3.2/M3.3/M3.4 已合入 `main`。M3.4 [PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6) 于 2026-10-30 经用户批准 Squash 合并，合并提交 `5916744898ac3de1b82c4edf27c339ec9a0173c1`。固定产品/原测试 SHA `eb035c611a592cc01dc7b02138a4951b32a69036` 的 Linux/Windows CI 224 PASS / 0 FAIL；Codex 第四轮真实 Chromium 独立复验 PASS（已测范围），前三轮发现的三项草稿保护 P2 均已修复并通过指定路径复验。M3.4 未部署，公司 Windows 8770 未升级，真实 Drive 未访问。内置软件更新中心在 Draft PR #7；Codex 独立 Linux 隔离验收 PASS（已测范围），GitHub Actions 新增 Windows 原生 helper 进程级正向/失败回滚测试 PASS，但公司 Windows 实机、真实 GitHub main 成功更新及真实 Drive 仍 NOT TESTED；尚未合并或部署。**
 
 | 项目 | 当前事实 |
 |---|---|
@@ -180,14 +180,14 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 6. **后续阶段**：M3.4 已完成。M3.5 或部署专项尚未形成经用户确认的范围；开始下一阶段前，先依据新的用户目标明确优先级与验收门槛，不自行扩建功能。
 
 
-## 内置软件更新中心（开发中，2026-10-30）
+## 内置软件更新中心（Linux 独立验收 PASS，Windows CI helper 专项 PASS，尚未合并，2026-10-30）
 
-- **用户目标**：首次下载安装后，后续在工作台网页内显示版本号、检查更新并一键更新，不再反复去 GitHub 下载 ZIP。
-- **分支**：feat/software-update-center-20261030，从 M3.4 main 基线 0a3c8f19808b270eea632e4c0ebddf5bc17cda6f 创建；[Draft PR #7](https://github.com/yudacheng666/AIWorkSpace/pull/7) 已创建。尚未合并 main、未部署。
-- **方案**：新增 VERSION=1.0.0；网页显示版本和构建 SHA；更新源固定为 GitHub yudacheng666/AIWorkSpace 的 main；从 GitHub commit API 获取精确 SHA，再下载该 SHA 的 ZIPball。初次 ZIP 安装无构建登记时显示“未登记”，第一次网页更新完成登记。
-- **更新白名单**：仅 app.py、updater.py、VERSION、web/index.html；不更新测试/文档，不接受任意 URL，不执行远程脚本。压缩包校验路径穿越、符号链接、重复/缺失文件、CRC、大小、commit 根目录标识及 Python 语法。
-- **数据保护**：更新前检查应用目录与 --data-dir 不重叠；暂存位于应用目录内的专用隐藏目录；备份仅含程序白名单与本机元数据，位于数据目录之外。不会读取/修改/搬迁 events/、project_events/、step_events/。
-- **安装与回滚**：通过独立 helper 等待旧服务退出，备份程序、逐文件原子替换，写入本机 build SHA，再按原数据目录和端口启动新服务并验证 /api/update/status。新版本启动失败时恢复备份并重启旧版本。更新前网页阻止存在未保存草稿时开始。
-- **当前实现状态**：updater.py、版本文件、服务端版本/检查/安装 API、网页更新面板、更新器/接口/UI 回归测试已提交；[Draft PR #7](https://github.com/yudacheng666/AIWorkSpace/pull/7) 已建立。固定产品/测试 SHA `42573a34c3190b46c28c1573e98fbca202924a9c` 对应 [Actions #41059764656](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41059764656)：Linux/Windows 均 SUCCESS，每平台 Python 98 PASS + Node 38 PASS，合计 **272 PASS / 0 FAIL / 0 skipped**。**Codex 独立验收尚未执行，PR NOT READY TO MERGE**。
-- **下一步**：Codex Cloud 从 [PR #7](https://github.com/yudacheng666/AIWorkSpace/pull/7) 读取最新版验收要求，固定产品及测试 SHA `42573a34c3190b46c28c1573e98fbca202924a9c`；独立验证更新包安全、版本显示/检查/更新、数据目录字节不变、备份/回滚、真实 Windows 隔离环境中的 helper 停旧服务、安装、重新启动及失败恢复。使用隔离虚构数据，真实 Drive 与公司 8770 一律禁止。发现 P1/P2 立即停止并回写 PR 评论与截图日志。不修改产品/原测试/CI/PR 分支/main。只有双平台 CI PASS + Codex 独立验收 PASS + 用户明确批准后才可合并；未经授权不部署。
-- **未测范围**：真实 Windows 文件锁和自动重启、不同 Python 启动方式、公司 8770、真实 Drive/真实台账、网络代理/企业防火墙及 GitHub API 限流。只允许隔离虚构目录测试。
+- **用户目标**：首次下载安装后，后续从工作台网页显示版本号、检查固定 GitHub main 并一键更新；不再重复人工下载 ZIP、解压和复制程序。
+- **代码位置**：[Draft PR #7](https://github.com/yudacheng666/AIWorkSpace/pull/7)，分支 `feat/software-update-center-20261030`，基于 M3.4 main `0a3c8f19808b270eea632e4c0ebddf5bc17cda6f`；尚未合并，也未部署。
+- **产品范围**：新增 `VERSION=1.0.0`、网页版本及 build 标识、检查/安装 API、`updater.py` 独立 helper、固定 GitHub 官方 main commit、ZIP 完整性/路径/符号链接/文件白名单验证、应用程序备份/失败回滚、原端口及 `--data-dir` 重启、保存草稿时禁止启动更新。只替换 `app.py`、`updater.py`、`VERSION`、`web/index.html`；备份和暂存位于实际数据目录外。
+- **Codex 独立验收**：[Linux 隔离报告与证据](https://github.com/yudacheng666/AIWorkSpace/pull/7#issuecomment-6524335908)，固定原产品/测试 SHA `42573a34c3190b46c28c1573e98fbca202924a9c`，**PASS（Linux 隔离已执行范围）**，无确认 P1/P2/P3。独立 Python 22 PASS、Node 2 PASS、预检 29 PASS；真实 Chromium 在固定官方 URL mock/隔离临时目录下完成网页一键更新及失败回滚两条链路，helper 停服务/安装/原端口及数据目录重启，测试数据所有文件哈希一致；并发、草稿阻止更新、更新包恶意输入、Host/Origin 和任务/步骤写入定向检查 PASS。Codex 未触及产品/原测试/CI/main。
+- **Codex 明确 NOT TESTED**：独立真实 Windows 一键更新/回滚（当轮无 Windows 执行器），真实 GitHub main 成功升级（检查返回 HTTP 404，原因是 main 尚未包含 VERSION；PR 未合并，因此当前不可用于真实自动更新）。真实 home 权限、企业网络代理/限流、真实 Drive、公司 8770、长期/断电、其他浏览器、远程访问亦 NOT TESTED。
+- **新增开发侧 Windows 原生 CI 专项**：`tests/test_updater_native.py` 增加两项仅在 `win32` 运行的隔离本机进程级回归：用 Windows 子进程真实运行 `updater.py` helper、等待旧进程退出、替换程序、原端口/`--data-dir` 启动新 mock HTTP 服务并核验 build；新程序故障退出时回滚程序、恢复旧 mock 服务。均检查 `events/`、`project_events/`、`step_events/` 的虚构文件字节不变。**该测试使用模拟 app.py，验证的是 Windows helper/原生进程与回滚机制，不代表真实完整网页端到端链路通过**。
+- **最新固定产品及测试 SHA**：`f114f8a81d5e4e69286f77af1f8942dfb60e1137`，相较 Codex 独立验收 SHA 只增加 PROJECT_STATE 文档和两项 Windows 本机测试，不改产品代码。最新 [Actions #41067205073](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41067205073) Linux/Windows 均 SUCCESS；每平台 Python 100 PASS + Node 38 PASS，合计 **276 PASS / 0 FAIL / 0 skipped**（Linux 两项 Windows-only 测试属于 skipped，具体 Python unittest skip 计数必须在日志单列；不能笼统写全套无 skip）。
+- **合并门槛现状**：Linux 独立验收 PASS + 双平台 CI PASS，Windows helper 本机隔离专项已通过；**真实 Windows 网页端到端仍 NOT TESTED**。版本 `VERSION` 不在 main 是未发布状态，不能为了冒充真实成功而绕过版本校验。是否将 Windows 全链路实机验收设为合并前门槛，应依据部署风险保守处理：在公司首次部署前必须做真实 Windows 隔离或正式环境预演（绝不访问公司真实数据）。
+- **接下来**：保持 PR #7 Draft；让 Codex Cloud 先读取 PR 最新验收说明和状态，若有独立 Windows 云端环境，则用虚构目录对真实 `app.py` + 网页触发完整 helper 和回滚；若仅 Linux 则记录 Windows NOT TESTED，不重复已有 Linux 全套。用户批准合并前不可合并，首次实际安装前先解决 build登记和真实 main `VERSION` 发布路径，禁止自动升级公司 Windows 8770。
