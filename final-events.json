@@ -1,0 +1,263 @@
+{
+  "step_events/evt_24f81952-a1bc-4827-88fd-9d614bd89c35.json": {
+    "version": 1,
+    "event_id": "24f81952-a1bc-4827-88fd-9d614bd89c35",
+    "task_id": "TASK-NOOWNER",
+    "step_id": "STEP-8E750988A0D544908FD3F9796EA7BAF4",
+    "action": "create",
+    "actor": "user",
+    "timestamp": "2026-10-30T11:00:30Z",
+    "base_revision": 0,
+    "changes": {
+      "title": "虚构：查询页面新增一步",
+      "position": 1
+    }
+  },
+  "step_events/evt_25156efa-a79c-4ecc-8d99-780793069245.json": {
+    "version": 1,
+    "event_id": "25156efa-a79c-4ecc-8d99-780793069245",
+    "task_id": "TASK-SELF-TODAY",
+    "step_id": "STEP-11111111111111111111111111111111",
+    "action": "update",
+    "actor": "user",
+    "timestamp": "2026-10-30T11:00:29Z",
+    "base_revision": 1,
+    "changes": {
+      "title": "虚构：步骤正常保存"
+    }
+  },
+  "step_events/evt_step-create-001.json": {
+    "version": 1,
+    "event_id": "step-create-001",
+    "task_id": "TASK-SELF-TODAY",
+    "step_id": "STEP-11111111111111111111111111111111",
+    "action": "create",
+    "actor": "chatgpt",
+    "base_revision": 0,
+    "changes": {
+      "title": "虚构核对清单",
+      "position": 1
+    }
+  },
+  "events/evt_external-task-update-001.json": {
+    "version": 1,
+    "event_id": "external-task-update-001",
+    "task_id": "TASK-SELF-TODAY",
+    "action": "update",
+    "actor": "chatgpt",
+    "base_revision": 2,
+    "changes": {
+      "title": "虚构：外部新版本"
+    }
+  },
+  "events/evt_df2ce4fc-c492-4335-84d4-c8521c64873b.json": {
+    "version": 1,
+    "event_id": "df2ce4fc-c492-4335-84d4-c8521c64873b",
+    "task_id": "TASK-NOOWNER",
+    "action": "update",
+    "actor": "user",
+    "timestamp": "2026-10-30T11:00:29Z",
+    "base_revision": 1,
+    "changes": {
+      "title": "虚构：旧任务标题保存成功",
+      "status": "todo"
+    }
+  },
+  "events/evt_conflict-title-1.json": {
+    "version": 1,
+    "event_id": "conflict-title-1",
+    "task_id": "TASK-CONFLICT",
+    "action": "update",
+    "actor": "chatgpt",
+    "base_revision": 1,
+    "changes": {
+      "title": "虚构冲突候选乙"
+    }
+  },
+  "events/evt_conflict-title-0.json": {
+    "version": 1,
+    "event_id": "conflict-title-0",
+    "task_id": "TASK-CONFLICT",
+    "action": "update",
+    "actor": "chatgpt",
+    "base_revision": 1,
+    "changes": {
+      "title": "虚构冲突候选甲"
+    }
+  },
+  "events/evt_status-TASK-DONE.json": {
+    "version": 1,
+    "event_id": "status-TASK-DONE",
+    "task_id": "TASK-DONE",
+    "action": "update",
+    "actor": "user",
+    "base_revision": 1,
+    "changes": {
+      "status": "done"
+    },
+    "confirmed_done": true
+  },
+  "events/evt_status-TASK-SELF-LATE.json": {
+    "version": 1,
+    "event_id": "status-TASK-SELF-LATE",
+    "task_id": "TASK-SELF-LATE",
+    "action": "update",
+    "actor": "user",
+    "base_revision": 1,
+    "changes": {
+      "status": "blocked"
+    }
+  },
+  "events/evt_status-TASK-SELF-TODAY.json": {
+    "version": 1,
+    "event_id": "status-TASK-SELF-TODAY",
+    "task_id": "TASK-SELF-TODAY",
+    "action": "update",
+    "actor": "user",
+    "base_revision": 1,
+    "changes": {
+      "status": "doing"
+    }
+  },
+  "events/evt_create-TASK-CONFLICT.json": {
+    "version": 1,
+    "event_id": "create-TASK-CONFLICT",
+    "task_id": "TASK-CONFLICT",
+    "action": "create",
+    "actor": "chatgpt",
+    "base_revision": 0,
+    "changes": {
+      "title": "虚构：TASK-CONFLICT",
+      "owner": "虚构甲",
+      "planned_date": "2026-12-28",
+      "follow_up_date": "2026-12-28",
+      "due_date": "2026-12-28"
+    }
+  },
+  "events/evt_create-TASK-DONE.json": {
+    "version": 1,
+    "event_id": "create-TASK-DONE",
+    "task_id": "TASK-DONE",
+    "action": "create",
+    "actor": "chatgpt",
+    "base_revision": 0,
+    "changes": {
+      "title": "虚构：TASK-DONE",
+      "owner": "虚构甲",
+      "planned_date": "2026-12-27",
+      "follow_up_date": "2026-12-27",
+      "due_date": "2026-12-27"
+    }
+  },
+  "events/evt_create-TASK-NOOWNER.json": {
+    "version": 1,
+    "event_id": "create-TASK-NOOWNER",
+    "task_id": "TASK-NOOWNER",
+    "action": "create",
+    "actor": "chatgpt",
+    "base_revision": 0,
+    "changes": {
+      "title": "虚构：TASK-NOOWNER"
+    }
+  },
+  "events/evt_create-TASK-OTHER-FUTURE.json": {
+    "version": 1,
+    "event_id": "create-TASK-OTHER-FUTURE",
+    "task_id": "TASK-OTHER-FUTURE",
+    "action": "create",
+    "actor": "chatgpt",
+    "base_revision": 0,
+    "changes": {
+      "title": "虚构：TASK-OTHER-FUTURE",
+      "owner": "虚构乙",
+      "planned_date": "2026-12-27",
+      "follow_up_date": "2026-12-29",
+      "due_date": "2027-01-05"
+    }
+  },
+  "events/evt_create-TASK-OTHER-TODAY.json": {
+    "version": 1,
+    "event_id": "create-TASK-OTHER-TODAY",
+    "task_id": "TASK-OTHER-TODAY",
+    "action": "create",
+    "actor": "chatgpt",
+    "base_revision": 0,
+    "changes": {
+      "title": "虚构：TASK-OTHER-TODAY",
+      "owner": "虚构乙",
+      "planned_date": "2026-12-28",
+      "follow_up_date": "2026-12-28",
+      "due_date": "2027-01-04"
+    }
+  },
+  "events/evt_create-TASK-SELF-FUTURE.json": {
+    "version": 1,
+    "event_id": "create-TASK-SELF-FUTURE",
+    "task_id": "TASK-SELF-FUTURE",
+    "action": "create",
+    "actor": "chatgpt",
+    "base_revision": 0,
+    "changes": {
+      "title": "虚构：TASK-SELF-FUTURE",
+      "owner": "虚构甲",
+      "planned_date": "2026-12-29",
+      "due_date": "2027-01-04"
+    }
+  },
+  "events/evt_create-TASK-SELF-LATE.json": {
+    "version": 1,
+    "event_id": "create-TASK-SELF-LATE",
+    "task_id": "TASK-SELF-LATE",
+    "action": "create",
+    "actor": "chatgpt",
+    "base_revision": 0,
+    "changes": {
+      "title": "虚构：TASK-SELF-LATE",
+      "owner": "虚构甲",
+      "planned_date": "2026-12-27",
+      "due_date": "2026-12-27",
+      "follow_up_date": "2026-12-28"
+    }
+  },
+  "events/evt_create-TASK-SELF-TODAY.json": {
+    "version": 1,
+    "event_id": "create-TASK-SELF-TODAY",
+    "task_id": "TASK-SELF-TODAY",
+    "action": "create",
+    "actor": "chatgpt",
+    "base_revision": 0,
+    "changes": {
+      "title": "虚构：TASK-SELF-TODAY",
+      "owner": "虚构甲",
+      "planned_date": "2026-12-28",
+      "due_date": "2026-12-28",
+      "follow_up_date": "2026-12-30",
+      "project_id": "PROJECT-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "related_project_ids": [
+        "PROJECT-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+      ]
+    }
+  },
+  "project_events/evt_project-PROJECT-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.json": {
+    "version": 1,
+    "event_id": "project-PROJECT-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "project_id": "PROJECT-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "action": "create",
+    "actor": "chatgpt",
+    "base_revision": 0,
+    "changes": {
+      "name": "虚构关联项目"
+    }
+  },
+  "project_events/evt_project-PROJECT-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.json": {
+    "version": 1,
+    "event_id": "project-PROJECT-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "project_id": "PROJECT-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "action": "create",
+    "actor": "chatgpt",
+    "base_revision": 0,
+    "changes": {
+      "name": "虚构主要项目"
+    }
+  }
+}

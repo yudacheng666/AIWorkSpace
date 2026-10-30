@@ -1,0 +1,112 @@
+[
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": false
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": false
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": false
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": false
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": true
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": false
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": false
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": false
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": false
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": true
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": false
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": false
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": false
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": false
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": true
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": false
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": false
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": false
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": false
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": true
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": true
+  },
+  {
+    "type": "confirm",
+    "message": "存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？",
+    "accept": true
+  }
+]

@@ -1,0 +1,16 @@
+✔ M3.4 local dates include today and next 7 calendar days, including across year boundary (57.261205ms)
+✔ M3.4 overview separates own work, other followups, near-due and risks without guessing owner (26.568939ms)
+✔ M3.4 query matches stable task/step IDs, related projects and inclusive dates (7.338187ms)
+✔ M3.4 rendered query preserves input and applies filters only on explicit submit (6.904552ms)
+✔ M3.4 invalid date range retains prior valid query and reset recovers all tasks (6.00324ms)
+✔ M3.4 selected self owner remains local to UI and survives refresh without POST (4.107926ms)
+✔ M3.4 filter changes and refresh never silently discard unsaved task edits (4.997949ms)
+✔ M3.4 new step drafts are also protected from view switching (3.325176ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 258.067468

@@ -1,0 +1,42 @@
+[
+  {
+    "url": "http://127.0.0.1:40493/api/tasks/TASK-NOOWNER/update",
+    "body": {
+      "title": "虚构：旧任务标题保存成功",
+      "status": "todo",
+      "revision": 1,
+      "confirmed_done": false
+    }
+  },
+  {
+    "url": "http://127.0.0.1:40493/api/tasks/TASK-SELF-TODAY/steps/STEP-11111111111111111111111111111111/update",
+    "body": {
+      "revision": 1,
+      "title": "虚构：步骤正常保存"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:40493/api/tasks/TASK-NOOWNER/steps",
+    "body": {
+      "title": "虚构：查询页面新增一步"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:40493/api/tasks/TASK-SELF-TODAY/update",
+    "body": {
+      "title": "虚构：写入失败保留草稿",
+      "status": "doing",
+      "revision": 2,
+      "confirmed_done": false
+    }
+  },
+  {
+    "url": "http://127.0.0.1:40493/api/tasks/TASK-SELF-TODAY/update",
+    "body": {
+      "title": "虚构：旧版本待保存草稿",
+      "status": "doing",
+      "revision": 2,
+      "confirmed_done": false
+    }
+  }
+]

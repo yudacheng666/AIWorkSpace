@@ -1,0 +1,9 @@
+{
+  "level": "P2",
+  "stage": "browser-reload draft safety",
+  "dialogs_before": 22,
+  "dialogs_after": 22,
+  "lost_draft": "虚构：浏览器刷新前未保存草稿",
+  "after_value": "虚构：外部新版本",
+  "events_unchanged": true
+}
