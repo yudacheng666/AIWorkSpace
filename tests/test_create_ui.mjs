@@ -206,6 +206,9 @@ function taskEditHarness(task) {
   const stepUpdated = [];
   const stepReordered = [];
   let confirmValue = true;
+  let delayStepCreate = false;
+  let resolveStepCreate;
+  const pendingStepCreate = new Promise(resolve => { resolveStepCreate = resolve; });
   const fetch = async (path, options) => {
     if (path.includes("/steps/reorder") && options?.method === "POST") {
       stepReordered.push(JSON.parse(options.body));
@@ -217,6 +220,7 @@ function taskEditHarness(task) {
     }
     if (path.endsWith("/steps") && options?.method === "POST") {
       stepCreated.push({path, body: JSON.parse(options.body)});
+      if (delayStepCreate) return pendingStepCreate;
       return {ok: true, json: async () => ({saved: true, step_id: "STEP-" + "9".repeat(32)})};
     }
     if (path.endsWith("/update") && options?.method === "POST") {
@@ -248,7 +252,11 @@ function taskEditHarness(task) {
   const stepPanel = card.children.find(item => item.className === "steps-panel");
   return {title, status, primary, related, owner, priority, due, planned, follow,
           save, posted, card, stepPanel, stepCreated, stepUpdated, stepReordered,
-          setConfirm(value) { confirmValue = value; }};
+          setConfirm(value) { confirmValue = value; },
+          setDelayStepCreate(value) { delayStepCreate = value; },
+          respondStepCreate() {
+            resolveStepCreate({ok: true, json: async () => ({saved: true, step_id: "STEP-" + "9".repeat(32)})});
+          }};
 }
 
 test("P2: changing title preserves unsynced primary and related project IDs", async () => {
@@ -404,6 +412,27 @@ test("M3.3 adds a numbered step through the task-scoped endpoint", async () => {
   assert.equal(page.stepCreated.length, 1);
   assert.equal(page.stepCreated[0].path, "/api/tasks/TASK-M3-03-ADD/steps");
   assert.deepEqual(page.stepCreated[0].body, {title: "整理第一份资料"});
+});
+
+test("M3.3 keeps a new step draft typed while an earlier step is saving", async () => {
+  const page = taskEditHarness({
+    task_id: "TASK-M3-03-DRAFT", title: "父任务", status: "todo",
+    revision: 1, conflict: false, project_id: null, related_project_ids: [], steps: []
+  });
+  const addForm = page.stepPanel.children.find(item => item.className === "step-add-form");
+  const input = addForm.children[0];
+  const message = page.stepPanel.children.find(item => item.className === "step-message");
+  input.value = "正在保存的第一步";
+  input.handlers.get("input")();
+  page.setDelayStepCreate(true);
+  const saving = addForm.handlers.get("submit")({preventDefault() {}});
+  input.value = "新输入的第二步草稿";
+  input.handlers.get("input")();
+  page.respondStepCreate();
+  await saving;
+  assert.equal(input.value, "新输入的第二步草稿");
+  assert.match(message.textContent, /草稿已保留/);
+  assert.equal(page.stepCreated.length, 1);
 });
 
 test("M3.3 edits one step without touching its task or sibling steps", async () => {
