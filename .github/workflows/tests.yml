@@ -51,6 +51,17 @@ jobs:
         env:
           AIWORKSPACE_RUN_WINDOWS_E2E: "1"
         run: python -m unittest discover -s tests -p "test_updater_windows_e2e.py" -v
+      - name: Verify real published GitHub main source and isolated local install
+        env:
+          AIWORKSPACE_RUN_LIVE_MAIN_SOURCE: "1"
+        run: python qa/test_public_main_source.py
+      - name: Upload live public main source smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-main-source-smoke
+          path: ${{ runner.temp }}/aiworkspace-main-source-smoke/
+          if-no-files-found: warn
       - name: Upload Windows updater evidence
         if: always()
         uses: actions/upload-artifact@v4
