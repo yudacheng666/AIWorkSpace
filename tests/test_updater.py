@@ -42,9 +42,13 @@ def make_archive(entries=None, prefix=None):
 
 
 class FakeResponse:
-    def __init__(self, content):
+    def __init__(self, content, final_url=None):
         self.content = content
         self.headers = {}
+        self.final_url = final_url
+
+    def geturl(self):
+        return self.final_url or "https://api.github.com/test"
 
     def __enter__(self):
         return self
@@ -254,6 +258,49 @@ class UpdaterTests(unittest.TestCase):
             with self.assertRaises(updater.UpdateError):
                 updater.prepare_update(self.root, self.data_dir, COMMIT)
             download.assert_not_called()
+
+
+    def test_update_check_rejects_redirects_to_untrusted_hosts(self):
+        commit_payload = json.dumps({
+            "sha": COMMIT, "commit": {"message": "fictional update"}
+        }).encode("utf-8")
+        with patch.object(updater, "urlopen", return_value=FakeResponse(
+            commit_payload, "https://untrusted.example/redirected"
+        )):
+            with self.assertRaises(updater.UpdateError):
+                updater.check_latest_update(self.root)
+
+    def test_archive_rejects_corrupt_crc(self):
+        corrupted = bytearray(make_archive())
+        needle = b"from __future__ import annotations"
+        index = corrupted.find(needle)
+        self.assertGreaterEqual(index, 0)
+        corrupted[index] ^= 1
+        with self.assertRaises(updater.UpdateError):
+            updater.validate_archive_and_stage(bytes(corrupted), COMMIT,
+                                               self.root, self.data_dir)
+        self.assert_data_unchanged()
+
+    def test_install_failure_exposes_backup_for_helper_retry(self):
+        stage = self.make_stage()
+        original_copy = updater._atomic_copy
+        failed = False
+
+        def fail_twice(source, target):
+            nonlocal failed
+            if target.name == "updater.py" and not failed:
+                failed = True
+                raise OSError("simulated first replace failure")
+            return original_copy(source, target)
+
+        with patch.object(updater, "_atomic_copy", side_effect=fail_twice):
+            with self.assertRaises(updater.UpdateInstallError) as raised:
+                updater.apply_staged_update(
+                    self.root, self.data_dir, stage, COMMIT, self.base / "backups"
+                )
+        self.assertTrue(raised.exception.backup_dir.is_dir())
+        self.assertTrue((raised.exception.backup_dir / "manifest.json").is_file())
+        self.assert_data_unchanged()
 
 
 if __name__ == "__main__":
