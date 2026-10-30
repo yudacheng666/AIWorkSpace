@@ -279,8 +279,9 @@ def validate_archive_and_stage(
         raise
     except (zipfile.BadZipFile, RuntimeError, OSError, ValueError) as exc:
         raise UpdateError("更新压缩包无法读取或完整性校验失败。") from exc
-    if not root_name or not root_name.endswith(commit[:7]):
-        raise UpdateError("更新压缩包与目标 GitHub 提交不匹配。")
+    if (not root_name or not root_name.startswith("yudacheng666-AIWorkSpace-") or
+            not root_name.endswith(commit[:7])):
+        raise UpdateError("更新压缩包与目标 GitHub 仓库/提交不匹配。")
     if set(extracted) != set(APP_FILES):
         raise UpdateError("更新压缩包缺少必要的程序文件。")
 
