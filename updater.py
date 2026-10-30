@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import hashlib
 import json
 import os
 import re
@@ -366,9 +367,10 @@ def create_backup(
                 target = backup / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, target)
-                manifest["files"][relative] = True
+                digest = hashlib.sha256(target.read_bytes()).hexdigest()
+                manifest["files"][relative] = {"exists": True, "sha256": digest}
             else:
-                manifest["files"][relative] = False
+                manifest["files"][relative] = {"exists": False, "sha256": None}
         _write_json_atomic(backup / "manifest.json", manifest)
     except Exception:
         shutil.rmtree(backup, ignore_errors=True)
@@ -407,11 +409,18 @@ def rollback_from_backup(
     for relative in BACKUP_FILES:
         if relative not in manifest["files"]:
             raise UpdateError("更新备份清单不完整，无法自动回滚。")
+        entry = manifest["files"][relative]
+        if not isinstance(entry, dict) or type(entry.get("exists")) is not bool:
+            raise UpdateError("更新备份清单格式无效，无法自动回滚。")
         target = root_path / relative
-        if manifest["files"][relative] is True:
+        if entry["exists"]:
             source = backup / relative
-            if not source.is_file() or source.is_symlink():
-                raise UpdateError("更新备份文件缺失，无法自动回滚。")
+            expected_hash = entry.get("sha256")
+            if (not source.is_file() or source.is_symlink() or
+                    not isinstance(expected_hash, str) or
+                    not re.fullmatch(r"[0-9a-f]{64}", expected_hash) or
+                    hashlib.sha256(source.read_bytes()).hexdigest() != expected_hash):
+                raise UpdateError("更新备份文件缺失或校验失败，无法自动回滚。")
             _atomic_copy(source, target)
         elif target.exists():
             if target.is_dir() or target.is_symlink():
@@ -488,7 +497,8 @@ def _pid_running(pid: int) -> bool:
             kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
             handle = kernel32.OpenProcess(0x00100000, False, pid)
             if not handle:
-                return False
+                # Access denied means the process may still be alive; fail closed.
+                return ctypes.get_last_error() == 5
             try:
                 return kernel32.WaitForSingleObject(handle, 0) == 258
             finally:
