@@ -1363,5 +1363,71 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(tasks[1]["title"], "第二个虚构事项")
 
 
+    def update_request(self, body, extra_headers=None):
+        headers = {"Content-Type": "application/json"}
+        headers.update(extra_headers or {})
+        request = Request(self.base + "/api/update/apply",
+                          data=json.dumps(body).encode("utf-8"), method="POST",
+                          headers=headers)
+        try:
+            with urlopen(request, timeout=3) as reply:
+                return reply.status, json.load(reply)
+        except HTTPError as error:
+            return error.code, json.load(error)
+
+    def test_update_status_reports_local_version_without_network(self):
+        with urlopen(self.base + "/api/update/status", timeout=3) as response:
+            status = json.load(response)
+        self.assertEqual(status["version"], "1.0.0")
+        self.assertFalse(status["build_known"])
+        self.assertIsNone(status["build_commit"])
+
+    def test_update_check_uses_fixed_repository_check_result(self):
+        expected = {
+            "version": "1.0.0", "build_commit": None, "build_short": None,
+            "build_known": False, "last_update": None,
+            "latest_version": "1.1.0", "latest_commit": "a" * 40,
+            "latest_short": "aaaaaaa", "latest_message": "fictional update",
+            "latest_date": "2026-10-30T00:00:00Z", "update_available": True,
+            "source": "GitHub main",
+        }
+        with patch.object(app_module, "check_latest_update", return_value=expected):
+            with urlopen(self.base + "/api/update/check", timeout=3) as response:
+                status = json.load(response)
+        self.assertEqual(status, expected)
+
+    def test_update_apply_rejects_invalid_commit_without_starting_helper(self):
+        status, result = self.update_request({"commit": "not-a-commit"})
+        self.assertEqual(status, 400)
+        self.assertIn("invalid update commit", result["error"])
+
+    def test_update_apply_requires_same_origin(self):
+        status, result = self.update_request(
+            {"commit": "a" * 40}, {"Origin": "https://untrusted.example"}
+        )
+        self.assertEqual(status, 403)
+        self.assertIn("local requests only", result["error"])
+
+    def test_update_apply_starts_only_the_checked_commit(self):
+        stage = Path(self.temp.name) / "fictional-stage"
+        expected = {"latest_version": "1.1.0"}
+        shutdown = self.server.shutdown
+        self.server.shutdown = lambda: None
+        try:
+            with patch.object(app_module, "prepare_update", return_value=(stage, expected)) as prepare, \
+                 patch.object(app_module, "launch_update_helper") as launch:
+                status, result = self.update_request({"commit": "a" * 40})
+            self.assertEqual(status, 202)
+            self.assertTrue(result["started"])
+            self.assertEqual(result["commit"], "a" * 40)
+            prepare.assert_called_once_with(app_module.ROOT, self.data_dir, "a" * 40)
+            launch.assert_called_once()
+            self.assertEqual(launch.call_args.args[0], stage)
+        finally:
+            self.server.shutdown = shutdown
+            if app_module._update_lock.locked():
+                app_module._update_lock.release()
+
+
 if __name__ == "__main__":
     unittest.main()
