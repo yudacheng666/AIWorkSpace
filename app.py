@@ -368,14 +368,19 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
             if not roots:
                 continue
             root = roots[0]
-            step = {
-                "task_id": root["task_id"], "step_id": step_id,
-                "title": "步骤创建记录冲突", "status": "todo", "revision": 0,
-                "conflict": True, "conflict_fields": ["title"],
-                "conflict_candidates": summarize_conflict_events(roots),
-                "created_at": root.get("timestamp", ""),
-                "created_position": root["changes"].get("position"),
-            }
+            for task_id in sorted({event["task_id"] for event in roots}):
+                task_root = next(event for event in roots if event["task_id"] == task_id)
+                placeholder = {
+                    "task_id": task_id, "step_id": step_id,
+                    "title": "步骤创建记录冲突", "status": "todo", "revision": 0,
+                    "conflict": True, "conflict_fields": ["title", "task_id"],
+                    "conflict_candidates": summarize_conflict_events(roots),
+                    "created_at": task_root.get("timestamp", ""),
+                    "created_position": task_root["changes"].get("position"),
+                }
+                steps_by_task[task_id].append(placeholder)
+                steps_by_id.setdefault(step_id, placeholder)
+            continue
         else:
             root = roots[0]
             step = {
