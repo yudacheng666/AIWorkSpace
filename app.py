@@ -472,7 +472,17 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
                 order_candidates.extend(summarize_conflict_events(candidates))
                 warnings.append(f"{task_id}: conflicting step order at revision {order_revision}")
                 break
-            order_ids = list(candidates[0]["changes"]["step_ids"])
+            candidate_ids = list(candidates[0]["changes"]["step_ids"])
+            foreign_ids = [
+                step_id for step_id in candidate_ids
+                if step_id in steps_by_id and steps_by_id[step_id]["task_id"] != task_id
+            ]
+            if foreign_ids:
+                order_conflict = True
+                order_candidates.extend(summarize_conflict_events(candidates))
+                warnings.append(f"{task_id}: step order references steps belonging to another task")
+                break
+            order_ids = candidate_ids
             order_revision += 1
         if order_updates:
             order_conflict = True
