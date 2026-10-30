@@ -140,16 +140,6 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - **限制与安全**：公开仓库仅虚构数据；Codex 证据位于独立 audit 分支，不写入产品 PR；未部署/升级公司电脑 8770，未访问真实 Drive，未修改 main；远程访问依 D012 延后。
 - **合并结果**：用户于 2026-10-30 明确批准。已将 PR #5 从 Draft 转 Ready 并以 Squash 合并至 main，合并 SHA `932f6f9aeb1a83ce537be43e6476674bf717300e`。CI 及 Codex 独立验收结果仅覆盖上述已测范围，不代表公司 Windows 或真实 Drive 已部署/验证。
 
-## 下一步
-
-1. **M3.3 合并已完成**，下一开发阶段是 **M3.4：首页工作总览与查询**。先依据 `docs/REQUIREMENTS.md` 已确认范围制定最小功能切片；仅包含今日亲自处理、待审核/决策、跟进他人、临近到期、逾期/受阻，以及按稳定编号、关键词、项目、状态、负责人和日期的查询。
-2. M3.4 在新的开发分支/PR 实现；不要把 M3.3 的历史中间分支或 Codex 测试报告当作 M3.4 已完成依据。继续由 ChatGPT 开发，Codex 独立验收；维护 GitHub Markdown 长期项目记忆。
-3. **公司 Windows 8770 没有因 GitHub 合并自动升级**，当前仍为旧本机测试实例；不访问、清理、覆盖或迁移真实 Google Drive 数据和历史事件。实机部署、真实同步及原生中文输入法需另行计划和验收；已测 CI/Chromium 不能替代它们。
-4. 远程访问继续按 D012 暂缓，产品阶段完成后再考虑；当前不调整 Host/Origin 白名单或加入 Tailscale 访问。
-5. 下一轮开始时读取 `AGENTS.md`、`docs/REQUIREMENTS.md`、本文件与 `docs/DECISIONS.md`，实时核验 main、分支、PR、CI 和独立验收，避免跨对话继承旧状态。
-
-**交接规则：** M3.3 Squash 合并提交为 `932f6f9aeb1a83ce537be43e6476674bf717300e`，固定产品/测试验收 SHA 为 `633b5304e843ca632dca095d42a7ec66d4baabe4`；后续文档维护 commit 不改变这两个历史证据。
-
 ## M3.4 首页工作总览与查询（开发中，2026-10-30）
 
 - 开发分支：`feat/m3-04-workspace-overview-search`，来自已合并 M3.3 的 main（开发前基线 `b209da970434b71bb4e1b97e86bfdf1fa0483e98`）；M3.4 尚未合并，也没有部署到公司 Windows。
@@ -157,13 +147,13 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - **重要口径**：今日亲自处理=选择的本人的负责人且计划执行日期已到，未完成且未冲突；跟进他人=不同于本人、有负责人且跟进日期已到，未完成且未冲突；七天内到期=今天到第 7 天（含两端）且未完成、未冲突；逾期/受阻/冲突=截止已过、blocked 或 task.conflict；任务可以同时进入多个口径，计数不可相加为总数。日期按访问页面的本地日历。
 - **不冒充审批数据**：当前数据没有“待审核/决策”结构字段，也没有可信登录身份；页面明确展示不可自动识别，不能用普通优先级/任务状态猜测审批或把未配置的“本人”显示成 0。身份由用户在当前页面人工选择与负责人一致的名称，不保存、也不写入事件。
 - 多条件查询仅影响显示，空结果与 API 读取失败需区分；切换视图、筛选、刷新不应自动新增/修改任何事件；不破坏原 M1–M3.3 创建、编辑、草稿保护、步骤排序与冲突隔离。
-- 新增 `tests/test_create_ui.mjs` Node 原生回归测试覆盖日期跨年、分类口径、稳定编号和关联项目、组合查询、无效日期范围、刷新保留筛选/当前本人，以及不得产生 POST。
+- 新增 `tests/test_create_ui.mjs` Node 原生回归测试覆盖日期跨年、分类口径、稳定编号和关联项目、组合查询、无效日期范围、刷新保留筛选/当前本人、未保存任务/步骤草稿的保护，以及筛选不得产生 POST。切换/手动刷新有未保存草稿时需用户明确确认丢弃，自动刷新暂缓重绘；保存中的新增草稿继续保留。
 - 安全范围：测试虚构任务，不访问真实 Drive、公司 Windows 8770，不修改远程访问/Host/Origin；公开 GitHub 无真实资料。
-- **验收现状**：开发代码和自动化测试已提交待 PR/CI；未经独立 Codex Chromium/API 实操验收，不得宣称 M3.4 已 PASS；后续如有改动以最新固定 SHA 为准。
+- **验收现状**：[Draft PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6) 已建立，产品/测试代码固定 SHA `46d4a8a7edd4526d48fcff6c37db4a711265cfe3`；[GitHub Actions #41042197541](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41042197541) Linux 和 Windows 全部 SUCCESS，每个平台 76 Python + 31 Node UI PASS，合计 **214 PASS / 0 FAIL / 0 skipped**。仅能称为 CI PASS，尚未经过 Codex 独立真实 Chromium/API 验收，**M3.4 NOT READY TO MERGE**；后续如有产品/测试更改必须重新核实 SHA 和 CI。
 
 ## M3.4 下一步
 
-1. 创建 Draft PR（以 main 为 base）；等待 GitHub Actions Linux/Windows 对固定 HEAD 自动化测试，审查影响范围与公开安全。
-2. CI 成功后要求 Codex Cloud 以最新固定 SHA 对首页分类、当前用户选择、搜索组合、日期边界、无审批误判、空结果/异常、原编辑写入无回归进行独立真实 Chromium 验收，证据回写 PR；Codex 仅做测试，不改产品/原测试/CI。
+1. **已完成**：Draft PR #6 创建；代码/原测试固定 SHA `46d4a8a7edd4526d48fcff6c37db4a711265cfe3` 的 Linux/Windows CI 全部成功。后续 PR 分支如仅修改 README/项目记忆 Markdown，不用将文档提交 SHA 冒充为已运行的代码测试 SHA。
+2. **待执行**：Codex Cloud 依据 PR #6 固定代码/测试 SHA 做真实 Chromium/API 独立验收：分类/本人选择、查询组合、日期边界、无审批误判、未保存草稿拒绝切换/刷新、空结果与读取失败区别，以及原任务/步骤编辑保存无回归。证据回写 PR，Codex 只测试，不改产品/原测试/CI。
 3. 有 P1/P2 时由 ChatGPT 在本分支修复并补回归；CI 与独立验收均通过后，再由用户决定是否批准 Squash 合并。
 4. 不自动升级公司 Windows 8770、不接触真实 Drive 数据、不测试远程访问；远程访问继续按 D012 暂缓。
