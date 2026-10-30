@@ -15,8 +15,9 @@ from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import app as app_module  # noqa: E402
-from app import (append_event, append_project_event, handler_factory, read_workspace,
-                 validate_event, validate_project_event)  # noqa: E402
+from app import (append_event, append_project_event, append_step_event, handler_factory,
+                 read_workspace, validate_event, validate_project_event,
+                 validate_step_event)  # noqa: E402
 
 
 def event(event_id="demo-event-001", task_id="TASK-DEMO-001", action="create",
@@ -32,6 +33,23 @@ def project_event(event_id="project-event-001", project_id="PROJECT-" + "A" * 32
     return {"version": 1, "event_id": event_id, "project_id": project_id,
             "action": action, "actor": actor, "base_revision": revision,
             "timestamp": "2026-10-27T00:00:00Z", "changes": {"name": name}}
+
+
+def step_event(event_id="step-event-001", task_id="TASK-DEMO-001",
+               step_id="STEP-" + "A" * 32, action="create", revision=0,
+               changes=None, actor="chatgpt", **other):
+    return {"version": 1, "event_id": event_id, "task_id": task_id,
+            "step_id": step_id, "action": action, "actor": actor,
+            "base_revision": revision, "timestamp": "2026-10-30T00:00:00Z",
+            "changes": changes or {"title": "虚构执行步骤"}, **other}
+
+
+def step_order_event(event_id="step-order-001", task_id="TASK-DEMO-001",
+                     revision=0, step_ids=None):
+    return {"version": 1, "event_id": event_id, "task_id": task_id,
+            "action": "reorder", "actor": "user",
+            "base_revision": revision, "timestamp": "2026-10-30T00:00:00Z",
+            "changes": {"step_ids": step_ids or ["STEP-" + "A" * 32]}}
 
 
 class DataTests(unittest.TestCase):
@@ -104,6 +122,134 @@ class DataTests(unittest.TestCase):
         for changes in bad_changes:
             with self.subTest(changes=changes), self.assertRaises(ValueError):
                 validate_event(event(changes={"title": "虚构任务", **changes}))
+
+    def test_numbered_steps_have_stable_ids_status_and_append_only_order(self):
+        append_event(self.data_dir, event())
+        first_id = "STEP-" + "A" * 32
+        second_id = "STEP-" + "B" * 32
+        append_step_event(self.data_dir, step_event(
+            "step-create-001", step_id=first_id, changes={"title": "第一步"}))
+        append_step_event(self.data_dir, step_event(
+            "step-create-002", step_id=second_id, changes={"title": "第二步"}))
+        append_step_event(self.data_dir, step_event(
+            "step-update-001", step_id=first_id, action="update", revision=1,
+            changes={"status": "doing", "title": "第一步已调整"}))
+        append_step_event(self.data_dir, step_order_event(
+            "step-order-002", revision=0, step_ids=[second_id, first_id]))
+        task = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual([step["step_id"] for step in task["steps"]],
+                         [second_id, first_id])
+        self.assertEqual([step["position"] for step in task["steps"]], [1, 2])
+        first = next(step for step in task["steps"] if step["step_id"] == first_id)
+        self.assertEqual(first["title"], "第一步已调整")
+        self.assertEqual(first["status"], "doing")
+        self.assertEqual(first["revision"], 2)
+        self.assertEqual(task["step_order_revision"], 1)
+        files = list((self.data_dir / "step_events").glob("*.json"))
+        self.assertEqual(len(files), 4)
+
+    def test_legacy_tasks_default_to_no_steps_without_rewriting_history(self):
+        append_event(self.data_dir, event())
+        original = next((self.data_dir / "events").glob("*.json")).read_bytes()
+        task = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual(task["steps"], [])
+        self.assertEqual(task["step_order_revision"], 0)
+        self.assertFalse(task["step_order_conflict"])
+        self.assertEqual(next((self.data_dir / "events").glob("*.json")).read_bytes(), original)
+
+    def test_step_conflict_freezes_only_the_affected_step(self):
+        append_event(self.data_dir, event())
+        append_step_event(self.data_dir, step_event(
+            "step-conflict-create", step_id="STEP-" + "C" * 32,
+            changes={"title": "冲突步骤"}))
+        append_step_event(self.data_dir, step_event(
+            "step-safe-create", step_id="STEP-" + "D" * 32,
+            changes={"title": "正常步骤"}))
+        append_step_event(self.data_dir, step_event(
+            "step-conflict-a", step_id="STEP-" + "C" * 32, action="update",
+            revision=1, changes={"title": "候选甲"}))
+        append_step_event(self.data_dir, step_event(
+            "step-conflict-b", step_id="STEP-" + "C" * 32, action="update",
+            revision=1, changes={"title": "候选乙"}))
+        task = read_workspace(self.data_dir)["tasks"][0]
+        self.assertFalse(task["conflict"])
+        steps = {step["step_id"]: step for step in task["steps"]}
+        self.assertTrue(steps["STEP-" + "C" * 32]["conflict"])
+        self.assertEqual(len(steps["STEP-" + "C" * 32]["conflict_candidates"]), 2)
+        self.assertFalse(steps["STEP-" + "D" * 32]["conflict"])
+
+    def test_step_order_conflict_does_not_freeze_task_or_step_contents(self):
+        append_event(self.data_dir, event())
+        ids = ["STEP-" + "E" * 32, "STEP-" + "F" * 32]
+        for index, step_id in enumerate(ids):
+            append_step_event(self.data_dir, step_event(
+                f"step-order-create-{index}", step_id=step_id,
+                changes={"title": f"步骤{index + 1}"}))
+        append_step_event(self.data_dir, step_order_event(
+            "step-order-conflict-a", revision=0, step_ids=ids))
+        append_step_event(self.data_dir, step_order_event(
+            "step-order-conflict-b", revision=0, step_ids=list(reversed(ids))))
+        task = read_workspace(self.data_dir)["tasks"][0]
+        self.assertFalse(task["conflict"])
+        self.assertTrue(task["step_order_conflict"])
+        self.assertEqual(len(task["steps"]), 2)
+        self.assertFalse(any(step["conflict"] for step in task["steps"]))
+
+    def test_step_events_wait_for_parent_task_sync(self):
+        self.data_dir.mkdir(exist_ok=True)
+        append_step_event(self.data_dir, step_event(
+            "orphan-step-create", task_id="TASK-LATE-PARENT",
+            step_id="STEP-" + "1" * 32))
+        state = read_workspace(self.data_dir)
+        self.assertEqual(state["tasks"], [])
+        self.assertTrue(any("waiting for the parent task" in item for item in state["warnings"]))
+        append_event(self.data_dir, event(
+            "late-parent-create", task_id="TASK-LATE-PARENT",
+            changes={"title": "父任务稍后同步"}))
+        task = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual(task["steps"][0]["step_id"], "STEP-" + "1" * 32)
+
+    def test_duplicate_step_event_id_with_different_content_freezes_step(self):
+        append_event(self.data_dir, event())
+        step_id = "STEP-" + "2" * 32
+        original = step_event("step-duplicate-id", step_id=step_id,
+                              changes={"title": "原始步骤"})
+        append_step_event(self.data_dir, original)
+        conflicting = step_event("step-duplicate-id", step_id=step_id,
+                                 changes={"title": "被篡改步骤"})
+        (self.data_dir / "step_events" / "z_duplicate.json").write_text(
+            json.dumps(conflicting), encoding="utf-8")
+        task = read_workspace(self.data_dir)["tasks"][0]
+        self.assertTrue(task["steps"][0]["conflict"])
+        self.assertIn("event_id", task["steps"][0]["conflict_fields"])
+
+    def test_step_event_validation_rejects_invalid_values(self):
+        invalid = [
+            step_event(step_id="STEP-invalid"),
+            step_event(changes={"title": ""}),
+            step_event(changes={"title": "x" * 201}),
+            step_event(changes={"status": "done"}),
+            step_event(action="create", revision=1),
+            step_event(action="update", revision=0),
+            step_event(changes={"unknown": True}),
+            step_order_event(step_ids=["STEP-" + "A" * 32, "STEP-" + "A" * 32]),
+            step_order_event(actor="chatgpt") if False else None,
+        ]
+        invalid = [item for item in invalid if item is not None]
+        for item in invalid:
+            with self.subTest(event=item), self.assertRaises(ValueError):
+                validate_step_event(item)
+        unconfirmed = step_event(
+            "step-done-unconfirmed", step_id="STEP-" + "3" * 32,
+            action="update", revision=1, changes={"status": "done"}, actor="user")
+        with self.assertRaises(ValueError):
+            validate_step_event(unconfirmed)
+        confirmed_by_ai = step_event(
+            "step-done-ai", step_id="STEP-" + "3" * 32,
+            action="update", revision=1, changes={"status": "done"},
+            confirmed_done=True)
+        with self.assertRaises(ValueError):
+            validate_step_event(confirmed_by_ai)
 
     def test_utf8_bom_event_from_external_writer_is_readable(self):
         events = self.data_dir / "events"
@@ -407,6 +553,42 @@ class ServerTests(unittest.TestCase):
         headers.update(extra_headers or {})
         request = Request(self.base + "/api/tasks",
                           data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
+                          method="POST", headers=headers)
+        try:
+            with urlopen(request, timeout=3) as reply:
+                return reply.status, json.load(reply)
+        except HTTPError as error:
+            return error.code, json.load(error)
+
+    def create_step(self, task_id="TASK-DEMO-001", title="虚构执行步骤", extra_headers=None):
+        headers = {"Content-Type": "application/json"}
+        headers.update(extra_headers or {})
+        request = Request(self.base + f"/api/tasks/{task_id}/steps",
+                          data=json.dumps({"title": title}, ensure_ascii=False).encode("utf-8"),
+                          method="POST", headers=headers)
+        try:
+            with urlopen(request, timeout=3) as reply:
+                return reply.status, json.load(reply)
+        except HTTPError as error:
+            return error.code, json.load(error)
+
+    def update_step(self, step_id, body, task_id="TASK-DEMO-001", extra_headers=None):
+        headers = {"Content-Type": "application/json"}
+        headers.update(extra_headers or {})
+        request = Request(self.base + f"/api/tasks/{task_id}/steps/{step_id}/update",
+                          data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
+                          method="POST", headers=headers)
+        try:
+            with urlopen(request, timeout=3) as reply:
+                return reply.status, json.load(reply)
+        except HTTPError as error:
+            return error.code, json.load(error)
+
+    def reorder_steps(self, step_ids, revision, task_id="TASK-DEMO-001", extra_headers=None):
+        headers = {"Content-Type": "application/json"}
+        headers.update(extra_headers or {})
+        request = Request(self.base + f"/api/tasks/{task_id}/steps/reorder",
+                          data=json.dumps({"step_ids": step_ids, "revision": revision}).encode("utf-8"),
                           method="POST", headers=headers)
         try:
             with urlopen(request, timeout=3) as reply:
@@ -722,6 +904,107 @@ class ServerTests(unittest.TestCase):
     def test_duplicate_project_name_is_rejected(self):
         self.assertEqual(self.create_project({"name": "重复项目"})[0], 201)
         self.assertEqual(self.create_project({"name": "重复项目"})[0], 409)
+
+    def test_step_create_update_and_reorder_end_to_end(self):
+        first_status, first = self.create_step(title="第一步")
+        second_status, second = self.create_step(title="第二步")
+        self.assertEqual((first_status, second_status), (201, 201))
+        self.assertRegex(first["step_id"], r"^STEP-[A-F0-9]{32}$")
+        self.assertNotEqual(first["step_id"], second["step_id"])
+        code, result = self.update_step(first["step_id"], {
+            "title": "第一步已修改", "status": "doing", "revision": 1})
+        self.assertEqual(code, 200)
+        self.assertEqual(result["revision"], 2)
+        code, reordered = self.reorder_steps([second["step_id"], first["step_id"]], 0)
+        self.assertEqual(code, 200)
+        self.assertEqual(reordered["revision"], 1)
+        task = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual([step["step_id"] for step in task["steps"]],
+                         [second["step_id"], first["step_id"]])
+        saved = next(step for step in task["steps"] if step["step_id"] == first["step_id"])
+        self.assertEqual((saved["title"], saved["status"], saved["revision"]),
+                         ("第一步已修改", "doing", 2))
+        self.assertEqual(len(list((self.data_dir / "step_events").glob("*.json"))), 4)
+
+    def test_step_completion_requires_explicit_user_confirmation(self):
+        _, created = self.create_step()
+        code, _ = self.update_step(created["step_id"], {"status": "done", "revision": 1})
+        self.assertEqual(code, 400)
+        code, _ = self.update_step(created["step_id"], {
+            "status": "done", "revision": 1, "confirmed_done": True})
+        self.assertEqual(code, 200)
+        task = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual(task["steps"][0]["status"], "done")
+        saved_event = next(json.loads(path.read_text("utf-8"))
+                           for path in (self.data_dir / "step_events").glob("*.json")
+                           if json.loads(path.read_text("utf-8"))["action"] == "update")
+        self.assertEqual(saved_event["actor"], "user")
+        self.assertIs(saved_event["confirmed_done"], True)
+
+    def test_step_stale_revision_and_conflict_protection(self):
+        _, created = self.create_step()
+        sid = created["step_id"]
+        self.assertEqual(self.update_step(sid, {"status": "doing", "revision": 1})[0], 200)
+        self.assertEqual(self.update_step(sid, {"status": "blocked", "revision": 1})[0], 409)
+        self.assertEqual(self.update_step(sid, {"title": "合法新步骤", "revision": 2})[0], 200)
+        append_step_event(self.data_dir, step_event(
+            "step-server-conflict-a", step_id=sid, action="update", revision=3,
+            changes={"title": "冲突候选甲"}))
+        append_step_event(self.data_dir, step_event(
+            "step-server-conflict-b", step_id=sid, action="update", revision=3,
+            changes={"title": "冲突候选乙"}))
+        self.assertEqual(self.update_step(sid, {"title": "不应覆盖", "revision": 3})[0], 409)
+        other_status, other = self.create_step(title="独立正常步骤")
+        self.assertEqual(other_status, 201)
+        self.assertEqual(self.update_step(other["step_id"], {
+            "status": "doing", "revision": 1})[0], 200)
+
+    def test_step_order_requires_exact_membership_and_revision(self):
+        first = self.create_step(title="步骤甲")[1]["step_id"]
+        second = self.create_step(title="步骤乙")[1]["step_id"]
+        before = len(list((self.data_dir / "step_events").glob("*.json")))
+        self.assertEqual(self.reorder_steps([first], 0)[0], 400)
+        self.assertEqual(len(list((self.data_dir / "step_events").glob("*.json"))), before)
+        self.assertEqual(self.reorder_steps([second, first], 0)[0], 200)
+        self.assertEqual(self.reorder_steps([first, second], 0)[0], 409)
+        self.assertEqual([step["step_id"] for step in read_workspace(self.data_dir)["tasks"][0]["steps"]],
+                         [second, first])
+
+    def test_step_order_conflict_blocks_reorder_but_not_step_content_edit(self):
+        first = self.create_step(title="步骤甲")[1]["step_id"]
+        second = self.create_step(title="步骤乙")[1]["step_id"]
+        append_step_event(self.data_dir, step_order_event(
+            "step-order-server-a", revision=0, step_ids=[first, second]))
+        append_step_event(self.data_dir, step_order_event(
+            "step-order-server-b", revision=0, step_ids=[second, first]))
+        state = read_workspace(self.data_dir)["tasks"][0]
+        self.assertTrue(state["step_order_conflict"])
+        self.assertEqual(self.reorder_steps([first, second], 0)[0], 409)
+        self.assertEqual(self.update_step(first, {"status": "doing", "revision": 1})[0], 200)
+
+    def test_step_create_rejects_untrusted_host_and_disk_failure(self):
+        before = len(list((self.data_dir / "step_events").glob("*.json")))
+        status, response = self.create_step(extra_headers={"Host": "attacker.example"})
+        self.assertEqual(status, 403)
+        self.assertIn("local requests only", response["error"])
+        with patch("app.os.link", side_effect=OSError("simulated step write failure")):
+            status, response = self.create_step(title="不会落盘")
+        self.assertEqual(status, 500)
+        self.assertEqual(response["error"], "unable to save event")
+        self.assertEqual(len(list((self.data_dir / "step_events").glob("*.json"))), before)
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["steps"], [])
+
+    def test_step_write_is_blocked_when_parent_task_has_conflict(self):
+        append_event(self.data_dir, event(
+            "step-parent-conflict-a", action="update", revision=1,
+            changes={"title": "候选甲"}))
+        append_event(self.data_dir, event(
+            "step-parent-conflict-b", action="update", revision=1,
+            changes={"title": "候选乙"}))
+        before = len(list((self.data_dir / "step_events").glob("*.json")))
+        status, _ = self.create_step()
+        self.assertEqual(status, 409)
+        self.assertEqual(len(list((self.data_dir / "step_events").glob("*.json"))), before)
 
     def test_webpage_and_api_available(self):
         with urlopen(self.base + "/", timeout=3) as response:
