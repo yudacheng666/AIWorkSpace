@@ -202,7 +202,23 @@ function taskEditHarness(task) {
     createElement(tag) { return fakeElement(tag); }
   };
   const posted = [];
+  const stepCreated = [];
+  const stepUpdated = [];
+  const stepReordered = [];
+  let confirmValue = true;
   const fetch = async (path, options) => {
+    if (path.includes("/steps/reorder") && options?.method === "POST") {
+      stepReordered.push(JSON.parse(options.body));
+      return {ok: true, json: async () => ({saved: true, revision: 1})};
+    }
+    if (path.includes("/steps/") && path.endsWith("/update") && options?.method === "POST") {
+      stepUpdated.push({path, body: JSON.parse(options.body)});
+      return {ok: true, json: async () => ({saved: true, revision: 2})};
+    }
+    if (path.endsWith("/steps") && options?.method === "POST") {
+      stepCreated.push({path, body: JSON.parse(options.body)});
+      return {ok: true, json: async () => ({saved: true, step_id: "STEP-" + "9".repeat(32)})};
+    }
     if (path.endsWith("/update") && options?.method === "POST") {
       posted.push(JSON.parse(options.body));
       return {ok: true, json: async () => ({saved: true})};
@@ -211,9 +227,12 @@ function taskEditHarness(task) {
     return {ok: true, json: async () => ({tasks: [], projects: [], warnings: []})};
   };
   const {row} = vm.runInNewContext(match[1] + "\n;({row})", {
-    document, fetch, setInterval() {}, Date, window: {confirm: () => true}
+    document, fetch, setInterval() {}, Date, window: {confirm: () => confirmValue}
   }, {timeout: 2000});
-  const card = row(task);
+  const card = row({...task, steps: task.steps || [],
+                    step_order_revision: task.step_order_revision ?? 0,
+                    step_order_conflict: task.step_order_conflict ?? false,
+                    step_order_candidates: task.step_order_candidates || []});
   const form = card.children.find(item => item.className === "task-form");
   assert.ok(form, "task edit form must exist");
   const [titleLabel, statusLabel, primaryLabel, relatedLabel] = form.children;
@@ -226,8 +245,10 @@ function taskEditHarness(task) {
   const [owner, priority, due, planned, follow] =
     metadata.children.map(label => label.children[0]);
   const save = () => form.handlers.get("submit")({preventDefault() {}});
+  const stepPanel = card.children.find(item => item.className === "steps-panel");
   return {title, status, primary, related, owner, priority, due, planned, follow,
-          save, posted};
+          save, posted, card, stepPanel, stepCreated, stepUpdated, stepReordered,
+          setConfirm(value) { confirmValue = value; }};
 }
 
 test("P2: changing title preserves unsynced primary and related project IDs", async () => {
@@ -368,4 +389,120 @@ test("M3.2 legacy task title-only edit sends no new metadata fields", async () =
   for (const key of ["owner", "priority", "due_date", "planned_date", "follow_up_date"]) {
     assert.equal(Object.hasOwn(change, key), false, key + " should not be written");
   }
+});
+
+
+test("M3.3 adds a numbered step through the task-scoped endpoint", async () => {
+  const page = taskEditHarness({
+    task_id: "TASK-M3-03-ADD", title: "虚构任务", status: "todo",
+    revision: 1, conflict: false, project_id: null, related_project_ids: [], steps: []
+  });
+  const addForm = page.stepPanel.children.find(item => item.className === "step-add-form");
+  const input = addForm.children[0];
+  input.value = "整理第一份资料";
+  await addForm.handlers.get("submit")({preventDefault() {}});
+  assert.equal(page.stepCreated.length, 1);
+  assert.equal(page.stepCreated[0].path, "/api/tasks/TASK-M3-03-ADD/steps");
+  assert.deepEqual(page.stepCreated[0].body, {title: "整理第一份资料"});
+});
+
+test("M3.3 edits one step without touching its task or sibling steps", async () => {
+  const page = taskEditHarness({
+    task_id: "TASK-M3-03-EDIT", title: "父任务", status: "todo",
+    revision: 4, conflict: false, project_id: null, related_project_ids: [],
+    steps: [
+      {step_id: "STEP-" + "A".repeat(32), title: "第一步", status: "todo",
+       revision: 1, conflict: false, conflict_fields: []},
+      {step_id: "STEP-" + "B".repeat(32), title: "第二步", status: "todo",
+       revision: 1, conflict: false, conflict_fields: []}
+    ]
+  });
+  const firstRow = page.stepPanel.children[1].children[0];
+  const content = firstRow.children[1];
+  const form = content.children.find(item => item.className === "step-edit-form");
+  form.children[0].children[0].value = "第一步已修改";
+  form.children[1].children[0].value = "doing";
+  await form.handlers.get("submit")({preventDefault() {}});
+  assert.equal(page.stepUpdated.length, 1);
+  assert.match(page.stepUpdated[0].path, /STEP-A{32}\/update$/);
+  assert.deepEqual(page.stepUpdated[0].body, {
+    revision: 1, title: "第一步已修改", status: "doing"
+  });
+});
+
+test("M3.3 completing a step requires explicit confirmation", async () => {
+  const page = taskEditHarness({
+    task_id: "TASK-M3-03-DONE", title: "父任务", status: "todo",
+    revision: 1, conflict: false, project_id: null, related_project_ids: [],
+    steps: [{step_id: "STEP-" + "C".repeat(32), title: "待确认步骤",
+      status: "todo", revision: 1, conflict: false, conflict_fields: []}]
+  });
+  const form = page.stepPanel.children[1].children[0].children[1]
+    .children.find(item => item.className === "step-edit-form");
+  form.children[1].children[0].value = "done";
+  page.setConfirm(false);
+  await form.handlers.get("submit")({preventDefault() {}});
+  assert.equal(page.stepUpdated.length, 0);
+  page.setConfirm(true);
+  await form.handlers.get("submit")({preventDefault() {}});
+  assert.equal(page.stepUpdated.length, 1);
+  assert.equal(page.stepUpdated[0].body.status, "done");
+  assert.equal(page.stepUpdated[0].body.confirmed_done, true);
+});
+
+test("M3.3 moving a step submits the complete stable ID order and order revision", async () => {
+  const a = "STEP-" + "D".repeat(32);
+  const b = "STEP-" + "E".repeat(32);
+  const page = taskEditHarness({
+    task_id: "TASK-M3-03-ORDER", title: "父任务", status: "todo",
+    revision: 1, conflict: false, project_id: null, related_project_ids: [],
+    step_order_revision: 3, steps: [
+      {step_id: a, title: "甲", status: "todo", revision: 1, conflict: false, conflict_fields: []},
+      {step_id: b, title: "乙", status: "todo", revision: 1, conflict: false, conflict_fields: []}
+    ]
+  });
+  const firstRow = page.stepPanel.children[1].children[0];
+  const actions = firstRow.children[2];
+  await actions.children[1].handlers.get("click")();
+  assert.deepEqual(page.stepReordered, [{step_ids: [b, a], revision: 3}]);
+});
+
+test("M3.3 a conflicted step is frozen without freezing its sibling", () => {
+  const page = taskEditHarness({
+    task_id: "TASK-M3-03-CONFLICT", title: "父任务", status: "todo",
+    revision: 1, conflict: false, project_id: null, related_project_ids: [],
+    steps: [
+      {step_id: "STEP-" + "F".repeat(32), title: "冲突步骤", status: "todo",
+       revision: 1, conflict: true, conflict_fields: ["title"],
+       conflict_candidates: [{changes: {title: "候选甲"}}, {changes: {title: "候选乙"}}]},
+      {step_id: "STEP-" + "1".repeat(32), title: "正常步骤", status: "todo",
+       revision: 1, conflict: false, conflict_fields: []}
+    ]
+  });
+  const rows = page.stepPanel.children[1].children;
+  const conflictedForm = rows[0].children[1].children.find(item => item.className === "step-edit-form");
+  const normalForm = rows[1].children[1].children.find(item => item.className === "step-edit-form");
+  assert.equal(conflictedForm.children[0].children[0].disabled, true);
+  assert.equal(conflictedForm.children[2].disabled, true);
+  assert.equal(normalForm.children[0].children[0].disabled, false);
+  assert.equal(normalForm.children[2].disabled, false);
+});
+
+test("M3.3 an order conflict disables reorder but leaves step editing available", () => {
+  const page = taskEditHarness({
+    task_id: "TASK-M3-03-ORDER-CONFLICT", title: "父任务", status: "todo",
+    revision: 1, conflict: false, project_id: null, related_project_ids: [],
+    step_order_conflict: true, step_order_candidates: [{changes: {step_ids: []}}],
+    steps: [
+      {step_id: "STEP-" + "2".repeat(32), title: "正常步骤", status: "todo",
+       revision: 1, conflict: false, conflict_fields: []},
+      {step_id: "STEP-" + "3".repeat(32), title: "第二步", status: "todo",
+       revision: 1, conflict: false, conflict_fields: []}
+    ]
+  });
+  const firstRow = page.stepPanel.children[1].children[0];
+  assert.equal(firstRow.children[2].children[0].disabled, true);
+  assert.equal(firstRow.children[2].children[1].disabled, true);
+  const form = firstRow.children[1].children.find(item => item.className === "step-edit-form");
+  assert.equal(form.children[0].children[0].disabled, false);
 });
