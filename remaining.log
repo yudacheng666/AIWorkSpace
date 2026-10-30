@@ -1,0 +1,9 @@
+PASS step concurrency:8 writers=1x200/7x409; winner exact, one appended event, all old bytes intact; explicit stale409/no writes
+PASS order concurrency:8 same-revision requests=1x200/7x409; one appended order, no overwrite
+PASS content conflict freezes only affected step409; sibling edit200 and ordering200 remain available
+PASS distinct IDs at same order revision freeze only reorder409/no writes; step content update200
+PASS 99->100 last-slot race:1x201/7x409; 200-character title accepted; step101 rejected409, no files changed
+PASS 34 invalid title/status/spoofed/malformed ID/order-member requests rejected400/404; no writes; 1-character title accepted
+PASS Host/Origin:15 malicious create/update/reorder POSTs403 plus GET checks403, no writes; exact localhost origin GET/edit200
+PASS conflicted parent blocks child create/update/reorder409; every event byte unchanged
+PASS real Chromium: order-only freeze, parent child-controls freeze, 100-step add disabled; all initial files intact

@@ -1,0 +1,3135 @@
+[
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/STEP-00000000000000000000000000000001/update",
+    "request": {
+      "title": "虚构并发胜出1",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 200,
+    "response": {
+      "saved": true,
+      "step_id": "STEP-00000000000000000000000000000001",
+      "revision": 2
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/STEP-00000000000000000000000000000001/update",
+    "request": {
+      "title": "虚构并发胜出2",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step changed or has a conflict; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/STEP-00000000000000000000000000000001/update",
+    "request": {
+      "title": "虚构并发胜出0",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step changed or has a conflict; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/STEP-00000000000000000000000000000001/update",
+    "request": {
+      "title": "虚构并发胜出3",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step changed or has a conflict; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/STEP-00000000000000000000000000000001/update",
+    "request": {
+      "title": "虚构并发胜出4",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step changed or has a conflict; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/STEP-00000000000000000000000000000001/update",
+    "request": {
+      "title": "虚构并发胜出5",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step changed or has a conflict; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/STEP-00000000000000000000000000000001/update",
+    "request": {
+      "title": "虚构并发胜出7",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step changed or has a conflict; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/STEP-00000000000000000000000000000001/update",
+    "request": {
+      "title": "虚构并发胜出6",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step changed or has a conflict; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/STEP-00000000000000000000000000000001/update",
+    "request": {
+      "title": "虚构旧revision不覆盖",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step changed or has a conflict; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-00000000000000000000000000000002",
+        "STEP-00000000000000000000000000000001"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 200,
+    "response": {
+      "saved": true,
+      "revision": 1
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-00000000000000000000000000000002",
+        "STEP-00000000000000000000000000000001"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step order changed; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-00000000000000000000000000000002",
+        "STEP-00000000000000000000000000000001"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step order changed; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-00000000000000000000000000000002",
+        "STEP-00000000000000000000000000000001"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step order changed; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-00000000000000000000000000000002",
+        "STEP-00000000000000000000000000000001"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step order changed; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-00000000000000000000000000000002",
+        "STEP-00000000000000000000000000000001"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step order changed; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-00000000000000000000000000000002",
+        "STEP-00000000000000000000000000000001"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step order changed; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONCURRENT/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-00000000000000000000000000000002",
+        "STEP-00000000000000000000000000000001"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step order changed; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONTENT/steps/STEP-0000000000000000000000000000000B/update",
+    "request": {
+      "title": "被拒绝",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step changed or has a conflict; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONTENT/steps/STEP-0000000000000000000000000000000C/update",
+    "request": {
+      "title": "虚构兄弟步骤可编辑",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 200,
+    "response": {
+      "saved": true,
+      "step_id": "STEP-0000000000000000000000000000000C",
+      "revision": 2
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-CONTENT/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-0000000000000000000000000000000C",
+        "STEP-0000000000000000000000000000000B"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 200,
+    "response": {
+      "saved": true,
+      "revision": 1
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-ORDER/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-00000000000000000000000000000016",
+        "STEP-00000000000000000000000000000015"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "step order has an unresolved conflict; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-ORDER/steps/STEP-00000000000000000000000000000015/update",
+    "request": {
+      "status": "doing",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 200,
+    "response": {
+      "saved": true,
+      "step_id": "STEP-00000000000000000000000000000015",
+      "revision": 2
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-LIMIT/steps",
+    "request": {
+      "title": "2中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 201,
+    "response": {
+      "saved": true,
+      "task_id": "TASK-LIMIT",
+      "step_id": "STEP-26732BAF0C504C45AC019A7BC29EE380",
+      "revision": 1
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-LIMIT/steps",
+    "request": {
+      "title": "1中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "task has reached the 100-step limit"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-LIMIT/steps",
+    "request": {
+      "title": "3中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "task has reached the 100-step limit"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-LIMIT/steps",
+    "request": {
+      "title": "0中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "task has reached the 100-step limit"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-LIMIT/steps",
+    "request": {
+      "title": "5中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "task has reached the 100-step limit"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-LIMIT/steps",
+    "request": {
+      "title": "4中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "task has reached the 100-step limit"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-LIMIT/steps",
+    "request": {
+      "title": "7中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "task has reached the 100-step limit"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-LIMIT/steps",
+    "request": {
+      "title": "6中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "task has reached the 100-step limit"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-LIMIT/steps",
+    "request": {
+      "title": "虚构第101步"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "task has reached the 100-step limit"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps",
+    "request": {
+      "title": ""
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step title must be 1–200 characters"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "title": "",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step title must be 1–200 characters"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps",
+    "request": {
+      "title": "   "
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step title must be 1–200 characters"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "title": "   ",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step title must be 1–200 characters"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps",
+    "request": {
+      "title": "中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step title must be 1–200 characters"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "title": "中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step title must be 1–200 characters"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps",
+    "request": {
+      "title": null
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step title must be 1–200 characters"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "title": null,
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step title must be 1–200 characters"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps",
+    "request": {
+      "title": 17
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step title must be 1–200 characters"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "title": 17,
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step title must be 1–200 characters"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps",
+    "request": {
+      "title": []
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step title must be 1–200 characters"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "title": [],
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step title must be 1–200 characters"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps",
+    "request": {
+      "title": {}
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step title must be 1–200 characters"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "title": {},
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step title must be 1–200 characters"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "status": "invalid",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "invalid step status"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "status": "Done",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "invalid step status"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "status": null,
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "invalid step status"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "status": [],
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "unhashable type: 'list'"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "status": {},
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "unhashable type: 'dict'"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "status": 12,
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "invalid step status"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps",
+    "request": {
+      "title": "不能冒充",
+      "step_id": "STEP-00000000000000000000000000000032"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step create accepts only title"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps",
+    "request": {
+      "title": "不能冒充",
+      "actor": "user"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step create accepts only title"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-bad/update",
+    "request": {
+      "title": "不应写入",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 404,
+    "response": {
+      "error": "not found"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/update",
+    "request": {
+      "title": "不应写入",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 404,
+    "response": {
+      "error": "not found"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/../../outside/update",
+    "request": {
+      "title": "不应写入",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 404,
+    "response": {
+      "error": "not found"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/reorder",
+    "request": {
+      "step_ids": [],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step_ids must contain every current step exactly once"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-00000000000000000000000000000029"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step_ids must contain every current step exactly once"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-00000000000000000000000000000029",
+        "STEP-00000000000000000000000000000029"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "invalid step_ids"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-00000000000000000000000000000029",
+        "STEP-0000000000000000000000000000002A",
+        "STEP-00000000000000000000000000000063"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step_ids must contain every current step exactly once"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-00000000000000000000000000000029",
+        "STEP-00000000000000000000000000000063"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step_ids must contain every current step exactly once"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-00000000000000000000000000000029",
+        "STEP-0000000000000000000000000000001F"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "step_ids must contain every current step exactly once"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/reorder",
+    "request": {
+      "step_ids": [
+        "BAD",
+        "STEP-0000000000000000000000000000002A"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "invalid step_ids"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/reorder",
+    "request": {
+      "step_ids": null,
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "invalid step_ids"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/reorder",
+    "request": {
+      "step_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 400,
+    "response": {
+      "error": "invalid step_ids"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps",
+    "request": {
+      "title": "界"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 201,
+    "response": {
+      "saved": true,
+      "task_id": "TASK-INVALID",
+      "step_id": "STEP-BC852A014DFD44398FB14F80ED34DEAF",
+      "revision": 1
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps",
+    "request": {
+      "title": "虚构安全拒写"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "attacker.example"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps",
+    "request": {
+      "title": "虚构安全拒写"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "localhost:39177.evil.example"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps",
+    "request": {
+      "title": "虚构安全拒写"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "localhost.evil.example:39177"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps",
+    "request": {
+      "title": "虚构安全拒写"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177",
+      "Origin": "https://evil.example"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps",
+    "request": {
+      "title": "虚构安全拒写"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177",
+      "Origin": "http://localhost:39178"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "title": "虚构安全拒写",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "attacker.example"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "title": "虚构安全拒写",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "localhost:39177.evil.example"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "title": "虚构安全拒写",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "localhost.evil.example:39177"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "title": "虚构安全拒写",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177",
+      "Origin": "https://evil.example"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "title": "虚构安全拒写",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177",
+      "Origin": "http://localhost:39178"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-BC852A014DFD44398FB14F80ED34DEAF",
+        "STEP-0000000000000000000000000000002A",
+        "STEP-00000000000000000000000000000029"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "attacker.example"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-BC852A014DFD44398FB14F80ED34DEAF",
+        "STEP-0000000000000000000000000000002A",
+        "STEP-00000000000000000000000000000029"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "localhost:39177.evil.example"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-BC852A014DFD44398FB14F80ED34DEAF",
+        "STEP-0000000000000000000000000000002A",
+        "STEP-00000000000000000000000000000029"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "localhost.evil.example:39177"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-BC852A014DFD44398FB14F80ED34DEAF",
+        "STEP-0000000000000000000000000000002A",
+        "STEP-00000000000000000000000000000029"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177",
+      "Origin": "https://evil.example"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-BC852A014DFD44398FB14F80ED34DEAF",
+        "STEP-0000000000000000000000000000002A",
+        "STEP-00000000000000000000000000000029"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177",
+      "Origin": "http://localhost:39178"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks",
+    "request": null,
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "attacker.example"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks",
+    "request": null,
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177",
+      "Origin": "https://evil.example"
+    },
+    "status": 403,
+    "response": {
+      "error": "local requests only"
+    }
+  },
+  {
+    "path": "/api/tasks",
+    "request": null,
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "localhost:39177",
+      "Origin": "http://localhost:39177"
+    },
+    "status": 200,
+    "response": {
+      "tasks": [
+        {
+          "task_id": "TASK-CONCURRENT",
+          "title": "虚构：TASK-CONCURRENT",
+          "status": "todo",
+          "revision": 1,
+          "conflict": false,
+          "conflict_fields": [],
+          "conflict_candidates": [],
+          "owner": null,
+          "priority": "normal",
+          "due_date": null,
+          "planned_date": null,
+          "follow_up_date": null,
+          "project_id": null,
+          "related_project_ids": [],
+          "project_name": null,
+          "project_missing": false,
+          "related_project_names": [],
+          "steps": [
+            {
+              "task_id": "TASK-CONCURRENT",
+              "step_id": "STEP-00000000000000000000000000000002",
+              "title": "虚构步骤2",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 2,
+              "position": 1
+            },
+            {
+              "task_id": "TASK-CONCURRENT",
+              "step_id": "STEP-00000000000000000000000000000001",
+              "title": "虚构并发胜出1",
+              "status": "todo",
+              "revision": 2,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 1,
+              "position": 2
+            }
+          ],
+          "step_order_revision": 1,
+          "step_order_conflict": false,
+          "step_order_incomplete": false,
+          "step_order_missing_ids": [],
+          "step_order_candidates": []
+        },
+        {
+          "task_id": "TASK-CONTENT",
+          "title": "虚构：TASK-CONTENT",
+          "status": "todo",
+          "revision": 1,
+          "conflict": false,
+          "conflict_fields": [],
+          "conflict_candidates": [],
+          "owner": null,
+          "priority": "normal",
+          "due_date": null,
+          "planned_date": null,
+          "follow_up_date": null,
+          "project_id": null,
+          "related_project_ids": [],
+          "project_name": null,
+          "project_missing": false,
+          "related_project_names": [],
+          "steps": [
+            {
+              "task_id": "TASK-CONTENT",
+              "step_id": "STEP-0000000000000000000000000000000C",
+              "title": "虚构兄弟步骤可编辑",
+              "status": "todo",
+              "revision": 2,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 2,
+              "position": 1
+            },
+            {
+              "task_id": "TASK-CONTENT",
+              "step_id": "STEP-0000000000000000000000000000000B",
+              "title": "虚构步骤11",
+              "status": "todo",
+              "revision": 1,
+              "conflict": true,
+              "conflict_fields": [
+                "title"
+              ],
+              "conflict_candidates": [
+                {
+                  "event_id": "content-conflict-1",
+                  "timestamp": "",
+                  "actor": "user",
+                  "changes": {
+                    "title": "虚构候选甲"
+                  }
+                },
+                {
+                  "event_id": "content-conflict-2",
+                  "timestamp": "",
+                  "actor": "user",
+                  "changes": {
+                    "title": "虚构候选乙"
+                  }
+                }
+              ],
+              "created_at": "",
+              "created_position": 1,
+              "position": 2
+            }
+          ],
+          "step_order_revision": 1,
+          "step_order_conflict": false,
+          "step_order_incomplete": false,
+          "step_order_missing_ids": [],
+          "step_order_candidates": []
+        },
+        {
+          "task_id": "TASK-INVALID",
+          "title": "虚构：TASK-INVALID",
+          "status": "todo",
+          "revision": 1,
+          "conflict": false,
+          "conflict_fields": [],
+          "conflict_candidates": [],
+          "owner": null,
+          "priority": "normal",
+          "due_date": null,
+          "planned_date": null,
+          "follow_up_date": null,
+          "project_id": null,
+          "related_project_ids": [],
+          "project_name": null,
+          "project_missing": false,
+          "related_project_names": [],
+          "steps": [
+            {
+              "task_id": "TASK-INVALID",
+              "step_id": "STEP-00000000000000000000000000000029",
+              "title": "虚构步骤41",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 1,
+              "position": 1
+            },
+            {
+              "task_id": "TASK-INVALID",
+              "step_id": "STEP-0000000000000000000000000000002A",
+              "title": "虚构步骤42",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 2,
+              "position": 2
+            },
+            {
+              "task_id": "TASK-INVALID",
+              "step_id": "STEP-BC852A014DFD44398FB14F80ED34DEAF",
+              "title": "界",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "2026-10-30T10:11:12Z",
+              "created_position": 3,
+              "position": 3
+            }
+          ],
+          "step_order_revision": 0,
+          "step_order_conflict": false,
+          "step_order_incomplete": false,
+          "step_order_missing_ids": [],
+          "step_order_candidates": []
+        },
+        {
+          "task_id": "TASK-LIMIT",
+          "title": "虚构：TASK-LIMIT",
+          "status": "todo",
+          "revision": 1,
+          "conflict": false,
+          "conflict_fields": [],
+          "conflict_candidates": [],
+          "owner": null,
+          "priority": "normal",
+          "due_date": null,
+          "planned_date": null,
+          "follow_up_date": null,
+          "project_id": null,
+          "related_project_ids": [],
+          "project_name": null,
+          "project_missing": false,
+          "related_project_names": [],
+          "steps": [
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003E9",
+              "title": "虚构步骤1001",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 1,
+              "position": 1
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003EA",
+              "title": "虚构步骤1002",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 2,
+              "position": 2
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003EB",
+              "title": "虚构步骤1003",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 3,
+              "position": 3
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003EC",
+              "title": "虚构步骤1004",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 4,
+              "position": 4
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003ED",
+              "title": "虚构步骤1005",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 5,
+              "position": 5
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003EE",
+              "title": "虚构步骤1006",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 6,
+              "position": 6
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003EF",
+              "title": "虚构步骤1007",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 7,
+              "position": 7
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003F0",
+              "title": "虚构步骤1008",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 8,
+              "position": 8
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003F1",
+              "title": "虚构步骤1009",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 9,
+              "position": 9
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003F2",
+              "title": "虚构步骤1010",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 10,
+              "position": 10
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003F3",
+              "title": "虚构步骤1011",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 11,
+              "position": 11
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003F4",
+              "title": "虚构步骤1012",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 12,
+              "position": 12
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003F5",
+              "title": "虚构步骤1013",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 13,
+              "position": 13
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003F6",
+              "title": "虚构步骤1014",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 14,
+              "position": 14
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003F7",
+              "title": "虚构步骤1015",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 15,
+              "position": 15
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003F8",
+              "title": "虚构步骤1016",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 16,
+              "position": 16
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003F9",
+              "title": "虚构步骤1017",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 17,
+              "position": 17
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003FA",
+              "title": "虚构步骤1018",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 18,
+              "position": 18
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003FB",
+              "title": "虚构步骤1019",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 19,
+              "position": 19
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003FC",
+              "title": "虚构步骤1020",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 20,
+              "position": 20
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003FD",
+              "title": "虚构步骤1021",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 21,
+              "position": 21
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003FE",
+              "title": "虚构步骤1022",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 22,
+              "position": 22
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-000000000000000000000000000003FF",
+              "title": "虚构步骤1023",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 23,
+              "position": 23
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000400",
+              "title": "虚构步骤1024",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 24,
+              "position": 24
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000401",
+              "title": "虚构步骤1025",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 25,
+              "position": 25
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000402",
+              "title": "虚构步骤1026",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 26,
+              "position": 26
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000403",
+              "title": "虚构步骤1027",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 27,
+              "position": 27
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000404",
+              "title": "虚构步骤1028",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 28,
+              "position": 28
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000405",
+              "title": "虚构步骤1029",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 29,
+              "position": 29
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000406",
+              "title": "虚构步骤1030",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 30,
+              "position": 30
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000407",
+              "title": "虚构步骤1031",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 31,
+              "position": 31
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000408",
+              "title": "虚构步骤1032",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 32,
+              "position": 32
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000409",
+              "title": "虚构步骤1033",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 33,
+              "position": 33
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000040A",
+              "title": "虚构步骤1034",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 34,
+              "position": 34
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000040B",
+              "title": "虚构步骤1035",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 35,
+              "position": 35
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000040C",
+              "title": "虚构步骤1036",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 36,
+              "position": 36
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000040D",
+              "title": "虚构步骤1037",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 37,
+              "position": 37
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000040E",
+              "title": "虚构步骤1038",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 38,
+              "position": 38
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000040F",
+              "title": "虚构步骤1039",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 39,
+              "position": 39
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000410",
+              "title": "虚构步骤1040",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 40,
+              "position": 40
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000411",
+              "title": "虚构步骤1041",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 41,
+              "position": 41
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000412",
+              "title": "虚构步骤1042",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 42,
+              "position": 42
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000413",
+              "title": "虚构步骤1043",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 43,
+              "position": 43
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000414",
+              "title": "虚构步骤1044",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 44,
+              "position": 44
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000415",
+              "title": "虚构步骤1045",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 45,
+              "position": 45
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000416",
+              "title": "虚构步骤1046",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 46,
+              "position": 46
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000417",
+              "title": "虚构步骤1047",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 47,
+              "position": 47
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000418",
+              "title": "虚构步骤1048",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 48,
+              "position": 48
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000419",
+              "title": "虚构步骤1049",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 49,
+              "position": 49
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000041A",
+              "title": "虚构步骤1050",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 50,
+              "position": 50
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000041B",
+              "title": "虚构步骤1051",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 51,
+              "position": 51
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000041C",
+              "title": "虚构步骤1052",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 52,
+              "position": 52
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000041D",
+              "title": "虚构步骤1053",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 53,
+              "position": 53
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000041E",
+              "title": "虚构步骤1054",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 54,
+              "position": 54
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000041F",
+              "title": "虚构步骤1055",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 55,
+              "position": 55
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000420",
+              "title": "虚构步骤1056",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 56,
+              "position": 56
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000421",
+              "title": "虚构步骤1057",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 57,
+              "position": 57
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000422",
+              "title": "虚构步骤1058",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 58,
+              "position": 58
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000423",
+              "title": "虚构步骤1059",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 59,
+              "position": 59
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000424",
+              "title": "虚构步骤1060",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 60,
+              "position": 60
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000425",
+              "title": "虚构步骤1061",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 61,
+              "position": 61
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000426",
+              "title": "虚构步骤1062",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 62,
+              "position": 62
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000427",
+              "title": "虚构步骤1063",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 63,
+              "position": 63
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000428",
+              "title": "虚构步骤1064",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 64,
+              "position": 64
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000429",
+              "title": "虚构步骤1065",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 65,
+              "position": 65
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000042A",
+              "title": "虚构步骤1066",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 66,
+              "position": 66
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000042B",
+              "title": "虚构步骤1067",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 67,
+              "position": 67
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000042C",
+              "title": "虚构步骤1068",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 68,
+              "position": 68
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000042D",
+              "title": "虚构步骤1069",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 69,
+              "position": 69
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000042E",
+              "title": "虚构步骤1070",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 70,
+              "position": 70
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000042F",
+              "title": "虚构步骤1071",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 71,
+              "position": 71
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000430",
+              "title": "虚构步骤1072",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 72,
+              "position": 72
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000431",
+              "title": "虚构步骤1073",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 73,
+              "position": 73
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000432",
+              "title": "虚构步骤1074",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 74,
+              "position": 74
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000433",
+              "title": "虚构步骤1075",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 75,
+              "position": 75
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000434",
+              "title": "虚构步骤1076",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 76,
+              "position": 76
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000435",
+              "title": "虚构步骤1077",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 77,
+              "position": 77
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000436",
+              "title": "虚构步骤1078",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 78,
+              "position": 78
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000437",
+              "title": "虚构步骤1079",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 79,
+              "position": 79
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000438",
+              "title": "虚构步骤1080",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 80,
+              "position": 80
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000439",
+              "title": "虚构步骤1081",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 81,
+              "position": 81
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000043A",
+              "title": "虚构步骤1082",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 82,
+              "position": 82
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000043B",
+              "title": "虚构步骤1083",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 83,
+              "position": 83
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000043C",
+              "title": "虚构步骤1084",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 84,
+              "position": 84
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000043D",
+              "title": "虚构步骤1085",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 85,
+              "position": 85
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000043E",
+              "title": "虚构步骤1086",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 86,
+              "position": 86
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000043F",
+              "title": "虚构步骤1087",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 87,
+              "position": 87
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000440",
+              "title": "虚构步骤1088",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 88,
+              "position": 88
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000441",
+              "title": "虚构步骤1089",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 89,
+              "position": 89
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000442",
+              "title": "虚构步骤1090",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 90,
+              "position": 90
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000443",
+              "title": "虚构步骤1091",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 91,
+              "position": 91
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000444",
+              "title": "虚构步骤1092",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 92,
+              "position": 92
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000445",
+              "title": "虚构步骤1093",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 93,
+              "position": 93
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000446",
+              "title": "虚构步骤1094",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 94,
+              "position": 94
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000447",
+              "title": "虚构步骤1095",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 95,
+              "position": 95
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000448",
+              "title": "虚构步骤1096",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 96,
+              "position": 96
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-00000000000000000000000000000449",
+              "title": "虚构步骤1097",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 97,
+              "position": 97
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000044A",
+              "title": "虚构步骤1098",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 98,
+              "position": 98
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-0000000000000000000000000000044B",
+              "title": "虚构步骤1099",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 99,
+              "position": 99
+            },
+            {
+              "task_id": "TASK-LIMIT",
+              "step_id": "STEP-26732BAF0C504C45AC019A7BC29EE380",
+              "title": "2中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "2026-10-30T10:11:12Z",
+              "created_position": 100,
+              "position": 100
+            }
+          ],
+          "step_order_revision": 0,
+          "step_order_conflict": false,
+          "step_order_incomplete": false,
+          "step_order_missing_ids": [],
+          "step_order_candidates": []
+        },
+        {
+          "task_id": "TASK-ORDER",
+          "title": "虚构：TASK-ORDER",
+          "status": "todo",
+          "revision": 1,
+          "conflict": false,
+          "conflict_fields": [],
+          "conflict_candidates": [],
+          "owner": null,
+          "priority": "normal",
+          "due_date": null,
+          "planned_date": null,
+          "follow_up_date": null,
+          "project_id": null,
+          "related_project_ids": [],
+          "project_name": null,
+          "project_missing": false,
+          "related_project_names": [],
+          "steps": [
+            {
+              "task_id": "TASK-ORDER",
+              "step_id": "STEP-00000000000000000000000000000015",
+              "title": "虚构步骤21",
+              "status": "doing",
+              "revision": 2,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 1,
+              "position": 1
+            },
+            {
+              "task_id": "TASK-ORDER",
+              "step_id": "STEP-00000000000000000000000000000016",
+              "title": "虚构步骤22",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 2,
+              "position": 2
+            }
+          ],
+          "step_order_revision": 0,
+          "step_order_conflict": true,
+          "step_order_incomplete": false,
+          "step_order_missing_ids": [],
+          "step_order_candidates": [
+            {
+              "event_id": "order-conflict-one",
+              "timestamp": "",
+              "actor": "chatgpt",
+              "changes": {
+                "step_ids": [
+                  "STEP-00000000000000000000000000000015",
+                  "STEP-00000000000000000000000000000016"
+                ]
+              }
+            },
+            {
+              "event_id": "order-conflict-two",
+              "timestamp": "",
+              "actor": "chatgpt",
+              "changes": {
+                "step_ids": [
+                  "STEP-00000000000000000000000000000016",
+                  "STEP-00000000000000000000000000000015"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "task_id": "TASK-PARENT",
+          "title": "虚构：TASK-PARENT",
+          "status": "todo",
+          "revision": 1,
+          "conflict": false,
+          "conflict_fields": [],
+          "conflict_candidates": [],
+          "owner": null,
+          "priority": "normal",
+          "due_date": null,
+          "planned_date": null,
+          "follow_up_date": null,
+          "project_id": null,
+          "related_project_ids": [],
+          "project_name": null,
+          "project_missing": false,
+          "related_project_names": [],
+          "steps": [
+            {
+              "task_id": "TASK-PARENT",
+              "step_id": "STEP-0000000000000000000000000000001F",
+              "title": "虚构步骤31",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 1,
+              "position": 1
+            },
+            {
+              "task_id": "TASK-PARENT",
+              "step_id": "STEP-00000000000000000000000000000020",
+              "title": "虚构步骤32",
+              "status": "todo",
+              "revision": 1,
+              "conflict": false,
+              "conflict_fields": [],
+              "conflict_candidates": [],
+              "created_at": "",
+              "created_position": 2,
+              "position": 2
+            }
+          ],
+          "step_order_revision": 0,
+          "step_order_conflict": false,
+          "step_order_incomplete": false,
+          "step_order_missing_ids": [],
+          "step_order_candidates": []
+        }
+      ],
+      "projects": [],
+      "warnings": [
+        "STEP-0000000000000000000000000000000B: conflicting edits at revision 1",
+        "TASK-ORDER: conflicting step order at revision 0"
+      ]
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-INVALID/steps/STEP-00000000000000000000000000000029/update",
+    "request": {
+      "title": "虚构合法同源保存",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "localhost:39177",
+      "Origin": "http://localhost:39177"
+    },
+    "status": 200,
+    "response": {
+      "saved": true,
+      "step_id": "STEP-00000000000000000000000000000029",
+      "revision": 2
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-PARENT/steps",
+    "request": {
+      "title": "禁止新增"
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "task has an unresolved conflict; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-PARENT/steps/STEP-0000000000000000000000000000001F/update",
+    "request": {
+      "title": "禁止改名",
+      "revision": 1
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "task has an unresolved conflict; refresh"
+    }
+  },
+  {
+    "path": "/api/tasks/TASK-PARENT/steps/reorder",
+    "request": {
+      "step_ids": [
+        "STEP-00000000000000000000000000000020",
+        "STEP-0000000000000000000000000000001F"
+      ],
+      "revision": 0
+    },
+    "headers": {
+      "Content-Type": "application/json",
+      "Host": "127.0.0.1:39177"
+    },
+    "status": 409,
+    "response": {
+      "error": "task has an unresolved conflict; refresh"
+    }
+  }
+]

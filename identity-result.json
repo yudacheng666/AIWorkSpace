@@ -1,0 +1,38 @@
+{
+  "identity_conflict": {
+    "order_revision": 0,
+    "conflict": true,
+    "candidates": [
+      {
+        "event_id": "order-duplicate-001",
+        "timestamp": "",
+        "actor": "chatgpt",
+        "changes": {
+          "step_ids": [
+            "STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "STEP-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+          ]
+        }
+      },
+      {
+        "event_id": "order-duplicate-001",
+        "timestamp": "",
+        "actor": "chatgpt",
+        "changes": {
+          "step_ids": [
+            "STEP-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+            "STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+          ]
+        }
+      }
+    ],
+    "api_status": 409,
+    "all_files_byte_identical": true
+  },
+  "distinct_ids": {
+    "initial_valid_revision": 2,
+    "next_reorder_status": 200,
+    "all_prior_bytes_preserved": true
+  },
+  "status": "PASS"
+}

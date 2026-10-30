@@ -1,0 +1,8 @@
+test_duplicate_reorder_event_id_across_revisions_freezes_order_stream (test_app.DataTests.test_duplicate_reorder_event_id_across_revisions_freezes_order_stream) ... ok
+test_distinct_reorder_event_ids_across_revisions_remain_valid (test_app.DataTests.test_distinct_reorder_event_ids_across_revisions_remain_valid) ... ok
+test_duplicate_reorder_event_id_across_revisions_blocks_api_write (test_app.ServerTests.test_duplicate_reorder_event_id_across_revisions_blocks_api_write) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.534s
+
+OK

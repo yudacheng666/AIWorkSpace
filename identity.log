@@ -1,0 +1,3 @@
+PASS 1/2 cross-revision same ID different content: frozen at revision0, both candidates retained; reorder409; complete file names/bytes unchanged
+PASS 3 real Chromium order controls disabled, candidates visible, step title independently saved; parent revision and prior event bytes untouched
+PASS 4 distinct event IDs legal sequential revisions applied; next reorder200 appends1, controls available, no over-freeze

@@ -1,0 +1,6 @@
+{
+  "status": "PASS",
+  "invalid_rejections": 34,
+  "security_post_rejections": 15,
+  "http_requests": 88
+}
