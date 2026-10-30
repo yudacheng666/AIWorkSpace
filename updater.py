@@ -482,7 +482,7 @@ def _start_application(root: Path, data_dir: Path, port: int) -> subprocess.Pope
     return subprocess.Popen(command, **options)
 
 
-def _wait_for_build(port: int, commit: str, process: subprocess.Popen | None, timeout: float) -> bool:
+def _wait_for_build(port: int, commit: str | None, process: subprocess.Popen | None, timeout: float) -> bool:
     from urllib.request import urlopen
     from urllib.error import URLError
     deadline = time.monotonic() + timeout
@@ -492,7 +492,7 @@ def _wait_for_build(port: int, commit: str, process: subprocess.Popen | None, ti
         try:
             with urlopen(f"http://127.0.0.1:{port}/api/update/status", timeout=1) as response:
                 status = json.loads(response.read(64 * 1024).decode("utf-8"))
-            if status.get("build_commit") == commit:
+            if commit is None or status.get("build_commit") == commit:
                 return True
         except (URLError, OSError, TimeoutError, ValueError, UnicodeError):
             pass
@@ -549,7 +549,7 @@ def run_update_helper(
                             "更新未完成，已恢复旧版本。" if backup else "更新未完成，原版本未更改。")
         try:
             old_process = _start_application(root_path, data_path, port)
-            _wait_for_build(port, "", old_process, timeout=10)
+            _wait_for_build(port, None, old_process, timeout=10)
         except OSError:
             pass
         return 1
