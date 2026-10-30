@@ -95,9 +95,7 @@ def _fixture_urlopen(request, *args, **kwargs):
         return _FixtureResponse(Path(_config["archive_path"]).read_bytes(), url)
     if url.startswith("http://127.0.0.1:"):
         return _real_urlopen(request, *args, **kwargs)
-    if url.startswith("https://"):
-        raise URLError("external HTTPS is blocked in the isolated Windows updater test")
-    return _real_urlopen(request, *args, **kwargs)
+    raise URLError("only the fixed GitHub fixture and loopback HTTP are allowed in this test")
 
 urllib.request.urlopen = _fixture_urlopen
 '''
@@ -150,7 +148,7 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
         self.old_files = {relative: (self.root / relative).read_bytes() for relative in APP_FILES}
 
         self.archive_path = self.base / "github-main-fixture.zip"
-        self.trace_path = self.evidence_dir / "github-mock-network.jsonl"
+        self.trace_path = self.evidence_dir / (self._testMethodName + "-github-mock-network.jsonl")
         self.trace_path.unlink(missing_ok=True)
         self.fixture_config_path = self.base / "github-fixture.json"
         (self.fixture_dir / "sitecustomize.py").write_text(SITECUSTOMIZE, encoding="utf-8")
@@ -287,6 +285,7 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                     self.assertEqual(status["last_update"]["status"], "rolled_back")
                     self.assertIsNotNone(self.old_process.poll(),
                                          "old service process did not exit before rollback restart")
+                    self.assertIsNotNone(self._port_owner_pid(), "no process owns the restarted loopback port")
                     self.assertNotEqual(self._port_owner_pid(), self.old_process.pid,
                                         "rollback did not start a replacement server process")
                     self.assertEqual((self.root / "VERSION").read_bytes(), b"1.0.0\n")
@@ -308,10 +307,13 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                     self.assertIn("v1.0.1", page.locator("#app-version").inner_text())
                     self.assertIsNotNone(self.old_process.poll(),
                                          "old service process did not exit during update")
+                    self.assertIsNotNone(self._port_owner_pid(), "no process owns the restarted loopback port")
                     self.assertNotEqual(self._port_owner_pid(), self.old_process.pid,
                                         "update did not start a replacement server process")
 
-                self._assert_backup()
+                backup = self._assert_backup()
+                shutil.copy2(backup / "manifest.json",
+                             self.evidence_dir / (scenario + "-backup-manifest.json"))
                 self._assert_data_unchanged()
                 traced_urls = {
                     json.loads(line)["url"]
