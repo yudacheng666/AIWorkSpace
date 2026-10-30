@@ -1007,6 +1007,7 @@ test("M3.4 successful task save advances clean baseline when sibling draft defer
   titleB.value = "兄弟任务未保存草稿";
   formB.handlers.get("input")();
   assert.equal(page.beforeUnload().prevented, true);
+  page.setConfirm(false);
 
   await formA.handlers.get("submit")({preventDefault() {}});
   assert.equal(taskA.title, "保存成功的新标题Y", "the server has persisted Y");
@@ -1054,6 +1055,7 @@ test("M3.4 successful step save advances clean baseline when sibling draft defer
   stepForm.handlers.get("input")();
   titleB.value = "兄弟任务未保存草稿";
   siblingForm.handlers.get("input")();
+  page.setConfirm(false);
   await stepForm.handlers.get("submit")({preventDefault() {}});
   assert.equal(taskA.steps[0].title, "保存成功的新步骤Y");
   assert.equal(cardFor("TASK-STEP-SAVED"), cardA,
