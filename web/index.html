@@ -323,9 +323,12 @@
       form.addEventListener("input", update);
       form.addEventListener("change", update);
       return {
-        markClean() {
-          cleanSnapshot = snapshotKey();
-          registry.delete(form);
+        // Advance the clean baseline to the exact state persisted by the
+        // successful request. If the live form changed while saving, update()
+        // keeps that newer draft dirty instead of comparing against stale data.
+        markClean(savedSnapshot = snapshot()) {
+          cleanSnapshot = JSON.stringify(savedSnapshot);
+          update();
         }
       };
     }
@@ -511,7 +514,8 @@
       const save = element("button", "save", "保存步骤");
       save.type = "submit"; save.disabled = task.conflict || step.conflict;
       form.append(titleLabel, statusLabel, save);
-      watchUnsavedEditor(form, () => JSON.stringify([title.value, status.value]));
+      const stepDraftSnapshot = () => JSON.stringify([title.value, status.value]);
+      const stepDraftWatch = watchUnsavedEditor(form, stepDraftSnapshot);
       form.addEventListener("submit", async event => {
         event.preventDefault();
         if (isSaving || task.conflict || step.conflict) return;
@@ -532,6 +536,7 @@
           message.textContent = "步骤内容没有变化";
           return;
         }
+        const draftAtSubmit = stepDraftSnapshot();
         isSaving = true; save.disabled = true; title.disabled = true; status.disabled = true;
         message.className = "step-message"; message.textContent = "正在保存步骤…";
         try {
@@ -542,7 +547,7 @@
             });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
-          unsavedTaskEditors.delete(form);
+          stepDraftWatch.markClean(draftAtSubmit);
           await refresh(true);
         } catch (error) {
           message.className = "step-message error";
@@ -714,7 +719,7 @@
         project: project.value, related: selectedValues(related),
         metadata: readTaskMetadata(metadataControls)
       });
-      watchUnsavedEditor(form, taskDraftSnapshot);
+      const taskDraftWatch = watchUnsavedEditor(form, taskDraftSnapshot);
       form.addEventListener("submit", async event => {
         event.preventDefault();
         if (isSaving || task.conflict) return;
@@ -756,7 +761,7 @@
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || "保存失败");
           if (taskDraftSnapshot() === draftAtSubmit) {
-            unsavedTaskEditors.delete(form);
+            taskDraftWatch.markClean(draftAtSubmit);
             message.textContent = "已保存独立修改记录";
             await refresh(true);
             $("sync").textContent = "保存成功 · 页面已更新";
