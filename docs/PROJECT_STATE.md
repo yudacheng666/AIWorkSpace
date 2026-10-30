@@ -1,13 +1,13 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-30（北京时间）  
-当前阶段：**M1/M2 已合入 main；M3.1 PR #3 的 Codex 首轮独立验收对固定 SHA `8341816` 判定 FAIL（2 项 P2）。ChatGPT 已在同一 Draft PR 修复两项缺陷并补充回归；修复代码 SHA `ad87b6ca` 的 Linux/Windows CI 均 SUCCESS（各 44 Python + 9 Node）。仍须 Codex 对新 SHA 定向复验，不能宣称独立验收 PASS；尚未合并 main。**
+当前阶段：**M1/M2/M3.1 已合入 `main`；M3.1 PR #3 在固定 HEAD `aaf89a7` 上经 Codex 独立复验 PASS，原两项 P2 关闭，Linux/Windows CI 均 SUCCESS（各 44 Python + 9 Node）。用户于 2026-10-30 明确批准 Squash 合并，提交 `581075266f94ac26feba8d68bf243f04243bda5d`。下一阶段 M3.2：任务负责人、优先级、截止日期、计划执行日期、下次跟进日期。**
 
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | AIWorkSpace，Public；PR #1 已以 squash 方式合并到 `main`，合并提交 `84fd0d234d799148c7a925a2d49408b11bd69481`；当前只在公司 Windows 电脑部署 |
-| 当前代码基线 | `main` 已包含 M1 + M2；PR #2 `feat/20261029-m2-web-task-create` 已 squash 合并，合并提交 `d31f0e2dff7a6c1bf9f3f4ae5754f6d47eadd5bb` |
-| 当前开发 PR | [PR #3：M3.1 轻量项目结构与任务归属](https://github.com/yudacheng666/AIWorkSpace/pull/3)，分支 `feat/m3-01-project-structure`，Draft，未合并；项目事件、任务主要/相关项目、项目分组 UI 已实现 |
+| 当前代码基线 | `main` 已包含 M1 + M2 + M3.1；PR #3 已 Squash 合并，提交 `581075266f94ac26feba8d68bf243f04243bda5d` |
+| 最近合并 PR | [PR #3：M3.1 轻量项目结构与任务归属](https://github.com/yudacheng666/AIWorkSpace/pull/3)，2026-10-30 用户批准 Squash 合并；合并前 HEAD `aaf89a7` Codex 定向复验 PASS；新阶段进入 M3.2 |
 | M1 Codex 验证的代码提交（历史） | `9f06969164e773cf08f03e5d2d02de52c38d688b`；M2 另行在 PR #2 进行 Chromium 复验与 CI |
 | 原独立验收 | Codex 对旧 head `37cde4c` 判定 **FAIL，2 项 P2**：同事件 ID 并发写入静默覆盖；GET 接口接受任意 Host |
 | 修复后 Codex 复验 | **PASS（本机 Linux 复验范围）**：两项原 P2 均通过；完整测试 23 PASS / 0 FAIL；额外 50 轮线程竞争、12 进程竞争及数据完整性检查通过；未发现新增已确认 P1/P2；限定安全扫描未发现密钥或隐私泄露 |
@@ -64,7 +64,7 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 
 ### 分阶段范围
 
-1. **M3.1 项目与任务归属（下一开发切片）**
+1. **M3.1 项目与任务归属（已合并）**
    - 项目有稳定编号和名称；任务可指定一个主要所属项目，也可关联其他项目。
    - 保留“未归类/收件箱”任务，支持按项目查看任务。
    - 项目先保持轻量：不做项目成员权限、预算、甘特图、复杂项目状态或项目审批。
@@ -98,6 +98,13 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - 产品功能阶段完成后，再以届时最新稳定版本单独规划远程访问适配；不回到 M2 或旧测试中间版本重复修改。
 - 本决策不改变 Google Drive 数据目录、追加式 JSON 事件模型、已通过的 M1/M2 同步与冲突保护机制。
 
+## 运行实例定位（2026-10-30，用户最新确认）
+
+- 目前在公司电脑本地端口 8770 运行的工作台及其中创建的事项，用户明确视为**开发/验收用测试内容**，不是需要维持不停机的正式业务环境。
+- 后续研发切换版本可以停止该测试实例；不为维护旧进程影响开发进度，也不需要先按正式生产系统安排停服窗口。
+- **允许停服不等于授权删除数据**：本机目录、Google Drive 中的历史事件与测试证据不得自动删除、清空或覆盖；若后续准备清理，应单独确认删除范围。
+- GitHub 合并并不会自动替换当前机器上运行的代码，当前本机服务仍按部署时的 M2 版本运行，不应宣称 M3.1 已自动上线。
+
 ## M3.1 独立验收与 P2 修复（2026-10-30）
 
 - 首轮独立 Codex 固定 HEAD `8341816fdd8538a945be31d03d8b147679741d6a`：**FAIL，确认 2 项 P2**。证据见 [PR #3 Codex 回评](https://github.com/yudacheng666/AIWorkSpace/pull/3#issuecomment-6515937505)。
@@ -106,10 +113,18 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - 修复代码及测试 SHA：`ad87b6ca9587fc782aaadeb970680263eb8d1731`。[GitHub Actions #41010659532](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41010659532)：**Linux 与 Windows 均 44 项 Python PASS、9 项 Node UI PASS、0 FAIL**。
 - **验收边界**：上述为自动化回归结果；Codex 对本次修复还未独立复验。此前 Codex 未测试公司 Windows、真实 Google Drive 同步与原生中文输入法；本次未触碰本机正式版本、私人数据或 main。
 
+## M3.1 最终独立复验与合并（2026-10-30）
+
+- 修复后固定 HEAD：`aaf89a7ad26077b4292266d3a17429de900d6cdf`。[Codex 独立复验报告](https://github.com/yudacheng666/AIWorkSpace/pull/3#issuecomment-6516104306)：**PASS，原两项 P2 均关闭**；Chromium、项目未同步引用保留、显式取消关联、冲突隔离、未知引用拒绝均在隔离虚构数据下核验通过，无新增已确认 P1/P2/P3。
+- [CI #41010816495](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41010816495)：同一 HEAD 的 Linux/Windows 全部 SUCCESS，每平台 44 Python + 9 Node 测试 PASS。
+- **用户已批准 Squash 合并 PR #3**。GitHub 返回 merged=true，Squash commit `581075266f94ac26feba8d68bf243f04243bda5d`；已复核 main 指向该提交。
+- NOT TESTED：公司 Windows 上 M3.1 新项目界面操作、真实 Drive 双向项目事件同步、原生中文输入法、长时间稳定性。不能将独立云端 Chromium 测试扩展为这些环境已通过。
+
 ## 下一步
 
-1. 先核对本 PR 的最新 HEAD 和 Linux/Windows CI。确认自动化验证后，只对上述两项 P2 安排 Codex Cloud 定向复验；必要时复测任务关联编辑、项目引用延迟同步及 409 保护。无需重复无关 M1/M2 或第二台电脑测试。
-2. Codex 将复验结论、证据和实际 SHA 回写 PR #3，ChatGPT 读取并判断是否可进入后续实机验证 / 合并审查。**未独立复验 PASS 前维持 FAIL / Draft；未经用户批准绝不合并**。
-3. 其后才继续 M3.2；远程访问按 D012 暂缓至产品功能完成后。
+1. **进入 M3.2 独立开发切片**：任务负责人、优先级、截止日期、计划执行日期和下次跟进日期；严格区分三种日期。延续追加式事件、向后兼容旧任务、旧版本/并发保护与用户确认完成规则。
+2. M3.2 代码和回归测试在独立分支/PR，GitHub Linux/Windows CI 与 Codex 独立验收后再寻求合并批准；不重复 M1/M2/M3.1 无关测试。
+3. 用户声明当前本机 8770 为测试实例，可随时停止；不要求保持运行或马上部署 M3.1。未经明确指示，不删除现有数据或触碰真实 Google Drive 事件。
+4. 远程访问仍按 D012 暂缓至产品功能完成。
 
-**交接规则：** 新 AI 必须读取 AGENTS.md、需求、状态、决策、PR 当前 HEAD 和最新 CI/独立验收记录，不可将自动测试 PASS 当作 Codex 独立实操 PASS。
+**交接规则：** 新 AI 必须先读取 AGENTS.md、需求、状态、决策、当前 main、PR、CI 和独立验收证据。不把 CI PASS 与真实公司 Windows 实机验收混为一谈。
