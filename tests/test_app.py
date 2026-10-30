@@ -42,6 +42,24 @@ class DataTests(unittest.TestCase):
         self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["title"], "虚构测试任务")
         self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["revision"], 1)
 
+    def test_utf8_bom_event_from_external_writer_is_readable(self):
+        events = self.data_dir / "events"
+        events.mkdir()
+        payload = json.dumps(event(
+            "external-bom-event",
+            task_id="TASK-EXTERNAL-BOM",
+            changes={"title": "外部写入的虚构测试任务", "status": "todo"},
+        ), ensure_ascii=False, indent=2)
+        (events / "evt_external-bom-event.json").write_text(
+            payload, encoding="utf-8-sig"
+        )
+        state = read_workspace(self.data_dir)
+        self.assertEqual(state["warnings"], [])
+        self.assertEqual(len(state["tasks"]), 1)
+        self.assertEqual(state["tasks"][0]["task_id"], "TASK-EXTERNAL-BOM")
+        self.assertEqual(state["tasks"][0]["title"], "外部写入的虚构测试任务")
+        self.assertEqual(state["tasks"][0]["status"], "todo")
+
     def test_user_edit_preserves_original(self):
         original = append_event(self.data_dir, event())
         original_bytes = original.read_bytes()
@@ -213,10 +231,105 @@ class ServerTests(unittest.TestCase):
         except HTTPError as error:
             return error.code, json.load(error)
 
+    def create_task(self, body, extra_headers=None, content_type="application/json"):
+        headers = {"Content-Type": content_type}
+        headers.update(extra_headers or {})
+        request = Request(self.base + "/api/tasks",
+                          data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
+                          method="POST", headers=headers)
+        try:
+            with urlopen(request, timeout=3) as reply:
+                return reply.status, json.load(reply)
+        except HTTPError as error:
+            return error.code, json.load(error)
+
+    def test_create_task_success_and_persists(self):
+        status, result = self.create_task({"title": "  新任务：安排资料整理  "})
+        self.assertEqual(status, 201)
+        self.assertTrue(result["saved"])
+        self.assertEqual(result["revision"], 1)
+        self.assertRegex(result["task_id"], r"^TASK-[A-F0-9]{32}$")
+        tasks = {task["task_id"]: task for task in read_workspace(self.data_dir)["tasks"]}
+        self.assertEqual(tasks[result["task_id"]]["title"], "新任务：安排资料整理")
+        self.assertEqual(tasks[result["task_id"]]["status"], "todo")
+        self.assertEqual(tasks[result["task_id"]]["revision"], 1)
+        self.assertFalse(tasks[result["task_id"]]["conflict"])
+        created = [json.loads(p.read_text(encoding="utf-8"))
+                   for p in (self.data_dir / "events").glob("*.json")
+                   if json.loads(p.read_text(encoding="utf-8"))["task_id"] == result["task_id"]]
+        self.assertEqual(len(created), 1)
+        self.assertEqual(created[0]["action"], "create")
+        self.assertEqual(created[0]["actor"], "user")
+        self.assertEqual(created[0]["base_revision"], 0)
+        self.assertEqual(created[0]["changes"], {"title": "新任务：安排资料整理",
+                                                  "status": "todo"})
+        with urlopen(self.base + "/api/tasks", timeout=3) as reply:
+            self.assertIn(result["task_id"], {t["task_id"] for t in json.load(reply)["tasks"]})
+
+    def test_create_rejects_invalid_payload_without_writing(self):
+        invalid = [{"title": ""}, {"title": "   "}, {"title": "x" * 201},
+                   {"title": 123}, {"title": "valid", "status": "done"},
+                   {"title": "valid", "task_id": "TASK-INJECTED"},
+                   {"title": "valid", "actor": "chatgpt"},
+                   {"title": "valid", "base_revision": 1}]
+        before = len(list((self.data_dir / "events").glob("*.json")))
+        for payload in invalid:
+            with self.subTest(payload=payload):
+                status, _ = self.create_task(payload)
+                self.assertEqual(status, 400)
+        self.assertEqual(len(list((self.data_dir / "events").glob("*.json"))), before)
+
+    def test_create_rejects_untrusted_origin_and_host(self):
+        before = len(list((self.data_dir / "events").glob("*.json")))
+        for headers in ({"Origin": "https://untrusted.example"},
+                        {"Host": "attacker.example"}):
+            with self.subTest(headers=headers):
+                status, response = self.create_task({"title": "never saved"}, headers)
+                self.assertEqual(status, 403)
+                self.assertIn("local requests only", response["error"])
+        self.assertEqual(len(list((self.data_dir / "events").glob("*.json"))), before)
+
+    def test_create_requires_json_content_type(self):
+        status, _ = self.create_task({"title": "wrong mime"}, content_type="text/plain")
+        self.assertEqual(status, 415)
+        self.assertEqual(len(list((self.data_dir / "events").glob("*.json"))), 1)
+
+    def test_create_handles_disk_publish_failure_without_phantom_task(self):
+        with patch("app.os.link", side_effect=OSError("simulated write failure")):
+            status, response = self.create_task({"title": "will not persist"})
+        self.assertEqual(status, 500)
+        self.assertEqual(response["error"], "unable to save event")
+        self.assertEqual(len(read_workspace(self.data_dir)["tasks"]), 1)
+        self.assertEqual(len(list((self.data_dir / "events").glob("*.json"))), 1)
+
+    def test_create_concurrent_requests_get_distinct_ids(self):
+        results = []
+        lock = threading.Lock()
+
+        def writer(value):
+            result = self.create_task({"title": value})
+            with lock:
+                results.append(result)
+
+        first = threading.Thread(target=writer, args=("Task one",))
+        second = threading.Thread(target=writer, args=("Task two",))
+        first.start()
+        second.start()
+        first.join(timeout=5)
+        second.join(timeout=5)
+        self.assertFalse(first.is_alive() or second.is_alive())
+        self.assertEqual([code for code, _ in results].count(201), 2, results)
+        task_ids = [result["task_id"] for _, result in results]
+        self.assertEqual(len(set(task_ids)), 2)
+        tasks = {task["task_id"]: task for task in read_workspace(self.data_dir)["tasks"]}
+        self.assertEqual({tasks[tid]["title"] for tid in task_ids}, {"Task one", "Task two"})
+
     def test_webpage_and_api_available(self):
         with urlopen(self.base + "/", timeout=3) as response:
             html = response.read().decode("utf-8")
             self.assertIn("AIWorkSpace", html)
+            self.assertIn("新建任务", html)
+            self.assertIn('id="create-task"', html)
             self.assertIn("状态存在冲突（未裁决）", html)
             self.assertIn("冲突候选不是最终结论", html)
         with urlopen(self.base + "/api/tasks", timeout=3) as response:

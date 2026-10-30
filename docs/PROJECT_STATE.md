@@ -1,13 +1,13 @@
 # AIWorkSpace｜当前项目状态
 
-更新日期：2026-10-29（北京时间）  
-当前阶段：**M1 技术原型已经通过 PR #1 合并到 main，单机与云盘双向同步、断网恢复和旧版本写入保护等已测试流程通过。下一阶段优先补齐网页新建任务及 ChatGPT 直接写入云端 JSON 的任务录入闭环**
+更新日期：2026-10-30（北京时间）  
+当前阶段：**M1 技术原型已合入 main；M2 PR #2 的网页新建任务、Codex P2 定向复验、Windows + Drive 实机创建、ChatGPT 经 Drive 写入并在工作台显示均已 PASS。最终审查建议以 M2 技术基线合并，尚待用户批准；PR #2 未合并 main。**
 
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | AIWorkSpace，Public；PR #1 已以 squash 方式合并到 `main`，合并提交 `84fd0d234d799148c7a925a2d49408b11bd69481`；当前只在公司 Windows 电脑部署 |
 | 当前代码基线 | `main` 已包含 M1 技术原型；原开发分支 `feat/20261027-m1-task-loop` 为已合并来源 |
-| Codex 验证的代码提交 | `9f06969164e773cf08f03e5d2d02de52c38d688b`；本次验收记录只涉及文档更新，不改动产品代码、测试或 CI |
+| M1 Codex 验证的代码提交（历史） | `9f06969164e773cf08f03e5d2d02de52c38d688b`；M2 另行在 PR #2 进行 Chromium 复验与 CI |
 | 原独立验收 | Codex 对旧 head `37cde4c` 判定 **FAIL，2 项 P2**：同事件 ID 并发写入静默覆盖；GET 接口接受任意 Host |
 | 修复后 Codex 复验 | **PASS（本机 Linux 复验范围）**：两项原 P2 均通过；完整测试 23 PASS / 0 FAIL；额外 50 轮线程竞争、12 进程竞争及数据完整性检查通过；未发现新增已确认 P1/P2；限定安全扫描未发现密钥或隐私泄露 |
 | P2 修复 A：并发事件丢失 | `append_event` 改用原子硬链接发布，不再以可覆盖目标文件的 `os.replace` 作为最终发布操作。并发复验确认相同事件 ID 最多一个成功，事件未覆盖 |
@@ -29,19 +29,39 @@
 | GitHub 评论回写 | PR #1 已包含 Codex Linux 独立复验、Windows/云盘双向同步、断网恢复及旧版本写入保护结果 |
 | 公开安全 | Codex 限定范围扫描未发现密钥或隐私泄露；这不是对所有类型泄露的绝对保证 |
 
-## 本轮 PR 最终审查
+## M1 合并前历史审查记录（2026-10-29，当时尚未合并 PR #1）
 
 - 用户确认：公司电脑工作台任务列表为空；10 个历史测试事件全部在云端归档子文件夹，未删除或改写。
 - PR #1：head `d4c75057d2e657e1efc9f908a38af40114e87ba5`；base `main`，mergeable；7 个变更文件；仍为 Draft，未合并。
 - 最新 CI：[run 40894115476](https://github.com/yudacheng666/AIWorkSpace/actions/runs/40894115476) 两个 job 分别为 Linux/Windows，均 SUCCESS。
 - 关键缺口（不能扩大结论）：现有网页能查看与编辑，但没有新建任务入口；过往通过 PowerShell 创建事件或人工上传到 Drive，**不能视为 ChatGPT 已经能够自动把用户口述任务直接创建为云端 JSON**。因此技术基线的实测通过，不等于日常使用型 AI 工作台的全部业务闭环通过。
 
+## M2 进度与验收（2026-10-29）
+
+| 项目 | 状态与证据 |
+|---|---|
+| 开发分支 / PR | `feat/20261029-m2-web-task-create` / [PR #2](https://github.com/yudacheng666/AIWorkSpace/pull/2)，Draft，未合并 `main` |
+| 功能 | 服务端 `POST /api/tasks` 自动生成 UUID 编号、默认 todo、原子事件保存；网页新建任务表单 |
+| Codex 独立验收 | 首轮 **FAIL（HEAD `4bc0fdb`）**：发现任务甲成功响应会清空后续任务乙草稿；修复后 Codex 在实际 Chromium 对最新修复 HEAD `8e8d4445a6e6787cefb5705c762b7c79e78e1a12` 定向复验 **PASS**，无新增已确认缺陷。原生 Windows 中文输入法仍 NOT TESTED |
+| 修复 | **已提交并通过 Codex 定向复验**：提交前记录草稿内容与输入版本。异步成功响应仅在草稿未被编辑时清空；若用户正在填写新任务，保留草稿并提示尚未保存；失败不清空 |
+| 自动化回归 | 30 项 Python 测试 + 5 项 Node 原生 UI 时序回归（含 UTF-8 BOM 兼容）；最新审查前 [Actions #40908264314](https://github.com/yudacheng666/AIWorkSpace/actions/runs/40908264314) Linux 和 Windows **均 SUCCESS** |
+| Codex 复验报告 | 已直接回写并核实 PR #2 [中文 Chromium 定向复验报告](https://github.com/yudacheng666/AIWorkSpace/pull/2#issuecomment-6500864805)；复验代码 SHA `8e8d4445`，原 P2 PASS。更晚的代码改动仅包含 UTF-8 BOM 兼容与相关测试，经 Linux/Windows CI PASS；这不等于 Codex 对后续 SHA 再做了完整 GUI 测试 |
+| Windows + Drive 实机验收 | **PASS（2026-10-29）**：用户在公司 Windows 上以 `8771` 运行 PR #2 SHA `8e8d4445`，网页新建虚构任务 `M2测试：网页新建任务-20261029`，刷新后仍存在；通过已连接 Google Drive 实际读取到 `AIWorkSpaceData/events` 中对应 JSON 创建事件，标题、event ID、task ID、action=create、status=todo 均一致。公开仓库不记录私有 Drive 文件 ID 或本机路径 |
+| ChatGPT → Drive → 本机工作台闭环 | **PASS（2026-10-30）**：ChatGPT 通过 Drive 连接器创建并上传合成事件；用户确认公司 Windows 在端口 `8772` 运行最新 PR #2 代码后，任务 `ChatGPT直写Drive链路验证-20261029` 自动出现在网页列表，刷新后仍存在。连同云端事件读回、`utf-8-sig` BOM 兼容修复及 Linux/Windows CI PASS，确认本次端到端链路成立。公开仓库不记录私有 Drive 文件 ID或本机路径 |
+
+## M2 最终审查结论（2026-10-30）
+
+- **产品代码检查：PASS（已审查的最小范围）**。相对 `main` 变动包括网页新建接口/表单、草稿保留、BOM 读取、测试与文档；沿用 M1 原子事件发布、Host/Origin 校验、409 冲突保护和完成确认限制。未发现已确认的新 P1/P2。
+- **验证：PASS**。Codex [原 P2 Chromium 定向复验](https://github.com/yudacheng666/AIWorkSpace/pull/2#issuecomment-6500864805) PASS（SHA `8e8d4445`）；后续 BOM 补丁有 Python 回归与 Linux/Windows CI；公司 Windows 分别验证 8771 网页新建→Drive、8772 ChatGPT→Drive→工作台显示并刷新持久性。
+- **未测与边界：** Windows 原生中文输入法组成输入专项、长期运行/多次断网重连、跨进程同时操作和多人权限不在此次验收范围；ChatGPT 云端写入依赖当前连接器和临时文件转换流程，不是后台自主执行系统。**不要把 M2 技术原型描述为完整 AI 工作总管。**
+- **文档与公开安全：** 已检查 PR 的文件清单/差异；仅代码、测试和匿名化项目文档，没有真实个人数据、凭据或私有 Drive ID。README、项目状态与 PR 描述已调整为现行验收事实。
+- **合并建议：** M2 技术基线**建议合并**，但 PR #2 仍 Draft，未经用户明确批准**不执行合并**。合并 GitHub 也不会自动更新公司电脑本机运行的 8770/8771/8772 程序。
+
 ## 下一步
 
-1. **M1 技术基线已合并**：PR #1 `84fd0d23` 已合入 `main`；既有 Linux/Windows CI 与用户实际公司电脑关键链路测试通过；测试事件归档后网页列表为空已确认。
-2. **准备 M2 小步开发**：优先在新分支开发网页端“新建任务”，沿用现有 JSON 事件、原子发布、稳定任务编号及状态校验；补齐相应单元测试与 CI。
-3. **另行验证 AI 录入**：ChatGPT 直接写入云端 JSON 的路径仍未实证；此前本机 PowerShell 创建/人工上传仅能证明数据链路，不能作为 ChatGPT 自动录入通过的证据。
-4. 代码更新到公司电脑需单独安装/更新运行版本，GitHub 合并不会自动更新已运行的本地服务。确保备份和路径一致后再执行，不在此步骤打断服务。
-5. 仅维护公司电脑单机部署；不安排第二台电脑测试，不增加付费 API。负责人、优先级、日期、提醒等按既定需求逐步开发。
+1. 将最终审查记录回写 PR #2，核验最新文档提交的 GitHub Actions Linux + Windows 结果；失败则停止合并建议并修复。
+2. 向用户呈报最终合并建议。**仅用户明确批准后**，才将 PR #2 合并到 `main`，合并后核实最新主分支状态。
+3. 合并后确定公司电脑唯一正式运行端口及升级步骤；当前 8770 为 M1、8771 为旧 M2 测试、8772 为最新验证，避免长期多服务共用一份活跃数据。
+4. 下一阶段按需求分步实现项目/任务/步骤层级、优先级、负责人、日期与跟进；保持无新增付费 API、公司电脑单机部署、数据在 Drive、公开仓库不放真实业务数据。
 
 **交接规则：** 新 AI 先读取根目录 `AGENTS.md`，再核实本文件、需求、决策、PR head 与最新 Actions 证据。不得把 Linux 复验 PASS 扩大解释为 Windows/云端/浏览器闭环 PASS。

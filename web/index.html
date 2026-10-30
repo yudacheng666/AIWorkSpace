@@ -20,6 +20,10 @@
     button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #9dc1f6; outline-offset: 2px; }
     .refresh { border: 1px solid #d7e0ed; padding: 10px 17px; color: #274766; background: #fff; font-weight: 600; }
     .refresh:hover { background: #eaf0f8; }
+    .create-panel { background: white; border: 1px solid #e1e8f0; border-radius: 14px; padding: 20px 22px; margin-top: 25px; }
+    .create-help { margin: 7px 0 15px; color: #718197; font-size: 13px; }
+    .create-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; }
+    .create-panel .message { margin-bottom: 0; }
     .stats { display: flex; gap: 12px; margin: 26px 0 28px; }
     .stat { flex: 1; min-width: 0; background: #fff; border: 1px solid #e9edf4; border-radius: 14px; padding: 21px; }
     .stat b { font-size: 28px; display: block; line-height: 1.2; }
@@ -52,6 +56,8 @@
       .top { margin-bottom: 30px; }
       .stats { gap: 8px; }
       .stat { padding: 15px; }
+      .create-panel { padding: 17px 16px; }
+      .create-form { grid-template-columns: 1fr; }
       .task-form { grid-template-columns: 1fr 120px; }
       .task-form .save { grid-column: 1 / -1; }
       .task { padding: 16px; }
@@ -68,6 +74,17 @@
       <div><h1>我的任务</h1><p class="subtitle">从 ChatGPT 录入，在这里查看和更新。</p></div>
       <button type="button" class="refresh" id="refresh">刷新任务</button>
     </div>
+    <section class="create-panel" aria-labelledby="create-heading">
+      <h2 id="create-heading">新建任务</h2>
+      <p class="create-help">创建后自动生成任务编号，初始状态为「待处理」。</p>
+      <form class="create-form" id="create-task">
+        <label for="new-task-title">任务名称
+          <input id="new-task-title" type="text" maxlength="200" required placeholder="输入要处理的事项" autocomplete="off">
+        </label>
+        <button class="save" id="create-submit" type="submit">创建任务</button>
+      </form>
+      <p class="message" id="create-message" role="status" aria-live="polite"></p>
+    </section>
     <div class="stats" aria-label="任务统计">
       <div class="stat"><b id="total">—</b><span>全部任务</span></div>
       <div class="stat"><b id="active">—</b><span>待处理或进行中</span></div>
@@ -84,6 +101,7 @@
     const labels = {todo: "待处理", doing: "进行中", blocked: "受阻", done: "已完成"};
     let isSaving = false;
     let current = [];
+    let createDraftRevision = 0;
 
     function element(tag, className, value) {
       const el = document.createElement(tag);
@@ -195,7 +213,7 @@
         if (!current.length) {
           const empty = element("div", "empty");
           empty.append(element("strong", "", "这里还没有任务"),
-                       element("p", "", "下一步由 ChatGPT 在指定的 Google Drive 数据目录创建一条虚构测试任务，等待同步后即可显示。"));
+                       element("p", "", "使用上方「新建任务」直接创建第一条事项；也可以通过已验证的数据同步方式导入任务。"));
           list.replaceChildren(empty);
         } else list.replaceChildren(...current.map(row));
         const warnings = $("warnings");
@@ -206,6 +224,52 @@
         $("sync").textContent = `读取失败：${error.message}`;
       }
     }
+
+    $("new-task-title").addEventListener("input", () => { createDraftRevision++; });
+
+    $("create-task").addEventListener("submit", async event => {
+      event.preventDefault();
+      const input = $("new-task-title");
+      const message = $("create-message");
+      const submit = $("create-submit");
+      const originalDraft = input.value;
+      const draftRevisionAtSubmit = createDraftRevision;
+      const title = originalDraft.trim();
+      if (isSaving) {
+        message.textContent = "另一个操作正在保存，请稍后再提交。";
+        return;
+      }
+      if (!title || title.length > 200) {
+        message.className = "message error";
+        message.textContent = "请输入 1–200 字的任务名称。";
+        return;
+      }
+      isSaving = true;
+      submit.disabled = true;
+      message.className = "message";
+      message.textContent = "正在创建…";
+      try {
+        const response = await fetch("/api/tasks", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({title})
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+        // A delayed response must not wipe the next task drafted while this save ran.
+        const draftUntouched = createDraftRevision === draftRevisionAtSubmit &&
+                               input.value === originalDraft;
+        if (draftUntouched) input.value = "";
+        message.textContent = `创建成功：${result.task_id}（待处理）` +
+          (draftUntouched ? "" : "；正在输入的下一条任务草稿已保留，尚未保存");
+        await refresh(true);
+      } catch (error) {
+        message.className = "message error";
+        message.textContent = `创建结果未确认：${error.message}。请先刷新列表核对，避免重复创建。`;
+      } finally {
+        isSaving = false;
+        submit.disabled = false;
+      }
+    });
 
     $("refresh").addEventListener("click", () => refresh(true));
     refresh(true);
