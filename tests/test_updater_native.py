@@ -72,18 +72,18 @@ class NativeWindowsUpdateTests(unittest.TestCase):
             folder = self.data / name
             folder.mkdir(parents=True)
             (folder / "fictional.json").write_bytes(
-                b'{"fictional":"immutable native test data"}\\n')
+                b'{"fictional":"immutable native test data"}\n')
         self.data_bytes = {p.relative_to(self.data).as_posix(): p.read_bytes()
                            for p in self.data.rglob("*") if p.is_file()}
-        self.root.joinpath("app.py").write_text(STUB + "\\n# old-version\\n", encoding="utf-8")
+        self.root.joinpath("app.py").write_text(STUB + "\n# old-version\n", encoding="utf-8")
         self.root.joinpath("updater.py").write_bytes(Path(updater.__file__).read_bytes())
-        self.root.joinpath("VERSION").write_text("0.9.0\\n", encoding="utf-8")
+        self.root.joinpath("VERSION").write_text("0.9.0\n", encoding="utf-8")
         self.root.joinpath("web/index.html").write_text("<p>old</p>", encoding="utf-8")
         self.stage = self.root / ".aiworkspace-update-staging-native"
         (self.stage / "web").mkdir(parents=True)
-        self.stage.joinpath("app.py").write_text(STUB + "\\n# new-version\\n", encoding="utf-8")
+        self.stage.joinpath("app.py").write_text(STUB + "\n# new-version\n", encoding="utf-8")
         self.stage.joinpath("updater.py").write_bytes(Path(updater.__file__).read_bytes())
-        self.stage.joinpath("VERSION").write_text("1.0.0\\n", encoding="utf-8")
+        self.stage.joinpath("VERSION").write_text("1.0.0\n", encoding="utf-8")
         self.stage.joinpath("web/index.html").write_text("<p>new</p>", encoding="utf-8")
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.bind(("127.0.0.1", 0))
@@ -152,7 +152,7 @@ class NativeWindowsUpdateTests(unittest.TestCase):
 
     def test_native_windows_failed_start_restores_old_program_and_service(self):
         self.stage.joinpath("app.py").write_text(
-            "import sys\\nsys.exit(17)\\n", encoding="utf-8")
+            "import sys\nsys.exit(17)\n", encoding="utf-8")
         self._start_old()
         self.assertEqual(self._launch_and_finish(), 1,
                          "failed new server must fail and restore old version")
