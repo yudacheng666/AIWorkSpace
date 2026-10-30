@@ -202,9 +202,7 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                 archive.writestr(prefix + "/" + relative, content)
 
     def _start_old_service(self):
-        self.service_log_path = self.evidence_dir / "windows-service-" + Path(
-            "rollback" if "rollback" in self._scenario else "success"
-        ).with_suffix(".log")
+        self.service_log_path = self.evidence_dir / ("windows-service-" + self._scenario + ".log")
         self.service_log = self.service_log_path.open("w", encoding="utf-8")
         self.old_process = subprocess.Popen(
             [sys.executable, str(self.root / "app.py"),
@@ -223,6 +221,13 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
             f"http://127.0.0.1:{self.port}/api/update/status", timeout=2
         ) as response:
             return json.loads(response.read().decode("utf-8"))
+
+    def _port_owner_pid(self):
+        for connection in psutil.net_connections(kind="tcp"):
+            if (connection.laddr and connection.laddr.port == self.port
+                    and connection.status == psutil.CONN_LISTEN and connection.pid):
+                return connection.pid
+        return None
 
     def _wait_for_status(self, timeout=20):
         deadline = time.monotonic() + timeout
@@ -280,6 +285,10 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                     self.assertEqual(status["version"], "1.0.0")
                     self.assertIsNone(status["build_commit"])
                     self.assertEqual(status["last_update"]["status"], "rolled_back")
+                    self.assertIsNotNone(self.old_process.poll(),
+                                         "old service process did not exit before rollback restart")
+                    self.assertNotEqual(self._port_owner_pid(), self.old_process.pid,
+                                        "rollback did not start a replacement server process")
                     self.assertEqual((self.root / "VERSION").read_bytes(), b"1.0.0\n")
                     for relative, content in self.old_files.items():
                         self.assertEqual((self.root / relative).read_bytes(), content,
@@ -299,6 +308,8 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                     self.assertIn("v1.0.1", page.locator("#app-version").inner_text())
                     self.assertIsNotNone(self.old_process.poll(),
                                          "old service process did not exit during update")
+                    self.assertNotEqual(self._port_owner_pid(), self.old_process.pid,
+                                        "update did not start a replacement server process")
 
                 self._assert_backup()
                 self._assert_data_unchanged()
