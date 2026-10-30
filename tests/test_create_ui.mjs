@@ -563,3 +563,186 @@ test("M3.3 an order conflict disables reorder but leaves step editing available"
   const form = firstRow.children[1].children.find(item => item.className === "step-edit-form");
   assert.equal(form.children[0].children[0].disabled, false);
 });
+
+
+ 
+// M3.4: exercise the real overview/query functions with a minimal browser-like DOM.
+// The page must work entirely against GET /api/tasks without new write endpoints.
+function overviewHarness(tasks, projects = []) {
+  const elements = new Map();
+  const posted = [];
+  function fakeNode(tag = "div") {
+    const node = {
+      tag, textContent: "", className: "", children: [], handlers: new Map(),
+      disabled: false, selected: false, hidden: false, _value: "",
+      append(...items) { this.children.push(...items); },
+      replaceChildren(...items) { this.children = items; },
+      addEventListener(type, handler) { this.handlers.set(type, handler); }
+    };
+    Object.defineProperty(node, "value", {
+      get() {
+        return this.tag === "select"
+          ? (this.children.find(child => child.selected)?.value ?? "")
+          : this._value;
+      },
+      set(value) {
+        this._value = value;
+        if (this.tag === "select") for (const child of this.children)
+          child.selected = child.value === value;
+      }
+    });
+    Object.defineProperty(node, "selectedOptions", {
+      get() { return this.tag === "select" ? this.children.filter(child => child.selected) : []; }
+    });
+    return node;
+  }
+  const selectIds = new Set(["overview-owner", "query-project", "query-owner",
+                             "query-status", "query-date-field",
+                             "new-task-project", "new-task-related", "new-task-priority"]);
+  const document = {
+    activeElement: null,
+    getElementById(id) {
+      if (!elements.has(id)) elements.set(id, fakeNode(selectIds.has(id) ? "select" : "div"));
+      return elements.get(id);
+    },
+    createElement: tag => fakeNode(tag)
+  };
+  const fetch = async (path, options) => {
+    if (options?.method === "POST") {
+      posted.push(path);
+      throw Error("overview must never write");
+    }
+    assert.equal(path, "/api/tasks");
+    return {ok: true, json: async () => ({tasks, projects, warnings: []})};
+  };
+  const api = vm.runInNewContext(match[1] +
+    "\n;({overviewDates, matchesOverview, matchesQuery, selectOverview, refresh})", {
+      document, fetch, setInterval() {}, Date,
+      window: {confirm: () => true}
+    }, {timeout: 2000});
+  const el = id => document.getElementById(id);
+  const submitQuery = () => el("task-query").handlers.get("submit")({preventDefault() {}});
+  const resetQuery = () => el("query-reset").handlers.get("click")();
+  return {api, el, posted, submitQuery, resetQuery, tasks, projects};
+}
+
+function overviewTask(id, extras = {}) {
+  return {
+    task_id: id, title: "虚构任务" + id, status: "todo", revision: 1,
+    conflict: false, owner: null, project_id: null, related_project_ids: [],
+    steps: [], ...extras
+  };
+}
+
+test("M3.4 local dates include today and next 7 calendar days, including across year boundary", () => {
+  const page = overviewHarness([]);
+  const dates = page.api.overviewDates(new Date(2026, 11, 28, 23, 30));
+  assert.equal(dates.today, "2026-12-28");
+  assert.equal(dates.sevenDays, "2027-01-04");
+});
+
+test("M3.4 overview separates own work, other followups, near-due and risks without guessing owner", async () => {
+  const tasks = [
+    overviewTask("TASK-SELF", {owner: "虚构甲", planned_date: "2026-10-01"}),
+    overviewTask("TASK-OTHER", {owner: "虚构乙", follow_up_date: "2026-10-02"}),
+    overviewTask("TASK-OVERDUE", {due_date: "2026-10-01"}),
+    overviewTask("TASK-BLOCKED", {status: "blocked"}),
+    overviewTask("TASK-DONE", {status: "done", owner: "虚构甲", planned_date: "2026-10-01", due_date: "2026-10-01"}),
+    overviewTask("TASK-CONFLICT", {conflict: true}),
+    overviewTask("TASK-DUE", {due_date: "2026-10-31"}),
+  ];
+  const page = overviewHarness(tasks);
+  await page.api.refresh(true);
+  assert.equal(page.el("view-mine").disabled, true, "unconfigured identity must not imply user");
+  assert.equal(page.el("view-followup-count").textContent, "—");
+  const dates = {today: "2026-10-30", sevenDays: "2026-11-06"};
+  assert.deepEqual(tasks.filter(t => page.api.matchesOverview(t, "mine", "虚构甲", dates)).map(t => t.task_id),
+                   ["TASK-SELF"]);
+  assert.deepEqual(tasks.filter(t => page.api.matchesOverview(t, "followup", "虚构甲", dates)).map(t => t.task_id),
+                   ["TASK-OTHER"]);
+  assert.deepEqual(tasks.filter(t => page.api.matchesOverview(t, "risk", "虚构甲", dates)).map(t => t.task_id),
+                   ["TASK-OVERDUE", "TASK-BLOCKED", "TASK-CONFLICT"]);
+  assert.deepEqual(tasks.filter(t => page.api.matchesOverview(t, "due", "虚构甲", dates)).map(t => t.task_id),
+                   ["TASK-DUE"]);
+  assert.equal(page.posted.length, 0);
+});
+
+test("M3.4 query matches stable task/step IDs, related projects and inclusive dates", () => {
+  const page = overviewHarness([]);
+  const task = overviewTask("TASK-ABCD-1234", {
+    title: "整理材料", project_id: "PROJECT-MAIN",
+    related_project_ids: ["PROJECT-RELATED"], status: "doing",
+    owner: "虚构采购员", due_date: "2026-11-06",
+    steps: [{step_id: "STEP-XYZ-1234", title: "核对附件"}]
+  });
+  const query = {keyword: "step-xyz", project: "PROJECT-RELATED",
+    status: "doing", owner: "虚构采购员", dateField: "due_date",
+    dateFrom: "2026-11-06", dateTo: "2026-11-06"};
+  assert.equal(page.api.matchesQuery(task, query), true);
+  assert.equal(page.api.matchesQuery(task, {...query, keyword: "附件"}), true);
+  assert.equal(page.api.matchesQuery(task, {...query, keyword: "task-abcd"}), true);
+  assert.equal(page.api.matchesQuery(task, {...query, keyword: "无关"}), false);
+  assert.equal(page.api.matchesQuery(task, {...query, owner: "__none__"}), false);
+  assert.equal(page.api.matchesQuery(task, {...query, project: "__none__"}), false);
+  assert.equal(page.api.matchesQuery(task, {...query, dateFrom: "2026-11-07"}), false);
+  assert.equal(page.api.matchesQuery(task, {...query, dateTo: "2026-11-05"}), false);
+  assert.equal(page.api.matchesQuery({...task, conflict: true}, query), false,
+               "conflicted task status must not be trusted");
+  assert.equal(page.api.matchesQuery({...task, conflict: true}, {...query, status: "conflict"}), true);
+});
+
+test("M3.4 rendered query preserves input and applies filters only on explicit submit", async () => {
+  const tasks = [
+    overviewTask("TASK-ALPHA", {title: "虚构：紧急合同", owner: "员工甲"}),
+    overviewTask("TASK-BETA", {title: "虚构：日常记录", owner: "员工乙"})
+  ];
+  const page = overviewHarness(tasks);
+  await page.api.refresh(true);
+  assert.equal(page.el("query-result-count").textContent, "（2 / 2）");
+  page.el("query-keyword").value = "紧急";
+  assert.equal(page.el("query-result-count").textContent, "（2 / 2）");
+  page.submitQuery();
+  assert.equal(page.el("query-result-count").textContent, "（1 / 2）");
+  page.el("query-keyword").value = "   ";
+  page.submitQuery();
+  assert.equal(page.el("query-result-count").textContent, "（2 / 2）");
+  assert.equal(page.posted.length, 0);
+});
+
+test("M3.4 invalid date range retains prior valid query and reset recovers all tasks", async () => {
+  const page = overviewHarness([
+    overviewTask("TASK-M34-A", {title: "A"}),
+    overviewTask("TASK-M34-B", {title: "B"})
+  ]);
+  await page.api.refresh(true);
+  page.el("query-keyword").value = "不存在";
+  page.submitQuery();
+  assert.equal(page.el("query-result-count").textContent, "（0 / 2）");
+  page.el("query-keyword").value = "A";
+  page.el("query-date-from").value = "2026-11-12";
+  page.el("query-date-to").value = "2026-11-01";
+  page.submitQuery();
+  assert.match(page.el("query-message").textContent, /结束日期不得早于起始日期/);
+  assert.equal(page.el("query-result-count").textContent, "（0 / 2）");
+  page.resetQuery();
+  assert.equal(page.el("query-result-count").textContent, "（2 / 2）");
+  assert.equal(page.el("query-date-from").value, "");
+  assert.equal(page.posted.length, 0);
+});
+
+test("M3.4 selected self owner remains local to UI and survives refresh without POST", async () => {
+  const page = overviewHarness([
+    overviewTask("TASK-M34-OWN", {owner: "虚构甲", planned_date: "2025-01-01"}),
+    overviewTask("TASK-M34-OTHER", {owner: "虚构乙", follow_up_date: "2025-01-01"})
+  ]);
+  await page.api.refresh(true);
+  page.el("overview-owner").value = "虚构甲";
+  page.el("overview-owner").handlers.get("change")();
+  assert.equal(page.el("view-mine").disabled, false);
+  page.el("view-mine").handlers.get("click")();
+  assert.equal(page.el("query-result-count").textContent, "（1 / 2）");
+  await page.api.refresh(true);
+  assert.equal(page.el("overview-owner").value, "虚构甲");
+  assert.equal(page.el("query-result-count").textContent, "（1 / 2）");
+  assert.equal(page.posted.length, 0);
+});
