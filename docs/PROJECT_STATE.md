@@ -154,7 +154,7 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - **第二轮独立复验发现的 P2**：[Codex 报告](https://github.com/yudacheng666/AIWorkSpace/pull/6#issuecomment-6521580578)，固定 SHA `a84779c12dbc2eb66dcd8573ccf05b2992cd22a7`。任务/步骤草稿的刷新确认、取消保留、恢复原值均 PASS；但新建任务表单将标题、负责人、截止日期等字段全部恢复为空后，仍出现原生刷新确认。15 次刷新均未改变 4 个事件文件名/字节，POST=0；Codex 新增 Node 2 PASS 后停止，其他保存成功、页面内保护回归、409/部分同步等 NOT TESTED。
 - **第二轮 P2 根因与修复**：`createMetadataSnapshot()` 每次返回新对象；`watchUnsavedEditor()` 直接用 `snapshot() === cleanSnapshot` 比较引用，导致值完全相同仍判定 dirty。产品 commit `0103ae8d167995cc71e996f1e3bd0c6058ad2b7a` 将比较统一改为 `JSON.stringify(snapshot())` 的值快照；恢复每个表单字段的原始值即可从 dirty 集合移除。任务/步骤的原始字符串快照同样兼容。新增回归逐一覆盖新建任务标题、主要项目、关联项目、负责人、优先级、截止/计划/跟进日期的修改与恢复，并验证多字段恢复后不提示、任一字段仍不同则继续提示。
 - **最新固定产品/测试 SHA**：`9e0b84e59041b1d8da6d23958e13449e374cbf4b`（产品 commit `0103ae8d`，测试 commit `9e0b84e5`）。[Actions #41049397248](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41049397248) Linux/Windows 均 SUCCESS；每平台 Python 76 + Node 34 PASS，合计 **220 PASS / 0 FAIL / 0 skipped**。
-- **独立验收当前结论**：固定 SHA `46d4a8a7` 和 `a84779c1` 两轮均 FAIL，各发现一项 P2；第二轮 P2 已修复并通过新 CI，但 SHA `9e0b84e5` 尚未由 Codex 独立复验。M3.4 **NOT READY TO MERGE**。
+- **前三轮阶段性结论（历史）**：第四轮验收完成前，前三轮固定 SHA `46d4a8a7`、`a84779c1`、`9e0b84e5` 各发现一项 P2；后续修复与最终独立复验结论见下文。当前最终结论为 PASS（已测范围），M3.4 已合入 main。
 - **停止后 NOT TESTED**：浏览器整页刷新对步骤草稿的单独实测、查询场景步骤级 409/部分同步排序的额外回归、新建任务表单相邻专项的独立 Chromium 验收。其他未测：公司 Windows、真实 Drive、原生 IME、多浏览器/多客户端、长期/断电耐久性、远程访问。
 - 首轮验收时的安全范围：仅测试虚构任务，不访问真实 Drive、公司 Windows 8770，不修改远程访问/Host/Origin；公开 GitHub 无真实资料。当时 PR #6 保持 Draft；后续第四轮独立验收 PASS、用户批准后已合入 main。整个 M3.4 过程未部署。
 
