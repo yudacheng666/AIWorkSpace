@@ -1,0 +1,62 @@
+[
+  {
+    "stage": "task-title cancel browser reload",
+    "type": "beforeunload",
+    "message": "",
+    "accept": false
+  },
+  {
+    "stage": "task-title accept browser reload",
+    "type": "beforeunload",
+    "message": "",
+    "accept": true
+  },
+  {
+    "stage": "task-metadata cancel browser reload",
+    "type": "beforeunload",
+    "message": "",
+    "accept": false
+  },
+  {
+    "stage": "task-metadata accept browser reload",
+    "type": "beforeunload",
+    "message": "",
+    "accept": true
+  },
+  {
+    "stage": "step-edit cancel browser reload",
+    "type": "beforeunload",
+    "message": "",
+    "accept": false
+  },
+  {
+    "stage": "step-edit accept browser reload",
+    "type": "beforeunload",
+    "message": "",
+    "accept": true
+  },
+  {
+    "stage": "step-add cancel browser reload",
+    "type": "beforeunload",
+    "message": "",
+    "accept": false
+  },
+  {
+    "stage": "step-add accept browser reload",
+    "type": "beforeunload",
+    "message": "",
+    "accept": true
+  },
+  {
+    "stage": "new-task cancel browser reload",
+    "type": "beforeunload",
+    "message": "",
+    "accept": false
+  },
+  {
+    "stage": "new-task revert to clean",
+    "type": "beforeunload",
+    "message": "",
+    "accept": false
+  }
+]

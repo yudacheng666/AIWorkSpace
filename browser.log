@@ -1,0 +1,18 @@
+PASS native task-title : beforeunload shown; cancel retains entire UI; restore clean=no prompt; accept navigates; all saved event bytes unchanged
+PASS native task-metadata : beforeunload shown; cancel retains entire UI; restore clean=no prompt; accept navigates; all saved event bytes unchanged
+PASS native step-edit : beforeunload shown; cancel retains entire UI; restore clean=no prompt; accept navigates; all saved event bytes unchanged
+PASS native step-add : beforeunload shown; cancel retains entire UI; restore clean=no prompt; accept navigates; all saved event bytes unchanged
+Traceback (most recent call last):
+  File "/workspace/scratch/pr6-recheck-a84779c/browser.py", line 62, in <module>
+    reload_case(kind+' revert to clean',False)
+  File "/workspace/scratch/pr6-recheck-a84779c/browser.py", line 41, in reload_case
+    failure={'level':'P2','case':name,'reason':'unnecessary native prompt for clean page','record':record};raise AssertionError('P2: clean page still prompts')
+                                                                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: P2: clean page still prompts
+Traceback (most recent call last):
+  File "/workspace/scratch/pr6-recheck-a84779c/browser.py", line 62, in <module>
+    reload_case(kind+' revert to clean',False)
+  File "/workspace/scratch/pr6-recheck-a84779c/browser.py", line 41, in reload_case
+    failure={'level':'P2','case':name,'reason':'unnecessary native prompt for clean page','record':record};raise AssertionError('P2: clean page still prompts')
+                                                                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: P2: clean page still prompts

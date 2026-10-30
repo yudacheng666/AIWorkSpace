@@ -1,0 +1,79 @@
+{
+  "ui": {
+    "create": [
+      [
+        "new-task-title",
+        ""
+      ],
+      [
+        "new-task-project",
+        ""
+      ],
+      [
+        "new-task-related",
+        ""
+      ],
+      [
+        "new-task-owner",
+        ""
+      ],
+      [
+        "new-task-priority",
+        "normal"
+      ],
+      [
+        "new-task-due",
+        ""
+      ],
+      [
+        "new-task-planned",
+        ""
+      ],
+      [
+        "new-task-follow",
+        ""
+      ]
+    ],
+    "tasks": [
+      {
+        "id": "TASK-MAIN",
+        "title": "虚构任务原始标题",
+        "meta": [
+          "虚构甲",
+          "normal",
+          "",
+          "",
+          ""
+        ],
+        "steps": [
+          "虚构步骤原始标题",
+          "todo"
+        ],
+        "newStep": ""
+      },
+      {
+        "id": "TASK-SECOND",
+        "title": "虚构第二任务原始标题",
+        "meta": [
+          "虚构乙",
+          "normal",
+          "",
+          "",
+          ""
+        ],
+        "steps": [],
+        "newStep": ""
+      }
+    ]
+  },
+  "screenshot_source": {
+    "type": "screencast-frame",
+    "pageId": "page@b3aab80b60c6b742cbcf8e04439f9148",
+    "sha1": "page@b3aab80b60c6b742cbcf8e04439f9148-1793359604077.jpeg",
+    "width": 1440,
+    "height": 1200,
+    "timestamp": 22767.814,
+    "frameSwapWallTime": 1793359604072.51
+  },
+  "note": "Exact unedited trace frame before clean-page reload; native dialog presence is in dialogs.json, not painted into screenshot."
+}

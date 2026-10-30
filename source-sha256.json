@@ -1,0 +1,46 @@
+{
+  ".github/workflows/tests.yml": {
+    "sha256": "38f195dea68aa08c571dbf0af2b6c957cef490493b2c5842e8f1c28bfa1ee004",
+    "matches_fixed_sha": true
+  },
+  ".gitignore": {
+    "sha256": "43cb8e667f389a0991262b56560639c63875e613bea764b1acee48c4def55af7",
+    "matches_fixed_sha": true
+  },
+  "AGENTS.md": {
+    "sha256": "d7fd6229ca3bb23c33927686ed93e6ad683698ca2e728abde6dd5e291d78a441",
+    "matches_fixed_sha": true
+  },
+  "README.md": {
+    "sha256": "7370527bf0f6e89a070e890d02d899a6289966ff31a792d66b9cb7486cd94a11",
+    "matches_fixed_sha": true
+  },
+  "app.py": {
+    "sha256": "48f7e1731fdd11b99e81c48fab0a0699d17532194eb0c4f0c949c3c816727de1",
+    "matches_fixed_sha": true
+  },
+  "docs/DECISIONS.md": {
+    "sha256": "eb436a22b16bba9b0f9202489c16e680d9441e55796d12bffa7a317c146369d4",
+    "matches_fixed_sha": true
+  },
+  "docs/PROJECT_STATE.md": {
+    "sha256": "da1d41c711792d2fec8cb609e37143eb86e3d6dbac527aa1a270dadb23866095",
+    "matches_fixed_sha": true
+  },
+  "docs/REQUIREMENTS.md": {
+    "sha256": "ed9a6c61aa95689603d19c20487215008a2f77821690e325dfad82b396d5576e",
+    "matches_fixed_sha": true
+  },
+  "tests/test_app.py": {
+    "sha256": "49b2ba48ca5a3fdfe4b3d940456bf7a079c6f77b093e214e985b8871afa6fbc9",
+    "matches_fixed_sha": true
+  },
+  "tests/test_create_ui.mjs": {
+    "sha256": "8f4e8247ef1b2a1e7aecb58cad4039cf9281c253ba6c43188d52ca7878da0d96",
+    "matches_fixed_sha": true
+  },
+  "web/index.html": {
+    "sha256": "c2724ac880eb0091df5a3fbb57fd26a719b130a4cfdf7e27b24cc2f616e5fd66",
+    "matches_fixed_sha": true
+  }
+}
