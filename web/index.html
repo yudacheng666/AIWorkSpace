@@ -163,6 +163,16 @@
         option.disabled = project.conflict;
         select.append(option);
       }
+      // Drive may sync the task before its project. Show a selected placeholder
+      // rather than silently treating that reference as an empty selection.
+      const selectedIds = multiple ? (selectedId || []) : (selectedId ? [selectedId] : []);
+      for (const projectId of selectedIds) {
+        if (currentProjects.some(item => item.project_id === projectId)) continue;
+        const option = element("option", "", `尚未同步的项目（${projectId}）`);
+        option.value = projectId;
+        option.selected = true;
+        select.append(option);
+      }
     }
 
     function selectedValues(select) {
@@ -258,19 +268,26 @@
         const nextRelated = selectedValues(related);
         const completedNow = nextStatus === "done" && task.status !== "done";
         if (completedNow && !window.confirm("确认亲自将此任务标记为完成？")) return;
+        const primaryChanged = nextProject !== (task.project_id || null);
+        const originalRelated = task.related_project_ids || [];
+        const relatedChanged = nextRelated.length !== originalRelated.length ||
+          nextRelated.some(id => !originalRelated.includes(id));
         if (title.value.trim() === task.title && nextStatus === task.status &&
-            nextProject === (task.project_id || null) &&
-            JSON.stringify(nextRelated) === JSON.stringify(task.related_project_ids || [])) {
+            !primaryChanged && !relatedChanged) {
           message.textContent = "内容没有变化";
           return;
         }
         isSaving = true; button.disabled = true; message.textContent = "正在保存…";
         try {
+          const changes = {title: title.value.trim(), status: nextStatus,
+                           revision: task.revision, confirmed_done: nextStatus === "done"};
+          // Send project references only when a user explicitly changes their selection.
+          // A title-only edit must not clear IDs whose project file is still syncing.
+          if (primaryChanged) changes.project_id = nextProject;
+          if (relatedChanged) changes.related_project_ids = nextRelated;
           const response = await fetch(`/api/tasks/${encodeURIComponent(task.task_id)}/update`, {
             method: "POST", headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({title: title.value.trim(), status: nextStatus,
-                                  revision: task.revision, confirmed_done: nextStatus === "done",
-                                  project_id: nextProject, related_project_ids: nextRelated})
+            body: JSON.stringify(changes)
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || "保存失败");
