@@ -1,7 +1,7 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-30（北京时间）  
-当前阶段：**M1/M2/M3.1/M3.2/M3.3 已合入 `main`；M3.4「首页工作总览与查询」正在独立开发分支 `feat/m3-04-workspace-overview-search` 实现，尚未合并、尚未独立验收。公司 Windows 8770 未升级；真实 Drive、原生输入法和长期耐久性等仍 NOT TESTED。**
+当前阶段：**M1/M2/M3.1/M3.2/M3.3 已合入 `main`；M3.4 在 Draft PR #6 开发。Codex 对固定 SHA `46d4a8a7` 独立验收 FAIL，确认 1 项 P2（浏览器整页刷新丢失未保存任务标题）；已提交 beforeunload 修复和回归测试，CI/独立复验待完成。PR 未合并，公司 Windows 8770 未升级。**
 
 | 项目 | 当前事实 |
 |---|---|
@@ -140,20 +140,25 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - **限制与安全**：公开仓库仅虚构数据；Codex 证据位于独立 audit 分支，不写入产品 PR；未部署/升级公司电脑 8770，未访问真实 Drive，未修改 main；远程访问依 D012 延后。
 - **合并结果**：用户于 2026-10-30 明确批准。已将 PR #5 从 Draft 转 Ready 并以 Squash 合并至 main，合并 SHA `932f6f9aeb1a83ce537be43e6476674bf717300e`。CI 及 Codex 独立验收结果仅覆盖上述已测范围，不代表公司 Windows 或真实 Drive 已部署/验证。
 
-## M3.4 首页工作总览与查询（开发中，2026-10-30）
+## M3.4 首页工作总览与查询（P2 修复中，2026-10-30）
 
-- 开发分支：`feat/m3-04-workspace-overview-search`，来自已合并 M3.3 的 main（开发前基线 `b209da970434b71bb4e1b97e86bfdf1fa0483e98`）；M3.4 尚未合并，也没有部署到公司 Windows。
+- 开发分支：`feat/m3-04-workspace-overview-search`，base main `b209da970434b71bb4e1b97e86bfdf1fa0483e98`；[Draft PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6)，尚未合并、未部署到公司 Windows。
 - 当前最小切片：在现有 `web/index.html` 增加任务总览卡片、用户选择“本人负责人名称”、今日亲自处理／待跟进他人／7 天内到期／逾期受阻或冲突只读分类，并提供按任务/步骤编号与名称、主要或关联项目、任务状态、负责人、三个日期字段区间的组合查询。仅使用现有 `GET /api/tasks` 返回的数据，不修改 `app.py` 的数据模型、事件流或 API。
 - **重要口径**：今日亲自处理=选择的本人的负责人且计划执行日期已到，未完成且未冲突；跟进他人=不同于本人、有负责人且跟进日期已到，未完成且未冲突；七天内到期=今天到第 7 天（含两端）且未完成、未冲突；逾期/受阻/冲突=截止已过、blocked 或 task.conflict；任务可以同时进入多个口径，计数不可相加为总数。日期按访问页面的本地日历。
 - **不冒充审批数据**：当前数据没有“待审核/决策”结构字段，也没有可信登录身份；页面明确展示不可自动识别，不能用普通优先级/任务状态猜测审批或把未配置的“本人”显示成 0。身份由用户在当前页面人工选择与负责人一致的名称，不保存、也不写入事件。
 - 多条件查询仅影响显示，空结果与 API 读取失败需区分；切换视图、筛选、刷新不应自动新增/修改任何事件；不破坏原 M1–M3.3 创建、编辑、草稿保护、步骤排序与冲突隔离。
-- 新增 `tests/test_create_ui.mjs` Node 原生回归测试覆盖日期跨年、分类口径、稳定编号和关联项目、组合查询、无效日期范围、刷新保留筛选/当前本人、未保存任务/步骤草稿的保护，以及筛选不得产生 POST。切换/手动刷新有未保存草稿时需用户明确确认丢弃，自动刷新暂缓重绘；保存中的新增草稿继续保留。
-- 安全范围：测试虚构任务，不访问真实 Drive、公司 Windows 8770，不修改远程访问/Host/Origin；公开 GitHub 无真实资料。
-- **验收现状**：[Draft PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6) 已建立，产品/测试代码固定 SHA `46d4a8a7edd4526d48fcff6c37db4a711265cfe3`；[GitHub Actions #41042197541](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41042197541) Linux 和 Windows 全部 SUCCESS，每个平台 76 Python + 31 Node UI PASS，合计 **214 PASS / 0 FAIL / 0 skipped**。仅能称为 CI PASS，尚未经过 Codex 独立真实 Chromium/API 验收，**M3.4 NOT READY TO MERGE**；后续如有产品/测试更改必须重新核实 SHA 和 CI。
+- **首轮独立验收发现 P2**：[Codex 报告](https://github.com/yudacheng666/AIWorkSpace/pull/6#issuecomment-6521138972)，固定产品/测试 SHA `46d4a8a7edd4526d48fcff6c37db4a711265cfe3`。真实 Chromium 浏览器整页 reload 时，未保存的任务标题无确认即丢失；已保存事件字节未改变。页面内“刷新任务”保护通过。总览、负责人、查询、日期、空结果/错误区分、只读、页面内草稿保护等已测范围通过；新增 Node 8 PASS。Codex 确认 P2 后停止。
+- **P2 修复**：产品代码提交 `5da608a8bbab4d53b2b98a7b6afc5276e17a7732` 在 `window.beforeunload` 监听未保存的任务/步骤编辑草稿；同时将新建任务表单纳入独立持久草稿集合，避免任务列表重绘清掉该状态。浏览器原生提示仅在存在 dirty 草稿时触发；成功保存/干净状态恢复后清除，不自定义浏览器文案。浏览器取消离开会留在页面并保留原输入。
+- **回归测试**：新增 `tests/test_create_ui.mjs` 两项 beforeunload 定向测试，覆盖新建任务、任务标题编辑、步骤编辑、新增步骤；检查干净状态/恢复原值/保存成功后不再触发提示。产品/测试当前固定 HEAD：`a84779c12dbc2eb66dcd8573ccf05b2992cd22a7`（产品代码 commit `5da608a8`，最新测试 commit `a84779c1`）。不要把该 SHA 之后的文档维护提交冒充为代码测试版本。
+- **CI 状态**：首次运行 [Actions #41046613451](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41046613451) Linux/Windows 均 FAIL，原因是两处新增测试夹具问题（新建任务表单 mock 没模拟 bubbling/恢复基线，步骤列表 mock 选择器漏了 `.step-list` 层级），不是独立验收报告新增的产品缺陷。已修正夹具，最新测试 commit 为 `a84779c1`；对应新 CI 运行待 GitHub Actions 出现并完成，不能沿用失败运行结果。
+- **独立验收当前结论**：只有旧固定 SHA `46d4a8a7` 的 FAIL 报告；修复 SHA 尚未由 Codex 复验。M3.4 **NOT READY TO MERGE**。
+- **停止后 NOT TESTED**：浏览器整页刷新对步骤草稿的单独实测、查询场景步骤级 409/部分同步排序的额外回归、新建任务表单相邻专项的独立 Chromium 验收。其他未测：公司 Windows、真实 Drive、原生 IME、多浏览器/多客户端、长期/断电耐久性、远程访问。
+- 安全范围：测试虚构任务，不访问真实 Drive、公司 Windows 8770，不修改远程访问/Host/Origin；公开 GitHub 无真实资料。PR #6 保持 Draft；不合并、不部署，main 不变。
 
 ## M3.4 下一步
 
-1. **已完成**：Draft PR #6 创建；代码/原测试固定 SHA `46d4a8a7edd4526d48fcff6c37db4a711265cfe3` 的 Linux/Windows CI 全部成功。后续 PR 分支如仅修改 README/项目记忆 Markdown，不用将文档提交 SHA 冒充为已运行的代码测试 SHA。
-2. **待执行**：Codex Cloud 依据 PR #6 固定代码/测试 SHA 做真实 Chromium/API 独立验收：分类/本人选择、查询组合、日期边界、无审批误判、未保存草稿拒绝切换/刷新、空结果与读取失败区别，以及原任务/步骤编辑保存无回归。证据回写 PR，Codex 只测试，不改产品/原测试/CI。
-3. 有 P1/P2 时由 ChatGPT 在本分支修复并补回归；CI 与独立验收均通过后，再由用户决定是否批准 Squash 合并。
-4. 不自动升级公司 Windows 8770、不接触真实 Drive 数据、不测试远程访问；远程访问继续按 D012 暂缓。
+1. **先完成 CI**：等待 `a84779c1` 固定产品/测试 HEAD 对应的 GitHub Actions Linux/Windows 测试；如失败，按日志修正测试或产品，再重跑。
+2. **再交 Codex Cloud 独立复验**：必须使用 `a84779c12dbc2eb66dcd8573ccf05b2992cd22a7`（或仅文档更新后的最新 PR HEAD，但不得改变产品/测试 blob），真实 Chromium 测试浏览器整页 F5/刷新/关闭：任务标题、任务字段、步骤编辑、新增步骤；取消浏览器原生确认后输入保持不变，确认离开才允许丢弃；干净状态、恢复原值和保存成功后不提示。补查新建任务表单；其他 M3.4 已通过范围按 Codex 报告决定是否只做必要回归。
+3. Codex 只测试，不改产品、原测试、CI、PR 分支；发现 P1/P2 立即停止并回写证据。
+4. 只有双平台 CI SUCCESS + Codex 独立复验 PASS + 用户明确批准，才可合并。不得自行合并或部署。
+5. 不自动升级公司 Windows 8770、不接触真实 Drive 数据、不测试远程访问；远程访问继续按 D012 暂缓。
