@@ -228,6 +228,25 @@ class DataTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             append_step_event(self.data_dir, done_event)
 
+    def test_step_order_sync_before_step_creation_events_is_reconstructed(self):
+        append_event(self.data_dir, event())
+        first_id = "STEP-" + "4" * 32
+        second_id = "STEP-" + "5" * 32
+        append_step_event(self.data_dir, step_order_event(
+            "early-step-order", revision=0,
+            step_ids=[second_id, first_id], actor="chatgpt"))
+        append_step_event(self.data_dir, step_event(
+            "late-step-create-a", step_id=first_id,
+            changes={"title": "先创建的步骤", "position": 1}))
+        append_step_event(self.data_dir, step_event(
+            "late-step-create-b", step_id=second_id,
+            changes={"title": "后创建的步骤", "position": 2}))
+        task = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual([step["step_id"] for step in task["steps"]],
+                         [second_id, first_id])
+        self.assertEqual(task["step_order_revision"], 1)
+        self.assertFalse(task["step_order_conflict"])
+
     def test_step_order_conflict_does_not_freeze_task_or_step_contents(self):
         append_event(self.data_dir, event())
         ids = ["STEP-" + "E" * 32, "STEP-" + "F" * 32]
