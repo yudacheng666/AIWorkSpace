@@ -1,0 +1,37 @@
+[
+  {
+    "url": "http://127.0.0.1:42731/api/tasks/TASK-MAIN/update",
+    "status": 200,
+    "stage": "task save"
+  },
+  {
+    "url": "http://127.0.0.1:42731/api/tasks/TASK-MAIN/steps/STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/update",
+    "status": 200,
+    "stage": "step save"
+  },
+  {
+    "url": "http://127.0.0.1:42731/api/tasks/TASK-MAIN/steps",
+    "status": 201,
+    "stage": "step add saved"
+  },
+  {
+    "url": "http://127.0.0.1:42731/api/tasks",
+    "status": 201,
+    "stage": "new task create under active query"
+  },
+  {
+    "url": "http://127.0.0.1:42731/api/tasks/TASK-MAIN/update",
+    "status": 500,
+    "stage": "failed save guard"
+  },
+  {
+    "url": "http://127.0.0.1:42731/api/tasks/TASK-MAIN/steps/STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/update",
+    "status": 409,
+    "stage": "step409 under query"
+  },
+  {
+    "url": "http://127.0.0.1:42731/api/tasks/TASK-MAIN/update",
+    "status": 200,
+    "stage": "save with sibling draft then edit back to old value"
+  }
+]

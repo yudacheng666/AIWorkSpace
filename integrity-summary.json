@@ -1,0 +1,28 @@
+{
+  "fixed_sha": "9e0b84e59041b1d8da6d23958e13449e374cbf4b",
+  "source_files_unchanged": 11,
+  "reload_attempts": 64,
+  "all_reload_filenames_bytes_identical": true,
+  "all_previous_event_hashes_preserved_across_saved_appends": true,
+  "initial_files": 4,
+  "final_files": 12,
+  "browser_post_count": 7,
+  "browser_post_status_counts": {
+    "200": 3,
+    "201": 2,
+    "500": 1,
+    "409": 1
+  },
+  "direct_api_reorder_probe": {
+    "expected_status": 409,
+    "assertion_completed": true,
+    "note": "See browser.py partial-sync assertion and PASS log; this request used http.client and is separate from browser POST events."
+  },
+  "native_dialogs": 32,
+  "native_cancel": 26,
+  "native_accept": 6,
+  "custom_confirm": 5,
+  "browser_origins": [
+    "127.0.0.1:42731"
+  ]
+}

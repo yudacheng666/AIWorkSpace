@@ -1,0 +1,210 @@
+{
+  "level": "P2",
+  "case": "dirty reversion after save while sibling prevented rerender",
+  "reason": "required native beforeunload missing",
+  "before_ui": {
+    "create": [
+      [
+        "new-task-title",
+        ""
+      ],
+      [
+        "new-task-project",
+        ""
+      ],
+      [
+        "new-task-related",
+        ""
+      ],
+      [
+        "new-task-owner",
+        ""
+      ],
+      [
+        "new-task-priority",
+        "normal"
+      ],
+      [
+        "new-task-due",
+        ""
+      ],
+      [
+        "new-task-planned",
+        ""
+      ],
+      [
+        "new-task-follow",
+        ""
+      ]
+    ],
+    "tasks": [
+      {
+        "id": "TASK-21290F7E7D7B479BB53455E95D8E7E8E",
+        "title": "虚构查询中创建任务",
+        "meta": [
+          "虚构创建负责人",
+          "normal",
+          "2030-03-04",
+          "",
+          ""
+        ],
+        "steps": [],
+        "newStep": ""
+      },
+      {
+        "id": "TASK-MAIN",
+        "title": "虚构已保存任务新标题",
+        "meta": [
+          "虚构甲",
+          "normal",
+          "",
+          "",
+          ""
+        ],
+        "steps": [
+          "虚构外部步骤新版本",
+          "todo",
+          "虚构迟到步骤",
+          "todo",
+          "虚构新增步骤已保存",
+          "todo"
+        ],
+        "newStep": ""
+      },
+      {
+        "id": "TASK-SECOND",
+        "title": "虚构第二任务原始标题",
+        "meta": [
+          "虚构乙",
+          "normal",
+          "",
+          "",
+          ""
+        ],
+        "steps": [],
+        "newStep": ""
+      }
+    ]
+  },
+  "after_ui": {
+    "create": [
+      [
+        "new-task-title",
+        ""
+      ],
+      [
+        "new-task-project",
+        ""
+      ],
+      [
+        "new-task-related",
+        ""
+      ],
+      [
+        "new-task-owner",
+        ""
+      ],
+      [
+        "new-task-priority",
+        "normal"
+      ],
+      [
+        "new-task-due",
+        ""
+      ],
+      [
+        "new-task-planned",
+        ""
+      ],
+      [
+        "new-task-follow",
+        ""
+      ]
+    ],
+    "tasks": [
+      {
+        "id": "TASK-21290F7E7D7B479BB53455E95D8E7E8E",
+        "title": "虚构查询中创建任务",
+        "meta": [
+          "虚构创建负责人",
+          "normal",
+          "2030-03-04",
+          "",
+          ""
+        ],
+        "steps": [],
+        "newStep": ""
+      },
+      {
+        "id": "TASK-MAIN",
+        "title": "虚构再次保存的新标题",
+        "meta": [
+          "虚构甲",
+          "normal",
+          "",
+          "",
+          ""
+        ],
+        "steps": [
+          "虚构外部步骤新版本",
+          "todo",
+          "虚构迟到步骤",
+          "todo",
+          "虚构新增步骤已保存",
+          "todo"
+        ],
+        "newStep": ""
+      },
+      {
+        "id": "TASK-SECOND",
+        "title": "虚构第二任务原始标题",
+        "meta": [
+          "虚构乙",
+          "normal",
+          "",
+          "",
+          ""
+        ],
+        "steps": [],
+        "newStep": ""
+      }
+    ]
+  },
+  "record": {
+    "case": "dirty reversion after save while sibling prevented rerender",
+    "expected_prompt": true,
+    "accept": false,
+    "trigger": "Chromium Page.reload (F5 key not dispatched by headless)",
+    "dialogs": [],
+    "navigation_delta": 1,
+    "before_hashes": {
+      "project_events/evt_project-create-001.json": "5b523d35f9d430d45ba24f18e036f026834b9c94137a90d1f2f97045a5e11fcf",
+      "step_events/evt_late-query-step-create-001.json": "02daef81b8a2e24f2cc3c23070c6dddaedc0a2d06a3a08c945aa4c7870da16e2",
+      "step_events/evt_query-partial-order-001.json": "16ff99f468b7a971289cbad2b69dc2881146e56694522c8ec3d80760f452dc55",
+      "step_events/evt_external-step-update-001.json": "6367bab45f0d656fc9354a60bec24989aaa69792cd6c628865931799ddc57b20",
+      "step_events/evt_19642a0e-0c2f-4aa0-995f-4f2621c4ad00.json": "54fcaddf229b3df1766f4f5b96973fbde4a72384fe46dc2758ac99fdc21d1ffb",
+      "step_events/evt_8c4bd457-8704-476c-ad4c-d7d7a611ce3b.json": "1e6b043f9f2da20e61199f44e3ec051328db30ec03107c47beb21ecbaba426ae",
+      "step_events/evt_step-create-001.json": "1ae0d9dff367dec2183415fcd417aabb8fb052f2ec835be0a32bc4be2531d3d9",
+      "events/evt_57e5b409-2008-4dcc-82b6-47f2bde19222.json": "640282e6841ec8329d6e525fc9b9eede86d1dcf57b5889362fd7f2f504cc76e6",
+      "events/evt_ec8193bf-d432-4150-8835-51f790e4e8fe.json": "2a52d13ea0d8f00fdd880144e18c5757fac72f3c6db5679f061bd2e3bdfff194",
+      "events/evt_d2b6c0e4-d018-498d-8a77-e935e7a99be7.json": "3f501ef2a57a17ec191b122d87546b628c17b420fa11fc05a58364849778be33",
+      "events/evt_create-TASK-SECOND.json": "10549e0ea6bde0768de3495c0e5ae4ed62adeab748973db82240ec295ed47841",
+      "events/evt_create-TASK-MAIN.json": "e3631cde122964e335bcdeca1e2be2a117c97bd77c7d768b832fe242ed40bc75"
+    },
+    "after_hashes": {
+      "project_events/evt_project-create-001.json": "5b523d35f9d430d45ba24f18e036f026834b9c94137a90d1f2f97045a5e11fcf",
+      "step_events/evt_late-query-step-create-001.json": "02daef81b8a2e24f2cc3c23070c6dddaedc0a2d06a3a08c945aa4c7870da16e2",
+      "step_events/evt_query-partial-order-001.json": "16ff99f468b7a971289cbad2b69dc2881146e56694522c8ec3d80760f452dc55",
+      "step_events/evt_external-step-update-001.json": "6367bab45f0d656fc9354a60bec24989aaa69792cd6c628865931799ddc57b20",
+      "step_events/evt_19642a0e-0c2f-4aa0-995f-4f2621c4ad00.json": "54fcaddf229b3df1766f4f5b96973fbde4a72384fe46dc2758ac99fdc21d1ffb",
+      "step_events/evt_8c4bd457-8704-476c-ad4c-d7d7a611ce3b.json": "1e6b043f9f2da20e61199f44e3ec051328db30ec03107c47beb21ecbaba426ae",
+      "step_events/evt_step-create-001.json": "1ae0d9dff367dec2183415fcd417aabb8fb052f2ec835be0a32bc4be2531d3d9",
+      "events/evt_57e5b409-2008-4dcc-82b6-47f2bde19222.json": "640282e6841ec8329d6e525fc9b9eede86d1dcf57b5889362fd7f2f504cc76e6",
+      "events/evt_ec8193bf-d432-4150-8835-51f790e4e8fe.json": "2a52d13ea0d8f00fdd880144e18c5757fac72f3c6db5679f061bd2e3bdfff194",
+      "events/evt_d2b6c0e4-d018-498d-8a77-e935e7a99be7.json": "3f501ef2a57a17ec191b122d87546b628c17b420fa11fc05a58364849778be33",
+      "events/evt_create-TASK-SECOND.json": "10549e0ea6bde0768de3495c0e5ae4ed62adeab748973db82240ec295ed47841",
+      "events/evt_create-TASK-MAIN.json": "e3631cde122964e335bcdeca1e2be2a117c97bd77c7d768b832fe242ed40bc75"
+    },
+    "event_bytes_unchanged": true
+  }
+}

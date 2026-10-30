@@ -1,0 +1,11 @@
+✔ M3.4 browser reload prompts for an unsaved new-task form, but not after reset or save (50.268864ms)
+✔ M3.4 new-task form clears beforeunload when every field returns to its original value (4.876717ms)
+✔ M3.4 browser reload prompts for dirty task and step edits, and clears after successful saves (17.809477ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 315.300725

@@ -1,0 +1,57 @@
+[
+  {
+    "url": "http://127.0.0.1:42731/api/tasks/TASK-MAIN/update",
+    "body": {
+      "title": "虚构已保存任务新标题",
+      "status": "todo",
+      "revision": 1,
+      "confirmed_done": false
+    }
+  },
+  {
+    "url": "http://127.0.0.1:42731/api/tasks/TASK-MAIN/steps/STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/update",
+    "body": {
+      "revision": 1,
+      "title": "虚构已保存步骤新标题"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:42731/api/tasks/TASK-MAIN/steps",
+    "body": {
+      "title": "虚构新增步骤已保存"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:42731/api/tasks",
+    "body": {
+      "title": "虚构查询中创建任务",
+      "owner": "虚构创建负责人",
+      "due_date": "2030-03-04"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:42731/api/tasks/TASK-MAIN/update",
+    "body": {
+      "title": "虚构失败保存草稿",
+      "status": "todo",
+      "revision": 2,
+      "confirmed_done": false
+    }
+  },
+  {
+    "url": "http://127.0.0.1:42731/api/tasks/TASK-MAIN/steps/STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/update",
+    "body": {
+      "revision": 2,
+      "title": "虚构旧版本步骤草稿"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:42731/api/tasks/TASK-MAIN/update",
+    "body": {
+      "title": "虚构再次保存的新标题",
+      "status": "todo",
+      "revision": 2,
+      "confirmed_done": false
+    }
+  }
+]
