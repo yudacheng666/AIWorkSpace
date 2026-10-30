@@ -47,6 +47,14 @@ class UpdateError(RuntimeError):
     """An expected, user-safe update failure."""
 
 
+class UpdateInstallError(UpdateError):
+    """An installation failure carrying the external rollback backup path."""
+
+    def __init__(self, message: str, backup_dir: Path):
+        super().__init__(message)
+        self.backup_dir = backup_dir
+
+
 def _is_within(path: Path, parent: Path) -> bool:
     try:
         path.relative_to(parent)
@@ -119,16 +127,34 @@ def get_install_status(root: Path | str) -> dict:
     }
 
 
-def _read_url(url: str, limit: int, timeout: int = 10) -> bytes:
+def _read_url(
+    url: str,
+    limit: int,
+    timeout: int = 10,
+    allowed_hosts: set[str] | None = None,
+) -> bytes:
+    hosts = allowed_hosts or {"api.github.com", "raw.githubusercontent.com"}
+    initial = __import__("urllib.parse", fromlist=["urlsplit"]).urlsplit(url)
+    if initial.scheme != "https" or initial.hostname not in hosts:
+        raise UpdateError("更新地址不属于受信任的 GitHub 域名。")
     request = Request(url, headers={
         "User-Agent": USER_AGENT,
         "Accept": "application/vnd.github+json",
     })
     try:
         with urlopen(request, timeout=timeout) as response:
+            final_url = getattr(response, "geturl", lambda: url)()
+            final = __import__("urllib.parse", fromlist=["urlsplit"]).urlsplit(final_url)
+            if final.scheme != "https" or final.hostname not in hosts:
+                raise UpdateError("GitHub 更新请求跳转到了不受信任的域名。")
             length = response.headers.get("Content-Length")
-            if length and int(length) > limit:
-                raise UpdateError("GitHub 返回的更新文件超过安全大小限制。")
+            if length:
+                try:
+                    declared_length = int(length)
+                except ValueError as exc:
+                    raise UpdateError("GitHub 返回了无效的文件长度。") from exc
+                if declared_length < 0 or declared_length > limit:
+                    raise UpdateError("GitHub 返回的更新文件超过安全大小限制。")
             content = response.read(limit + 1)
     except UpdateError:
         raise
@@ -278,7 +304,7 @@ def prepare_update(root: Path | str, data_dir: Path | str, commit: str) -> tuple
     latest = check_latest_update(root)
     if latest["latest_commit"] != commit:
         raise UpdateError("GitHub main 已发生变化，请重新检查更新。")
-    archive = _read_url(ARCHIVE_URL.format(commit=commit), MAX_ARCHIVE_BYTES, timeout=30)
+    archive = _read_url(ARCHIVE_URL.format(commit=commit), MAX_ARCHIVE_BYTES, timeout=30,\n                        allowed_hosts={"api.github.com", "codeload.github.com"})
     stage = validate_archive_and_stage(archive, commit, root, data_dir)
     return stage, latest
 
@@ -435,8 +461,10 @@ def apply_staged_update(
             _write_update_state(root_path, "rolled_back", version, commit,
                                 "更新未完成，已自动恢复旧版本。")
         except Exception as rollback_exc:
-            raise UpdateError("更新失败且自动回滚未完成；请保留备份并联系维护。") from rollback_exc
-        raise UpdateError("更新安装失败，已自动恢复旧版本。") from exc
+            raise UpdateInstallError(
+                "更新失败且自动回滚未完成；请保留备份并联系维护。", backup
+            ) from rollback_exc
+        raise UpdateInstallError("更新安装失败，已自动恢复旧版本。", backup) from exc
     return backup
 
 
@@ -542,8 +570,10 @@ def run_update_helper(
         if _wait_for_build(port, commit, new_process, timeout=25):
             return 0
         raise UpdateError("新版本启动验证失败，正在恢复旧版本。")
-    except Exception:
+    except Exception as exc:
         _terminate(new_process)
+        if backup is None and isinstance(exc, UpdateInstallError):
+            backup = exc.backup_dir
         if backup is not None:
             try:
                 rollback_from_backup(root_path, data_path, backup)
