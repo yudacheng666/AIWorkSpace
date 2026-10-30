@@ -297,6 +297,7 @@
     let createDraftRevision = 0;
     let overviewView = "all";
     let selectedSelfOwner = "";
+    const unsavedTaskEditors = new Set();
     let appliedQuery = {keyword: "", project: "", status: "", owner: "",
                         dateField: "due_date", dateFrom: "", dateTo: ""};
     const overviewViews = ["all", "mine", "followup", "due", "risk"];
@@ -307,6 +308,26 @@
       if (className) el.className = className;
       if (value !== undefined) el.textContent = value;
       return el;
+    }
+
+    function watchUnsavedEditor(form, snapshot) {
+      const initial = snapshot();
+      const update = () => {
+        if (snapshot() === initial) unsavedTaskEditors.delete(form);
+        else unsavedTaskEditors.add(form);
+      };
+      form.addEventListener("input", update);
+      form.addEventListener("change", update);
+    }
+
+    function confirmDiscardUnsaved() {
+      if (!unsavedTaskEditors.size) return true;
+      if (!window.confirm("存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？")) {
+        $("query-message").textContent = "已取消切换，未保存的任务或步骤草稿保持不变。";
+        return false;
+      }
+      unsavedTaskEditors.clear();
+      return true;
     }
 
     function projectOptions(select, selectedId, multiple = false) {
@@ -420,6 +441,7 @@
           task.step_order_incomplete) return;
       const ids = task.steps.map(step => step.step_id);
       if (to < 0 || to >= ids.length || from < 0 || from >= ids.length) return;
+      if (!confirmDiscardUnsaved()) return;
       [ids[from], ids[to]] = [ids[to], ids[from]];
       isSaving = true;
       message.className = "step-message";
@@ -471,6 +493,7 @@
       const save = element("button", "save", "保存步骤");
       save.type = "submit"; save.disabled = task.conflict || step.conflict;
       form.append(titleLabel, statusLabel, save);
+      watchUnsavedEditor(form, () => JSON.stringify([title.value, status.value]));
       form.addEventListener("submit", async event => {
         event.preventDefault();
         if (isSaving || task.conflict || step.conflict) return;
@@ -501,6 +524,7 @@
             });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+          unsavedTaskEditors.delete(form);
           await refresh(true);
         } catch (error) {
           message.className = "step-message error";
@@ -576,6 +600,7 @@
       let draftRevision = 0;
       input.addEventListener("input", () => { draftRevision += 1; });
       addForm.append(input, submit);
+      watchUnsavedEditor(addForm, () => input.value);
       addForm.addEventListener("submit", async event => {
         event.preventDefault();
         if (isSaving || task.conflict || steps.length >= 100) return;
@@ -599,6 +624,7 @@
           const draftUntouched = draftRevision === revisionAtSubmit && input.value.trim() === title;
           if (draftUntouched) {
             input.value = "";
+            unsavedTaskEditors.delete(addForm);
             message.textContent = `步骤已创建：${result.step_id}`;
             await refresh(true);
           } else {
@@ -665,6 +691,12 @@
         : "");
       form.append(titleLabel, statusLabel, projectLabelInput, relatedLabel, button);
       const metadataControls = addTaskMetadata(form, task);
+      const taskDraftSnapshot = () => JSON.stringify({
+        title: title.value, status: status.value,
+        project: project.value, related: selectedValues(related),
+        metadata: readTaskMetadata(metadataControls)
+      });
+      watchUnsavedEditor(form, taskDraftSnapshot);
       form.addEventListener("submit", async event => {
         event.preventDefault();
         if (isSaving || task.conflict) return;
@@ -685,6 +717,7 @@
           message.textContent = "内容没有变化";
           return;
         }
+        const draftAtSubmit = taskDraftSnapshot();
         isSaving = true; button.disabled = true; message.textContent = "正在保存…";
         try {
           const changes = {title: title.value.trim(), status: nextStatus,
@@ -704,9 +737,14 @@
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || "保存失败");
-          message.textContent = "已保存独立修改记录";
-          await refresh(true);
-          $("sync").textContent = "保存成功 · 页面已更新";
+          if (taskDraftSnapshot() === draftAtSubmit) {
+            unsavedTaskEditors.delete(form);
+            message.textContent = "已保存独立修改记录";
+            await refresh(true);
+            $("sync").textContent = "保存成功 · 页面已更新";
+          } else {
+            message.textContent = "已保存刚才的修改；保存期间输入的新草稿已保留，尚未保存。请刷新后核对版本。";
+          }
         } catch (error) {
           message.className = "message error";
           message.textContent = `保存失败：${error.message}。请刷新后重试。`;
@@ -874,6 +912,7 @@
         else if (!currentProjects.some(project => project.project_id === key))
           ordered.push([key, "项目未同步 / 需核查", tasks]);
       }
+      unsavedTaskEditors.clear();
       list.replaceChildren(...ordered.map(([key, name, tasks]) => {
         const group = element("section", "project-group");
         const head = element("div", "project-group-head");
@@ -899,15 +938,23 @@
     function selectOverview(view) {
       if (!overviewViews.includes(view)) return;
       if ((view === "mine" || view === "followup") && !selectedSelfOwner) return;
-      if (isSaving) return;
+      if (isSaving || !confirmDiscardUnsaved()) return;
       overviewView = view;
       refreshOverviewControls();
       renderTaskList();
     }
 
-    async function refresh(force = false) {
+    async function refresh(force = false, allowDiscard = false) {
       if (isSaving && !force) return;
-      if (!force && (document.activeElement?.closest(".task") ||
+      if (unsavedTaskEditors.size) {
+        if (!allowDiscard || !confirmDiscardUnsaved()) {
+          $("sync").textContent = "有任务或步骤尚未保存；已暂停刷新，草稿仍保留";
+          return;
+        }
+      }
+      if (!force && (document.activeElement?.closest(".overview-panel") ||
+                     document.activeElement?.closest(".query-panel") ||
+                     document.activeElement?.closest(".task") ||
                      document.activeElement?.closest(".project-card") ||
                      document.activeElement?.closest("#create-task") ||
                      document.activeElement?.closest("#create-project"))) return;
@@ -1059,6 +1106,10 @@
     });
 
     $("overview-owner").addEventListener("change", () => {
+      if (!confirmDiscardUnsaved()) {
+        $("overview-owner").value = selectedSelfOwner;
+        return;
+      }
       selectedSelfOwner = $("overview-owner").value;
       refreshOverviewControls();
       renderTaskList();
@@ -1074,12 +1125,13 @@
         $("query-message").textContent = "结束日期不得早于起始日期；已保留上一次有效筛选。";
         return;
       }
+      if (!confirmDiscardUnsaved()) return;
       appliedQuery = next;
       $("query-message").textContent = "筛选已应用（只影响显示，不会写入任务）";
       renderTaskList();
     });
     $("query-reset").addEventListener("click", () => {
-      if (isSaving) return;
+      if (isSaving || !confirmDiscardUnsaved()) return;
       overviewView = "all";
       for (const id of ["query-keyword", "query-project", "query-status",
                         "query-owner", "query-date-from", "query-date-to"]) $(id).value = "";
@@ -1091,7 +1143,7 @@
       renderTaskList();
     });
 
-    $("refresh").addEventListener("click", () => refresh(true));
+    $("refresh").addEventListener("click", () => refresh(true, true));
     refresh(true);
     setInterval(() => refresh(false), 5000);
   </script>
