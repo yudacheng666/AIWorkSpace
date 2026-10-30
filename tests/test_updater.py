@@ -31,11 +31,11 @@ NEW_FILES = {
 }
 
 
-def make_archive(entries=None, prefix=None):
+def make_archive(entries=None, prefix=None, compression=zipfile.ZIP_DEFLATED):
     values = dict(NEW_FILES if entries is None else entries)
     prefix = prefix or f"yudacheng666-AIWorkSpace-{COMMIT[:7]}"
     output = io.BytesIO()
-    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+    with zipfile.ZipFile(output, "w", compression) as archive:
         for name, content in values.items():
             archive.writestr(f"{prefix}/{name}", content)
     return output.getvalue()
@@ -271,7 +271,7 @@ class UpdaterTests(unittest.TestCase):
                 updater.check_latest_update(self.root)
 
     def test_archive_rejects_corrupt_crc(self):
-        corrupted = bytearray(make_archive())
+        corrupted = bytearray(make_archive(compression=zipfile.ZIP_STORED))
         needle = b"from __future__ import annotations"
         index = corrupted.find(needle)
         self.assertGreaterEqual(index, 0)
