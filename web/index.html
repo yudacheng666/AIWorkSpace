@@ -760,8 +760,10 @@
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || "保存失败");
+          // The submitted snapshot is now the persisted baseline even if
+          // the user typed again while the request was in flight.
+          taskDraftWatch.markClean(draftAtSubmit);
           if (taskDraftSnapshot() === draftAtSubmit) {
-            taskDraftWatch.markClean(draftAtSubmit);
             message.textContent = "已保存独立修改记录";
             await refresh(true);
             $("sync").textContent = "保存成功 · 页面已更新";
