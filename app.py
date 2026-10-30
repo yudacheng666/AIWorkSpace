@@ -841,13 +841,19 @@ def handler_factory(data_dir: Path):
                     launch_update_helper(stage, ROOT, data_dir, commit,
                                          self.server.server_port, os.getpid())
                     helper_started = True
-                    self.json_response(202, {
-                        "started": True,
-                        "commit": commit,
-                        "version": latest["latest_version"],
-                        "message": "更新包已验证，工作台正在安全重启。",
-                    })
-                    threading.Thread(target=self.server.shutdown, daemon=True).start()
+                    try:
+                        self.json_response(202, {
+                            "started": True,
+                            "commit": commit,
+                            "version": latest["latest_version"],
+                            "message": "更新包已验证，工作台正在安全重启。",
+                        })
+                    except OSError:
+                        # The browser may disconnect after the helper has started;
+                        # still stop this server so the helper can safely continue.
+                        pass
+                    finally:
+                        threading.Thread(target=self.server.shutdown, daemon=True).start()
                     return
                 except UpdateError as exc:
                     return self.json_response(502, {"error": str(exc)})
