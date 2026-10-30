@@ -290,6 +290,65 @@ class DataTests(unittest.TestCase):
         self.assertEqual(len(task["steps"]), 2)
         self.assertFalse(any(step["conflict"] for step in task["steps"]))
 
+    def test_duplicate_reorder_event_id_across_revisions_freezes_order_stream(self):
+        append_event(self.data_dir, event())
+        first_id = "STEP-" + "A" * 32
+        second_id = "STEP-" + "B" * 32
+        append_step_event(self.data_dir, step_event(
+            "duplicate-order-create-a", step_id=first_id,
+            changes={"title": "步骤甲", "position": 1}))
+        append_step_event(self.data_dir, step_event(
+            "duplicate-order-create-b", step_id=second_id,
+            changes={"title": "步骤乙", "position": 2}))
+
+        reused_id = "order-event-001"
+        original = step_order_event(
+            reused_id, revision=0, step_ids=[first_id, second_id])
+        conflicting = step_order_event(
+            reused_id, revision=1, step_ids=[second_id, first_id])
+        append_step_event(self.data_dir, original)
+        duplicate_path = self.data_dir / "step_events" / "z_duplicate_order.json"
+        duplicate_path.write_text(json.dumps(conflicting), encoding="utf-8")
+        before = {path.name: path.read_bytes()
+                  for path in (self.data_dir / "step_events").glob("*.json")}
+
+        task = read_workspace(self.data_dir)["tasks"][0]
+        self.assertTrue(task["step_order_conflict"])
+        self.assertEqual(task["step_order_revision"], 0)
+        self.assertEqual(len(task["step_order_candidates"]), 2)
+        self.assertEqual([step["step_id"] for step in task["steps"]],
+                         [first_id, second_id])
+        self.assertFalse(any(step["conflict"] for step in task["steps"]))
+        self.assertTrue(any("event_id order-event-001" in warning
+                            for warning in read_workspace(self.data_dir)["warnings"]))
+
+        after = {path.name: path.read_bytes()
+                 for path in (self.data_dir / "step_events").glob("*.json")}
+        self.assertEqual(after, before, "reading a conflicting order must not rewrite history")
+
+    def test_distinct_reorder_event_ids_across_revisions_remain_valid(self):
+        append_event(self.data_dir, event())
+        first_id = "STEP-" + "C" * 32
+        second_id = "STEP-" + "D" * 32
+        append_step_event(self.data_dir, step_event(
+            "distinct-order-create-c", step_id=first_id,
+            changes={"title": "步骤丙", "position": 1}))
+        append_step_event(self.data_dir, step_event(
+            "distinct-order-create-d", step_id=second_id,
+            changes={"title": "步骤丁", "position": 2}))
+        append_step_event(self.data_dir, step_order_event(
+            "distinct-order-revision-0", revision=0,
+            step_ids=[second_id, first_id]))
+        append_step_event(self.data_dir, step_order_event(
+            "distinct-order-revision-1", revision=1,
+            step_ids=[first_id, second_id]))
+
+        task = read_workspace(self.data_dir)["tasks"][0]
+        self.assertFalse(task["step_order_conflict"])
+        self.assertEqual(task["step_order_revision"], 2)
+        self.assertEqual([step["step_id"] for step in task["steps"]],
+                         [first_id, second_id])
+
     def test_step_events_wait_for_parent_task_sync(self):
         self.data_dir.mkdir(exist_ok=True)
         append_step_event(self.data_dir, step_event(
@@ -1143,6 +1202,31 @@ class ServerTests(unittest.TestCase):
                          [second, first, missing])
         self.assertEqual(original_path.read_bytes(), original_bytes,
                          "the earlier accepted order event remains immutable")
+
+    def test_duplicate_reorder_event_id_across_revisions_blocks_api_write(self):
+        first = self.create_step(title="步骤甲")[1]["step_id"]
+        second = self.create_step(title="步骤乙")[1]["step_id"]
+        reused_id = "duplicate-order-api-event"
+        append_step_event(self.data_dir, step_order_event(
+            reused_id, revision=0, step_ids=[first, second]))
+        duplicate = step_order_event(
+            reused_id, revision=1, step_ids=[second, first])
+        (self.data_dir / "step_events" / "z_duplicate_order_api.json").write_text(
+            json.dumps(duplicate), encoding="utf-8")
+        before = {path.name: path.read_bytes()
+                  for path in (self.data_dir / "step_events").glob("*.json")}
+
+        state = read_workspace(self.data_dir)["tasks"][0]
+        self.assertTrue(state["step_order_conflict"])
+        self.assertEqual(state["step_order_revision"], 0)
+        code, response = self.reorder_steps([second, first], 0)
+        self.assertEqual(code, 409)
+        self.assertIn("conflict", response["error"])
+        after = {path.name: path.read_bytes()
+                 for path in (self.data_dir / "step_events").glob("*.json")}
+        self.assertEqual(after, before, "API must not append to a conflicted order stream")
+        self.assertEqual(self.update_step(
+            first, {"title": "步骤甲可独立编辑", "revision": 1})[0], 200)
 
     def test_step_order_conflict_blocks_reorder_but_not_step_content_edit(self):
         first = self.create_step(title="步骤甲")[1]["step_id"]
