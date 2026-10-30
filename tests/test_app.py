@@ -50,6 +50,61 @@ class DataTests(unittest.TestCase):
         self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["title"], "虚构测试任务")
         self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["revision"], 1)
 
+    def test_legacy_task_has_safe_management_defaults(self):
+        append_event(self.data_dir, event())
+        state = read_workspace(self.data_dir)["tasks"][0]
+        self.assertIsNone(state["owner"])
+        self.assertEqual(state["priority"], "normal")
+        for field in ("due_date", "planned_date", "follow_up_date"):
+            self.assertIsNone(state[field])
+        persisted = next((self.data_dir / "events").glob("*.json")).read_text("utf-8")
+        self.assertNotIn("follow_up_date", persisted)
+
+    def test_external_task_event_three_dates_are_independent(self):
+        append_event(self.data_dir, event(changes={
+            "title": "虚构跟进事项", "status": "todo",
+            "owner": "采购员甲", "priority": "high",
+            "due_date": "2026-11-16",
+            "planned_date": "2026-11-03",
+            "follow_up_date": "2026-11-08"}))
+        task = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual(task["owner"], "采购员甲")
+        self.assertEqual(task["priority"], "high")
+        self.assertEqual((task["due_date"], task["planned_date"],
+                          task["follow_up_date"]),
+                         ("2026-11-16", "2026-11-03", "2026-11-08"))
+
+    def test_metadata_conflict_uses_candidates_and_freezes_only_task(self):
+        append_event(self.data_dir, event())
+        append_event(self.data_dir, event(
+            "meta-conflict-one", action="update", revision=1,
+            changes={"due_date": "2026-11-12", "priority": "high"}))
+        append_event(self.data_dir, event(
+            "meta-conflict-two", action="update", revision=1,
+            changes={"due_date": "2026-11-14", "priority": "normal"}))
+        append_event(self.data_dir, event(
+            "other-independent", "TASK-OTHER", changes={"title": "独立任务"}))
+        tasks = {t["task_id"]: t for t in read_workspace(self.data_dir)["tasks"]}
+        self.assertTrue(tasks["TASK-DEMO-001"]["conflict"])
+        self.assertEqual(tasks["TASK-DEMO-001"]["conflict_fields"],
+                         ["due_date", "priority"])
+        self.assertEqual(len(tasks["TASK-DEMO-001"]["conflict_candidates"]), 2)
+        self.assertFalse(tasks["TASK-OTHER"]["conflict"])
+
+    def test_management_event_validation_rejects_invalid_calendar_and_owner(self):
+        bad_changes = [
+            {"owner": " "}, {"owner": 99}, {"owner": "A" * 101},
+            {"priority": "critical"}, {"priority": None},
+            {"due_date": "2026-02-30"},
+            {"planned_date": "2026-2-3"},
+            {"follow_up_date": "2026-13-01"},
+            {"follow_up_date": 20261102},
+            {"planned_date": "2026-W40-1"}
+        ]
+        for changes in bad_changes:
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                validate_event(event(changes={"title": "虚构任务", **changes}))
+
     def test_utf8_bom_event_from_external_writer_is_readable(self):
         events = self.data_dir / "events"
         events.mkdir()
@@ -441,6 +496,98 @@ class ServerTests(unittest.TestCase):
         task = next(t for t in read_workspace(self.data_dir)["tasks"]
                     if t["task_id"] == payload["task_id"])
         self.assertIsNone(task["project_id"])
+
+    def test_create_task_with_all_m3_2_fields_and_append_only_history(self):
+        payload = {"title": "跟进事项", "owner": "  员工甲  ", "priority": "urgent",
+                   "due_date": "2026-11-20", "planned_date": "2026-11-01",
+                   "follow_up_date": "2026-11-07"}
+        status, created = self.create_task(payload)
+        self.assertEqual(status, 201)
+        task = next(t for t in read_workspace(self.data_dir)["tasks"]
+                    if t["task_id"] == created["task_id"])
+        self.assertEqual(task["owner"], "员工甲")
+        self.assertEqual(task["priority"], "urgent")
+        for field in ("due_date", "planned_date", "follow_up_date"):
+            self.assertEqual(task[field], payload[field])
+        self.assertEqual(task["revision"], 1)
+        written = next(json.loads(p.read_text("utf-8"))
+                       for p in (self.data_dir / "events").glob("*.json")
+                       if created["task_id"] in p.read_text("utf-8"))
+        self.assertEqual(written["changes"]["owner"], "员工甲")
+        self.assertEqual(written["changes"]["follow_up_date"], "2026-11-07")
+
+    def test_update_only_follow_up_date_preserves_other_dates_and_project_refs(self):
+        primary = "PROJECT-" + "A" * 32
+        related = "PROJECT-" + "B" * 32
+        append_event(self.data_dir, event(
+            "old-extra-task", "TASK-M3-02", changes={
+                "title": "跟进虚构项目", "status": "todo",
+                "project_id": primary, "related_project_ids": [related],
+                "due_date": "2026-12-15", "planned_date": "2026-11-02",
+                "follow_up_date": "2026-11-05"}))
+        events = self.data_dir / "events"
+        original = {p.name: p.read_bytes() for p in events.glob("*.json")}
+        request = Request(
+            self.base + "/api/tasks/TASK-M3-02/update",
+            data=json.dumps({"title": "跟进虚构项目", "status": "todo",
+                             "revision": 1, "follow_up_date": "2026-11-12"}).encode(),
+            method="POST", headers={"Content-Type": "application/json"})
+        with urlopen(request, timeout=3) as reply:
+            self.assertEqual(reply.status, 200)
+        task = next(t for t in read_workspace(self.data_dir)["tasks"]
+                    if t["task_id"] == "TASK-M3-02")
+        self.assertEqual(task["follow_up_date"], "2026-11-12")
+        self.assertEqual(task["due_date"], "2026-12-15")
+        self.assertEqual(task["planned_date"], "2026-11-02")
+        self.assertEqual(task["project_id"], primary)
+        self.assertEqual(task["related_project_ids"], [related])
+        new_events = [json.loads(p.read_text("utf-8")) for p in events.glob("*.json")
+                      if p.name not in original]
+        self.assertEqual(len(new_events), 1)
+        self.assertNotIn("project_id", new_events[0]["changes"])
+        self.assertNotIn("related_project_ids", new_events[0]["changes"])
+        self.assertNotIn("due_date", new_events[0]["changes"])
+        self.assertNotIn("planned_date", new_events[0]["changes"])
+        self.assertEqual(new_events[0]["changes"]["follow_up_date"], "2026-11-12")
+        self.assertEqual({name: (events / name).read_bytes() for name in original}, original)
+
+    def test_clear_owner_and_date_without_touching_priority(self):
+        self.assertEqual(self.request({"title": "虚构测试任务", "status": "todo",
+                                      "revision": 1, "owner": "员工乙",
+                                      "priority": "high", "due_date": "2026-11-05"})[0], 200)
+        status, _ = self.request({"title": "虚构测试任务", "status": "todo",
+                                  "revision": 2, "owner": None, "due_date": None})
+        self.assertEqual(status, 200)
+        task = read_workspace(self.data_dir)["tasks"][0]
+        self.assertIsNone(task["owner"])
+        self.assertIsNone(task["due_date"])
+        self.assertEqual(task["priority"], "high")
+
+    def test_invalid_m3_2_fields_rejected_without_event_writes(self):
+        bad_fields = [
+            {"priority": "blocker"}, {"owner": 123}, {"owner": "x" * 101},
+            {"due_date": "2026-02-30"}, {"due_date": "2026-01-1"},
+            {"follow_up_date": "tomorrow"}, {"planned_date": "2026-00-10"},
+            {"planned_date": {"year": 2026}}, {"follow_up_date": 17}
+        ]
+        for changes in bad_fields:
+            with self.subTest(fields=changes):
+                original = len(list((self.data_dir / "events").glob("*.json")))
+                code, _ = self.create_task({"title": "不应新增", **changes})
+                self.assertEqual(code, 400)
+                code, _ = self.request({"title": "虚构测试任务", "status": "todo",
+                                        "revision": 1, **changes})
+                self.assertEqual(code, 400)
+                self.assertEqual(len(list((self.data_dir / "events").glob("*.json"))), original)
+
+    def test_stale_metadata_revision_rejected_without_overwriting_new_date(self):
+        status, _ = self.request({"title": "虚构测试任务", "status": "todo",
+                                  "revision": 1, "due_date": "2026-11-10"})
+        self.assertEqual(status, 200)
+        code, _ = self.request({"title": "虚构测试任务", "status": "todo",
+                                "revision": 1, "due_date": "2026-11-15"})
+        self.assertEqual(code, 409)
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["due_date"], "2026-11-10")
 
     def test_create_task_success_and_persists(self):
         status, result = self.create_task({"title": "  新任务：安排资料整理  "})

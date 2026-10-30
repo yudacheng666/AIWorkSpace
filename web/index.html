@@ -23,6 +23,13 @@
     .create-panel { background: white; border: 1px solid #e1e8f0; border-radius: 14px; padding: 20px 22px; margin-top: 25px; }
     .create-help { margin: 7px 0 15px; color: #718197; font-size: 13px; }
     .create-form { display: grid; grid-template-columns: minmax(180px, 1.4fr) minmax(150px, .8fr) minmax(160px, .9fr) auto; align-items: end; gap: 12px; }
+    .task-meta { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 11px; margin-top: 13px; padding-top: 13px; border-top: 1px solid #edf1f6; }
+    .task-meta.create-meta, .task-meta.edit-meta { grid-column: 1 / -1; }
+    .task-meta input, .task-meta select { min-width: 0; }
+    .field-hint { color: #8593a5; font-size: 12px; margin: 8px 0 0; }
+    @media (max-width: 960px) {
+      .task-meta { grid-template-columns: repeat(3, minmax(130px, 1fr)); }
+    }
     .project-panel { background: #fff; border: 1px solid #e1e8f0; border-radius: 14px; padding: 18px 22px; margin-top: 16px; }
     .project-list { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 14px; }
     .project-card { display: flex; align-items: center; gap: 8px; border: 1px solid #e6ecf4; background: #f9fbfe; border-radius: 10px; padding: 8px; min-width: min(100%, 270px); }
@@ -72,6 +79,8 @@
       .create-panel { padding: 17px 16px; }
       .create-form { grid-template-columns: 1fr; }
       .task-form { grid-template-columns: 1fr 1fr; }
+      .task-meta { grid-template-columns: 1fr 1fr; }
+      .task-meta.create-meta, .task-meta.edit-meta { grid-column: 1 / -1; }
       .task-form label:first-child { grid-column: 1 / -1; }
       .task-form .save { grid-column: 1 / -1; }
       .project-panel { padding: 17px 16px; }
@@ -104,7 +113,30 @@
           <select id="new-task-related" multiple size="3"></select>
         </label>
         <button class="save" id="create-submit" type="submit">创建任务</button>
+        <div class="task-meta create-meta" aria-label="任务管理字段">
+          <label for="new-task-owner">负责人
+            <input id="new-task-owner" maxlength="100" placeholder="可留空" autocomplete="off">
+          </label>
+          <label for="new-task-priority">优先级
+            <select id="new-task-priority">
+              <option value="normal">普通</option>
+              <option value="low">低</option>
+              <option value="high">高</option>
+              <option value="urgent">紧急</option>
+            </select>
+          </label>
+          <label for="new-task-due">截止日期
+            <input id="new-task-due" type="date">
+          </label>
+          <label for="new-task-planned">计划执行日期
+            <input id="new-task-planned" type="date">
+          </label>
+          <label for="new-task-follow">下次跟进日期
+            <input id="new-task-follow" type="date">
+          </label>
+        </div>
       </form>
+      <p class="field-hint">三个日期相互独立，留空表示未设置；负责人可后续补充。</p>
       <p class="message" id="create-message" role="status" aria-live="polite"></p>
     </section>
     <section class="project-panel" aria-labelledby="project-heading">
@@ -134,6 +166,8 @@
     "use strict";
     const $ = id => document.getElementById(id);
     const labels = {todo: "待处理", doing: "进行中", blocked: "受阻", done: "已完成"};
+    const priorities = {normal: "普通", low: "低", high: "高", urgent: "紧急"};
+    const metadataFields = ["owner", "priority", "due_date", "planned_date", "follow_up_date"];
     let isSaving = false;
     let current = [];
     let currentProjects = [];
@@ -210,6 +244,48 @@
       return card;
     }
 
+    function addTaskMetadata(form, task) {
+      const fields = element("div", "task-meta edit-meta");
+      const addInput = (title, field, type, limit) => {
+        const label = element("label", "", title);
+        const input = element("input");
+        input.type = type;
+        if (limit) input.maxLength = limit;
+        input.value = task[field] || "";
+        input.disabled = task.conflict;
+        label.append(input);
+        fields.append(label);
+        return input;
+      };
+      const owner = addInput("负责人", "owner", "text", 100);
+      const priorityLabel = element("label", "", "优先级");
+      const priority = element("select");
+      for (const [value, name] of Object.entries(priorities)) {
+        const option = element("option", "", name);
+        option.value = value;
+        option.selected = (task.priority || "normal") === value;
+        priority.append(option);
+      }
+      priority.disabled = task.conflict;
+      priorityLabel.append(priority); fields.append(priorityLabel);
+      const dueDate = addInput("截止日期", "due_date", "date");
+      const plannedDate = addInput("计划执行日期", "planned_date", "date");
+      const followDate = addInput("下次跟进日期", "follow_up_date", "date");
+      form.append(fields);
+      return {owner, priority, due_date: dueDate,
+              planned_date: plannedDate, follow_up_date: followDate};
+    }
+
+    function readTaskMetadata(controls) {
+      return {
+        owner: controls.owner.value.trim() || null,
+        priority: controls.priority.value || "normal",
+        due_date: controls.due_date.value || null,
+        planned_date: controls.planned_date.value || null,
+        follow_up_date: controls.follow_up_date.value || null
+      };
+    }
+
     function row(task) {
       const conflictFields = Array.isArray(task.conflict_fields) ? task.conflict_fields : [];
       const candidates = Array.isArray(task.conflict_candidates) ? task.conflict_candidates : [];
@@ -260,12 +336,16 @@
         ? "检测到冲突，系统已停止写入。请先核查；冲突候选不是最终结论。"
         : "");
       form.append(titleLabel, statusLabel, projectLabelInput, relatedLabel, button);
+      const metadataControls = addTaskMetadata(form, task);
       form.addEventListener("submit", async event => {
         event.preventDefault();
         if (isSaving || task.conflict) return;
         const nextStatus = status.value;
         const nextProject = project.value || null;
         const nextRelated = selectedValues(related);
+        const nextMetadata = readTaskMetadata(metadataControls);
+        const metaChanged = metadataFields.some(field =>
+          nextMetadata[field] !== (task[field] ?? (field === "priority" ? "normal" : null)));
         const completedNow = nextStatus === "done" && task.status !== "done";
         if (completedNow && !window.confirm("确认亲自将此任务标记为完成？")) return;
         const primaryChanged = nextProject !== (task.project_id || null);
@@ -273,7 +353,7 @@
         const relatedChanged = nextRelated.length !== originalRelated.length ||
           nextRelated.some(id => !originalRelated.includes(id));
         if (title.value.trim() === task.title && nextStatus === task.status &&
-            !primaryChanged && !relatedChanged) {
+            !primaryChanged && !relatedChanged && !metaChanged) {
           message.textContent = "内容没有变化";
           return;
         }
@@ -285,6 +365,11 @@
           // A title-only edit must not clear IDs whose project file is still syncing.
           if (primaryChanged) changes.project_id = nextProject;
           if (relatedChanged) changes.related_project_ids = nextRelated;
+          for (const field of metadataFields) {
+            if (nextMetadata[field] !== (task[field] ?? (field === "priority" ? "normal" : null))) {
+              changes[field] = nextMetadata[field];
+            }
+          }
           const response = await fetch(`/api/tasks/${encodeURIComponent(task.task_id)}/update`, {
             method: "POST", headers: {"Content-Type": "application/json"},
             body: JSON.stringify(changes)
@@ -312,6 +397,15 @@
         if (hasStatusConflict) {
           const values = valuesFor("status").map(value => labels[value] || value);
           details.push(values.length ? `状态候选：${values.join(" / ")}` : "状态存在冲突，未裁决");
+        }
+        const metaNames = {owner: "负责人", priority: "优先级", due_date: "截止日期",
+                           planned_date: "计划执行日期", follow_up_date: "下次跟进日期"};
+        for (const [field, name] of Object.entries(metaNames)) {
+          if (conflictFields.includes(field)) {
+            const values = valuesFor(field).map(value =>
+              value == null ? "未设置" : (field === "priority" ? (priorities[value] || value) : value));
+            details.push(`${name}候选：${values.length ? values.join(" / ") : "未裁决"}`);
+          }
         }
         if (!details.length) details.push("检测到重复、乱序或其他未裁决变更。当前显示值不能视为最终裁决。");
         card.append(element("p", "conflict-detail",
@@ -420,6 +514,19 @@
 
     $("new-task-title").addEventListener("input", () => { createDraftRevision++; });
 
+    function createMetadataSnapshot() {
+      return {
+        title: $("new-task-title").value,
+        project_id: $("new-task-project").value || null,
+        related_project_ids: selectedValues($("new-task-related")),
+        owner: $("new-task-owner").value,
+        priority: $("new-task-priority").value || "normal",
+        due_date: $("new-task-due").value,
+        planned_date: $("new-task-planned").value,
+        follow_up_date: $("new-task-follow").value
+      };
+    }
+
     $("create-project").addEventListener("submit", async event => {
       event.preventDefault();
       const input = $("new-project-name");
@@ -457,11 +564,12 @@
       const input = $("new-task-title");
       const message = $("create-message");
       const submit = $("create-submit");
-      const originalDraft = input.value;
+      const draft = createMetadataSnapshot();
+      const originalDraft = draft.title;
       const draftRevisionAtSubmit = createDraftRevision;
       const title = originalDraft.trim();
-      const projectId = $("new-task-project").value || null;
-      const relatedIds = selectedValues($("new-task-related"));
+      const projectId = draft.project_id;
+      const relatedIds = draft.related_project_ids;
       if (isSaving) {
         message.textContent = "另一个操作正在保存，请稍后再提交。";
         return;
@@ -484,6 +592,11 @@
         const body = {title};
         if (projectId) body.project_id = projectId;
         if (relatedIds.length) body.related_project_ids = relatedIds;
+        if (draft.owner.trim()) body.owner = draft.owner.trim();
+        if (draft.priority !== "normal") body.priority = draft.priority;
+        if (draft.due_date) body.due_date = draft.due_date;
+        if (draft.planned_date) body.planned_date = draft.planned_date;
+        if (draft.follow_up_date) body.follow_up_date = draft.follow_up_date;
         const response = await fetch("/api/tasks", {
           method: "POST", headers: {"Content-Type": "application/json"},
           body: JSON.stringify(body)
@@ -491,8 +604,16 @@
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
         const draftUntouched = createDraftRevision === draftRevisionAtSubmit &&
-                               input.value === originalDraft;
-        if (draftUntouched) input.value = "";
+                               JSON.stringify(createMetadataSnapshot()) === JSON.stringify(draft);
+        if (draftUntouched) {
+          input.value = "";
+          $("new-task-owner").value = "";
+          $("new-task-priority").value = "normal";
+          $("new-task-due").value = "";
+          $("new-task-planned").value = "";
+          $("new-task-follow").value = "";
+          // Keep project selection for quickly creating several tasks in one project.
+        }
         message.textContent = `创建成功：${result.task_id}（待处理）` +
           (draftUntouched ? "" : "；正在输入的下一条任务草稿已保留，尚未保存");
         await refresh(true);

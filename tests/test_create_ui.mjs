@@ -221,8 +221,13 @@ function taskEditHarness(task) {
   const status = statusLabel.children[0];
   const primary = primaryLabel.children[0];
   const related = relatedLabel.children[0];
+  const metadata = form.children.find(item => item.className.includes("edit-meta"));
+  assert.ok(metadata, "M3.2 metadata inputs must be part of the task form");
+  const [owner, priority, due, planned, follow] =
+    metadata.children.map(label => label.children[0]);
   const save = () => form.handlers.get("submit")({preventDefault() {}});
-  return {title, status, primary, related, save, posted};
+  return {title, status, primary, related, owner, priority, due, planned, follow,
+          save, posted};
 }
 
 test("P2: changing title preserves unsynced primary and related project IDs", async () => {
@@ -259,4 +264,108 @@ test("P2: explicitly unassign primary without losing still-unsynced related proj
                "explicit unassignment must be sent");
   assert.equal(Object.hasOwn(page.posted[0], "related_project_ids"), false,
                "unchanged unsynced related ID must not be cleared");
+});
+
+
+test("M3.2 create submits five independent fields", async () => {
+  const page = harness();
+  page.type("跟进测试事项");
+  page.document.getElementById("new-task-owner").value = "员工甲";
+  page.document.getElementById("new-task-priority").value = "high";
+  page.document.getElementById("new-task-due").value = "2026-11-20";
+  page.document.getElementById("new-task-planned").value = "2026-11-01";
+  page.document.getElementById("new-task-follow").value = "2026-11-07";
+  const pending = page.save();
+  assert.deepEqual(page.posted[0], {
+    title: "跟进测试事项", owner: "员工甲", priority: "high",
+    due_date: "2026-11-20", planned_date: "2026-11-01",
+    follow_up_date: "2026-11-07"
+  });
+  page.respond();
+  await pending;
+});
+
+test("M3.2 create keeps changed owner and date drafts after late response", async () => {
+  const page = harness();
+  page.type("第一项");
+  const owner = page.document.getElementById("new-task-owner");
+  const nextFollow = page.document.getElementById("new-task-follow");
+  owner.value = "员工甲";
+  const pending = page.save();
+  owner.value = "员工乙";
+  nextFollow.value = "2026-11-04";
+  page.respond();
+  await pending;
+  assert.equal(page.input.value, "第一项", "do not erase a draft changed while saving");
+  assert.equal(owner.value, "员工乙");
+  assert.equal(nextFollow.value, "2026-11-04");
+  assert.match(page.message.textContent, /草稿已保留/);
+  assert.equal(page.posted[0].owner, "员工甲");
+});
+
+test("M3.2 create clears unchanged metadata fields after confirmed save", async () => {
+  const page = harness();
+  page.type("待办");
+  const owner = page.document.getElementById("new-task-owner");
+  const priority = page.document.getElementById("new-task-priority");
+  const date = page.document.getElementById("new-task-due");
+  owner.value = "员工甲"; priority.value = "urgent"; date.value = "2026-11-03";
+  const pending = page.save();
+  page.respond();
+  await pending;
+  assert.equal(page.input.value, "");
+  assert.equal(owner.value, "");
+  assert.equal(priority.value, "normal");
+  assert.equal(date.value, "");
+});
+
+test("M3.2 edit only follow-up date preserves other metadata and missing project refs", async () => {
+  const primary = "PROJECT-" + "A".repeat(32);
+  const related = "PROJECT-" + "B".repeat(32);
+  const page = taskEditHarness({
+    task_id: "TASK-M3-02-EDIT", title: "虚构事项", status: "todo",
+    revision: 3, conflict: false, project_id: primary,
+    related_project_ids: [related], owner: "员工甲", priority: "high",
+    due_date: "2026-12-05", planned_date: "2026-11-01",
+    follow_up_date: "2026-11-03"
+  });
+  page.follow.value = "2026-11-10";
+  await page.save();
+  assert.equal(page.posted.length, 1);
+  const change = page.posted[0];
+  assert.equal(change.follow_up_date, "2026-11-10");
+  for (const field of ["owner", "priority", "due_date", "planned_date",
+                       "project_id", "related_project_ids"]) {
+    assert.equal(Object.hasOwn(change, field), false, field + " must be omitted");
+  }
+});
+
+test("M3.2 edit can clear a date and owner without resetting priority", async () => {
+  const page = taskEditHarness({
+    task_id: "TASK-M3-02-CLEAR", title: "虚构任务", status: "todo",
+    revision: 1, conflict: false, project_id: null,
+    related_project_ids: [], owner: "员工乙", priority: "urgent",
+    due_date: "2026-11-20", planned_date: null, follow_up_date: null
+  });
+  page.owner.value = "";
+  page.due.value = "";
+  await page.save();
+  const change = page.posted[0];
+  assert.equal(change.owner, null);
+  assert.equal(change.due_date, null);
+  assert.equal(Object.hasOwn(change, "priority"), false);
+});
+
+test("M3.2 legacy task title-only edit sends no new metadata fields", async () => {
+  const page = taskEditHarness({
+    task_id: "TASK-M3-02-LEGACY", title: "旧任务", status: "todo",
+    revision: 1, conflict: false, project_id: null, related_project_ids: []
+  });
+  page.title.value = "编辑旧任务";
+  await page.save();
+  const change = page.posted[0];
+  assert.equal(change.title, "编辑旧任务");
+  for (const key of ["owner", "priority", "due_date", "planned_date", "follow_up_date"]) {
+    assert.equal(Object.hasOwn(change, key), false, key + " should not be written");
+  }
 });

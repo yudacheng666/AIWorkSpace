@@ -14,7 +14,7 @@ import tempfile
 import threading
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -25,6 +25,11 @@ TASK_ID = re.compile(r"^TASK-[A-Za-z0-9-]{1,50}$")
 PROJECT_ID = re.compile(r"^PROJECT-[A-F0-9]{32}$")
 EVENT_ID = re.compile(r"^[A-Za-z0-9-]{8,80}$")
 STATUSES = {"todo", "doing", "blocked", "done"}
+PRIORITIES = {"low", "normal", "high", "urgent"}
+DATE_FIELDS = ("due_date", "planned_date", "follow_up_date")
+TASK_MANAGEMENT_FIELDS = ("owner", "priority", *DATE_FIELDS)
+TASK_DEFAULTS = {"owner": None, "priority": "normal",
+                 "due_date": None, "planned_date": None, "follow_up_date": None}
 MAX_BODY = 16_384
 _write_lock = threading.Lock()
 
@@ -51,7 +56,7 @@ def validate_event(value: object) -> dict:
     changes = value.get("changes")
     if not isinstance(changes, dict) or not changes:
         raise ValueError("changes must be a nonempty object")
-    if set(changes) - {"title", "status", "project_id", "related_project_ids"}:
+    if set(changes) - {"title", "status", "project_id", "related_project_ids", *TASK_MANAGEMENT_FIELDS}:
         raise ValueError("unknown fields")
     if "title" in changes and (not isinstance(changes["title"], str)
                                or not 1 <= len(changes["title"].strip()) <= 200):
@@ -69,6 +74,23 @@ def validate_event(value: object) -> dict:
             raise ValueError("invalid related_project_ids")
         if changes.get("project_id") in related:
             raise ValueError("primary project cannot also be a related project")
+    # Dates are local calendar dates, not timestamps; keep the three meanings separate.
+    if "owner" in changes:
+        owner = changes["owner"]
+        if owner is not None and (not isinstance(owner, str)
+                                  or not 1 <= len(owner.strip()) <= 100):
+            raise ValueError("owner must be null or 1–100 characters")
+    if "priority" in changes and changes["priority"] not in PRIORITIES:
+        raise ValueError("invalid priority")
+    for field in DATE_FIELDS:
+        if field in changes and changes[field] is not None:
+            value_date = changes[field]
+            if not isinstance(value_date, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value_date):
+                raise ValueError(f"invalid {field} (YYYY-MM-DD required)")
+            try:
+                date.fromisoformat(value_date)
+            except ValueError as exc:
+                raise ValueError(f"invalid {field} calendar date") from exc
     if value["action"] == "create":
         if revision != 0 or "title" not in changes or changes.get("status", "todo") != "todo":
             raise ValueError("create must start with title and todo status")
@@ -79,6 +101,22 @@ def validate_event(value: object) -> dict:
     ):
         raise ValueError("only an explicitly confirmed user action can complete a task")
     return value
+
+
+def normalized_task_fields(payload: dict) -> dict:
+    """Normalize only supplied task management values; omission means unchanged."""
+    changes = {}
+    for field in TASK_MANAGEMENT_FIELDS:
+        if field not in payload:
+            continue
+        value = payload[field]
+        if field == "owner" and isinstance(value, str):
+            value = value.strip() or None
+        if field in DATE_FIELDS and value == "":
+            # Empty web date inputs explicitly clear dates. The event stores null.
+            value = None
+        changes[field] = value
+    return changes
 
 
 def validate_project_event(value: object) -> dict:
@@ -342,6 +380,8 @@ def read_workspace(data_dir: Path) -> dict:
 
     project_map = {project["project_id"]: project for project in project_state["projects"]}
     for task in tasks:
+        for field, default in TASK_DEFAULTS.items():
+            task.setdefault(field, default)
         task.setdefault("project_id", None)
         task.setdefault("related_project_ids", [])
         primary = project_map.get(task["project_id"]) if task["project_id"] else None
@@ -540,8 +580,8 @@ def handler_factory(data_dir: Path):
                     return self.json_response(200, {"saved": True, "project_id": project_match.group(1)})
 
                 if creating_task:
-                    if set(payload) - {"title", "project_id", "related_project_ids"}:
-                        raise ValueError("new task accepts title and project references only")
+                    if set(payload) - {"title", "project_id", "related_project_ids", *TASK_MANAGEMENT_FIELDS}:
+                        raise ValueError("new task accepts title, project references and management fields only")
                     title = payload.get("title")
                     if not isinstance(title, str) or not 1 <= len(title.strip()) <= 200:
                         raise ValueError("title must be 1–200 characters")
@@ -558,6 +598,7 @@ def handler_factory(data_dir: Path):
                         else:
                             return self.json_response(409, {"error": "unable to allocate unique task ID"})
                         changes = {"title": title.strip(), "status": "todo"}
+                        changes.update(normalized_task_fields(payload))
                         if "project_id" in payload:
                             changes["project_id"] = project_id
                         if "related_project_ids" in payload:
@@ -566,12 +607,13 @@ def handler_factory(data_dir: Path):
                                  "task_id": task_id, "action": "create",
                                  "actor": "user", "timestamp": utc_now(),
                                  "base_revision": 0, "changes": changes}
+                        validate_event(event)
                         append_event(data_dir, event)
                     return self.json_response(201, {"saved": True, "task_id": task_id, "revision": 1})
 
                 if task_match:
                     allowed = {"title", "status", "revision", "project_id",
-                               "related_project_ids", "confirmed_done"}
+                               "related_project_ids", "confirmed_done", *TASK_MANAGEMENT_FIELDS}
                     if set(payload) - allowed:
                         raise ValueError("unknown task update fields")
                     title = payload.get("title")
@@ -594,6 +636,9 @@ def handler_factory(data_dir: Path):
                         if current["conflict"] or current["revision"] != revision:
                             return self.json_response(409, {"error": "task changed or has a conflict; refresh"})
                         changes = {"title": title.strip(), "status": status}
+                        for field, value in normalized_task_fields(payload).items():
+                            if value != current.get(field, TASK_DEFAULTS[field]):
+                                changes[field] = value
                         if "project_id" in payload or "related_project_ids" in payload:
                             project_id = payload.get("project_id", current.get("project_id"))
                             related_ids = payload.get("related_project_ids", current.get("related_project_ids", []))
@@ -609,6 +654,7 @@ def handler_factory(data_dir: Path):
                                  "base_revision": revision, "changes": changes}
                         if status == "done":
                             event["confirmed_done"] = True
+                        validate_event(event)
                         append_event(data_dir, event)
                     return self.json_response(200, {"saved": True, "task_id": task_match.group(1)})
             except (ValueError, TypeError, UnicodeError, json.JSONDecodeError) as exc:
