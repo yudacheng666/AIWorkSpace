@@ -2,7 +2,7 @@
 
 个人 AI 工作台，先验证 **ChatGPT → Google Drive → 本地网页 → Google Drive → ChatGPT** 的任务闭环。不需要额外的 Google Cloud 项目、付费 API 或第三方 Python 库。
 
-**当前阶段：** M1 与 M2 技术基线均已合入 `main`（PR #2 squash commit `d31f0e2d`）。M2 的网页新建任务及 ChatGPT 经已授权 Google Drive 连接器写入 JSON 事件的最小闭环已在公司 Windows 实测通过。当前仍是任务闭环原型，不是完整的个人工作台。
+**当前阶段：** M1 与 M2 技术基线已合入 `main`（PR #2 squash commit `d31f0e2d`）。M3.1 项目结构与任务归属正在 PR #3 开发，尚未合并。当前仍是逐步扩展中的个人工作台，不是完整团队管理系统。
 
 ## 先在 Windows 运行
 
@@ -27,6 +27,34 @@
 - 如果创建结果不明确，请先刷新并核查列表，避免盲目重复提交。
 
 **状态与限制：** 本功能已合入 `main`，并在公司 Windows 电脑完成实际新建、刷新和 Drive 同步验证。ChatGPT 经已授权 Google Drive 连接器创建并上传 JSON 事件，也已实际同步至公司工作台并显示；目前使用临时 Google Doc → 导出 → 上传的连接器工作流，不是后台自动运行的实时 AI 服务。
+
+## M3.1：项目与任务归属（PR #3 开发中，未合并）
+
+- 项目作为轻量独立记录，拥有稳定的 `PROJECT-<UUID>` 编号；支持创建和重命名，不提供删除，避免误删关联。
+- 项目事件追加保存到数据目录的 `project_events/`；每次修改新增 JSON，不覆盖旧事件。
+- 任务可设置一个主要所属项目及多个关联项目；没有项目的任务保留在“未归类 / 收件箱”。
+- 网页按主要项目分组显示任务；可创建/重命名项目，并在任务新建或编辑时设置主要项目和关联项目。
+- 旧版任务事件没有项目字段时继续作为未归类任务读取，不要求迁移或改写旧 JSON。
+- 若任务事件先于其项目事件同步到本机，任务仍显示，同时提示项目引用尚未同步/需核查。
+
+ChatGPT 创建项目时，先向 `project_events/` 写入独立项目创建事件，再写入引用该项目 ID 的任务事件。项目创建事件示例：
+
+```json
+{
+  "version": 1,
+  "event_id": "project-event-0001",
+  "project_id": "PROJECT-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "action": "create",
+  "actor": "chatgpt",
+  "base_revision": 0,
+  "timestamp": "2026-10-30T00:00:00Z",
+  "changes": {
+    "name": "虚构项目名称"
+  }
+}
+```
+
+任务事件的 `changes` 可选包含 `project_id` 和 `related_project_ids`。项目名称修改通过相同项目 ID 的新 update 事件完成，`base_revision` 使用当前项目 revision。
 
 ## 第一次双向测试
 
@@ -65,7 +93,7 @@ node --test tests/test_create_ui.mjs
 M2 的 CI 在 Linux 和 Windows 分别运行 30 项 Python 测试与 5 项 Node UI 回归测试；其中包含新建任务、并发/输入验证、后续草稿保留和 UTF-8 BOM 读取。正式验收以 PR 的最新代码和 CI 为准。
 
 - 代码：`app.py`、`web/index.html`；测试：`tests/test_app.py`。
-- 无登录、无外网服务、无自动提醒、无多用户权限；M2 网页支持创建、刷新、查看与编辑任务名称和状态，但尚未实现项目/步骤、负责人、优先级、日期、搜索等后续功能。
+- 无登录、无外网服务、无自动提醒、无多用户权限；M3.1 项目结构仍在 PR #3 开发中。负责人、优先级、截止/计划/跟进日期、执行步骤、工作总览和搜索仍属于后续阶段。
 - 首版的文件同步**不是实时数据库**。遇到 Drive 延迟、重复创建或并发修改可能需要刷新与人工核查。
 - 不要将 API 密钥、凭证、个人资料、真实台账或 Google Drive 私有链接提交到此 Public 仓库。
 
