@@ -1,7 +1,7 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-30（北京时间）  
-当前阶段：**M1/M2/M3.1/M3.2 已合入 `main`；M3.3 在 Draft PR #5 开发。第二项 P2 已修复，产品代码/测试 SHA `633b5304e843ca632dca095d42a7ec66d4baabe4` 的 Linux/Windows CI 均 PASS；等待 Codex 独立复验，未合并。**
+当前阶段：**M1/M2/M3.1/M3.2 已合入 `main`；M3.3 Draft PR #5 的代码/自动化 CI 与 Codex 独立验收均 PASS（已测范围），两项 P2 均已关闭。待用户明确批准后才能合并；公司 Windows、真实 Drive、原生输入法、长期耐久性等仍 NOT TESTED。**
 
 | 项目 | 当前事实 |
 |---|---|
@@ -127,30 +127,24 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - GitHub Actions [#41013700472](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41013700472) 与 [#41013705760](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41013705760)：Linux/Windows 每个平台 **53 Python + 15 Node PASS，0 FAIL**。
 - NOT TESTED：公司 Windows 上 M3.2 新字段 UI、真实 Drive 对新字段的端到端同步、原生中文输入法、长时间运行与断电耐久性；本次不因此升级本机 8770。
 
-## M3.3 编号执行步骤（修复中，2026-10-30）
+## M3.3 编号执行步骤（已通过已测范围验收，待批准合并，2026-10-30）
 
-- 开发分支：`feat/m3-03-numbered-task-steps`；[Draft PR #5](https://github.com/yudacheng666/AIWorkSpace/pull/5)，从合并后的 main `94a93bcb` 创建，尚未合并。
-- 范围：任务可拆成有稳定编号的执行步骤，记录步骤状态与顺序；任务/步骤完成均须用户明确确认。
-- 数据模型：独立 `step_events/` 追加式事件流；每步独立 STEP ID 与 revision；顺序由任务级完整 STEP ID 列表事件维护。旧任务无步骤时无需迁移；原事件不覆盖。
-- 规则：STEP ID 为 `STEP-<32位大写十六进制>`；每任务最多 100 步；标题 1–200 字；状态 `todo/doing/blocked/done`。**step_events 内 event_id 全局唯一**：相同 ID 相同内容的重复文件可忽略；相同 ID 不同内容必须冻结所有受影响步骤/排序流，冲突变体不得作为有效 revision 应用。步骤内容冲突只冻结涉事步骤；顺序冲突只冻结排序；父任务冲突阻止步骤写入。Host/Origin 本机校验、409 和原子不覆盖写入继续保留。
-- **首轮独立验收 FAIL（1 项 P2，已修复并定向复验通过）**：固定 HEAD `4d9e25f94195ce6f0c7964a253d4965ea7d0dc85`。部分同步时既有排序 `[A,C,B]` 而 C 创建事件未同步，网页只显示 A/B，原代码允许写入 `[B,A]` 丢掉 C 引用。原始历史文件未覆盖。证据：[Codex 报告](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6518205090)。
-- **原 P2 修复后的独立复验 PASS**：固定 HEAD `ce7ae429b903acf2839b14c05478639400ff72cd`。Codex [报告](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6518742643)确认：缺 C 时页面警告、排序禁用、API 409 且文件字节不变；C 到达后恢复 `[A,C,B]`，之后合法重排成功且只追加一条事件。
-- **第二项独立验收 FAIL（新 P2）**：同一排序 `event_id=order-event-001`，一个事件 `base_revision=0, [A,B]`，另一个事件 `base_revision=1, [B,A]`。旧代码只告警，仍按连续 revision 接受两者，得到 `step_order_revision=2`、`step_order_conflict=false`，页面继续允许排序。Codex 已按要求停止；独立并发、100 步/非法输入、Host/Origin 等剩余专项仍 NOT TESTED。证据及截图/日志：[PR #5 报告](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6518742643)。
-- **第二项 P2 修复已提交，自动化 CI PASS，等待独立复验**：
-  - `app.py`：建立每个受影响 task 的重复排序 ID 冲突集合；冲突涉及的 revision 不进入排序归约；只保留最后一个无冲突前缀，所有冲突变体作为候选；API 因 `step_order_conflict` 返回 409。步骤内容编辑不受影响。
-  - `tests/test_app.py`：新增 3 项回归：同 ID 跨 revision 必须冻结；API 不得写入冲突排序且历史字节不变、步骤仍可编辑；不同 ID 的合法连续 revision 仍正常应用。
-  - 修复提交：`ad0f981d04adb2652909a69a156310c8757ba6ae`（服务端）；`633b5304e843ca632dca095d42a7ec66d4baabe4`（Python 回归）。
-  - 产品代码/测试固定 SHA 与当前 PR HEAD：`633b5304e843ca632dca095d42a7ec66d4baabe4`。
-  - GitHub Actions [#41029302644](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41029302644)：Linux、Windows 均 SUCCESS；每个平台 **Python 76 PASS + Node UI 23 PASS，0 FAIL、0 skipped**。
-- **当前状态：新 P2 尚未由 Codex 独立复验关闭。** CI PASS 不能替代独立 Chromium/API 实操。
-- 未访问真实 Google Drive，未部署公司 Windows 8770，未修改 main；本机测试实例保持原状。公司 Windows UI、真实 Drive 步骤同步、原生中文输入法、长期/断电耐久性仍未测试。
+- 开发分支：`feat/m3-03-numbered-task-steps`；[Draft PR #5](https://github.com/yudacheng666/AIWorkSpace/pull/5)，base main `94a93bcb6fc0bd5123f43925ffa9981edfc20150`，**当前仍未合并**。
+- 已实现：每项任务最多 100 个步骤，稳定 `STEP-<32位大写十六进制>` 编号，标题 1–200 字，独立状态/修订号、创建/上移/下移、用户明确确认完成；独立 `step_events/` 追加式事件，保留旧任务与历史事件兼容。按 D013–D015 保留完整排序、部分同步保护、跨 revision 重复 event_id 的冲突冻结和候选、409/Host/Origin/原子不覆盖写入。
+- **首轮 P2（部分同步丢 STEP 引用）已关闭**：原版 `4d9e25f` 的 `[A,C,B]` 缺 C 会错误写入 `[B,A]`；修复后 Codex 在 `ce7ae42` 定向复验 PASS：缺 C 禁止排序，C 到达后恢复原排序并允许合法重排，所有旧事件字节不变。[首轮报告](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6518205090) / [复验报告](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6518742643)。
+- **第二轮 P2（重复排序 event_id 跨 revision 未冻结）已关闭**：原版不同内容却共用 `event_id` 时，被当作连续 revision 应用。修复在 `app.py` 对受影响的排序流冻结并保留候选；API 返回 409，不影响独立步骤编辑；新增 3 项回归。[原失败报告](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6518742643) / [最终复验报告](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6520276064)。
+- **代码及测试固定 SHA**：`633b5304e843ca632dca095d42a7ec66d4baabe4`；此 SHA 之后 PR 分支只有 README、PROJECT_STATE、DECISIONS 文档变更。任何后续新的产品/测试代码修改都要重新进行必要验收，不得沿用本次 PASS。
+- **CI PASS**：[GitHub Actions #41029302644](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41029302644) Linux/Windows 均 SUCCESS；每个平台 Python 76 PASS、Node UI 23 PASS，合计 198 PASS / 0 FAIL / 0 skipped。
+- **Codex 最终独立验收 PASS（已测范围）**：固定产品/测试 SHA `633b5304`。[PR #5 评论](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6520276064) 和[证据报告](https://github.com/yudacheng666/AIWorkSpace/blob/31598f1dc95dcefd14ba5bc21f6ce7281cfbd4ab/REPORT.md)：跨 revision 重复 ID 冻结、409/无文件改写、页面冻结与内容独立编辑、不同 ID 连续合法排序；同 revision 并发及旧版本拒写、步骤/排序/父任务冲突隔离、100 步上限竞争、非法输入/ID/排序成员、Host/Origin、部分同步最小回归均 PASS。无新增已确认 P1/P2/P3。Codex 额外 3 条 Python 定向回归 3 PASS，但未重新运行整套 Python/Node，整套结果以 CI 为准。
+- **仍 NOT TESTED，禁止扩大验收结论**：公司 Windows 原生 M3.3 界面、真实 Google Drive 的步骤事件双向同步、Windows 原生中文输入法、其他浏览器、真实跨设备同步、多实例并发、长时间运行和断电耐久性、远程访问。独立并发测试属于单机隔离 HTTP 服务，并非真实多设备一致性保证。
+- **限制与安全**：公开仓库仅虚构数据；Codex 证据位于独立 audit 分支，不写入产品 PR；未部署/升级公司电脑 8770，未访问真实 Drive，未修改 main；远程访问依 D012 延后。
+- **合并审批门槛**：已达到本阶段已定义的 Linux/Windows CI + 独立 Chromium/API 专项验收门槛，PR 可供用户审批；未测范围需明示。**不得把“具备合并条件”写成“已经合并”**。
 
 ## 下一步
 
-1. 委托 Codex 对固定 PR HEAD `633b5304e843ca632dca095d42a7ec66d4baabe4` 定向复验新 P2：同一排序 event_id、不同内容、跨 revision 时必须冻结排序，API 返回 409、不新增/覆盖事件、候选保留；不同 event_id 的合法连续排序必须仍可应用；步骤内容编辑仍可用。
-2. 同时补齐前两轮因失败停止而尚未执行的独立专项：同 revision 并发/旧 revision 409、不同 ID 同 revision 排序冲突、父任务冲突、100 步上限、非法标题/状态/STEP ID/排序成员、Host/Origin。本轮不要重复首轮已 PASS 的完整创建/编辑/完成确认流程；部分同步 P2 已在 `ce7ae42` 定向复验 PASS，可做最小回归确认而非重跑全套。
-3. Codex 只独立验收，不修改产品、原测试、CI 或 PR 分支；使用隔离虚构数据，不访问真实 Drive、不部署公司 Windows 8770。失败时保留证据并停止。
-4. ChatGPT 审核独立报告，若有新缺陷再做最小修复。**未经用户明确批准不合并 PR #5。**
-5. 不升级公司 Windows 8770，不访问真实 Drive，不测试远程访问；远程访问继续按 D012 暂缓。M3.3 完成后再进入 M3.4。
+1. 请用户确认是否**批准将 PR #5 以 Squash 方式合入 main**。在得到明确批准前 PR 保持 Draft、不得合并。
+2. 若获批准：先再次检查 PR 最新 HEAD、base、diff、CI 与验收固定代码 SHA 一致；转 Ready 后 Squash 合并，核对 main 新 SHA，并把合并结果写回本文件及 PR。未经批准不执行。
+3. 合并不等于部署；公司 Windows 8770 保持原样，真实 Google Drive 与现有历史事件不删除、不覆盖、不擅自迁移。后续如需部署或实机检查单独按用户指令进行。
+4. M3.3 合并后才进入 M3.4 首页工作总览与查询，按 `docs/REQUIREMENTS.md` 已确认范围分阶段开发。远程访问继续推迟。
 
-**交接规则：** 新 AI 应先读 `AGENTS.md`、`docs/REQUIREMENTS.md`、本文件和 `docs/DECISIONS.md`，核实 main、PR 最新 HEAD、CI 及独立验收报告；不能把 CI SUCCESS 当作独立实操已通过。
+**交接规则：** 下轮先读 `AGENTS.md`、`docs/REQUIREMENTS.md`、本文件与 `docs/DECISIONS.md`，实时核对 main、PR HEAD、CI 和 Codex 验收报告，不能凭旧 SHA 或记忆判断是否已合并。
