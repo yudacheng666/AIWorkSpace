@@ -59,6 +59,7 @@ function harness() {
   const pendingResponse = new Promise(resolve => { resolveResponse = resolve; });
   const posted = [];
   const projectPosted = [];
+  const updateCalls = [];
   const browser = mockWindow();
   const fetch = async (path, options) => {
     if (path === "/api/tasks" && options?.method === "POST") {
@@ -68,6 +69,23 @@ function harness() {
     if (path === "/api/projects" && options?.method === "POST") {
       projectPosted.push(JSON.parse(options.body));
       return {ok: true, json: async () => ({saved: true, project_id: "PROJECT-MOCK-001"})};
+    }
+    if (path === "/api/update/status") {
+      return {ok: true, json: async () => ({
+        version: "1.0.0", build_short: "abcdef0", build_known: true, last_update: null
+      })};
+    }
+    if (path === "/api/update/check") {
+      updateCalls.push("check");
+      return {ok: true, json: async () => ({
+        version: "1.0.0", latest_version: "1.1.0",
+        latest_commit: "a".repeat(40), latest_short: "aaaaaaa",
+        latest_message: "test update", update_available: true
+      })};
+    }
+    if (path === "/api/update/apply") {
+      updateCalls.push(JSON.parse(options.body));
+      return {ok: true, status: 202, json: async () => ({started: true})};
     }
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks: [], projects: [], warnings: []})};
@@ -94,7 +112,7 @@ function harness() {
   const projectForm = document.getElementById("create-project");
   const createProject = () => projectForm.handlers.get("submit")({preventDefault() {}});
   return {type, save, respond, input, message, submit, posted, projectPosted,
-          projectInput, createProject, document,
+          projectInput, createProject, document, updateCalls,
           beforeUnload: () => browser.fireBeforeUnload()};
 }
 
@@ -1069,4 +1087,28 @@ test("M3.4 successful step save advances clean baseline when sibling draft defer
   stepForm.handlers.get("input")();
   assert.equal(page.beforeUnload().prevented, true,
                "reverting a saved step to its pre-save value is still an unsaved edit");
+});
+
+
+test("update center displays the installed version and checks the fixed latest build", async () => {
+  const page = harness();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.match(page.document.getElementById("app-version").textContent, /v1\.0\.0/);
+  assert.match(page.document.getElementById("app-version").textContent, /abcdef0/);
+
+  await page.document.getElementById("check-update").handlers.get("click")();
+  assert.deepEqual(page.updateCalls, ["check"]);
+  assert.equal(page.document.getElementById("apply-update").hidden, false);
+  assert.equal(page.document.getElementById("apply-update").disabled, false);
+  assert.match(page.document.getElementById("update-message").textContent, /1\.1\.0/);
+});
+
+test("update UI never starts while a task draft is unsaved", async () => {
+  const page = harness();
+  await new Promise(resolve => setImmediate(resolve));
+  page.type("保留的虚构任务草稿");
+  await page.document.getElementById("check-update").handlers.get("click")();
+  await page.document.getElementById("apply-update").handlers.get("click")();
+  assert.deepEqual(page.updateCalls, ["check"]);
+  assert.match(page.document.getElementById("update-message").textContent, /先保存或处理未保存/);
 });

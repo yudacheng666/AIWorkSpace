@@ -28,3 +28,8 @@ dist/
 build/
 .DS_Store
 Thumbs.db
+
+# Local updater metadata and staging (never commit)
+.aiworkspace-build.json
+.aiworkspace-update-state.json
+.aiworkspace-update-staging-*/

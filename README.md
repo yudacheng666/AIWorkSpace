@@ -2,7 +2,14 @@
 
 个人 AI 工作台，先验证 **ChatGPT → Google Drive → 本地网页 → Google Drive → ChatGPT** 的任务闭环。不需要额外的 Google Cloud 项目、付费 API 或第三方 Python 库。
 
-**当前阶段：** M1/M2/M3.1/M3.2/M3.3/M3.4 均已合入 `main`。M3.4 [PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6) 已于 2026-10-30 经用户批准 Squash 合并，合并提交 `5916744898ac3de1b82c4edf27c339ec9a0173c1`。固定产品/原测试 SHA `eb035c611a592cc01dc7b02138a4951b32a69036` 的 Linux/Windows CI 均 SUCCESS（224 PASS / 0 FAIL）；Codex 第四轮真实 Chromium 独立复验 PASS（已测范围），Node 定向 5 PASS，74 次整页刷新前后事件文件名及字节一致。前三轮发现的三项草稿保护 P2 均已修复并复验通过。公司 Windows 8770 未升级，真实 Drive 未访问，M3.4 尚未部署。
+**当前阶段：** M1/M2/M3.1/M3.2/M3.3/M3.4 均已合入 `main`。M3.4 [PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6) 已于 2026-10-30 经用户批准 Squash 合并，合并提交 `5916744898ac3de1b82c4edf27c339ec9a0173c1`。固定产品/原测试 SHA `eb035c611a592cc01dc7b02138a4951b32a69036` 的 Linux/Windows CI 均 SUCCESS（224 PASS / 0 FAIL）；Codex 第四轮真实 Chromium 独立复验 PASS（已测范围），Node 定向 5 PASS，74 次整页刷新前后事件文件名及字节一致。当前新增独立功能阶段：内置软件更新中心 [Draft PR #7](https://github.com/yudacheng666/AIWorkSpace/pull/7)，Codex Linux 隔离独立验收 PASS；GitHub-hosted Windows Runner 使用真实 app.py + Chromium 完成网页一键更新/重启和失败回滚 E2E（2 PASS），双平台 CI 全部 SUCCESS。真实 GitHub main 下载/登记需合并后再隔离验证；公司 Windows 8770 未升级，真实 Drive 未访问，PR 尚未合并/部署。
+
+## 软件更新中心（PR #7，尚未合并）
+
+- 当前版本 `1.0.0` 与短 build SHA 会在页面显示；检查固定 GitHub main 的最新版后，可在网页中申请一键更新。
+- 下载、校验、备份、安装、重启及失败回滚仅操作白名单程序文件；任务/项目/步骤事件数据目录不参与更新。
+- [Codex Linux 独立验收](https://github.com/yudacheng666/AIWorkSpace/pull/7#issuecomment-6524335908) PASS（已测范围）；[CI #41073083681](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41073083681) 的 GitHub-hosted Windows Runner 使用真实 app.py、updater helper 和 Chromium，完成一键更新成功及启动失败回滚 **2 PASS**，并上传[截图、Playwright trace、日志及数据哈希证据](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41073083681/artifacts/12986271493)。此前 Windows helper mock 服务专项仍保留为单元级补充，不冒充网页 E2E。
+- **发布限制**：Windows 隔离 E2E 只 mock 固定 GitHub 官方 API/raw/zipball 响应；PR #7 未合并前 `main` 不存在 `VERSION`，真实 main 下载/版本登记仍需合并后在隔离环境验证。公司 Windows 8770、真实 Drive、企业网络及长期运行尚未验证或部署。
 
 ## M3.4：首页工作总览与查询（已合入 main，尚未部署）
 
@@ -14,6 +21,18 @@
 - 多条件查询支持任务/步骤的稳定编号与名称关键词、主要或关联项目、任务状态、负责人、三个日期字段之一的起止日期（含边界）；查询条件按“应用筛选”生效，可以清除。筛选只影响显示，不写事件、不会改变任务状态。
 - 切换总览卡片、应用查询、清除筛选或手动刷新之前，若现有任务/步骤有未保存草稿，需要明确确认才会放弃；自动刷新则暂缓重绘，避免静默丢失输入。浏览器整页刷新、关闭或离开页面时，也通过原生 `beforeunload` 确认保护任务与步骤草稿；只有草稿确实未保存时才提示，保存成功或恢复干净状态后不提示。前两轮修复已通过双平台自动化回归。第三轮修复确保任务/步骤保存成功时，将 watcher 的 clean baseline 推进到该次成功提交的确切快照，并重新比较当前表单值；即使兄弟草稿阻止列表重绘，后续改回保存前旧值也会继续触发 beforeunload。保存请求期间产生的新输入也继续保持 dirty。最新双平台 CI 224 PASS；第四轮 Codex 独立 Chromium 复验 PASS（已测范围），Node 定向 5 PASS、74 次整页刷新事件文件完整性检查 PASS。前三轮发现的三项草稿保护 P2 均已修复并通过指定路径复验。筛选操作本身不保存任务。
 - 目前全部在浏览器内计算和筛选；本地时钟、尚未同步/缺失的任务字段可能影响提示结果。没有远程访问、自动推送、身份认证或审批流程；用户选择“我的负责人”只保存在当前页面，不写入 Google Drive。**尚未测试**：公司 Windows 原生 M3.4、真实 Drive、Windows 原生 IME、其他浏览器、多客户端、长期/断电耐久性、远程访问/部署；物理键盘 F5 与关闭窗口未实测，整页离开保护以真实 Chromium `Page.reload` 验证。M3.4 合并不代表部署。
+
+## 软件更新中心（开发中，尚未合并/部署）
+
+- 工作台显示语义版本号（VERSION）与构建短 SHA；检查更新时读取固定公开仓库 yudacheng666/AIWorkSpace 的 main 最新 commit。
+- 用户手动点击“检查更新”后，如有新构建，再点击“立即更新”。更新只从 GitHub 下载固定 commit 的 ZIP，不接受任意 URL、分支或用户输入的下载地址；不需要 GitHub Token、额外云服务或付费 API。
+- 更新包只允许安装 app.py、updater.py、VERSION、web/index.html。压缩包会检查大小、CRC、路径穿越、符号链接、重复/缺失文件、commit 目录标识及 Python 语法；不执行远程任意脚本。
+- 安装前将上述程序文件及本机版本元数据备份到用户目录下的独立备份位置；使用暂存目录和逐文件原子替换。启动新版本后验证本机 API 返回目标 commit；安装或启动失败时自动回滚旧程序。
+- 更新通过独立 helper 等待旧服务退出，再安装并按原 --data-dir、端口重新启动。更新前若页面存在未保存任务/步骤草稿，网页会阻止更新，要求先处理草稿。
+- **数据保护边界**：更新器检查程序目录与 --data-dir 不重叠；只写程序白名单及本机隐藏构建/更新状态文件，绝不读取、覆盖、删除或搬迁 events/、project_events/、step_events/。备份不放入数据目录。
+- 初次从 GitHub ZIP 安装时没有本机登记的构建 SHA，版本区显示“未登记”；第一次检查会提示当前 main 构建可安装，点击更新后登记精确 commit。之后按本机 SHA 与 main SHA 判断是否需要更新。
+- 当前 VERSION 为 1.0.0；每次 main 提交都以短 SHA 区分构建，语义版本号在正式产品版本变化时维护。仅检查更新，不会在后台自动下载或安装。
+- 本功能合并并经独立验收前，仍按原方式运行当前版本；**不得把分支中的更新能力当成公司电脑已具备**。更新器实际 Windows 自动重启、文件锁、真实数据目录隔离和失败回滚，需在隔离虚构目录及 Windows 专项验收后才能用于公司电脑。
 
 ## 先在 Windows 运行
 

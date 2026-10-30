@@ -31,3 +31,30 @@ jobs:
           node-version: "22"
       - name: Run new-task draft regression tests
         run: node --test tests/test_create_ui.mjs
+
+  windows-update-e2e:
+    name: Windows real app + Chromium updater E2E
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install isolated browser test dependencies
+        run: python -m pip install --disable-pip-version-check playwright==1.55.0 psutil==7.1.0
+      - name: Install Chromium
+        run: python -m playwright install chromium
+      - name: Run real application update and rollback in Chromium
+        env:
+          AIWORKSPACE_RUN_WINDOWS_E2E: "1"
+        run: python -m unittest discover -s tests -p "test_updater_windows_e2e.py" -v
+      - name: Upload Windows updater evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-update-e2e-evidence
+          path: ${{ runner.temp }}/aiworkspace-update-e2e/
+          if-no-files-found: warn
