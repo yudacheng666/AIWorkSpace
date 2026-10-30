@@ -571,6 +571,7 @@ test("M3.3 an order conflict disables reorder but leaves step editing available"
 function overviewHarness(tasks, projects = []) {
   const elements = new Map();
   const posted = [];
+  let confirmValue = true;
   function fakeNode(tag = "div") {
     const node = {
       tag, textContent: "", className: "", children: [], handlers: new Map(),
@@ -618,12 +619,13 @@ function overviewHarness(tasks, projects = []) {
   const api = vm.runInNewContext(match[1] +
     "\n;({overviewDates, matchesOverview, matchesQuery, selectOverview, refresh})", {
       document, fetch, setInterval() {}, Date,
-      window: {confirm: () => true}
+      window: {confirm: () => confirmValue}
     }, {timeout: 2000});
   const el = id => document.getElementById(id);
   const submitQuery = () => el("task-query").handlers.get("submit")({preventDefault() {}});
   const resetQuery = () => el("query-reset").handlers.get("click")();
-  return {api, el, posted, submitQuery, resetQuery, tasks, projects};
+  return {api, el, posted, submitQuery, resetQuery, tasks, projects,
+          setConfirm(value) { confirmValue = value; }};
 }
 
 function overviewTask(id, extras = {}) {
@@ -744,5 +746,57 @@ test("M3.4 selected self owner remains local to UI and survives refresh without 
   await page.api.refresh(true);
   assert.equal(page.el("overview-owner").value, "虚构甲");
   assert.equal(page.el("query-result-count").textContent, "（1 / 2）");
+  assert.equal(page.posted.length, 0);
+});
+
+test("M3.4 filter changes and refresh never silently discard unsaved task edits", async () => {
+  const page = overviewHarness([
+    overviewTask("TASK-ONE", {title: "原始任务"}),
+    overviewTask("TASK-TWO", {title: "另一项任务"})
+  ]);
+  await page.api.refresh(true);
+  const group = page.el("tasks").children[0];
+  const card = group.children[1];
+  const form = card.children.find(item => item.className === "task-form");
+  const titleInput = form.children[0].children[0];
+  titleInput.value = "还没有保存的修改";
+  form.handlers.get("input")();
+  page.setConfirm(false);
+
+  page.el("view-risk").handlers.get("click")();
+  assert.equal(page.el("query-result-count").textContent, "（2 / 2）",
+               "declined navigation must not change visible task list");
+  assert.equal(page.el("tasks").children[0].children[1], card,
+               "same edit DOM must remain mounted");
+  assert.equal(titleInput.value, "还没有保存的修改");
+
+  page.el("query-keyword").value = "不匹配";
+  page.submitQuery();
+  assert.equal(page.el("query-result-count").textContent, "（2 / 2）");
+  await page.api.refresh(false);
+  assert.equal(page.el("tasks").children[0].children[1], card,
+               "background refresh must not discard dirty draft");
+  assert.match(page.el("sync").textContent, /尚未保存/);
+  assert.equal(page.posted.length, 0);
+
+  page.setConfirm(true);
+  page.submitQuery();
+  assert.equal(page.el("query-result-count").textContent, "（0 / 2）",
+               "explicitly confirmed navigation may replace the edit DOM");
+});
+
+test("M3.4 new step drafts are also protected from view switching", async () => {
+  const page = overviewHarness([overviewTask("TASK-STEP-DRAFT")]);
+  await page.api.refresh(true);
+  const card = page.el("tasks").children[0].children[1];
+  const panel = card.children.find(item => item.className === "steps-panel");
+  const addForm = panel.children.find(item => item.className === "step-add-form");
+  const input = addForm.children[0];
+  input.value = "新增草稿尚未保存";
+  addForm.handlers.get("input")();
+  page.setConfirm(false);
+  page.el("view-risk").handlers.get("click")();
+  assert.equal(page.el("tasks").children[0].children[1], card);
+  assert.equal(input.value, "新增草稿尚未保存");
   assert.equal(page.posted.length, 0);
 });
