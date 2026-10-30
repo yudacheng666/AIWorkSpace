@@ -1,0 +1,13 @@
+{
+  "checked_at_beijing": "2026-10-30T22:03:27+08:00",
+  "os": "Linux",
+  "machine": "x86_64",
+  "managed_runtime": "running; readiness current; capabilities empty",
+  "available_windows_executor": false,
+  "reason": "Only current Linux executor supplied; no attached Windows environment or Windows execution connector exposed in this session.",
+  "windows_product_cases_executed": 0,
+  "linux_product_cases_repeated": 0,
+  "new_windows_screenshots": 0,
+  "product_result": "NOT TESTED",
+  "scope": "Windows real app.py + browser update/restart/rollback only; no company system access"
+}

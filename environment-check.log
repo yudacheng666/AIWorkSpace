@@ -1,0 +1,8 @@
+Environment check only; no product test or server was run.
+platform.system(): Linux
+platform.machine(): x86_64
+Managed runtime: running; observations_current=true; capabilities=[]
+Tools checked: current shell/cloud status available; no Windows executor supplied.
+Windows E2E executions: 0
+Linux product reruns: 0
+Windows screenshots generated: 0

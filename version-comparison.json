@@ -1,0 +1,46 @@
+{
+  "fixed_product_sha": "42573a34c3190b46c28c1573e98fbca202924a9c",
+  "native_ci_test_sha": "f114f8a81d5e4e69286f77af1f8942dfb60e1137",
+  "document_head": "77e9cbae1a56ac98915ff43f04a5ef7da2175ba9",
+  "product_and_original_tests_blob_identity": {
+    "app.py": {
+      "42573a34c3190b46c28c1573e98fbca202924a9c": "3eb8a5b65edfffea6a5b58e51447934d93f6ba3e",
+      "f114f8a81d5e4e69286f77af1f8942dfb60e1137": "3eb8a5b65edfffea6a5b58e51447934d93f6ba3e",
+      "77e9cbae1a56ac98915ff43f04a5ef7da2175ba9": "3eb8a5b65edfffea6a5b58e51447934d93f6ba3e"
+    },
+    "updater.py": {
+      "42573a34c3190b46c28c1573e98fbca202924a9c": "1cb92cd60419ff517e9b5e17a487987d7598c420",
+      "f114f8a81d5e4e69286f77af1f8942dfb60e1137": "1cb92cd60419ff517e9b5e17a487987d7598c420",
+      "77e9cbae1a56ac98915ff43f04a5ef7da2175ba9": "1cb92cd60419ff517e9b5e17a487987d7598c420"
+    },
+    "VERSION": {
+      "42573a34c3190b46c28c1573e98fbca202924a9c": "3eefcb9dd5b38e2c1dc061052455dd97bcd51e6c",
+      "f114f8a81d5e4e69286f77af1f8942dfb60e1137": "3eefcb9dd5b38e2c1dc061052455dd97bcd51e6c",
+      "77e9cbae1a56ac98915ff43f04a5ef7da2175ba9": "3eefcb9dd5b38e2c1dc061052455dd97bcd51e6c"
+    },
+    "web/index.html": {
+      "42573a34c3190b46c28c1573e98fbca202924a9c": "faf4190cb3679f33affbb26292a4fc46daf4efe0",
+      "f114f8a81d5e4e69286f77af1f8942dfb60e1137": "faf4190cb3679f33affbb26292a4fc46daf4efe0",
+      "77e9cbae1a56ac98915ff43f04a5ef7da2175ba9": "faf4190cb3679f33affbb26292a4fc46daf4efe0"
+    },
+    "tests/test_app.py": {
+      "42573a34c3190b46c28c1573e98fbca202924a9c": "59f3af03b744249adbb757e2c53c3eec82066f77",
+      "f114f8a81d5e4e69286f77af1f8942dfb60e1137": "59f3af03b744249adbb757e2c53c3eec82066f77",
+      "77e9cbae1a56ac98915ff43f04a5ef7da2175ba9": "59f3af03b744249adbb757e2c53c3eec82066f77"
+    },
+    "tests/test_create_ui.mjs": {
+      "42573a34c3190b46c28c1573e98fbca202924a9c": "dbca2d3adb52460e1e2e81dbdb252dcf22c3a0e9",
+      "f114f8a81d5e4e69286f77af1f8942dfb60e1137": "dbca2d3adb52460e1e2e81dbdb252dcf22c3a0e9",
+      "77e9cbae1a56ac98915ff43f04a5ef7da2175ba9": "dbca2d3adb52460e1e2e81dbdb252dcf22c3a0e9"
+    },
+    "tests/test_updater.py": {
+      "42573a34c3190b46c28c1573e98fbca202924a9c": "7f84dec9fd1cbffc70152e44458e35c0c9db1a0b",
+      "f114f8a81d5e4e69286f77af1f8942dfb60e1137": "7f84dec9fd1cbffc70152e44458e35c0c9db1a0b",
+      "77e9cbae1a56ac98915ff43f04a5ef7da2175ba9": "7f84dec9fd1cbffc70152e44458e35c0c9db1a0b"
+    }
+  },
+  "head_vs_native_ci_changed_paths": [
+    "README.md",
+    "docs/PROJECT_STATE.md"
+  ]
+}
