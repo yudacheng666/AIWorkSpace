@@ -387,7 +387,7 @@
           message.textContent = "步骤内容没有变化";
           return;
         }
-        isSaving = true; save.disabled = true;
+        isSaving = true; save.disabled = true; title.disabled = true; status.disabled = true;
         message.className = "step-message"; message.textContent = "正在保存步骤…";
         try {
           const response = await fetch(
@@ -401,18 +401,23 @@
         } catch (error) {
           message.className = "step-message error";
           message.textContent = `步骤保存失败：${error.message}。请刷新后核查。`;
-        } finally { isSaving = false; save.disabled = false; }
+        } finally {
+          isSaving = false;
+          save.disabled = task.conflict || step.conflict;
+          title.disabled = task.conflict || step.conflict;
+          status.disabled = task.conflict || step.conflict;
+        }
       });
       content.append(form);
       row.append(content);
       const actions = element("div", "step-actions");
       const up = element("button", "", "上移");
       up.type = "button";
-      up.disabled = isSaving || task.conflict || task.step_order_conflict || index === 0;
+      up.disabled = task.conflict || task.step_order_conflict || index === 0;
       up.addEventListener("click", () => saveStepOrder(task, index, index - 1, message));
       const down = element("button", "", "下移");
       down.type = "button";
-      down.disabled = isSaving || task.conflict || task.step_order_conflict ||
+      down.disabled = task.conflict || task.step_order_conflict ||
         index === task.steps.length - 1;
       down.addEventListener("click", () => saveStepOrder(task, index, index + 1, message));
       actions.append(up, down);
@@ -481,13 +486,15 @@
             });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
-          if (draftRevision === revisionAtSubmit && input.value.trim() === title) {
+          const draftUntouched = draftRevision === revisionAtSubmit && input.value.trim() === title;
+          if (draftUntouched) {
             input.value = "";
             message.textContent = `步骤已创建：${result.step_id}`;
+            await refresh(true);
           } else {
+            // Keep the live form mounted; a forced refresh here would discard the newer draft.
             message.textContent = `步骤已创建：${result.step_id}；新输入的步骤草稿已保留，尚未保存`;
           }
-          await refresh(true);
         } catch (error) {
           message.className = "step-message error";
           message.textContent = `步骤添加失败：${error.message}。草稿已保留。`;
