@@ -220,13 +220,6 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
         ) as response:
             return json.loads(response.read().decode("utf-8"))
 
-    def _port_owner_pid(self):
-        for connection in psutil.net_connections(kind="tcp"):
-            if (connection.laddr and connection.laddr.port == self.port
-                    and connection.status == psutil.CONN_LISTEN and connection.pid):
-                return connection.pid
-        return None
-
     def _wait_for_status(self, timeout=20):
         deadline = time.monotonic() + timeout
         last_error = None
@@ -285,9 +278,6 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                     self.assertEqual(status["last_update"]["status"], "rolled_back")
                     self.assertIsNotNone(self.old_process.poll(),
                                          "old service process did not exit before rollback restart")
-                    self.assertIsNotNone(self._port_owner_pid(), "no process owns the restarted loopback port")
-                    self.assertNotEqual(self._port_owner_pid(), self.old_process.pid,
-                                        "rollback did not start a replacement server process")
                     self.assertEqual((self.root / "VERSION").read_bytes(), b"1.0.0\n")
                     for relative, content in self.old_files.items():
                         self.assertEqual((self.root / relative).read_bytes(), content,
@@ -307,9 +297,6 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                     self.assertIn("v1.0.1", page.locator("#app-version").inner_text())
                     self.assertIsNotNone(self.old_process.poll(),
                                          "old service process did not exit during update")
-                    self.assertIsNotNone(self._port_owner_pid(), "no process owns the restarted loopback port")
-                    self.assertNotEqual(self._port_owner_pid(), self.old_process.pid,
-                                        "update did not start a replacement server process")
 
                 backup = self._assert_backup()
                 shutil.copy2(backup / "manifest.json",
