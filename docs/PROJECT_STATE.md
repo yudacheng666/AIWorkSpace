@@ -1,7 +1,7 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-30（北京时间）  
-当前阶段：**M1/M2/M3.1/M3.2 已合入 `main`；M3.2 PR #4 Squash 合并提交 `94a93bcb`。M3.3 编号执行步骤在 Draft PR #5 开发，固定 HEAD `570b18d6ca9ba85ce62fed9ff28a5feadedf0f29`；CI 已通过，尚未 Codex 独立验收、未合并。**
+当前阶段：**M1/M2/M3.1/M3.2 已合入 `main`；M3.2 PR #4 Squash 合并提交 `94a93bcb`。M3.3 编号执行步骤在 Draft PR #5 开发，产品代码固定 HEAD `c9e537c91ce38395657ef13054f2a5a220aa5777`；Linux/Windows CI 已通过，尚未 Codex 独立验收、未合并。**
 
 | 项目 | 当前事实 |
 |---|---|
@@ -136,12 +136,12 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - 冲突：步骤内容同 revision 并发只冻结涉事步骤；顺序冲突只冻结排序，不冻结步骤读取/内容编辑；父任务本身冲突时阻止步骤写入。所有 API 继续执行 Host/Origin 本机校验、409 revision 保护与原子不覆盖写入。
 - 完成保护：步骤标记 done 必须网页用户明确确认；ChatGPT 可以创建步骤、修改标题及非 done 状态，不得代替用户完成步骤。
 - 兼容性：历史任务没有 step_events 时显示空步骤，不迁移、不改写旧事件。暂不支持删除步骤、嵌套子步骤、自动提醒、团队权限。
-- 固定 HEAD：`570b18d6ca9ba85ce62fed9ff28a5feadedf0f29`。GitHub Actions [#41017734758](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41017734758)：Linux/Windows 均 SUCCESS，每个平台 **68 Python + 22 Node PASS，0 FAIL**。变更限于 app.py、web/index.html、两份测试及 README/DECISIONS/PROJECT_STATE 共 7 个文件；无真实业务数据。Codex 独立验收尚未进行。
+- 产品代码固定 HEAD：`c9e537c91ce38395657ef13054f2a5a220aa5777`。GitHub Actions [#41018568225](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41018568225)：Linux/Windows 均 SUCCESS，每个平台 **72 Python + 22 Node PASS，0 FAIL**。变更限于 app.py、web/index.html、两份测试及 README/DECISIONS/PROJECT_STATE 共 7 个文件；无真实业务数据。Codex 独立验收尚未进行。
 - 未访问真实 Google Drive，未部署公司 Windows 8770，未修改 main；本机实例可继续保持原状。
 
 ## 下一步
 
-1. 将 [Draft PR #5](https://github.com/yudacheng666/AIWorkSpace/pull/5) 的固定 HEAD `570b18d6ca9ba85ce62fed9ff28a5feadedf0f29` 交给 Codex 独立真实 Chromium/API 验收：步骤编号稳定、创建顺序、上下移排序、单步编辑、完成确认、历史追加、同 revision 并发冲突、409、父任务冲突保护、乱序/重复同步及旧任务兼容。Codex 不修改产品代码、测试或 CI。
+1. 将 [Draft PR #5](https://github.com/yudacheng666/AIWorkSpace/pull/5) 的产品代码 HEAD `c9e537c91ce38395657ef13054f2a5a220aa5777` 交给 Codex 独立真实 Chromium/API 验收：步骤编号稳定、创建顺序、上下移排序、单步编辑、完成确认、历史追加、同 revision 并发冲突、409、父任务冲突保护、乱序/重复同步及旧任务兼容。Codex 不修改产品代码、测试或 CI。
 2. Codex 报告写回后，ChatGPT 修复 P1/P2/P3；修复后重新跑 Linux/Windows CI 和必要定向复验。
 3. 独立验收通过后再请用户批准合并。未经用户批准不合并 main。
 4. 不重复要求用户重测已通过的 M1/M2/M3.1/M3.2；实机验收仅在需要验证 M3.3 公司 Windows 界面/Drive 闭环时安排，且只测公司电脑。远程访问继续按 D012 暂缓。
