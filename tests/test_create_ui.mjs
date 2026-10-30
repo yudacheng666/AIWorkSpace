@@ -862,6 +862,55 @@ test("M3.4 browser reload prompts for an unsaved new-task form, but not after re
   assert.equal(page.beforeUnload().prevented, false, "successful save and form reset remove the prompt");
 });
 
+test("M3.4 new-task form clears beforeunload when every field returns to its original value", () => {
+  const page = harness();
+  const form = page.document.getElementById("create-task");
+  const cases = [
+    ["new-task-title", "虚构标题", ""],
+    ["new-task-project", "PROJECT-FAKE-001", ""],
+    ["new-task-related", [{value: "PROJECT-FAKE-002"}], []],
+    ["new-task-owner", "虚构负责人", ""],
+    ["new-task-priority", "high", ""],
+    ["new-task-due", "2030-02-03", ""],
+    ["new-task-planned", "2030-02-04", ""],
+    ["new-task-follow", "2030-02-05", ""]
+  ];
+  const setField = (id, value) => {
+    const field = page.document.getElementById(id);
+    if (id === "new-task-related") field.selectedOptions = value;
+    else field.value = value;
+    form.handlers.get(
+      ["new-task-project", "new-task-related", "new-task-priority"].includes(id)
+        ? "change" : "input"
+    )();
+  };
+
+  assert.equal(page.beforeUnload().prevented, false);
+  for (const [id, changed, original] of cases) {
+    setField(id, changed);
+    assert.equal(page.beforeUnload().prevented, true, id + " must mark the form dirty");
+    setField(id, original);
+    assert.equal(page.beforeUnload().prevented, false,
+                 id + " restored to its original value must clear the dirty flag");
+  }
+
+  for (const [id, changed] of cases) setField(id, changed);
+  assert.equal(page.beforeUnload().prevented, true,
+               "multiple changed fields must request browser confirmation");
+  for (const [id, , original] of cases) setField(id, original);
+  assert.equal(page.beforeUnload().prevented, false,
+               "restoring every field must clear the form dirty flag");
+
+  setField("new-task-owner", "虚构负责人");
+  setField("new-task-due", "2030-02-03");
+  setField("new-task-owner", "");
+  assert.equal(page.beforeUnload().prevented, true,
+               "one remaining changed field must continue to protect the form");
+  setField("new-task-due", "");
+  assert.equal(page.beforeUnload().prevented, false,
+               "restoring the last changed field must clear protection");
+});
+
 test("M3.4 browser reload prompts for dirty task and step edits, and clears after successful saves", async () => {
   const task = overviewTask("TASK-BEFOREUNLOAD", {
     title: "原始任务标题",
