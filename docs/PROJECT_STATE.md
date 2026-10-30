@@ -127,23 +127,29 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - GitHub Actions [#41013700472](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41013700472) 与 [#41013705760](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41013705760)：Linux/Windows 每个平台 **53 Python + 15 Node PASS，0 FAIL**。
 - NOT TESTED：公司 Windows 上 M3.2 新字段 UI、真实 Drive 对新字段的端到端同步、原生中文输入法、长时间运行与断电耐久性；本次不因此升级本机 8770。
 
-## M3.3 编号执行步骤（开发中，2026-10-30）
+## M3.3 编号执行步骤（修复中，2026-10-30）
 
-- 开发分支：`feat/m3-03-numbered-task-steps`；[Draft PR #5](https://github.com/yudacheng666/AIWorkSpace/pull/5) 从合并后的 main `94a93bcb` 创建，尚未合并。
-- 范围来自已确认路线：任务可拆成有稳定编号的执行步骤，记录步骤状态与顺序；任务/步骤完成均须用户明确确认。
-- 步骤编号：`STEP-<32位大写十六进制>`；每任务最多 100 步；步骤标题 1–200 字；状态沿用 `todo/doing/blocked/done`。
-- 数据模型：新增 `step_events/` 追加式事件目录；每个步骤独立 revision，新增/修改不改写父任务或其他步骤历史。步骤创建事件明确记录初始 position；顺序调整用一条包含完整 step ID 序列的任务级事件，避免多文件重排出现半完成状态。
-- 冲突：步骤内容同 revision 并发只冻结涉事步骤；顺序冲突只冻结排序，不冻结步骤读取/内容编辑；父任务本身冲突时阻止步骤写入。所有 API 继续执行 Host/Origin 本机校验、409 revision 保护与原子不覆盖写入。
-- 完成保护：步骤标记 done 必须网页用户明确确认；ChatGPT 可以创建步骤、修改标题及非 done 状态，不得代替用户完成步骤。
-- 兼容性：历史任务没有 step_events 时显示空步骤，不迁移、不改写旧事件。暂不支持删除步骤、嵌套子步骤、自动提醒、团队权限。
-- 产品代码固定 HEAD：`c9e537c91ce38395657ef13054f2a5a220aa5777`。GitHub Actions [#41018568225](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41018568225)：Linux/Windows 均 SUCCESS，每个平台 **72 Python + 22 Node PASS，0 FAIL**。变更限于 app.py、web/index.html、两份测试及 README/DECISIONS/PROJECT_STATE 共 7 个文件；无真实业务数据。Codex 独立验收尚未进行。
-- 未访问真实 Google Drive，未部署公司 Windows 8770，未修改 main；本机实例可继续保持原状。
+- 开发分支：`feat/m3-03-numbered-task-steps`；[Draft PR #5](https://github.com/yudacheng666/AIWorkSpace/pull/5)，从合并后的 main `94a93bcb` 创建，尚未合并。
+- 范围：任务可拆成有稳定编号的执行步骤，记录步骤状态与顺序；任务/步骤完成均须用户明确确认。
+- 数据模型：独立 `step_events/` 追加式事件流；每步独立 STEP ID 与 revision；顺序由任务级完整 STEP ID 列表事件维护。旧任务无步骤时无需迁移；原事件不覆盖。
+- 规则：STEP ID 为 `STEP-<32位大写十六进制>`；每任务最多 100 步；标题 1–200 字；状态 `todo/doing/blocked/done`。步骤内容冲突只冻结涉事步骤；顺序冲突只冻结排序；父任务冲突阻止步骤写入。Host/Origin 本机校验、409 和原子不覆盖写入继续保留。
+- **首轮独立验收 FAIL（1 项 P2）**：固定 HEAD `4d9e25f94195ce6f0c7964a253d4965ea7d0dc85`。Codex [报告](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6518205090)确认：已有排序 `[A,C,B]`，C 的创建事件尚未同步；网页只显示 A、B，点击下移后 POST `[B,A]`，服务端错误地追加新排序，省略 C。原历史排序文件未被覆盖。正常同步场景下创建/编辑/排序/完成确认通过；剩余乱序/重复、并发/409、边界与 Host 专项因失败停止，仍为 NOT TESTED。
+- **P2 根因**：`read_steps` 将排序事件中未知 STEP ID 过滤出可见列表；网页仅从可见步骤构造排序；服务端仅校验可见步骤集合，未识别排序引用的步骤创建事件尚未同步。
+- **修复已提交，待 CI 与独立复验**：
+  - `app.py`：检测当前生效排序引用的未知 STEP ID，输出 `step_order_incomplete` 与 `step_order_missing_ids`；API 在该状态返回 409，不追加错误排序。
+  - `web/index.html`：显示尚未同步步骤提示，禁用上移/下移；直接触发回调也不会发出排序 POST。步骤内容编辑仍可继续。
+  - `tests/test_app.py`：新增完整 API 回归，复现 `[A,C,B]` 缺 C、确认排序请求被拒且事件字节不变；C 同步后原顺序恢复，允许重新排序。
+  - `tests/test_create_ui.mjs`：新增 UI 回归，确认提示、按钮禁用、无 POST，且步骤内容编辑仍可用。
+  - 修复提交：`d4bde4b6ec6ee2bf7b30ddf30940698b8dadcd60`（服务端）、`1fb46d39e62009f6c2b98ed35747b124f92e37d9`（网页）、`38f054ae3a3ee041fe43605eaa8eeadcd4586c62`（Python 回归）、`0c815dad7e28c1ccd82a2b3487711e8dc4d11cd7`（Node 回归）。
+  - 当前 PR HEAD：`0c815dad7e28c1ccd82a2b3487711e8dc4d11cd7`。GitHub Actions [#41026355970](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41026355970) 正在运行；未获得结果前不得宣称 CI PASS。
+- 未访问真实 Google Drive，未部署公司 Windows 8770，未修改 main；本机测试实例保持原状。真实 Drive 延迟同步、公司 Windows UI、原生中文输入法、长期/断电耐久性仍未测试。
+- 验收边界：CI 通过不等于 P2 关闭；必须让 Codex 对修复后固定 HEAD 重新执行部分同步复现，并完成首轮失败后尚未执行的独立专项。Codex 只验收，不改产品、原测试或 CI。
 
 ## 下一步
 
-1. 将 [Draft PR #5](https://github.com/yudacheng666/AIWorkSpace/pull/5) 的产品代码 HEAD `c9e537c91ce38395657ef13054f2a5a220aa5777` 交给 Codex 独立真实 Chromium/API 验收：步骤编号稳定、创建顺序、上下移排序、单步编辑、完成确认、历史追加、同 revision 并发冲突、409、父任务冲突保护、乱序/重复同步及旧任务兼容。Codex 不修改产品代码、测试或 CI。
-2. Codex 报告写回后，ChatGPT 修复 P1/P2/P3；修复后重新跑 Linux/Windows CI 和必要定向复验。
-3. 独立验收通过后再请用户批准合并。未经用户批准不合并 main。
-4. 不重复要求用户重测已通过的 M1/M2/M3.1/M3.2；实机验收仅在需要验证 M3.3 公司 Windows 界面/Drive 闭环时安排，且只测公司电脑。远程访问继续按 D012 暂缓。
+1. 等待 Actions `41026355970` 完成，检查 Linux/Windows 的 Python 与 Node 测试结果；如失败，先修 CI/测试问题，不交付 Codex。
+2. CI 全部通过后，委托 Codex 对最新固定 HEAD 做独立复验：先复测原 P2（含 C 同步后恢复），再完成首轮因停止而 NOT TESTED 的乱序/重复、独立并发与 409、父任务冲突、100 步/非法输入、Host/Origin 等专项。不得重复跑已通过的完整 Chromium 场景。
+3. Codex 回写证据后，ChatGPT 审核并修复新发现的问题；必要时定向复验。**未经用户明确批准不合并 PR #5。**
+4. 不升级公司 Windows 8770，不访问真实 Drive，不测试远程访问；远程访问继续按 D012 暂缓。M3.3 完成后再进入 M3.4。
 
-**交接规则：** 新 AI 应先读 AGENTS.md、需求、状态、决策，核实 main、PR 最新 HEAD、CI 及独立验收报告；不能把 CI SUCCESS 当作独立实操已通过。
+**交接规则：** 新 AI 应先读 `AGENTS.md`、`docs/REQUIREMENTS.md`、本文件和 `docs/DECISIONS.md`，核实 main、PR 最新 HEAD、CI 及独立验收报告；不能把 CI SUCCESS 当作独立实操已通过。
