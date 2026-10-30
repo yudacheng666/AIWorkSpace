@@ -1096,6 +1096,54 @@ class ServerTests(unittest.TestCase):
         self.assertEqual([step["step_id"] for step in read_workspace(self.data_dir)["tasks"][0]["steps"]],
                          [second, first])
 
+    def test_partial_sync_order_blocks_reorder_and_recovers_after_missing_step_sync(self):
+        first = self.create_step(title="步骤甲")[1]["step_id"]
+        second = self.create_step(title="步骤乙")[1]["step_id"]
+        missing = "STEP-" + "C" * 32
+        original_order = step_order_event(
+            "step-order-partial-sync", revision=0,
+            step_ids=[first, missing, second])
+        append_step_event(self.data_dir, original_order)
+        original_path = next(
+            path for path in (self.data_dir / "step_events").glob("*.json")
+            if json.loads(path.read_text("utf-8"))["event_id"] == original_order["event_id"]
+        )
+        original_bytes = original_path.read_bytes()
+
+        partial = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual([step["step_id"] for step in partial["steps"]], [first, second])
+        self.assertTrue(partial["step_order_incomplete"])
+        self.assertEqual(partial["step_order_missing_ids"], [missing])
+        self.assertEqual(partial["step_order_revision"], 1)
+
+        before = {path.name: path.read_bytes()
+                  for path in (self.data_dir / "step_events").glob("*.json")}
+        code, response = self.reorder_steps([second, first], 1)
+        self.assertEqual(code, 409)
+        self.assertIn("have not synced", response["error"])
+        after = {path.name: path.read_bytes()
+                 for path in (self.data_dir / "step_events").glob("*.json")}
+        self.assertEqual(after, before, "blocked reorder must not append or rewrite events")
+
+        append_step_event(self.data_dir, step_event(
+            "step-create-partial-sync-c", step_id=missing,
+            changes={"title": "步骤丙", "position": 2}))
+        recovered = read_workspace(self.data_dir)["tasks"][0]
+        self.assertFalse(recovered["step_order_incomplete"])
+        self.assertEqual(recovered["step_order_missing_ids"], [])
+        self.assertEqual([step["step_id"] for step in recovered["steps"]],
+                         [first, missing, second])
+
+        code, result = self.reorder_steps([second, first, missing], 1)
+        self.assertEqual(code, 200)
+        self.assertEqual(result["revision"], 2)
+        final = read_workspace(self.data_dir)["tasks"][0]
+        self.assertFalse(final["step_order_incomplete"])
+        self.assertEqual([step["step_id"] for step in final["steps"]],
+                         [second, first, missing])
+        self.assertEqual(original_path.read_bytes(), original_bytes,
+                         "the earlier accepted order event remains immutable")
+
     def test_step_order_conflict_blocks_reorder_but_not_step_content_edit(self):
         first = self.create_step(title="步骤甲")[1]["step_id"]
         second = self.create_step(title="步骤乙")[1]["step_id"]
