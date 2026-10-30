@@ -140,6 +140,15 @@ ChatGPT 创建项目时，先向 `project_events/` 写入独立项目创建事�
 }
 ```
 
+### ChatGPT 写入步骤事件的规则
+
+- 写入前先读取当前任务及其 `steps`，确认父任务无冲突；不得根据旧对话猜测 revision 或现有顺序。
+- 创建步骤：生成全新的 STEP ID 和 event ID，`base_revision=0`，`position=当前步骤数量+1`，写入 `step_events/evt_<event_id>.json`。
+- 修改步骤：使用该步骤当前 revision，只写本次确实改变的 `title` 或非 `done` 状态；不写 `position`，不改父任务或兄弟步骤。
+- 排序：仅在用户明确要求调整顺序时写入；使用当前 `step_order_revision`，`step_ids` 必须包含该任务全部现有 STEP ID 且各出现一次。
+- **ChatGPT 不得写入 `status: done`**。用户须在网页中亲自确认完成；`actor` 字段只是声明，不是身份认证。
+- 如果父任务、步骤或顺序存在冲突，或当前事件版本可能尚未同步，不得猜测覆盖；先报告并等待同步/人工核查。
+
 ## 第一次双向测试
 
 1. 让 ChatGPT 使用你已授权的 **Google Drive 连接器**，在同一个云端 `AIWorkSpaceData/events` 目录创建一个独立的 `.json` 任务事件文件。每次事件的文件名、`event_id` 都必须唯一。**禁止把真实任务放在本仓库。**
