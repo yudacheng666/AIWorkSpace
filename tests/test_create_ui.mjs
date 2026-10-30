@@ -500,7 +500,8 @@ test("M3.3 an order conflict disables reorder but leaves step editing available"
        revision: 1, conflict: false, conflict_fields: []}
     ]
   });
-  const firstRow = page.stepPanel.children[1].children[0];
+  const list = page.stepPanel.children.find(item => item.className === "step-list");
+  const firstRow = list.children[0];
   assert.equal(firstRow.children[2].children[0].disabled, true);
   assert.equal(firstRow.children[2].children[1].disabled, true);
   const form = firstRow.children[1].children.find(item => item.className === "step-edit-form");
