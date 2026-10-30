@@ -335,7 +335,9 @@
     async function refresh(force = false) {
       if (isSaving && !force) return;
       if (!force && (document.activeElement?.closest(".task") ||
-                     document.activeElement?.closest(".project-card"))) return;
+                     document.activeElement?.closest(".project-card") ||
+                     document.activeElement?.closest("#create-task") ||
+                     document.activeElement?.closest("#create-project"))) return;
       $("sync").textContent = "正在读取…";
       try {
         const response = await fetch("/api/tasks", {cache: "no-store"});
