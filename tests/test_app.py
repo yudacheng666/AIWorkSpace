@@ -15,7 +15,8 @@ from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import app as app_module  # noqa: E402
-from app import append_event, handler_factory, read_workspace, validate_event  # noqa: E402
+from app import (append_event, append_project_event, handler_factory, read_workspace,
+                 validate_event, validate_project_event)  # noqa: E402
 
 
 def event(event_id="demo-event-001", task_id="TASK-DEMO-001", action="create",
@@ -24,6 +25,13 @@ def event(event_id="demo-event-001", task_id="TASK-DEMO-001", action="create",
             "action": action, "actor": actor, "base_revision": revision,
             "timestamp": "2026-10-27T00:00:00Z",
             "changes": changes or {"title": "虚构测试任务", "status": "todo"}, **other}
+
+
+def project_event(event_id="project-event-001", project_id="PROJECT-" + "A" * 32,
+                  action="create", revision=0, name="虚构项目", actor="user"):
+    return {"version": 1, "event_id": event_id, "project_id": project_id,
+            "action": action, "actor": actor, "base_revision": revision,
+            "timestamp": "2026-10-27T00:00:00Z", "changes": {"name": name}}
 
 
 class DataTests(unittest.TestCase):
@@ -35,7 +43,7 @@ class DataTests(unittest.TestCase):
         self.temp.cleanup()
 
     def test_empty(self):
-        self.assertEqual(read_workspace(self.data_dir), {"tasks": [], "warnings": []})
+        self.assertEqual(read_workspace(self.data_dir), {"tasks": [], "projects": [], "warnings": []})
 
     def test_chatgpt_creation_survives_reload(self):
         append_event(self.data_dir, event())
@@ -59,6 +67,60 @@ class DataTests(unittest.TestCase):
         self.assertEqual(state["tasks"][0]["task_id"], "TASK-EXTERNAL-BOM")
         self.assertEqual(state["tasks"][0]["title"], "外部写入的虚构测试任务")
         self.assertEqual(state["tasks"][0]["status"], "todo")
+
+    def test_project_create_and_rename_are_append_only(self):
+        original = append_project_event(self.data_dir, project_event())
+        original_bytes = original.read_bytes()
+        append_project_event(self.data_dir, project_event(
+            "project-event-002", action="update", revision=1, name="改名后的虚构项目"
+        ))
+        state = read_workspace(self.data_dir)
+        self.assertEqual(len(state["projects"]), 1)
+        self.assertEqual(state["projects"][0]["name"], "改名后的虚构项目")
+        self.assertEqual(state["projects"][0]["revision"], 2)
+        self.assertFalse(state["projects"][0]["conflict"])
+        self.assertEqual(original.read_bytes(), original_bytes)
+        self.assertEqual(len(list((self.data_dir / "project_events").glob("*.json"))), 2)
+
+    def test_task_project_links_are_read_and_legacy_events_default_to_inbox(self):
+        project_id = "PROJECT-" + "B" * 32
+        append_project_event(self.data_dir, project_event(
+            project_id=project_id, name="项目甲"
+        ))
+        append_event(self.data_dir, event(
+            changes={"title": "归属项目的任务", "status": "todo",
+                     "project_id": project_id, "related_project_ids": []}
+        ))
+        append_event(self.data_dir, event(
+            "demo-event-002", "TASK-DEMO-002",
+            changes={"title": "旧格式任务", "status": "todo"}
+        ))
+        state = read_workspace(self.data_dir)
+        tasks = {task["task_id"]: task for task in state["tasks"]}
+        self.assertEqual(tasks["TASK-DEMO-001"]["project_id"], project_id)
+        self.assertEqual(tasks["TASK-DEMO-001"]["project_name"], "项目甲")
+        self.assertEqual(tasks["TASK-DEMO-002"]["project_id"], None)
+        self.assertEqual(tasks["TASK-DEMO-002"]["related_project_ids"], [])
+        self.assertEqual(state["warnings"], [])
+
+    def test_task_with_missing_project_is_visible_with_warning(self):
+        project_id = "PROJECT-" + "C" * 32
+        append_event(self.data_dir, event(
+            changes={"title": "项目事件尚未同步的任务", "status": "todo",
+                     "project_id": project_id}
+        ))
+        state = read_workspace(self.data_dir)
+        self.assertEqual(len(state["tasks"]), 1)
+        self.assertTrue(state["tasks"][0]["project_missing"])
+        self.assertTrue(any("referenced project" in warning for warning in state["warnings"]))
+
+    def test_project_event_validation_rejects_invalid_name_and_revision(self):
+        invalid = project_event(name=" " )
+        with self.assertRaises(ValueError):
+            validate_project_event(invalid)
+        invalid = project_event(action="update", revision=0)
+        with self.assertRaises(ValueError):
+            validate_project_event(invalid)
 
     def test_user_edit_preserves_original(self):
         original = append_event(self.data_dir, event())
@@ -221,6 +283,16 @@ class ServerTests(unittest.TestCase):
         self.thread.join(timeout=2)
         self.temp.cleanup()
 
+    def create_project(self, body):
+        request = Request(self.base + "/api/projects",
+                          data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
+                          method="POST", headers={"Content-Type": "application/json"})
+        try:
+            with urlopen(request, timeout=3) as reply:
+                return reply.status, json.load(reply)
+        except HTTPError as error:
+            return error.code, json.load(error)
+
     def request(self, body):
         request = Request(self.base + "/api/tasks/TASK-DEMO-001/update",
                           data=json.dumps(body).encode("utf-8"), method="POST",
@@ -324,11 +396,66 @@ class ServerTests(unittest.TestCase):
         tasks = {task["task_id"]: task for task in read_workspace(self.data_dir)["tasks"]}
         self.assertEqual({tasks[tid]["title"] for tid in task_ids}, {"Task one", "Task two"})
 
+    def test_project_create_assign_and_related_project_links(self):
+        status_a, project_a = self.create_project({"name": "虚构项目甲"})
+        status_b, project_b = self.create_project({"name": "虚构项目乙"})
+        self.assertEqual(status_a, 201)
+        self.assertEqual(status_b, 201)
+        self.assertRegex(project_a["project_id"], r"^PROJECT-[A-F0-9]{32}$")
+        status, result = self.create_task({
+            "title": "归属项目的虚构任务",
+            "project_id": project_a["project_id"],
+            "related_project_ids": [project_b["project_id"]],
+        })
+        self.assertEqual(status, 201)
+        tasks = {task["task_id"]: task for task in read_workspace(self.data_dir)["tasks"]}
+        task = tasks[result["task_id"]]
+        self.assertEqual(task["project_id"], project_a["project_id"])
+        self.assertEqual(task["project_name"], "虚构项目甲")
+        self.assertEqual(task["related_project_ids"], [project_b["project_id"]])
+        self.assertEqual(task["related_project_names"], ["虚构项目乙"])
+
+    def test_project_rename_and_stale_revision_protection(self):
+        status, project = self.create_project({"name": "待重命名项目"})
+        self.assertEqual(status, 201)
+        request = Request(
+            self.base + f"/api/projects/{project['project_id']}/update",
+            data=json.dumps({"name": "新项目名称", "revision": 1}, ensure_ascii=False).encode("utf-8"),
+            method="POST", headers={"Content-Type": "application/json"},
+        )
+        with urlopen(request, timeout=3) as response:
+            self.assertEqual(response.status, 200)
+        stale = Request(
+            self.base + f"/api/projects/{project['project_id']}/update",
+            data=json.dumps({"name": "过期项目名称", "revision": 1}, ensure_ascii=False).encode("utf-8"),
+            method="POST", headers={"Content-Type": "application/json"},
+        )
+        with self.assertRaises(HTTPError) as raised:
+            urlopen(stale, timeout=3)
+        self.assertEqual(raised.exception.code, 409)
+        saved = read_workspace(self.data_dir)["projects"][0]
+        self.assertEqual(saved["name"], "新项目名称")
+        self.assertEqual(saved["revision"], 2)
+
+    def test_task_create_rejects_unknown_project_reference(self):
+        status, _ = self.create_task({
+            "title": "不应保存",
+            "project_id": "PROJECT-" + "F" * 32,
+        })
+        self.assertEqual(status, 400)
+        self.assertEqual(len(list((self.data_dir / "events").glob("*.json"))), 1)
+
+    def test_duplicate_project_name_is_rejected(self):
+        self.assertEqual(self.create_project({"name": "重复项目"})[0], 201)
+        self.assertEqual(self.create_project({"name": "重复项目"})[0], 409)
+
     def test_webpage_and_api_available(self):
         with urlopen(self.base + "/", timeout=3) as response:
             html = response.read().decode("utf-8")
             self.assertIn("AIWorkSpace", html)
             self.assertIn("新建任务", html)
+            self.assertIn("项目管理", html)
+            self.assertIn('id="create-project"', html)
             self.assertIn('id="create-task"', html)
             self.assertIn("状态存在冲突（未裁决）", html)
             self.assertIn("冲突候选不是最终结论", html)
