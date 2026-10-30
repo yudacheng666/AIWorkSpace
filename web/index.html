@@ -514,6 +514,19 @@
 
     $("new-task-title").addEventListener("input", () => { createDraftRevision++; });
 
+    function createMetadataSnapshot() {
+      return {
+        title: $("new-task-title").value,
+        project_id: $("new-task-project").value || null,
+        related_project_ids: selectedValues($("new-task-related")),
+        owner: $("new-task-owner").value,
+        priority: $("new-task-priority").value || "normal",
+        due_date: $("new-task-due").value,
+        planned_date: $("new-task-planned").value,
+        follow_up_date: $("new-task-follow").value
+      };
+    }
+
     $("create-project").addEventListener("submit", async event => {
       event.preventDefault();
       const input = $("new-project-name");
@@ -551,11 +564,12 @@
       const input = $("new-task-title");
       const message = $("create-message");
       const submit = $("create-submit");
-      const originalDraft = input.value;
+      const draft = createMetadataSnapshot();
+      const originalDraft = draft.title;
       const draftRevisionAtSubmit = createDraftRevision;
       const title = originalDraft.trim();
-      const projectId = $("new-task-project").value || null;
-      const relatedIds = selectedValues($("new-task-related"));
+      const projectId = draft.project_id;
+      const relatedIds = draft.related_project_ids;
       if (isSaving) {
         message.textContent = "另一个操作正在保存，请稍后再提交。";
         return;
@@ -578,6 +592,11 @@
         const body = {title};
         if (projectId) body.project_id = projectId;
         if (relatedIds.length) body.related_project_ids = relatedIds;
+        if (draft.owner.trim()) body.owner = draft.owner.trim();
+        if (draft.priority !== "normal") body.priority = draft.priority;
+        if (draft.due_date) body.due_date = draft.due_date;
+        if (draft.planned_date) body.planned_date = draft.planned_date;
+        if (draft.follow_up_date) body.follow_up_date = draft.follow_up_date;
         const response = await fetch("/api/tasks", {
           method: "POST", headers: {"Content-Type": "application/json"},
           body: JSON.stringify(body)
@@ -585,8 +604,16 @@
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
         const draftUntouched = createDraftRevision === draftRevisionAtSubmit &&
-                               input.value === originalDraft;
-        if (draftUntouched) input.value = "";
+                               JSON.stringify(createMetadataSnapshot()) === JSON.stringify(draft);
+        if (draftUntouched) {
+          input.value = "";
+          $("new-task-owner").value = "";
+          $("new-task-priority").value = "normal";
+          $("new-task-due").value = "";
+          $("new-task-planned").value = "";
+          $("new-task-follow").value = "";
+          // Keep project selection for quickly creating several tasks in one project.
+        }
         message.textContent = `创建成功：${result.task_id}（待处理）` +
           (draftUntouched ? "" : "；正在输入的下一条任务草稿已保留，尚未保存");
         await refresh(true);
