@@ -1,7 +1,7 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-30（北京时间）  
-当前阶段：**M1/M2/M3.1/M3.2/M3.3 已合入 `main`；M3.4 在 Draft PR #6 开发。Codex 对固定 SHA `46d4a8a7` 独立验收 FAIL，确认 1 项 P2（浏览器整页刷新丢失未保存任务标题）；已提交 beforeunload 修复，最新产品/测试 SHA `a84779c1` 的 Linux/Windows CI 均 PASS（218 PASS）。等待 Codex 对修复版独立复验；PR 未合并，公司 Windows 8770 未升级。**
+当前阶段：**M1/M2/M3.1/M3.2/M3.3 已合入 `main`；M3.4 在 Draft PR #6 开发。Codex 两轮独立验收分别发现浏览器整页刷新丢草稿、以及新建任务表单恢复原值后误提示两项 P2；第二项根因已修复（快照对象按内容序列化比较）。最新产品/测试 SHA `9e0b84e5` 的 Linux/Windows CI 均 PASS（220 PASS）。等待 Codex 对该修复版独立复验；PR 未合并，公司 Windows 8770 未升级。**
 
 | 项目 | 当前事实 |
 |---|---|
@@ -151,14 +151,17 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - **P2 修复**：产品代码提交 `5da608a8bbab4d53b2b98a7b6afc5276e17a7732` 在 `window.beforeunload` 监听未保存的任务/步骤编辑草稿；同时将新建任务表单纳入独立持久草稿集合，避免任务列表重绘清掉该状态。浏览器原生提示仅在存在 dirty 草稿时触发；成功保存/干净状态恢复后清除，不自定义浏览器文案。浏览器取消离开会留在页面并保留原输入。
 - **回归测试**：新增 `tests/test_create_ui.mjs` 两项 beforeunload 定向测试，覆盖新建任务、任务标题编辑、步骤编辑、新增步骤；检查干净状态/恢复原值/保存成功后不再触发提示。产品/测试当前固定 HEAD：`a84779c12dbc2eb66dcd8573ccf05b2992cd22a7`（产品代码 commit `5da608a8`，最新测试 commit `a84779c1`）。不要把该 SHA 之后的文档维护提交冒充为代码测试版本。
 - **CI 状态**：首次运行 [Actions #41046613451](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41046613451) Linux/Windows 均 FAIL，原因是两处新增测试夹具问题（新建任务表单 mock 没模拟 bubbling/恢复基线，步骤列表 mock 选择器漏了 `.step-list` 层级），不是独立验收报告新增的产品缺陷。修正夹具后，[Actions #41046925220](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41046925220) Linux/Windows 均 SUCCESS，每平台 Python 76 + Node 33 PASS，合计 **218 PASS / 0 FAIL / 0 skipped**。
-- **独立验收当前结论**：只有旧固定 SHA `46d4a8a7` 的 FAIL 报告；修复 SHA 尚未由 Codex 复验。M3.4 **NOT READY TO MERGE**。
+- **第二轮独立复验发现的 P2**：[Codex 报告](https://github.com/yudacheng666/AIWorkSpace/pull/6#issuecomment-6521580578)，固定 SHA `a84779c12dbc2eb66dcd8573ccf05b2992cd22a7`。任务/步骤草稿的刷新确认、取消保留、恢复原值均 PASS；但新建任务表单将标题、负责人、截止日期等字段全部恢复为空后，仍出现原生刷新确认。15 次刷新均未改变 4 个事件文件名/字节，POST=0；Codex 新增 Node 2 PASS 后停止，其他保存成功、页面内保护回归、409/部分同步等 NOT TESTED。
+- **第二轮 P2 根因与修复**：`createMetadataSnapshot()` 每次返回新对象；`watchUnsavedEditor()` 直接用 `snapshot() === cleanSnapshot` 比较引用，导致值完全相同仍判定 dirty。产品 commit `0103ae8d167995cc71e996f1e3bd0c6058ad2b7a` 将比较统一改为 `JSON.stringify(snapshot())` 的值快照；恢复每个表单字段的原始值即可从 dirty 集合移除。任务/步骤的原始字符串快照同样兼容。新增回归逐一覆盖新建任务标题、主要项目、关联项目、负责人、优先级、截止/计划/跟进日期的修改与恢复，并验证多字段恢复后不提示、任一字段仍不同则继续提示。
+- **最新固定产品/测试 SHA**：`9e0b84e59041b1d8da6d23958e13449e374cbf4b`（产品 commit `0103ae8d`，测试 commit `9e0b84e5`）。[Actions #41049397248](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41049397248) Linux/Windows 均 SUCCESS；每平台 Python 76 + Node 34 PASS，合计 **220 PASS / 0 FAIL / 0 skipped**。
+- **独立验收当前结论**：固定 SHA `46d4a8a7` 和 `a84779c1` 两轮均 FAIL，各发现一项 P2；第二轮 P2 已修复并通过新 CI，但 SHA `9e0b84e5` 尚未由 Codex 独立复验。M3.4 **NOT READY TO MERGE**。
 - **停止后 NOT TESTED**：浏览器整页刷新对步骤草稿的单独实测、查询场景步骤级 409/部分同步排序的额外回归、新建任务表单相邻专项的独立 Chromium 验收。其他未测：公司 Windows、真实 Drive、原生 IME、多浏览器/多客户端、长期/断电耐久性、远程访问。
 - 安全范围：测试虚构任务，不访问真实 Drive、公司 Windows 8770，不修改远程访问/Host/Origin；公开 GitHub 无真实资料。PR #6 保持 Draft；不合并、不部署，main 不变。
 
 ## M3.4 下一步
 
-1. **CI 已完成**：固定产品/测试 HEAD `a84779c12dbc2eb66dcd8573ccf05b2992cd22a7` 对应 [Actions #41046925220](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41046925220) Linux/Windows 均 SUCCESS，每平台 76 Python + 33 Node PASS，合计 218 PASS。
-2. **待 Codex Cloud 独立复验**：必须使用 `a84779c12dbc2eb66dcd8573ccf05b2992cd22a7`（或仅文档更新后的最新 PR HEAD，但不得改变产品/测试 blob），真实 Chromium 测试浏览器整页 F5/刷新/关闭：任务标题、任务字段、步骤编辑、新增步骤；取消浏览器原生确认后输入保持不变，确认离开才允许丢弃；干净状态、恢复原值和保存成功后不提示。补查新建任务表单；其他 M3.4 已通过范围按 Codex 报告决定是否只做必要回归。
+1. **最新 CI 已完成**：固定产品/测试 HEAD `9e0b84e59041b1d8da6d23958e13449e374cbf4b` 对应 [Actions #41049397248](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41049397248) Linux/Windows 均 SUCCESS，每平台 76 Python + 34 Node PASS，合计 **220 PASS / 0 FAIL / 0 skipped**。
+2. **待 Codex Cloud 独立复验**：必须使用 `9e0b84e59041b1d8da6d23958e13449e374cbf4b`（或仅文档更新后的最新 PR HEAD，但不得改变产品/测试 blob），真实 Chromium 重测新建任务表单所有字段逐一修改/恢复及多字段修改/全部恢复；全部恢复后 F5 不得出现原生确认，仍有任一字段不同必须提示。再抽查任务/步骤草稿取消刷新保留、保存成功/干净状态无多余提示，以及上一轮停止后未测的页面内保护、409/部分同步必要专项。
 3. Codex 只测试，不改产品、原测试、CI、PR 分支；发现 P1/P2 立即停止并回写证据。
 4. 只有双平台 CI SUCCESS + Codex 独立复验 PASS + 用户明确批准，才可合并。不得自行合并或部署。
 5. 不自动升级公司 Windows 8770、不接触真实 Drive 数据、不测试远程访问；远程访问继续按 D012 暂缓。
