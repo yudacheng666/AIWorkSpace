@@ -182,6 +182,29 @@ class DataTests(unittest.TestCase):
         self.assertEqual(len(steps["STEP-" + "C" * 32]["conflict_candidates"]), 2)
         self.assertFalse(steps["STEP-" + "D" * 32]["conflict"])
 
+    def test_duplicate_step_creation_id_freezes_each_referenced_parent(self):
+        first_task = "TASK-STEP-PARENT-A"
+        second_task = "TASK-STEP-PARENT-B"
+        append_event(self.data_dir, event(
+            "step-parent-a", task_id=first_task,
+            changes={"title": "父任务甲", "status": "todo"}))
+        append_event(self.data_dir, event(
+            "step-parent-b", task_id=second_task,
+            changes={"title": "父任务乙", "status": "todo"}))
+        shared_id = "STEP-" + "7" * 32
+        append_step_event(self.data_dir, step_event(
+            "step-shared-a", task_id=first_task, step_id=shared_id,
+            changes={"title": "父任务甲的步骤"}))
+        append_step_event(self.data_dir, step_event(
+            "step-shared-b", task_id=second_task, step_id=shared_id,
+            changes={"title": "父任务乙的步骤"}))
+        tasks = {task["task_id"]: task for task in read_workspace(self.data_dir)["tasks"]}
+        for task_id in (first_task, second_task):
+            self.assertEqual(len(tasks[task_id]["steps"]), 1)
+            self.assertEqual(tasks[task_id]["steps"][0]["step_id"], shared_id)
+            self.assertTrue(tasks[task_id]["steps"][0]["conflict"])
+            self.assertIn("task_id", tasks[task_id]["steps"][0]["conflict_fields"])
+
     def test_step_order_conflict_does_not_freeze_task_or_step_contents(self):
         append_event(self.data_dir, event())
         ids = ["STEP-" + "E" * 32, "STEP-" + "F" * 32]
