@@ -126,11 +126,14 @@ def summarize_conflict_events(events: list[dict]) -> list[dict]:
 
 
 def conflicting_fields(events: list[dict]) -> list[str]:
-    """Fields whose candidate values differ across conflicting events."""
+    """Compare JSON values by content (arrays are not hashable in Python)."""
     fields = {field for event in events for field in event["changes"]}
     return sorted(
         field for field in fields
-        if len({event["changes"].get(field) for event in events}) > 1
+        if len({
+            json.dumps(event["changes"].get(field), sort_keys=True, ensure_ascii=False)
+            for event in events
+        }) > 1
     )
 
 
@@ -402,21 +405,28 @@ def append_project_event(data_dir: Path, event: dict) -> Path:
 
 
 def validate_project_references(workspace: dict, project_id: object,
-                                related_project_ids: object) -> None:
+                                related_project_ids: object,
+                                previous: dict | None = None) -> None:
+    """Existing unsynced references may survive an edit, but cannot be newly assigned."""
     projects = {project["project_id"]: project for project in workspace["projects"]}
+    previous_primary = previous.get("project_id") if previous else None
+    previous_related = previous.get("related_project_ids", []) if previous else []
     if project_id is not None:
+        if not isinstance(project_id, str) or not PROJECT_ID.fullmatch(project_id):
+            raise ValueError("invalid primary project ID")
         project = projects.get(project_id)
-        if not project or project["conflict"]:
+        if (not project or project["conflict"]) and project_id != previous_primary:
             raise ValueError("primary project does not exist or needs conflict review")
-    if not isinstance(related_project_ids, list):
-        raise ValueError("related_project_ids must be a list")
-    if len(related_project_ids) > 20 or len(set(related_project_ids)) != len(related_project_ids):
+    if (not isinstance(related_project_ids, list) or len(related_project_ids) > 20
+            or any(not isinstance(item, str) or not PROJECT_ID.fullmatch(item)
+                   for item in related_project_ids)
+            or len(set(related_project_ids)) != len(related_project_ids)):
         raise ValueError("invalid related_project_ids")
     if project_id in related_project_ids:
         raise ValueError("primary project cannot also be a related project")
     for related_id in related_project_ids:
         project = projects.get(related_id)
-        if not isinstance(related_id, str) or not PROJECT_ID.fullmatch(related_id) or not project or project["conflict"]:
+        if (not project or project["conflict"]) and related_id not in previous_related:
             raise ValueError("related project does not exist or needs conflict review")
 
 
@@ -587,10 +597,11 @@ def handler_factory(data_dir: Path):
                         if "project_id" in payload or "related_project_ids" in payload:
                             project_id = payload.get("project_id", current.get("project_id"))
                             related_ids = payload.get("related_project_ids", current.get("related_project_ids", []))
-                            validate_project_references(workspace, project_id, related_ids)
-                            if "project_id" in payload:
+                            validate_project_references(workspace, project_id, related_ids, current)
+                            if "project_id" in payload and project_id != current.get("project_id"):
                                 changes["project_id"] = project_id
-                            if "related_project_ids" in payload:
+                            if ("related_project_ids" in payload and
+                                    related_ids != current.get("related_project_ids", [])):
                                 changes["related_project_ids"] = related_ids
                         event = {"version": 1, "event_id": str(uuid.uuid4()),
                                  "task_id": current["task_id"], "action": "update",
