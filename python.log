@@ -1,0 +1,50 @@
+test_chatgpt_creation_survives_reload (test_app.DataTests.test_chatgpt_creation_survives_reload) ... ok
+test_completion_requires_real_user_confirmation (test_app.DataTests.test_completion_requires_real_user_confirmation) ... ok
+test_concurrent_same_event_id_never_overwrites_existing_event (test_app.DataTests.test_concurrent_same_event_id_never_overwrites_existing_event) ... ok
+test_concurrent_same_revision_stops_without_winner (test_app.DataTests.test_concurrent_same_revision_stops_without_winner) ... ok
+test_conflicting_status_values_are_explicitly_exposed (test_app.DataTests.test_conflicting_status_values_are_explicitly_exposed) ... ok
+test_corrupted_file_is_reported (test_app.DataTests.test_corrupted_file_is_reported) ... ok
+test_duplicate_event_id_across_tasks_freezes_both_tasks (test_app.DataTests.test_duplicate_event_id_across_tasks_freezes_both_tasks) ... ok
+test_duplicate_event_id_different_related_lists_freezes_but_does_not_crash (test_app.DataTests.test_duplicate_event_id_different_related_lists_freezes_but_does_not_crash) ... ok
+test_duplicate_event_id_is_reported (test_app.DataTests.test_duplicate_event_id_is_reported) ... ok
+test_duplicate_event_id_with_different_content_freezes_task (test_app.DataTests.test_duplicate_event_id_with_different_content_freezes_task) ... ok
+test_empty (test_app.DataTests.test_empty) ... ok
+test_late_create_file_is_reconstructed_in_correct_order (test_app.DataTests.test_late_create_file_is_reconstructed_in_correct_order) ... ok
+test_project_create_and_rename_are_append_only (test_app.DataTests.test_project_create_and_rename_are_append_only) ... ok
+test_project_event_validation_rejects_invalid_name_and_revision (test_app.DataTests.test_project_event_validation_rejects_invalid_name_and_revision) ... ok
+test_related_project_list_conflict_freezes_only_affected_task (test_app.DataTests.test_related_project_list_conflict_freezes_only_affected_task)
+Two valid updates with different lists must not crash whole workspace. ... ok
+test_task_project_links_are_read_and_legacy_events_default_to_inbox (test_app.DataTests.test_task_project_links_are_read_and_legacy_events_default_to_inbox) ... ok
+test_task_with_missing_project_is_visible_with_warning (test_app.DataTests.test_task_with_missing_project_is_visible_with_warning) ... ok
+test_user_edit_preserves_original (test_app.DataTests.test_user_edit_preserves_original) ... ok
+test_utf8_bom_event_from_external_writer_is_readable (test_app.DataTests.test_utf8_bom_event_from_external_writer_is_readable) ... ok
+test_api_rejects_write_when_task_has_unresolved_conflict (test_app.ServerTests.test_api_rejects_write_when_task_has_unresolved_conflict) ... ok
+test_create_concurrent_requests_get_distinct_ids (test_app.ServerTests.test_create_concurrent_requests_get_distinct_ids) ... ok
+test_create_handles_disk_publish_failure_without_phantom_task (test_app.ServerTests.test_create_handles_disk_publish_failure_without_phantom_task) ... ok
+test_create_rejects_invalid_payload_without_writing (test_app.ServerTests.test_create_rejects_invalid_payload_without_writing) ... ok
+test_create_rejects_untrusted_origin_and_host (test_app.ServerTests.test_create_rejects_untrusted_origin_and_host) ... ok
+test_create_requires_json_content_type (test_app.ServerTests.test_create_requires_json_content_type) ... ok
+test_create_task_success_and_persists (test_app.ServerTests.test_create_task_success_and_persists) ... ok
+test_duplicate_project_name_is_rejected (test_app.ServerTests.test_duplicate_project_name_is_rejected) ... ok
+test_existing_unsynced_refs_can_survive_explicit_unchanged_payload (test_app.ServerTests.test_existing_unsynced_refs_can_survive_explicit_unchanged_payload) ... ok
+test_external_origin_cannot_update (test_app.ServerTests.test_external_origin_cannot_update) ... ok
+test_get_rejects_untrusted_host_headers (test_app.ServerTests.test_get_rejects_untrusted_host_headers) ... ok
+test_get_survives_related_project_list_conflict (test_app.ServerTests.test_get_survives_related_project_list_conflict) ... ok
+test_http_save_then_read (test_app.ServerTests.test_http_save_then_read) ... ok
+test_localhost_host_header_is_allowed (test_app.ServerTests.test_localhost_host_header_is_allowed) ... ok
+test_post_rejects_untrusted_host_header (test_app.ServerTests.test_post_rejects_untrusted_host_header) ... ok
+test_project_create_assign_and_related_project_links (test_app.ServerTests.test_project_create_assign_and_related_project_links) ... ok
+test_project_rename_and_stale_revision_protection (test_app.ServerTests.test_project_rename_and_stale_revision_protection) ... ok
+test_stale_revision_cannot_overwrite (test_app.ServerTests.test_stale_revision_cannot_overwrite) ... ok
+test_synced_chatgpt_event_becomes_visible_without_restart (test_app.ServerTests.test_synced_chatgpt_event_becomes_visible_without_restart) ... ok
+test_task_create_rejects_unknown_project_reference (test_app.ServerTests.test_task_create_rejects_unknown_project_reference) ... ok
+test_title_edit_retains_unsynced_primary_and_related_ids (test_app.ServerTests.test_title_edit_retains_unsynced_primary_and_related_ids) ... ok
+test_update_rejects_new_unsynced_project_reference (test_app.ServerTests.test_update_rejects_new_unsynced_project_reference) ... ok
+test_user_can_edit_title_after_completion (test_app.ServerTests.test_user_can_edit_title_after_completion) ... ok
+test_web_cannot_complete_without_confirmation (test_app.ServerTests.test_web_cannot_complete_without_confirmation) ... ok
+test_webpage_and_api_available (test_app.ServerTests.test_webpage_and_api_available) ... ok
+
+----------------------------------------------------------------------
+Ran 44 tests in 12.778s
+
+OK

@@ -1,0 +1,17 @@
+✔ a late success response must not erase a different draft (46.148901ms)
+✔ untouched input clears only after confirmed success (2.335149ms)
+✔ a draft edited and restored to the same text is still preserved (4.642758ms)
+✔ failed create retains the current draft and reports uncertainty (3.49032ms)
+✔ submit again during a pending request does not create duplicates (7.143387ms)
+✔ new task submission includes selected primary and related projects (4.202646ms)
+✔ project creation sends only the project name (3.120939ms)
+✔ P2: changing title preserves unsynced primary and related project IDs (5.189732ms)
+✔ P2: explicitly unassign primary without losing still-unsynced related project (3.331334ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 224.218555

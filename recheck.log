@@ -1,0 +1,8 @@
+PASS P2-1 original arrays[]/[P]: workspace GET200, conflict candidates exposed, affected task409/no writes, unrelated task editable and new project201
+PASS P2-1 duplicate event ID with differing arrays also returns GET200 and freezes task
+PASS real Chromium shows all four tasks, only conflict rows frozen, no global read error
+PASS P2-2 real Chromium title-only edit omits project fields; primary and related placeholders/IDs preserved in DOM and reducer
+PASS API unchanged existing missing refs accepted; six unknown/malformed create/update references rejected400 with no new or changed JSON
+PASS explicit UI primary unassign retains missing related ID; explicit related unassign clears it; separate appended events, no automatic deletion
+PASS removed missing references cannot be reintroduced using historical allowance; both rejected400/no writes
+PASS newly available projects resolve names; all original event bytes intact; no browser pageerror
