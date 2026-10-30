@@ -27,6 +27,32 @@
     .task-meta.create-meta, .task-meta.edit-meta { grid-column: 1 / -1; }
     .task-meta input, .task-meta select { min-width: 0; }
     .field-hint { color: #8593a5; font-size: 12px; margin: 8px 0 0; }
+    .steps-panel { margin-top: 17px; padding-top: 15px; border-top: 1px solid #edf1f6; }
+    .steps-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    .steps-head strong { font-size: 14px; color: #334b69; }
+    .steps-head span, .step-id { color: #8593a5; font-size: 11px; }
+    .step-list { display: grid; gap: 9px; margin-top: 12px; }
+    .step-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: start; gap: 10px; padding: 11px 12px; border: 1px solid #e8edf4; border-radius: 10px; background: #fbfcfe; }
+    .step-number { color: #718197; font-weight: 700; font-size: 13px; padding-top: 8px; }
+    .step-content { min-width: 0; display: grid; gap: 7px; }
+    .step-edit-form { display: grid; grid-template-columns: minmax(160px, 1fr) 130px auto; align-items: end; gap: 9px; }
+    .step-edit-form label { min-width: 0; font-size: 12px; }
+    .step-edit-form input, .step-edit-form select { min-width: 0; padding: 8px 9px; font-size: 13px; }
+    .step-id { overflow-wrap: anywhere; }
+    .step-actions { display: flex; gap: 5px; padding-top: 2px; }
+    .step-actions button { border: 1px solid #dce4ee; color: #50677f; background: #fff; padding: 6px 9px; font-size: 12px; }
+    .step-actions button:disabled { opacity: .4; cursor: not-allowed; }
+    .step-add-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; margin-top: 12px; }
+    .step-add-form input { min-width: 0; }
+    .step-empty, .step-order-warning, .step-conflict { color: #8593a5; font-size: 12px; margin: 10px 0 0; }
+    .step-order-warning, .step-conflict { color: #976211; }
+    .step-message { margin: 8px 0 0; font-size: 12px; }
+    @media (max-width: 700px) {
+      .step-row { grid-template-columns: 24px minmax(0, 1fr); }
+      .step-actions { grid-column: 2; }
+      .step-edit-form { grid-template-columns: 1fr 1fr; }
+      .step-edit-form button { grid-column: 1 / -1; }
+    }
     @media (max-width: 960px) {
       .task-meta { grid-template-columns: repeat(3, minmax(130px, 1fr)); }
     }
@@ -286,6 +312,191 @@
       };
     }
 
+    async function saveStepOrder(task, from, to, message) {
+      if (isSaving || task.conflict || task.step_order_conflict) return;
+      const ids = task.steps.map(step => step.step_id);
+      if (to < 0 || to >= ids.length || from < 0 || from >= ids.length) return;
+      [ids[from], ids[to]] = [ids[to], ids[from]];
+      isSaving = true;
+      message.className = "step-message";
+      message.textContent = "正在调整顺序…";
+      try {
+        const response = await fetch(
+          `/api/tasks/${encodeURIComponent(task.task_id)}/steps/reorder`, {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({step_ids: ids, revision: task.step_order_revision || 0})
+          });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+        await refresh(true);
+      } catch (error) {
+        message.className = "step-message error";
+        message.textContent = `顺序调整失败：${error.message}。请刷新后核查。`;
+      } finally { isSaving = false; }
+    }
+
+    function stepRow(task, step, index, message) {
+      const row = element("div", "step-row");
+      row.append(element("span", "step-number", `${index + 1}.`));
+      const content = element("div", "step-content");
+      content.append(element("small", "step-id", step.step_id));
+      const form = element("form", "step-edit-form");
+      const titleLabel = element("label", "", "步骤内容");
+      const title = element("input");
+      title.type = "text"; title.maxLength = 200; title.required = true;
+      title.value = step.conflict && step.conflict_fields.includes("title")
+        ? "步骤内容存在冲突（未裁决）" : step.title;
+      title.disabled = task.conflict || step.conflict;
+      titleLabel.append(title);
+      const statusLabel = element("label", "", "步骤状态");
+      const status = element("select");
+      const statusConflict = step.conflict && step.conflict_fields.includes("status");
+      if (statusConflict) {
+        const option = element("option", "", "状态冲突（未裁决）");
+        option.value = "__conflict__"; option.selected = true; option.disabled = true;
+        status.append(option);
+      } else {
+        for (const [key, value] of Object.entries(labels)) {
+          const option = element("option", "", value);
+          option.value = key; option.selected = step.status === key;
+          status.append(option);
+        }
+      }
+      status.disabled = task.conflict || step.conflict;
+      statusLabel.append(status);
+      const save = element("button", "save", "保存步骤");
+      save.type = "submit"; save.disabled = task.conflict || step.conflict;
+      form.append(titleLabel, statusLabel, save);
+      form.addEventListener("submit", async event => {
+        event.preventDefault();
+        if (isSaving || task.conflict || step.conflict) return;
+        const nextTitle = title.value.trim();
+        const nextStatus = status.value;
+        if (!nextTitle || nextTitle.length > 200) {
+          message.className = "step-message error";
+          message.textContent = "步骤内容须为 1–200 字。";
+          return;
+        }
+        const completing = nextStatus === "done" && step.status !== "done";
+        if (completing && !window.confirm("确认亲自将此执行步骤标记为完成？")) return;
+        const changes = {revision: step.revision};
+        if (nextTitle !== step.title) changes.title = nextTitle;
+        if (nextStatus !== step.status) changes.status = nextStatus;
+        if (completing) changes.confirmed_done = true;
+        if (!("title" in changes) && !("status" in changes)) {
+          message.textContent = "步骤内容没有变化";
+          return;
+        }
+        isSaving = true; save.disabled = true;
+        message.className = "step-message"; message.textContent = "正在保存步骤…";
+        try {
+          const response = await fetch(
+            `/api/tasks/${encodeURIComponent(task.task_id)}/steps/${encodeURIComponent(step.step_id)}/update`, {
+              method: "POST", headers: {"Content-Type": "application/json"},
+              body: JSON.stringify(changes)
+            });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+          await refresh(true);
+        } catch (error) {
+          message.className = "step-message error";
+          message.textContent = `步骤保存失败：${error.message}。请刷新后核查。`;
+        } finally { isSaving = false; save.disabled = false; }
+      });
+      content.append(form);
+      row.append(content);
+      const actions = element("div", "step-actions");
+      const up = element("button", "", "上移");
+      up.type = "button";
+      up.disabled = isSaving || task.conflict || task.step_order_conflict || index === 0;
+      up.addEventListener("click", () => saveStepOrder(task, index, index - 1, message));
+      const down = element("button", "", "下移");
+      down.type = "button";
+      down.disabled = isSaving || task.conflict || task.step_order_conflict ||
+        index === task.steps.length - 1;
+      down.addEventListener("click", () => saveStepOrder(task, index, index + 1, message));
+      actions.append(up, down);
+      row.append(actions);
+      if (step.conflict) {
+        const candidates = (step.conflict_candidates || []).map(candidate => {
+          const changes = candidate.changes || {};
+          return [changes.title, changes.status && (labels[changes.status] || changes.status)]
+            .filter(Boolean).join(" / ");
+        }).filter(Boolean);
+        content.append(element("p", "step-conflict",
+          `步骤存在冲突，已停止修改。${candidates.length ? "候选：" + candidates.join("；") : "请人工核查原始事件。"}`));
+      }
+      return row;
+    }
+
+    function stepPanel(task) {
+      const steps = Array.isArray(task.steps) ? task.steps : [];
+      const panel = element("section", "steps-panel");
+      const head = element("div", "steps-head");
+      const completed = steps.filter(step => !step.conflict && step.status === "done").length;
+      head.append(element("strong", "", "执行步骤"),
+                  element("span", "", `${completed}/${steps.length} 已完成 · 最多 100 步`));
+      panel.append(head);
+      if (task.step_order_conflict) {
+        const candidates = (task.step_order_candidates || []).map(candidate =>
+          (candidate.changes?.step_ids || []).join(" → ")).filter(Boolean);
+        panel.append(element("p", "step-order-warning",
+          `步骤顺序存在冲突，已停止调整。当前顺序仅供核查。${candidates.length ? "候选顺序：" + candidates.join("；") : ""}`));
+      }
+      const list = element("div", "step-list");
+      if (!steps.length) {
+        list.append(element("p", "step-empty", "尚未拆分执行步骤。可以在这里添加第一步。"));
+      } else {
+        list.replaceChildren(...steps.map((step, index) => stepRow(task, step, index, message)));
+      }
+      panel.append(list);
+      const message = element("p", "step-message");
+      const addForm = element("form", "step-add-form");
+      const input = element("input");
+      input.type = "text"; input.maxLength = 200; input.required = true;
+      input.placeholder = "添加下一项执行步骤";
+      const submit = element("button", "save", "添加步骤");
+      submit.type = "submit";
+      submit.disabled = task.conflict || steps.length >= 100;
+      let draftRevision = 0;
+      input.addEventListener("input", () => { draftRevision += 1; });
+      addForm.append(input, submit);
+      addForm.addEventListener("submit", async event => {
+        event.preventDefault();
+        if (isSaving || task.conflict || steps.length >= 100) return;
+        const title = input.value.trim();
+        if (!title || title.length > 200) {
+          message.className = "step-message error";
+          message.textContent = "步骤内容须为 1–200 字。";
+          return;
+        }
+        const revisionAtSubmit = draftRevision;
+        isSaving = true; submit.disabled = true;
+        message.className = "step-message"; message.textContent = "正在添加步骤…";
+        try {
+          const response = await fetch(
+            `/api/tasks/${encodeURIComponent(task.task_id)}/steps`, {
+              method: "POST", headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({title})
+            });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+          if (draftRevision === revisionAtSubmit && input.value.trim() === title) {
+            input.value = "";
+            message.textContent = `步骤已创建：${result.step_id}`;
+          } else {
+            message.textContent = `步骤已创建：${result.step_id}；新输入的步骤草稿已保留，尚未保存`;
+          }
+          await refresh(true);
+        } catch (error) {
+          message.className = "step-message error";
+          message.textContent = `步骤添加失败：${error.message}。草稿已保留。`;
+        } finally { isSaving = false; submit.disabled = task.conflict || steps.length >= 100; }
+      });
+      panel.append(addForm, message);
+      return panel;
+    }
+
     function row(task) {
       const conflictFields = Array.isArray(task.conflict_fields) ? task.conflict_fields : [];
       const candidates = Array.isArray(task.conflict_candidates) ? task.conflict_candidates : [];
@@ -384,7 +595,7 @@
           message.textContent = `保存失败：${error.message}。请刷新后重试。`;
         } finally { isSaving = false; button.disabled = false; }
       });
-      card.append(top, form);
+      card.append(top, form, stepPanel(task));
       if (task.conflict) {
         const details = [];
         const valuesFor = field => [...new Set(candidates
