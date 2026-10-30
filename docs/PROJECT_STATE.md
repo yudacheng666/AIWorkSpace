@@ -1,7 +1,7 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-30（北京时间）  
-当前阶段：**M1/M2/M3.1/M3.2/M3.3 已合入 `main`；PR #5 获用户批准，于 2026-10-30 Squash 合并（`932f6f9aeb1a83ce537be43e6476674bf717300e`）。M3.3 Linux/Windows CI 与 Codex 独立验收均 PASS（已测范围），两项 P2 已关闭。下一阶段 M3.4 首页工作总览与查询尚未开发；公司 Windows、真实 Drive、原生输入法、长期耐久性等仍 NOT TESTED。**
+当前阶段：**M1/M2/M3.1/M3.2/M3.3 已合入 `main`；M3.4 在 Draft PR #6 开发。Codex 三轮独立验收发现三项 P2：浏览器整页刷新丢草稿、新建表单恢复原值仍误提示、任务保存后兄弟草稿阻止重绘导致旧基线误判干净。前三项修复均已提交；最新产品 SHA `eb035c61`（测试回归 commit `389c2427`）的 Linux/Windows CI 均 PASS（224 PASS）。等待 Codex 对最新修复版独立复验；PR 未合并，公司 Windows 8770 未升级。**
 
 | 项目 | 当前事实 |
 |---|---|
@@ -140,12 +140,37 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - **限制与安全**：公开仓库仅虚构数据；Codex 证据位于独立 audit 分支，不写入产品 PR；未部署/升级公司电脑 8770，未访问真实 Drive，未修改 main；远程访问依 D012 延后。
 - **合并结果**：用户于 2026-10-30 明确批准。已将 PR #5 从 Draft 转 Ready 并以 Squash 合并至 main，合并 SHA `932f6f9aeb1a83ce537be43e6476674bf717300e`。CI 及 Codex 独立验收结果仅覆盖上述已测范围，不代表公司 Windows 或真实 Drive 已部署/验证。
 
-## 下一步
+## M3.4 首页工作总览与查询（第三项 P2 已修复，待独立复验，2026-10-30）
 
-1. **M3.3 合并已完成**，下一开发阶段是 **M3.4：首页工作总览与查询**。先依据 `docs/REQUIREMENTS.md` 已确认范围制定最小功能切片；仅包含今日亲自处理、待审核/决策、跟进他人、临近到期、逾期/受阻，以及按稳定编号、关键词、项目、状态、负责人和日期的查询。
-2. M3.4 在新的开发分支/PR 实现；不要把 M3.3 的历史中间分支或 Codex 测试报告当作 M3.4 已完成依据。继续由 ChatGPT 开发，Codex 独立验收；维护 GitHub Markdown 长期项目记忆。
-3. **公司 Windows 8770 没有因 GitHub 合并自动升级**，当前仍为旧本机测试实例；不访问、清理、覆盖或迁移真实 Google Drive 数据和历史事件。实机部署、真实同步及原生中文输入法需另行计划和验收；已测 CI/Chromium 不能替代它们。
-4. 远程访问继续按 D012 暂缓，产品阶段完成后再考虑；当前不调整 Host/Origin 白名单或加入 Tailscale 访问。
-5. 下一轮开始时读取 `AGENTS.md`、`docs/REQUIREMENTS.md`、本文件与 `docs/DECISIONS.md`，实时核验 main、分支、PR、CI 和独立验收，避免跨对话继承旧状态。
+- 开发分支：`feat/m3-04-workspace-overview-search`，base main `b209da970434b71bb4e1b97e86bfdf1fa0483e98`；[Draft PR #6](https://github.com/yudacheng666/AIWorkSpace/pull/6)，尚未合并、未部署到公司 Windows。
+- 当前最小切片：在现有 `web/index.html` 增加任务总览卡片、用户选择“本人负责人名称”、今日亲自处理／待跟进他人／7 天内到期／逾期受阻或冲突只读分类，并提供按任务/步骤编号与名称、主要或关联项目、任务状态、负责人、三个日期字段区间的组合查询。仅使用现有 `GET /api/tasks` 返回的数据，不修改 `app.py` 的数据模型、事件流或 API。
+- **重要口径**：今日亲自处理=选择的本人的负责人且计划执行日期已到，未完成且未冲突；跟进他人=不同于本人、有负责人且跟进日期已到，未完成且未冲突；七天内到期=今天到第 7 天（含两端）且未完成、未冲突；逾期/受阻/冲突=截止已过、blocked 或 task.conflict；任务可以同时进入多个口径，计数不可相加为总数。日期按访问页面的本地日历。
+- **不冒充审批数据**：当前数据没有“待审核/决策”结构字段，也没有可信登录身份；页面明确展示不可自动识别，不能用普通优先级/任务状态猜测审批或把未配置的“本人”显示成 0。身份由用户在当前页面人工选择与负责人一致的名称，不保存、也不写入事件。
+- 多条件查询仅影响显示，空结果与 API 读取失败需区分；切换视图、筛选、刷新不应自动新增/修改任何事件；不破坏原 M1–M3.3 创建、编辑、草稿保护、步骤排序与冲突隔离。
+- **首轮独立验收发现 P2**：[Codex 报告](https://github.com/yudacheng666/AIWorkSpace/pull/6#issuecomment-6521138972)，固定产品/测试 SHA `46d4a8a7edd4526d48fcff6c37db4a711265cfe3`。真实 Chromium 浏览器整页 reload 时，未保存的任务标题无确认即丢失；已保存事件字节未改变。页面内“刷新任务”保护通过。总览、负责人、查询、日期、空结果/错误区分、只读、页面内草稿保护等已测范围通过；新增 Node 8 PASS。Codex 确认 P2 后停止。
+- **P2 修复**：产品代码提交 `5da608a8bbab4d53b2b98a7b6afc5276e17a7732` 在 `window.beforeunload` 监听未保存的任务/步骤编辑草稿；同时将新建任务表单纳入独立持久草稿集合，避免任务列表重绘清掉该状态。浏览器原生提示仅在存在 dirty 草稿时触发；成功保存/干净状态恢复后清除，不自定义浏览器文案。浏览器取消离开会留在页面并保留原输入。
+- **回归测试**：新增 `tests/test_create_ui.mjs` 两项 beforeunload 定向测试，覆盖新建任务、任务标题编辑、步骤编辑、新增步骤；检查干净状态/恢复原值/保存成功后不再触发提示。产品/测试当前固定 HEAD：`a84779c12dbc2eb66dcd8573ccf05b2992cd22a7`（产品代码 commit `5da608a8`，最新测试 commit `a84779c1`）。不要把该 SHA 之后的文档维护提交冒充为代码测试版本。
+- **CI 状态**：首次运行 [Actions #41046613451](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41046613451) Linux/Windows 均 FAIL，原因是两处新增测试夹具问题（新建任务表单 mock 没模拟 bubbling/恢复基线，步骤列表 mock 选择器漏了 `.step-list` 层级），不是独立验收报告新增的产品缺陷。修正夹具后，[Actions #41046925220](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41046925220) Linux/Windows 均 SUCCESS，每平台 Python 76 + Node 33 PASS，合计 **218 PASS / 0 FAIL / 0 skipped**。
+- **第二轮独立复验发现的 P2**：[Codex 报告](https://github.com/yudacheng666/AIWorkSpace/pull/6#issuecomment-6521580578)，固定 SHA `a84779c12dbc2eb66dcd8573ccf05b2992cd22a7`。任务/步骤草稿的刷新确认、取消保留、恢复原值均 PASS；但新建任务表单将标题、负责人、截止日期等字段全部恢复为空后，仍出现原生刷新确认。15 次刷新均未改变 4 个事件文件名/字节，POST=0；Codex 新增 Node 2 PASS 后停止，其他保存成功、页面内保护回归、409/部分同步等 NOT TESTED。
+- **第二轮 P2 根因与修复**：`createMetadataSnapshot()` 每次返回新对象；`watchUnsavedEditor()` 直接用 `snapshot() === cleanSnapshot` 比较引用，导致值完全相同仍判定 dirty。产品 commit `0103ae8d167995cc71e996f1e3bd0c6058ad2b7a` 将比较统一改为 `JSON.stringify(snapshot())` 的值快照；恢复每个表单字段的原始值即可从 dirty 集合移除。任务/步骤的原始字符串快照同样兼容。新增回归逐一覆盖新建任务标题、主要项目、关联项目、负责人、优先级、截止/计划/跟进日期的修改与恢复，并验证多字段恢复后不提示、任一字段仍不同则继续提示。
+- **最新固定产品/测试 SHA**：`9e0b84e59041b1d8da6d23958e13449e374cbf4b`（产品 commit `0103ae8d`，测试 commit `9e0b84e5`）。[Actions #41049397248](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41049397248) Linux/Windows 均 SUCCESS；每平台 Python 76 + Node 34 PASS，合计 **220 PASS / 0 FAIL / 0 skipped**。
+- **独立验收当前结论**：固定 SHA `46d4a8a7` 和 `a84779c1` 两轮均 FAIL，各发现一项 P2；第二轮 P2 已修复并通过新 CI，但 SHA `9e0b84e5` 尚未由 Codex 独立复验。M3.4 **NOT READY TO MERGE**。
+- **停止后 NOT TESTED**：浏览器整页刷新对步骤草稿的单独实测、查询场景步骤级 409/部分同步排序的额外回归、新建任务表单相邻专项的独立 Chromium 验收。其他未测：公司 Windows、真实 Drive、原生 IME、多浏览器/多客户端、长期/断电耐久性、远程访问。
+- 安全范围：测试虚构任务，不访问真实 Drive、公司 Windows 8770，不修改远程访问/Host/Origin；公开 GitHub 无真实资料。PR #6 保持 Draft；不合并、不部署，main 不变。
 
-**交接规则：** M3.3 Squash 合并提交为 `932f6f9aeb1a83ce537be43e6476674bf717300e`，固定产品/测试验收 SHA 为 `633b5304e843ca632dca095d42a7ec66d4baabe4`；后续文档维护 commit 不改变这两个历史证据。
+- **第三轮独立验收发现的 P2**：[Codex 报告](https://github.com/yudacheng666/AIWorkSpace/pull/6#issuecomment-6521932524)，固定产品/测试 SHA `9e0b84e59041b1d8da6d23958e13449e374cbf4b`。任务 A 原保存标题 X，改为 Y 并成功保存；任务 B 同时保留未保存草稿，导致 `refresh(true)` 被草稿保护阻止、列表未重绘；随后 B 恢复原值，再将 A 从已保存 Y 改回旧 X，watcher 因 cleanSnapshot 仍为 X 而错误移除 dirty 标记，整页刷新无确认，未保存 X 丢失。已保存事件没有被覆盖。
+- **第三项 P2 修复**：产品 commits `ce0d6d4fd4061184c86c83df432e9bef2729ea79` 与 `eb035c611a592cc01dc7b02138a4951b32a69036`。`watchUnsavedEditor().markClean(savedSnapshot)` 将 clean baseline 推进到成功请求实际提交的快照，并立即按当前表单值重新计算 dirty；无论保存期间是否又有新输入，基线都必须代表已持久化的提交快照。若保存期间又有新输入，新输入仍保留 dirty；恢复到刚保存的快照才清除，恢复到保存前旧值仍为 dirty。任务编辑和步骤编辑保存成功均采用此规则，解决兄弟草稿导致刷新暂缓时的旧基线问题。
+- **新增回归**：测试 commit `389c24273766efad612ee68aba34c512a5ad88e7`，分别覆盖任务编辑和步骤编辑：A/Y 保存成功，B 兄弟草稿拒绝放弃导致列表不重绘；B 恢复干净后，将 A 改回保存前旧值，beforeunload 仍必须拦截。测试明确令 in-page discard confirm 返回 false，确保真实覆盖延迟重绘路径。
+- **最新固定 CI checkout SHA**：`eb035c611a592cc01dc7b02138a4951b32a69036`（产品代码 commit `eb035c61`；回归测试文件最后更新 commit `389c2427`，测试 blob 未在之后改变）。[Actions #41051917241](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41051917241) Linux/Windows 均 SUCCESS；每平台 Python 76 + Node 36 PASS，合计 **224 PASS / 0 FAIL / 0 skipped**。
+- **第三轮验收已测范围**：新建表单 8 字段恢复、原生刷新保护、正常保存、页面内保护、步骤 409、部分同步恢复均 PASS；Node 定向 3 PASS。64 次整页刷新前后已保存事件文件字节一致。新 P2 确认后立即停止，未继续扩展其他未测范围。
+- **独立验收当前结论**：前三轮固定 SHA `46d4a8a7`、`a84779c1`、`9e0b84e5` 均 FAIL，各发现一项 P2；三项均已有修复及双平台 CI 回归，但最新 SHA `eb035c61` 尚未由 Codex 独立复验。M3.4 **NOT READY TO MERGE**。
+- **当前仍 NOT TESTED**：第三项 P2 修复版 `eb035c61` 的真实 Chromium 集成复验。特别是任务/步骤保存成功但兄弟草稿阻止重绘、兄弟草稿恢复后再改回保存前值的 beforeunload；保存期间再次输入的新草稿保留（本次代码将基线推进到提交快照，但该竞态仍需独立实测）；完整步骤草稿整页刷新；部分同步恢复后再次合法重排。公司 Windows、真实 Drive、原生 IME、多浏览器/多客户端、长期/断电耐久性、远程访问仍 NOT TESTED。
+- 安全范围不变：只使用虚构隔离数据，不访问真实 Drive、公司 Windows 8770；PR #6 保持 Draft，不合并、不部署，main 不变。
+
+## M3.4 下一步
+
+1. **最新 CI 已完成**：固定产品/测试 checkout SHA `eb035c611a592cc01dc7b02138a4951b32a69036` 对应 [Actions #41051917241](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41051917241) Linux/Windows 均 SUCCESS，每平台 76 Python + 36 Node PASS，合计 **224 PASS / 0 FAIL / 0 skipped**。
+2. **待 Codex Cloud 独立复验**：必须使用 `eb035c611a592cc01dc7b02138a4951b32a69036`（或仅文档更新后的最新 PR HEAD，但不得改变产品/测试 blob），真实 Chromium 使用隔离数据重测：任务 A 从 X 改 Y 保存成功，同时任务 B 保留草稿并拒绝丢弃，确认列表未重绘；B 恢复原值后，将 A 从已保存 Y 改回保存前 X，beforeunload 必须再次拦截，取消刷新后 X 保留。对步骤编辑执行同样测试；另检查保存期间产生的新输入仍保持 dirty，恢复到刚保存的快照后应清除，恢复到保存前旧值仍应拦截。复验保存成功后干净状态无多余提示，并回归此前通过的 8 字段恢复、正常任务/步骤保存、页面内保护、步骤 409、部分同步排序。
+3. Codex 只测试，不改产品、原测试、CI、PR 分支；发现 P1/P2 立即停止并回写证据。
+4. 只有双平台 CI SUCCESS + Codex 独立复验 PASS + 用户明确批准，才可合并。不得自行合并或部署。
+5. 不自动升级公司 Windows 8770、不接触真实 Drive 数据、不测试远程访问；远程访问继续按 D012 暂缓。

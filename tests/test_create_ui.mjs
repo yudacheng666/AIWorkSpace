@@ -4,6 +4,28 @@ import {readFileSync} from "node:fs";
 import {test} from "node:test";
 import vm from "node:vm";
 
+function mockWindow(confirm = () => true) {
+  const listeners = new Map();
+  return {
+    window: {
+      confirm,
+      addEventListener(type, handler) {
+        if (!listeners.has(type)) listeners.set(type, []);
+        listeners.get(type).push(handler);
+      }
+    },
+    fireBeforeUnload() {
+      const event = {
+        returnValue: undefined,
+        defaultPrevented: false,
+        preventDefault() { this.defaultPrevented = true; }
+      };
+      for (const handler of listeners.get("beforeunload") || []) handler(event);
+      return {prevented: event.defaultPrevented, returnValue: event.returnValue};
+    }
+  };
+}
+
 const page = readFileSync(new URL("../web/index.html", import.meta.url), "utf8");
 const match = page.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(match, "web page must have an inline script");
@@ -37,6 +59,7 @@ function harness() {
   const pendingResponse = new Promise(resolve => { resolveResponse = resolve; });
   const posted = [];
   const projectPosted = [];
+  const browser = mockWindow();
   const fetch = async (path, options) => {
     if (path === "/api/tasks" && options?.method === "POST") {
       posted.push(JSON.parse(options.body));
@@ -50,7 +73,7 @@ function harness() {
     return {ok: true, json: async () => ({tasks: [], projects: [], warnings: []})};
   };
   vm.runInNewContext(match[1], {
-    document, fetch, setInterval() {}, Date,
+    document, fetch, setInterval() {}, Date, window: browser.window
   }, {timeout: 2000});
 
   const input = document.getElementById("new-task-title");
@@ -60,6 +83,7 @@ function harness() {
   const type = (value) => {
     input.value = value;
     input.handlers.get("input")();
+    form.handlers.get("input")?.();
   };
   const save = () => form.handlers.get("submit")({preventDefault() {}});
   const respond = (status = 201, payload = {saved: true, task_id: "TASK-MOCK-001"}) => {
@@ -70,7 +94,8 @@ function harness() {
   const projectForm = document.getElementById("create-project");
   const createProject = () => projectForm.handlers.get("submit")({preventDefault() {}});
   return {type, save, respond, input, message, submit, posted, projectPosted,
-          projectInput, createProject, document};
+          projectInput, createProject, document,
+          beforeUnload: () => browser.fireBeforeUnload()};
 }
 
 test("a late success response must not erase a different draft", async () => {
@@ -168,6 +193,8 @@ test("project creation sends only the project name", async () => {
 // A small DOM stand-in maintains <select> selectedOptions as a browser would.
 function taskEditHarness(task) {
   const elements = new Map();
+  let confirmValue = true;
+  const browser = mockWindow(() => confirmValue);
   function fakeElement(tag = "div") {
     const node = {
       tag, textContent: "", className: "", children: [], handlers: new Map(),
@@ -205,7 +232,6 @@ function taskEditHarness(task) {
   const stepCreated = [];
   const stepUpdated = [];
   const stepReordered = [];
-  let confirmValue = true;
   let delayStepCreate = false;
   let resolveStepCreate;
   const pendingStepCreate = new Promise(resolve => { resolveStepCreate = resolve; });
@@ -231,7 +257,7 @@ function taskEditHarness(task) {
     return {ok: true, json: async () => ({tasks: [], projects: [], warnings: []})};
   };
   const {row} = vm.runInNewContext(match[1] + "\n;({row})", {
-    document, fetch, setInterval() {}, Date, window: {confirm: () => confirmValue}
+    document, fetch, setInterval() {}, Date, window: browser.window
   }, {timeout: 2000});
   const card = row({...task, steps: task.steps || [],
                     step_order_revision: task.step_order_revision ?? 0,
@@ -256,7 +282,8 @@ function taskEditHarness(task) {
           setDelayStepCreate(value) { delayStepCreate = value; },
           respondStepCreate() {
             resolveStepCreate({ok: true, json: async () => ({saved: true, step_id: "STEP-" + "9".repeat(32)})});
-          }};
+          },
+          beforeUnload: () => browser.fireBeforeUnload()};
 }
 
 test("P2: changing title preserves unsynced primary and related project IDs", async () => {
@@ -562,4 +589,484 @@ test("M3.3 an order conflict disables reorder but leaves step editing available"
   assert.equal(firstRow.children[2].children[1].disabled, true);
   const form = firstRow.children[1].children.find(item => item.className === "step-edit-form");
   assert.equal(form.children[0].children[0].disabled, false);
+});
+
+
+ 
+// M3.4: exercise the real overview/query functions with a minimal browser-like DOM.
+// The page must work entirely against GET /api/tasks without new write endpoints.
+function overviewHarness(tasks, projects = [], allowWrites = false) {
+  const elements = new Map();
+  const posted = [];
+  let confirmValue = true;
+  const browser = mockWindow(() => confirmValue);
+  function fakeNode(tag = "div") {
+    const node = {
+      tag, textContent: "", className: "", children: [], handlers: new Map(),
+      disabled: false, selected: false, hidden: false, _value: "",
+      append(...items) { this.children.push(...items); },
+      replaceChildren(...items) { this.children = items; },
+      addEventListener(type, handler) { this.handlers.set(type, handler); }
+    };
+    Object.defineProperty(node, "value", {
+      get() {
+        return this.tag === "select"
+          ? (this.children.find(child => child.selected)?.value ?? "")
+          : this._value;
+      },
+      set(value) {
+        this._value = value;
+        if (this.tag === "select") for (const child of this.children)
+          child.selected = child.value === value;
+      }
+    });
+    Object.defineProperty(node, "selectedOptions", {
+      get() { return this.tag === "select" ? this.children.filter(child => child.selected) : []; }
+    });
+    return node;
+  }
+  const selectIds = new Set(["overview-owner", "query-project", "query-owner",
+                             "query-status", "query-date-field",
+                             "new-task-project", "new-task-related", "new-task-priority"]);
+  const document = {
+    activeElement: null,
+    getElementById(id) {
+      if (!elements.has(id)) elements.set(id, fakeNode(selectIds.has(id) ? "select" : "div"));
+      return elements.get(id);
+    },
+    createElement: tag => fakeNode(tag)
+  };
+  const fetch = async (path, options) => {
+    if (options?.method === "POST") {
+      posted.push(path);
+      if (!allowWrites) throw Error("overview must never write");
+      const body = JSON.parse(options.body);
+      const taskId = decodeURIComponent(path.split("/")[3] || "");
+      const task = tasks.find(item => item.task_id === taskId);
+      if (path.includes("/steps/") && path.endsWith("/update") && task) {
+        const stepId = path.split("/steps/")[1].split("/")[0];
+        const step = task.steps.find(item => item.step_id === stepId);
+        if (step) Object.assign(step, body);
+      } else if (path.endsWith("/steps") && task) {
+        task.steps.push({step_id: "STEP-" + "A".repeat(32), title: body.title,
+                         status: "todo", revision: 1, conflict: false});
+      } else if (path.endsWith("/update") && task) {
+        Object.assign(task, body);
+      }
+      return {ok: true, json: async () => ({
+        saved: true, step_id: "STEP-" + "A".repeat(32), revision: 2
+      })};
+    }
+    assert.equal(path, "/api/tasks");
+    return {ok: true, json: async () => ({tasks, projects, warnings: []})};
+  };
+  const api = vm.runInNewContext(match[1] +
+    "\n;({overviewDates, matchesOverview, matchesQuery, selectOverview, refresh})", {
+      document, fetch, setInterval() {}, Date,
+      window: browser.window
+    }, {timeout: 2000});
+  const el = id => document.getElementById(id);
+  const submitQuery = () => el("task-query").handlers.get("submit")({preventDefault() {}});
+  const resetQuery = () => el("query-reset").handlers.get("click")();
+  return {api, el, posted, submitQuery, resetQuery, tasks, projects,
+          setConfirm(value) { confirmValue = value; },
+          beforeUnload: () => browser.fireBeforeUnload()};
+}
+
+function overviewTask(id, extras = {}) {
+  return {
+    task_id: id, title: "虚构任务" + id, status: "todo", revision: 1,
+    conflict: false, owner: null, project_id: null, related_project_ids: [],
+    steps: [], ...extras
+  };
+}
+
+test("M3.4 local dates include today and next 7 calendar days, including across year boundary", () => {
+  const page = overviewHarness([]);
+  const dates = page.api.overviewDates(new Date(2026, 11, 28, 23, 30));
+  assert.equal(dates.today, "2026-12-28");
+  assert.equal(dates.sevenDays, "2027-01-04");
+});
+
+test("M3.4 overview separates own work, other followups, near-due and risks without guessing owner", async () => {
+  const tasks = [
+    overviewTask("TASK-SELF", {owner: "虚构甲", planned_date: "2026-10-01"}),
+    overviewTask("TASK-OTHER", {owner: "虚构乙", follow_up_date: "2026-10-02"}),
+    overviewTask("TASK-OVERDUE", {due_date: "2026-10-01"}),
+    overviewTask("TASK-BLOCKED", {status: "blocked"}),
+    overviewTask("TASK-DONE", {status: "done", owner: "虚构甲", planned_date: "2026-10-01", due_date: "2026-10-01"}),
+    overviewTask("TASK-CONFLICT", {conflict: true}),
+    overviewTask("TASK-DUE", {due_date: "2026-10-31"}),
+  ];
+  const page = overviewHarness(tasks);
+  await page.api.refresh(true);
+  assert.equal(page.el("view-mine").disabled, true, "unconfigured identity must not imply user");
+  assert.equal(page.el("view-followup-count").textContent, "—");
+  const dates = {today: "2026-10-30", sevenDays: "2026-11-06"};
+  assert.deepEqual(tasks.filter(t => page.api.matchesOverview(t, "mine", "虚构甲", dates)).map(t => t.task_id),
+                   ["TASK-SELF"]);
+  assert.deepEqual(tasks.filter(t => page.api.matchesOverview(t, "followup", "虚构甲", dates)).map(t => t.task_id),
+                   ["TASK-OTHER"]);
+  assert.deepEqual(tasks.filter(t => page.api.matchesOverview(t, "risk", "虚构甲", dates)).map(t => t.task_id),
+                   ["TASK-OVERDUE", "TASK-BLOCKED", "TASK-CONFLICT"]);
+  assert.deepEqual(tasks.filter(t => page.api.matchesOverview(t, "due", "虚构甲", dates)).map(t => t.task_id),
+                   ["TASK-DUE"]);
+  assert.equal(page.posted.length, 0);
+});
+
+test("M3.4 query matches stable task/step IDs, related projects and inclusive dates", () => {
+  const page = overviewHarness([]);
+  const task = overviewTask("TASK-ABCD-1234", {
+    title: "整理材料", project_id: "PROJECT-MAIN",
+    related_project_ids: ["PROJECT-RELATED"], status: "doing",
+    owner: "虚构采购员", due_date: "2026-11-06",
+    steps: [{step_id: "STEP-XYZ-1234", title: "核对附件"}]
+  });
+  const query = {keyword: "step-xyz", project: "PROJECT-RELATED",
+    status: "doing", owner: "虚构采购员", dateField: "due_date",
+    dateFrom: "2026-11-06", dateTo: "2026-11-06"};
+  assert.equal(page.api.matchesQuery(task, query), true);
+  assert.equal(page.api.matchesQuery(task, {...query, keyword: "附件"}), true);
+  assert.equal(page.api.matchesQuery(task, {...query, keyword: "task-abcd"}), true);
+  assert.equal(page.api.matchesQuery(task, {...query, keyword: "无关"}), false);
+  assert.equal(page.api.matchesQuery(task, {...query, owner: "__none__"}), false);
+  assert.equal(page.api.matchesQuery(task, {...query, project: "__none__"}), false);
+  assert.equal(page.api.matchesQuery(task, {...query, dateFrom: "2026-11-07"}), false);
+  assert.equal(page.api.matchesQuery(task, {...query, dateTo: "2026-11-05"}), false);
+  assert.equal(page.api.matchesQuery({...task, conflict: true}, query), false,
+               "conflicted task status must not be trusted");
+  assert.equal(page.api.matchesQuery({...task, conflict: true}, {...query, status: "conflict"}), true);
+});
+
+test("M3.4 rendered query preserves input and applies filters only on explicit submit", async () => {
+  const tasks = [
+    overviewTask("TASK-ALPHA", {title: "虚构：紧急合同", owner: "员工甲"}),
+    overviewTask("TASK-BETA", {title: "虚构：日常记录", owner: "员工乙"})
+  ];
+  const page = overviewHarness(tasks);
+  await page.api.refresh(true);
+  assert.equal(page.el("query-result-count").textContent, "（2 / 2）");
+  page.el("query-keyword").value = "紧急";
+  assert.equal(page.el("query-result-count").textContent, "（2 / 2）");
+  page.submitQuery();
+  assert.equal(page.el("query-result-count").textContent, "（1 / 2）");
+  page.el("query-keyword").value = "   ";
+  page.submitQuery();
+  assert.equal(page.el("query-result-count").textContent, "（2 / 2）");
+  assert.equal(page.posted.length, 0);
+});
+
+test("M3.4 invalid date range retains prior valid query and reset recovers all tasks", async () => {
+  const page = overviewHarness([
+    overviewTask("TASK-M34-A", {title: "A"}),
+    overviewTask("TASK-M34-B", {title: "B"})
+  ]);
+  await page.api.refresh(true);
+  page.el("query-keyword").value = "不存在";
+  page.submitQuery();
+  assert.equal(page.el("query-result-count").textContent, "（0 / 2）");
+  page.el("query-keyword").value = "A";
+  page.el("query-date-from").value = "2026-11-12";
+  page.el("query-date-to").value = "2026-11-01";
+  page.submitQuery();
+  assert.match(page.el("query-message").textContent, /结束日期不得早于起始日期/);
+  assert.equal(page.el("query-result-count").textContent, "（0 / 2）");
+  page.resetQuery();
+  assert.equal(page.el("query-result-count").textContent, "（2 / 2）");
+  assert.equal(page.el("query-date-from").value, "");
+  assert.equal(page.posted.length, 0);
+});
+
+test("M3.4 selected self owner remains local to UI and survives refresh without POST", async () => {
+  const page = overviewHarness([
+    overviewTask("TASK-M34-OWN", {owner: "虚构甲", planned_date: "2025-01-01"}),
+    overviewTask("TASK-M34-OTHER", {owner: "虚构乙", follow_up_date: "2025-01-01"})
+  ]);
+  await page.api.refresh(true);
+  page.el("overview-owner").value = "虚构甲";
+  page.el("overview-owner").handlers.get("change")();
+  assert.equal(page.el("view-mine").disabled, false);
+  page.el("view-mine").handlers.get("click")();
+  assert.equal(page.el("query-result-count").textContent, "（1 / 2）");
+  await page.api.refresh(true);
+  assert.equal(page.el("overview-owner").value, "虚构甲");
+  assert.equal(page.el("query-result-count").textContent, "（1 / 2）");
+  assert.equal(page.posted.length, 0);
+});
+
+test("M3.4 filter changes and refresh never silently discard unsaved task edits", async () => {
+  const page = overviewHarness([
+    overviewTask("TASK-ONE", {title: "原始任务"}),
+    overviewTask("TASK-TWO", {title: "另一项任务"})
+  ]);
+  await page.api.refresh(true);
+  const group = page.el("tasks").children[0];
+  const card = group.children[1];
+  const form = card.children.find(item => item.className === "task-form");
+  const titleInput = form.children[0].children[0];
+  titleInput.value = "还没有保存的修改";
+  form.handlers.get("input")();
+  page.setConfirm(false);
+
+  page.el("view-risk").handlers.get("click")();
+  assert.equal(page.el("query-result-count").textContent, "（2 / 2）",
+               "declined navigation must not change visible task list");
+  assert.equal(page.el("tasks").children[0].children[1], card,
+               "same edit DOM must remain mounted");
+  assert.equal(titleInput.value, "还没有保存的修改");
+
+  page.el("query-keyword").value = "不匹配";
+  page.submitQuery();
+  assert.equal(page.el("query-result-count").textContent, "（2 / 2）");
+  await page.api.refresh(false);
+  assert.equal(page.el("tasks").children[0].children[1], card,
+               "background refresh must not discard dirty draft");
+  assert.match(page.el("sync").textContent, /尚未保存/);
+  assert.equal(page.posted.length, 0);
+
+  page.setConfirm(true);
+  page.submitQuery();
+  assert.equal(page.el("query-result-count").textContent, "（0 / 2）",
+               "explicitly confirmed navigation may replace the edit DOM");
+});
+
+test("M3.4 new step drafts are also protected from view switching", async () => {
+  const page = overviewHarness([overviewTask("TASK-STEP-DRAFT")]);
+  await page.api.refresh(true);
+  const card = page.el("tasks").children[0].children[1];
+  const panel = card.children.find(item => item.className === "steps-panel");
+  const addForm = panel.children.find(item => item.className === "step-add-form");
+  const input = addForm.children[0];
+  input.value = "新增草稿尚未保存";
+  addForm.handlers.get("input")();
+  page.setConfirm(false);
+  page.el("view-risk").handlers.get("click")();
+  assert.equal(page.el("tasks").children[0].children[1], card);
+  assert.equal(input.value, "新增草稿尚未保存");
+  assert.equal(page.posted.length, 0);
+});
+
+
+test("M3.4 browser reload prompts for an unsaved new-task form, but not after reset or save", async () => {
+  const page = harness();
+  assert.equal(page.beforeUnload().prevented, false, "clean page must not prompt");
+  page.type("尚未保存的新任务");
+  const blocked = page.beforeUnload();
+  assert.equal(blocked.prevented, true);
+  assert.equal(blocked.returnValue, "", "beforeunload must request the native browser prompt");
+
+  page.type("已保存的新任务");
+  const saving = page.save();
+  page.respond();
+  await saving;
+  assert.equal(page.beforeUnload().prevented, false, "successful save and form reset remove the prompt");
+});
+
+test("M3.4 new-task form clears beforeunload when every field returns to its original value", () => {
+  const page = harness();
+  const form = page.document.getElementById("create-task");
+  const cases = [
+    ["new-task-title", "虚构标题", ""],
+    ["new-task-project", "PROJECT-FAKE-001", ""],
+    ["new-task-related", [{value: "PROJECT-FAKE-002"}], []],
+    ["new-task-owner", "虚构负责人", ""],
+    ["new-task-priority", "high", ""],
+    ["new-task-due", "2030-02-03", ""],
+    ["new-task-planned", "2030-02-04", ""],
+    ["new-task-follow", "2030-02-05", ""]
+  ];
+  const setField = (id, value) => {
+    const field = page.document.getElementById(id);
+    if (id === "new-task-related") field.selectedOptions = value;
+    else field.value = value;
+    form.handlers.get(
+      ["new-task-project", "new-task-related", "new-task-priority"].includes(id)
+        ? "change" : "input"
+    )();
+  };
+
+  assert.equal(page.beforeUnload().prevented, false);
+  for (const [id, changed, original] of cases) {
+    setField(id, changed);
+    assert.equal(page.beforeUnload().prevented, true, id + " must mark the form dirty");
+    setField(id, original);
+    assert.equal(page.beforeUnload().prevented, false,
+                 id + " restored to its original value must clear the dirty flag");
+  }
+
+  for (const [id, changed] of cases) setField(id, changed);
+  assert.equal(page.beforeUnload().prevented, true,
+               "multiple changed fields must request browser confirmation");
+  for (const [id, , original] of cases) setField(id, original);
+  assert.equal(page.beforeUnload().prevented, false,
+               "restoring every field must clear the form dirty flag");
+
+  setField("new-task-owner", "虚构负责人");
+  setField("new-task-due", "2030-02-03");
+  setField("new-task-owner", "");
+  assert.equal(page.beforeUnload().prevented, true,
+               "one remaining changed field must continue to protect the form");
+  setField("new-task-due", "");
+  assert.equal(page.beforeUnload().prevented, false,
+               "restoring the last changed field must clear protection");
+});
+
+test("M3.4 browser reload prompts for dirty task and step edits, and clears after successful saves", async () => {
+  const task = overviewTask("TASK-BEFOREUNLOAD", {
+    title: "原始任务标题",
+    steps: [{
+      step_id: "STEP-" + "B".repeat(32), title: "原始步骤内容",
+      status: "todo", revision: 1, conflict: false
+    }]
+  });
+  const page = overviewHarness([task], [], true);
+  await page.api.refresh(true);
+  assert.equal(page.beforeUnload().prevented, false, "clean task and step forms must not prompt");
+
+  let card = page.el("tasks").children[0].children[1];
+  let taskForm = card.children.find(item => item.className === "task-form");
+  let taskTitle = taskForm.children[0].children[0];
+  taskTitle.value = "未保存的任务标题";
+  taskForm.handlers.get("input")();
+  const taskBlocked = page.beforeUnload();
+  assert.equal(taskBlocked.prevented, true);
+  assert.equal(taskBlocked.returnValue, "");
+
+  taskTitle.value = "原始任务标题";
+  taskForm.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, false,
+               "reverting the task editor to its clean snapshot removes the prompt");
+
+  taskTitle.value = "已保存的任务标题";
+  taskForm.handlers.get("input")();
+  await taskForm.handlers.get("submit")({preventDefault() {}});
+  assert.equal(page.beforeUnload().prevented, false,
+               "successful task save clears the dirty editor before rerender");
+
+  card = page.el("tasks").children[0].children[1];
+  let panel = card.children.find(item => item.className === "steps-panel");
+  let stepList = panel.children.find(item => item.className === "step-list");
+  let stepRow = stepList.children.find(item => item.className === "step-row");
+  let stepForm = stepRow.children[1].children.find(item => item.className === "step-edit-form");
+  let stepTitle = stepForm.children[0].children[0];
+  stepTitle.value = "未保存的步骤内容";
+  stepForm.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, true,
+               "editing an existing step must request browser confirmation");
+
+  stepTitle.value = "原始步骤内容";
+  stepForm.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, false,
+               "reverting the step editor to its clean snapshot removes the prompt");
+
+  stepTitle.value = "已保存的步骤内容";
+  stepForm.handlers.get("input")();
+  await stepForm.handlers.get("submit")({preventDefault() {}});
+  assert.equal(page.beforeUnload().prevented, false,
+               "successful step save clears the dirty editor before rerender");
+
+  card = page.el("tasks").children[0].children[1];
+  panel = card.children.find(item => item.className === "steps-panel");
+  const addForm = panel.children.find(item => item.className === "step-add-form");
+  const addInput = addForm.children[0];
+  addInput.value = "未保存的新增步骤";
+  addForm.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, true,
+               "a new step draft must also request browser confirmation");
+
+  addInput.value = "";
+  addForm.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, false,
+               "clearing the new step input removes the prompt");
+
+  addInput.value = "已保存的新增步骤";
+  addForm.handlers.get("input")();
+  await addForm.handlers.get("submit")({preventDefault() {}});
+  assert.equal(page.beforeUnload().prevented, false,
+               "successful step creation clears the dirty editor before rerender");
+});
+
+
+test("M3.4 successful task save advances clean baseline when sibling draft defers rerender", async () => {
+  const taskA = overviewTask("TASK-SAVED-A", {title: "保存前标题X"});
+  const taskB = overviewTask("TASK-DRAFT-B", {title: "兄弟任务原始标题B"});
+  const page = overviewHarness([taskA, taskB], [], true);
+  await page.api.refresh(true);
+
+  const cardFor = id => page.el("tasks").children[0].children.find(card =>
+    card.children?.[0]?.children?.[0]?.textContent === id);
+  const formFor = id => cardFor(id).children.find(node => node.className === "task-form");
+  const inputFor = id => formFor(id).children[0].children[0];
+  const formA = formFor("TASK-SAVED-A");
+  const formB = formFor("TASK-DRAFT-B");
+  const titleA = inputFor("TASK-SAVED-A");
+  const titleB = inputFor("TASK-DRAFT-B");
+
+  titleA.value = "保存成功的新标题Y";
+  formA.handlers.get("input")();
+  titleB.value = "兄弟任务未保存草稿";
+  formB.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, true);
+  page.setConfirm(false);
+
+  await formA.handlers.get("submit")({preventDefault() {}});
+  assert.equal(taskA.title, "保存成功的新标题Y", "the server has persisted Y");
+  assert.equal(formFor("TASK-SAVED-A"), formA,
+               "sibling draft must defer list rerender and keep A's editor mounted");
+  assert.equal(page.beforeUnload().prevented, true,
+               "the remaining sibling draft continues to protect the page");
+
+  titleB.value = "兄弟任务原始标题B";
+  formB.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, false,
+               "reverting the sibling draft leaves no unrelated dirty editor");
+
+  titleA.value = "保存前标题X";
+  formA.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, true,
+               "reverting A to its pre-save value is a new unsaved change against persisted Y");
+  assert.equal(titleA.value, "保存前标题X",
+               "the new draft remains present until the user chooses whether to leave");
+});
+
+test("M3.4 successful step save advances clean baseline when sibling draft defers rerender", async () => {
+  const taskA = overviewTask("TASK-STEP-SAVED", {
+    title: "步骤所属任务",
+    steps: [{step_id: "STEP-SAVED-BASELINE", title: "保存前步骤X",
+             status: "todo", revision: 1, conflict: false}]
+  });
+  const taskB = overviewTask("TASK-STEP-SIBLING", {title: "兄弟任务原始标题B"});
+  const page = overviewHarness([taskA, taskB], [], true);
+  await page.api.refresh(true);
+
+  const cardFor = id => page.el("tasks").children[0].children.find(card =>
+    card.children?.[0]?.children?.[0]?.textContent === id);
+  const formFor = id => cardFor(id).children.find(node => node.className === "task-form");
+  const titleB = formFor("TASK-STEP-SIBLING").children[0].children[0];
+  const cardA = cardFor("TASK-STEP-SAVED");
+  const panelA = cardA.children.find(node => node.className === "steps-panel");
+  const stepRow = panelA.children.find(node => node.className === "step-list")
+    .children.find(node => node.className === "step-row");
+  const stepForm = stepRow.children[1].children.find(node => node.className === "step-edit-form");
+  const stepTitle = stepForm.children[0].children[0];
+  const siblingForm = formFor("TASK-STEP-SIBLING");
+
+  stepTitle.value = "保存成功的新步骤Y";
+  stepForm.handlers.get("input")();
+  titleB.value = "兄弟任务未保存草稿";
+  siblingForm.handlers.get("input")();
+  page.setConfirm(false);
+  await stepForm.handlers.get("submit")({preventDefault() {}});
+  assert.equal(taskA.steps[0].title, "保存成功的新步骤Y");
+  assert.equal(cardFor("TASK-STEP-SAVED"), cardA,
+               "sibling draft must defer list rerender and keep the step editor mounted");
+
+  titleB.value = "兄弟任务原始标题B";
+  siblingForm.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, false);
+
+  stepTitle.value = "保存前步骤X";
+  stepForm.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, true,
+               "reverting a saved step to its pre-save value is still an unsaved edit");
 });
