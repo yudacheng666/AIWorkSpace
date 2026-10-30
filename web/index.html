@@ -312,16 +312,19 @@
     }
 
     function watchUnsavedEditor(form, snapshot, registry = unsavedTaskEditors) {
-      let cleanSnapshot = snapshot();
+      // Snapshots may be primitives or freshly allocated objects. Compare
+      // their serialized values so restoring every field clears the dirty flag.
+      const snapshotKey = () => JSON.stringify(snapshot());
+      let cleanSnapshot = snapshotKey();
       const update = () => {
-        if (snapshot() === cleanSnapshot) registry.delete(form);
+        if (snapshotKey() === cleanSnapshot) registry.delete(form);
         else registry.add(form);
       };
       form.addEventListener("input", update);
       form.addEventListener("change", update);
       return {
         markClean() {
-          cleanSnapshot = snapshot();
+          cleanSnapshot = snapshotKey();
           registry.delete(form);
         }
       };
