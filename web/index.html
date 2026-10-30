@@ -1281,8 +1281,10 @@
               return;
             }
             if (status.last_update?.commit === expectedCommit &&
-                status.last_update?.status === "rolled_back") {
-              $("update-message").textContent = "更新未能完成，已自动恢复旧版本。任务数据未修改。请稍后重新检查更新。";
+                ["rolled_back", "failed"].includes(status.last_update?.status)) {
+              $("update-message").textContent = status.last_update.status === "rolled_back"
+                ? "更新未能完成，已自动恢复旧版本。任务数据未修改。请稍后重新检查更新。"
+                : "更新未能启动，原版本保持不变。请检查本机服务后重试。";
               updateBusy = false;
               $("check-update").disabled = false;
               $("apply-update").disabled = false;
