@@ -22,6 +22,7 @@ import uuid
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
+from urllib.parse import urlsplit
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -134,7 +135,7 @@ def _read_url(
     allowed_hosts: set[str] | None = None,
 ) -> bytes:
     hosts = allowed_hosts or {"api.github.com", "raw.githubusercontent.com"}
-    initial = __import__("urllib.parse", fromlist=["urlsplit"]).urlsplit(url)
+    initial = urlsplit(url)
     if initial.scheme != "https" or initial.hostname not in hosts:
         raise UpdateError("更新地址不属于受信任的 GitHub 域名。")
     request = Request(url, headers={
@@ -144,7 +145,7 @@ def _read_url(
     try:
         with urlopen(request, timeout=timeout) as response:
             final_url = getattr(response, "geturl", lambda: url)()
-            final = __import__("urllib.parse", fromlist=["urlsplit"]).urlsplit(final_url)
+            final = urlsplit(final_url)
             if final.scheme != "https" or final.hostname not in hosts:
                 raise UpdateError("GitHub 更新请求跳转到了不受信任的域名。")
             length = response.headers.get("Content-Length")
@@ -304,7 +305,8 @@ def prepare_update(root: Path | str, data_dir: Path | str, commit: str) -> tuple
     latest = check_latest_update(root)
     if latest["latest_commit"] != commit:
         raise UpdateError("GitHub main 已发生变化，请重新检查更新。")
-    archive = _read_url(ARCHIVE_URL.format(commit=commit), MAX_ARCHIVE_BYTES, timeout=30,\n                        allowed_hosts={"api.github.com", "codeload.github.com"})
+    archive = _read_url(ARCHIVE_URL.format(commit=commit), MAX_ARCHIVE_BYTES, timeout=30,
+                        allowed_hosts={"api.github.com", "codeload.github.com"})
     stage = validate_archive_and_stage(archive, commit, root, data_dir)
     return stage, latest
 
