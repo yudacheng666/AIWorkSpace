@@ -1,0 +1,13 @@
+[
+  {
+    "url": "http://127.0.0.1:38699/api/tasks/TASK-PARTIAL/steps/reorder",
+    "body": {
+      "step_ids": [
+        "STEP-CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+        "STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "STEP-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+      ],
+      "revision": 1
+    }
+  }
+]

@@ -1,0 +1,4 @@
+PASS A1/A2 actual Chromium: warning, only A/B visible, all reorder buttons disabled; synthetic handler/direct callback send zero POST; content edit enabled
+PASS A3 direct reorder API409; complete file names and all bytes unchanged
+PASS A4 C create arrives; original A,C,B order restored; missing-ID list empty; original reorder bytes intact
+PASS A5 legitimate reorder appends exactly one event after sync, preserving all earlier bytes

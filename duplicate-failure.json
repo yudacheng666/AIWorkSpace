@@ -1,0 +1,92 @@
+{
+  "original_event": {
+    "version": 1,
+    "event_id": "order-event-001",
+    "task_id": "TASK-SYNC",
+    "action": "reorder",
+    "actor": "chatgpt",
+    "base_revision": 0,
+    "changes": {
+      "step_ids": [
+        "STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "STEP-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+      ]
+    }
+  },
+  "conflicting_same_id_event": {
+    "version": 1,
+    "event_id": "order-event-001",
+    "task_id": "TASK-SYNC",
+    "action": "reorder",
+    "actor": "chatgpt",
+    "base_revision": 1,
+    "changes": {
+      "step_ids": [
+        "STEP-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      ]
+    }
+  },
+  "workspace": {
+    "tasks": [
+      {
+        "task_id": "TASK-SYNC",
+        "title": "虚构：重复事件专项",
+        "status": "todo",
+        "revision": 1,
+        "conflict": false,
+        "conflict_fields": [],
+        "conflict_candidates": [],
+        "owner": null,
+        "priority": "normal",
+        "due_date": null,
+        "planned_date": null,
+        "follow_up_date": null,
+        "project_id": null,
+        "related_project_ids": [],
+        "project_name": null,
+        "project_missing": false,
+        "related_project_names": [],
+        "steps": [
+          {
+            "task_id": "TASK-SYNC",
+            "step_id": "STEP-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+            "title": "虚构步骤2",
+            "status": "todo",
+            "revision": 1,
+            "conflict": false,
+            "conflict_fields": [],
+            "conflict_candidates": [],
+            "created_at": "",
+            "created_position": 2,
+            "position": 1
+          },
+          {
+            "task_id": "TASK-SYNC",
+            "step_id": "STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "title": "虚构步骤1",
+            "status": "todo",
+            "revision": 1,
+            "conflict": false,
+            "conflict_fields": [],
+            "conflict_candidates": [],
+            "created_at": "",
+            "created_position": 1,
+            "position": 2
+          }
+        ],
+        "step_order_revision": 2,
+        "step_order_conflict": false,
+        "step_order_incomplete": false,
+        "step_order_missing_ids": [],
+        "step_order_candidates": []
+      }
+    ],
+    "projects": [],
+    "warnings": [
+      "z-duplicate-order.json: duplicate step event_id with conflicting content",
+      "TASK-SYNC: step-order event_id order-event-001 has conflicting content"
+    ]
+  },
+  "all_event_bytes_unchanged": true
+}

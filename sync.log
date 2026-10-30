@@ -1,0 +1,8 @@
+PASS B sync: step create before parent warns, parent arrival reconstructs without rewriting
+PASS B sync: step update before create recovers title/revision after create arrives
+PASS B sync: reorder before all step creation events reconstructs B,A
+PASS B sync: later order revision arriving first freezes, fills gap then reconstructs chain
+PASS B duplicate identical create/reorder event IDs: ignored with warnings, no extra revisions or file changes
+PASS B duplicate step-update ID across revisions with different content: only affected step frozen
+PASS B duplicate order ID same base revision with different content freezes order only
+FAIL P2: same reorder event_id has different content/base_revision0+1; reducer applies both as valid chain (revision2), step_order_conflict=false; browser reorder remains enabled despite duplicate-content warning. No further mutation performed; stopping.

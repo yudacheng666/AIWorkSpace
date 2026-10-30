@@ -1,0 +1,34 @@
+{
+  "blocked_reorder": {
+    "status": 409,
+    "body": {
+      "error": "step order references steps whose creation events have not synced; wait for sync and refresh"
+    },
+    "all_event_bytes_unchanged": true
+  },
+  "after_sync": {
+    "restored_order": [
+      "STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "STEP-CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "STEP-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+    ],
+    "new_order": [
+      "STEP-CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "STEP-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+    ],
+    "post": {
+      "url": "http://127.0.0.1:38699/api/tasks/TASK-PARTIAL/steps/reorder",
+      "body": {
+        "step_ids": [
+          "STEP-CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+          "STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "STEP-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        ],
+        "revision": 1
+      }
+    },
+    "all_prior_event_bytes_unchanged": true
+  },
+  "status": "PASS"
+}
