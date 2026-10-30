@@ -1,12 +1,13 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-30（北京时间）  
-当前阶段：**M1/M2 技术基线已合入 main；M2 已在用户原公司 Windows 电脑以唯一正式实例运行（8770）。用户确认网页打开、既有任务读取、网页新建→刷新→Drive 同步，以及 ChatGPT→Drive 写入→网页刷新显示均成功。M2 双向任务闭环收尾完成；下一步进入 M3 个人工作管理能力开发。**
+当前阶段：**M1/M2 已合入 main；M3.1 PR #3 的 Codex 首轮独立验收对固定 SHA `8341816` 判定 FAIL（2 项 P2）。ChatGPT 已在同一 Draft PR 修复两项缺陷并补充回归；修复代码 SHA `ad87b6ca` 的 Linux/Windows CI 均 SUCCESS（各 44 Python + 9 Node）。仍须 Codex 对新 SHA 定向复验，不能宣称独立验收 PASS；尚未合并 main。**
 
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | AIWorkSpace，Public；PR #1 已以 squash 方式合并到 `main`，合并提交 `84fd0d234d799148c7a925a2d49408b11bd69481`；当前只在公司 Windows 电脑部署 |
 | 当前代码基线 | `main` 已包含 M1 + M2；PR #2 `feat/20261029-m2-web-task-create` 已 squash 合并，合并提交 `d31f0e2dff7a6c1bf9f3f4ae5754f6d47eadd5bb` |
+| 当前开发 PR | [PR #3：M3.1 轻量项目结构与任务归属](https://github.com/yudacheng666/AIWorkSpace/pull/3)，分支 `feat/m3-01-project-structure`，Draft，未合并；项目事件、任务主要/相关项目、项目分组 UI 已实现 |
 | M1 Codex 验证的代码提交（历史） | `9f06969164e773cf08f03e5d2d02de52c38d688b`；M2 另行在 PR #2 进行 Chromium 复验与 CI |
 | 原独立验收 | Codex 对旧 head `37cde4c` 判定 **FAIL，2 项 P2**：同事件 ID 并发写入静默覆盖；GET 接口接受任意 Host |
 | 修复后 Codex 复验 | **PASS（本机 Linux 复验范围）**：两项原 P2 均通过；完整测试 23 PASS / 0 FAIL；额外 50 轮线程竞争、12 进程竞争及数据完整性检查通过；未发现新增已确认 P1/P2；限定安全扫描未发现密钥或隐私泄露 |
@@ -89,11 +90,26 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - 实机验收仅针对用户指定的公司 Windows 电脑；不要求第二台电脑。
 - Public 仓库只提交代码、虚构数据和必要项目记忆；不提交真实台账、个人/企业资料、私有 Drive ID、密钥或本机路径。
 
+## 远程访问安排（2026-10-30）
+
+- 用户决定：**暂时放弃远程访问，待产品功能完成后再补充**。
+- 当前 M3.1 及后续产品功能开发期间，不修改本机 Host/Origin 安全限制，不为 Tailscale 增加远程访问白名单，不部署或验收远程入口。
+- 当前公司 Windows 部署继续按本机 `127.0.0.1:8770` 使用；电脑二暂不通过 Tailscale 访问电脑一。
+- 产品功能阶段完成后，再以届时最新稳定版本单独规划远程访问适配；不回到 M2 或旧测试中间版本重复修改。
+- 本决策不改变 Google Drive 数据目录、追加式 JSON 事件模型、已通过的 M1/M2 同步与冲突保护机制。
+
+## M3.1 独立验收与 P2 修复（2026-10-30）
+
+- 首轮独立 Codex 固定 HEAD `8341816fdd8538a945be31d03d8b147679741d6a`：**FAIL，确认 2 项 P2**。证据见 [PR #3 Codex 回评](https://github.com/yudacheng666/AIWorkSpace/pull/3#issuecomment-6515937505)。
+- P2-1：两个同版本合法任务 update 的 `related_project_ids` 含不同数组时，`conflicting_fields()` 直接将列表加入 Python set 比较，抛 `TypeError: unhashable type: 'list'`，导致整个 `GET /api/tasks` 中断。修复为 JSON 规范化字符串比较，冲突仅冻结涉事任务；额外测试覆盖 API 整体读取、重复 event_id、其他任务正常可见与涉事任务 409 保护。
+- P2-2：任务引用的项目事件未完成同步时，网页下拉列表没有原先的项目 ID，导致仅编辑标题却提交 `project_id:null, related_project_ids:[]`，追加一条清除引用的事件。修复为对尚未同步的关联显示原 ID 选项，并仅在用户实际修改项目选择时发送关联字段；服务端允许更新时保留**已有**未同步引用，但拒绝新增未知/冲突项目引用。额外测试覆盖网页仅改标题、明确取消主要项目关联、服务端旧引用保留和未知新引用被拒。
+- 修复代码及测试 SHA：`ad87b6ca9587fc782aaadeb970680263eb8d1731`。[GitHub Actions #41010659532](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41010659532)：**Linux 与 Windows 均 44 项 Python PASS、9 项 Node UI PASS、0 FAIL**。
+- **验收边界**：上述为自动化回归结果；Codex 对本次修复还未独立复验。此前 Codex 未测试公司 Windows、真实 Google Drive 同步与原生中文输入法；本次未触碰本机正式版本、私人数据或 main。
+
 ## 下一步
 
-1. M2 收尾：**完成**。公司 Windows 唯一正式实例已在 `http://127.0.0.1:8770/` 打开；用户确认既有任务正常显示、网页新建后刷新正常且 Drive 同步完成；ChatGPT 写入 Drive 的虚构事件经用户刷新后成功显示。此前网页编辑→Drive、断网恢复、刷新持久性及 409 旧版本保护均已有验收证据。本轮不再重复整套 M2 测试。
-2. **开始 M3.1**：先实现轻量项目记录、稳定项目编号、任务主要项目/相关项目关联、未归类任务和按项目查看。项目/任务事件需保持追加式与历史兼容。
-3. M3.1 开发完成后，创建 PR 并运行 Linux/Windows CI；再安排一次独立审查，重点检查旧事件兼容、项目引用一致性、并发与冲突保护。只有与本阶段代码相关的实机项目/任务流程需要用户验证。
-4. M3.1 不扩展到负责人、日期、步骤、复杂首页或提醒；这些按 M3.2–M3.5 顺序推进，避免一次做大。
+1. 先核对本 PR 的最新 HEAD 和 Linux/Windows CI。确认自动化验证后，只对上述两项 P2 安排 Codex Cloud 定向复验；必要时复测任务关联编辑、项目引用延迟同步及 409 保护。无需重复无关 M1/M2 或第二台电脑测试。
+2. Codex 将复验结论、证据和实际 SHA 回写 PR #3，ChatGPT 读取并判断是否可进入后续实机验证 / 合并审查。**未独立复验 PASS 前维持 FAIL / Draft；未经用户批准绝不合并**。
+3. 其后才继续 M3.2；远程访问按 D012 暂缓至产品功能完成后。
 
-**交接规则：** 新 AI 先读取根目录 `AGENTS.md`，再核实本文件、需求、决策、PR head 与最新 Actions 证据。不得把 Linux 复验 PASS 扩大解释为 Windows/云端/浏览器 PASS。
+**交接规则：** 新 AI 必须读取 AGENTS.md、需求、状态、决策、PR 当前 HEAD 和最新 CI/独立验收记录，不可将自动测试 PASS 当作 Codex 独立实操 PASS。

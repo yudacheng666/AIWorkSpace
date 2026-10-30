@@ -22,7 +22,21 @@
     .refresh:hover { background: #eaf0f8; }
     .create-panel { background: white; border: 1px solid #e1e8f0; border-radius: 14px; padding: 20px 22px; margin-top: 25px; }
     .create-help { margin: 7px 0 15px; color: #718197; font-size: 13px; }
-    .create-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; }
+    .create-form { display: grid; grid-template-columns: minmax(180px, 1.4fr) minmax(150px, .8fr) minmax(160px, .9fr) auto; align-items: end; gap: 12px; }
+    .project-panel { background: #fff; border: 1px solid #e1e8f0; border-radius: 14px; padding: 18px 22px; margin-top: 16px; }
+    .project-list { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 14px; }
+    .project-card { display: flex; align-items: center; gap: 8px; border: 1px solid #e6ecf4; background: #f9fbfe; border-radius: 10px; padding: 8px; min-width: min(100%, 270px); }
+    .project-card input { min-width: 0; height: 34px; }
+    .project-card button { flex: 0 0 auto; height: 34px; padding: 0 11px; }
+    .project-card small { color: #718197; font-size: 10px; }
+    .project-help { margin: 6px 0 12px; color: #718197; font-size: 12px; }
+    select[multiple] { height: 76px; padding: 5px 8px; }
+    .task-form { display: grid; grid-template-columns: minmax(160px, 1.3fr) 125px minmax(140px, .8fr) minmax(150px, .9fr) auto; align-items: end; gap: 12px; }
+    .project-group { display: grid; gap: 10px; }
+    .project-group + .project-group { margin-top: 12px; }
+    .project-group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 2px; }
+    .project-group-head strong { color: #334b69; font-size: 14px; }
+    .project-group-head span { color: #8a97a8; font-size: 12px; }
     .create-panel .message { margin-bottom: 0; }
     .stats { display: flex; gap: 12px; margin: 26px 0 28px; }
     .stat { flex: 1; min-width: 0; background: #fff; border: 1px solid #e9edf4; border-radius: 14px; padding: 21px; }
@@ -37,7 +51,6 @@
     .task-id { font-size: 11px; font-weight: 700; letter-spacing: .4px; color: #6a7f96; }
     .task-badge { font-size: 12px; border-radius: 7px; padding: 5px 9px; background: #f0f4fb; color: #507196; }
     .task-badge.conflict { background: #fff3da; color: #976211; }
-    .task-form { display: grid; grid-template-columns: 1fr 156px auto; align-items: end; gap: 12px; }
     label { display: grid; gap: 6px; min-width: 0; color: #7b899c; font-size: 12px; }
     input, select { border: 1px solid #dce4ee; background: #fff; color: #263a53; border-radius: 9px; height: 40px; padding: 0 11px; font: inherit; font-size: 14px; width: 100%; }
     .save { height: 40px; padding: 0 18px; background: #285baf; color: white; border: none; font-size: 13px; font-weight: 700; }
@@ -58,7 +71,10 @@
       .stat { padding: 15px; }
       .create-panel { padding: 17px 16px; }
       .create-form { grid-template-columns: 1fr; }
-      .task-form { grid-template-columns: 1fr 120px; }
+      .task-form { grid-template-columns: 1fr 1fr; }
+      .task-form label:first-child { grid-column: 1 / -1; }
+      .task-form .save { grid-column: 1 / -1; }
+      .project-panel { padding: 17px 16px; }
       .task-form .save { grid-column: 1 / -1; }
       .task { padding: 16px; }
     }
@@ -81,9 +97,28 @@
         <label for="new-task-title">任务名称
           <input id="new-task-title" type="text" maxlength="200" required placeholder="输入要处理的事项" autocomplete="off">
         </label>
+        <label for="new-task-project">主要所属项目
+          <select id="new-task-project"><option value="">未归类 / 收件箱</option></select>
+        </label>
+        <label for="new-task-related">关联项目（可多选）
+          <select id="new-task-related" multiple size="3"></select>
+        </label>
         <button class="save" id="create-submit" type="submit">创建任务</button>
       </form>
       <p class="message" id="create-message" role="status" aria-live="polite"></p>
+    </section>
+    <section class="project-panel" aria-labelledby="project-heading">
+      <h2 id="project-heading">项目管理</h2>
+      <p class="project-help">项目有独立编号；任务可归属一个主要项目，也可关联其他项目。项目不会因没有任务而自动删除。</p>
+      <form class="create-form" id="create-project">
+        <label for="new-project-name">新项目名称
+          <input id="new-project-name" type="text" maxlength="120" required placeholder="输入项目名称" autocomplete="off">
+        </label>
+        <span></span><span></span>
+        <button class="save" id="project-submit" type="submit">创建项目</button>
+      </form>
+      <p class="message" id="project-message" role="status" aria-live="polite"></p>
+      <div class="project-list" id="project-list" aria-label="项目列表"></div>
     </section>
     <div class="stats" aria-label="任务统计">
       <div class="stat"><b id="total">—</b><span>全部任务</span></div>
@@ -101,6 +136,7 @@
     const labels = {todo: "待处理", doing: "进行中", blocked: "受阻", done: "已完成"};
     let isSaving = false;
     let current = [];
+    let currentProjects = [];
     let createDraftRevision = 0;
 
     function element(tag, className, value) {
@@ -110,6 +146,70 @@
       return el;
     }
 
+    function projectOptions(select, selectedId, multiple = false) {
+      select.replaceChildren();
+      if (!multiple) {
+        const none = element("option", "", "未归类 / 收件箱");
+        none.value = "";
+        none.selected = !selectedId;
+        select.append(none);
+      }
+      for (const project of currentProjects) {
+        const option = element("option", "", project.conflict ? `${project.name}（需核查）` : project.name);
+        option.value = project.project_id;
+        option.selected = multiple
+          ? (Array.isArray(selectedId) && selectedId.includes(project.project_id))
+          : selectedId === project.project_id;
+        option.disabled = project.conflict;
+        select.append(option);
+      }
+      // Drive may sync the task before its project. Show a selected placeholder
+      // rather than silently treating that reference as an empty selection.
+      const selectedIds = multiple ? (selectedId || []) : (selectedId ? [selectedId] : []);
+      for (const projectId of selectedIds) {
+        if (currentProjects.some(item => item.project_id === projectId)) continue;
+        const option = element("option", "", `尚未同步的项目（${projectId}）`);
+        option.value = projectId;
+        option.selected = true;
+        select.append(option);
+      }
+    }
+
+    function selectedValues(select) {
+      return Array.from(select.selectedOptions || []).map(option => option.value);
+    }
+
+    function projectRow(project) {
+      const card = element("form", "project-card");
+      const input = element("input");
+      input.type = "text"; input.maxLength = 120; input.required = true;
+      input.value = project.name; input.disabled = project.conflict;
+      const button = element("button", "save", "保存");
+      button.type = "submit"; button.disabled = project.conflict;
+      card.append(input, button);
+      card.addEventListener("submit", async event => {
+        event.preventDefault();
+        if (isSaving || project.conflict || input.value.trim() === project.name) return;
+        isSaving = true; button.disabled = true;
+        try {
+          const response = await fetch(`/api/projects/${encodeURIComponent(project.project_id)}/update`, {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({name: input.value.trim(), revision: project.revision})
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+          $("project-message").textContent = "项目名称已保存为一条新记录";
+          await refresh(true);
+        } catch (error) {
+          $("project-message").className = "message error";
+          $("project-message").textContent = `项目保存失败：${error.message}`;
+        } finally { isSaving = false; button.disabled = false; }
+      });
+      const id = element("small", "", project.project_id);
+      card.append(id);
+      return card;
+    }
+
     function row(task) {
       const conflictFields = Array.isArray(task.conflict_fields) ? task.conflict_fields : [];
       const candidates = Array.isArray(task.conflict_candidates) ? task.conflict_candidates : [];
@@ -117,9 +217,10 @@
       const hasStatusConflict = task.conflict && conflictFields.includes("status");
       const card = element("article", "task");
       const top = element("div", "task-top");
+      const projectLabel = task.project_name || (task.project_id ? "项目未同步/需核查" : "未归类 / 收件箱");
       top.append(element("span", "task-id", task.task_id),
                  element("span", "task-badge" + (task.conflict ? " conflict" : ""),
-                         task.conflict ? "需要人工核查" : `修订 ${task.revision}`));
+                         task.conflict ? "需要人工核查" : `${projectLabel} · 修订 ${task.revision}`));
       const form = element("form", "task-form");
       const titleLabel = element("label", "", "任务名称");
       const title = element("input");
@@ -142,28 +243,51 @@
       }
       status.disabled = task.conflict;
       statusLabel.append(status);
+      const projectLabelInput = element("label", "", "主要所属项目");
+      const project = element("select");
+      projectOptions(project, task.project_id || "");
+      project.disabled = task.conflict;
+      projectLabelInput.append(project);
+      const relatedLabel = element("label", "", "关联项目（可多选）");
+      const related = element("select");
+      related.multiple = true; related.size = 3;
+      projectOptions(related, task.related_project_ids || [], true);
+      related.disabled = task.conflict;
+      relatedLabel.append(related);
       const button = element("button", "save", "保存修改");
       button.type = "submit"; button.disabled = task.conflict;
       const message = element("p", "message", task.conflict
         ? "检测到冲突，系统已停止写入。请先核查；冲突候选不是最终结论。"
         : "");
-      form.append(titleLabel, statusLabel, button);
+      form.append(titleLabel, statusLabel, projectLabelInput, relatedLabel, button);
       form.addEventListener("submit", async event => {
         event.preventDefault();
         if (isSaving || task.conflict) return;
         const nextStatus = status.value;
+        const nextProject = project.value || null;
+        const nextRelated = selectedValues(related);
         const completedNow = nextStatus === "done" && task.status !== "done";
         if (completedNow && !window.confirm("确认亲自将此任务标记为完成？")) return;
-        if (title.value.trim() === task.title && nextStatus === task.status) {
+        const primaryChanged = nextProject !== (task.project_id || null);
+        const originalRelated = task.related_project_ids || [];
+        const relatedChanged = nextRelated.length !== originalRelated.length ||
+          nextRelated.some(id => !originalRelated.includes(id));
+        if (title.value.trim() === task.title && nextStatus === task.status &&
+            !primaryChanged && !relatedChanged) {
           message.textContent = "内容没有变化";
           return;
         }
         isSaving = true; button.disabled = true; message.textContent = "正在保存…";
         try {
+          const changes = {title: title.value.trim(), status: nextStatus,
+                           revision: task.revision, confirmed_done: nextStatus === "done"};
+          // Send project references only when a user explicitly changes their selection.
+          // A title-only edit must not clear IDs whose project file is still syncing.
+          if (primaryChanged) changes.project_id = nextProject;
+          if (relatedChanged) changes.related_project_ids = nextRelated;
           const response = await fetch(`/api/tasks/${encodeURIComponent(task.task_id)}/update`, {
             method: "POST", headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({title: title.value.trim(), status: nextStatus,
-                                  revision: task.revision, confirmed_done: nextStatus === "done"})
+            body: JSON.stringify(changes)
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || "保存失败");
@@ -225,7 +349,108 @@
       }
     }
 
+    async function refresh(force = false) {
+      if (isSaving && !force) return;
+      if (!force && (document.activeElement?.closest(".task") ||
+                     document.activeElement?.closest(".project-card") ||
+                     document.activeElement?.closest("#create-task") ||
+                     document.activeElement?.closest("#create-project"))) return;
+      $("sync").textContent = "正在读取…";
+      try {
+        const response = await fetch("/api/tasks", {cache: "no-store"});
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        current = data.tasks || [];
+        currentProjects = data.projects || [];
+        $("total").textContent = current.length;
+        $("active").textContent = current.filter(t => !t.conflict && (t.status === "todo" || t.status === "doing")).length;
+        $("finished").textContent = current.filter(t => !t.conflict && t.status === "done").length;
+        const createProjectSelect = $("new-task-project");
+        const createRelatedSelect = $("new-task-related");
+        const priorProject = createProjectSelect.value;
+        const priorRelated = selectedValues(createRelatedSelect);
+        projectOptions(createProjectSelect, priorProject);
+        projectOptions(createRelatedSelect, priorRelated, true);
+        const projectList = $("project-list");
+        if (!currentProjects.length) {
+          projectList.replaceChildren(element("p", "project-help", "还没有项目。可以先创建项目，再把任务归入项目；也可以暂时放在未归类收件箱。"));
+        } else {
+          projectList.replaceChildren(...currentProjects.map(projectRow));
+        }
+        const list = $("tasks");
+        if (!current.length) {
+          const empty = element("div", "empty");
+          empty.append(element("strong", "", "这里还没有任务"),
+                       element("p", "", "先创建项目，再创建任务并选择所属项目；也可以把临时事项放在未归类收件箱。"));
+          list.replaceChildren(empty);
+        } else {
+          const groups = new Map();
+          for (const task of current) {
+            const key = task.project_id || "";
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(task);
+          }
+          const ordered = [];
+          for (const project of currentProjects) {
+            if (groups.has(project.project_id)) ordered.push([project.project_id, project.name, groups.get(project.project_id)]);
+          }
+          for (const [key, tasks] of groups) {
+            if (!key) ordered.push(["", "未归类 / 收件箱", tasks]);
+            else if (!currentProjects.some(project => project.project_id === key)) {
+              ordered.push([key, "项目未同步 / 需核查", tasks]);
+            }
+          }
+          list.replaceChildren(...ordered.map(([key, name, tasks]) => {
+            const group = element("section", "project-group");
+            const head = element("div", "project-group-head");
+            head.append(element("strong", "", name),
+                        element("span", "", `${tasks.length} 项任务`));
+            group.append(head, ...tasks.map(row));
+            return group;
+          }));
+        }
+        const warnings = $("warnings");
+        warnings.hidden = !data.warnings.length;
+        warnings.textContent = data.warnings.length ? `有 ${data.warnings.length} 项需要核查：${data.warnings.slice(0, 3).join("；")}` : "";
+        $("sync").textContent = `上次刷新 ${new Date().toLocaleTimeString()}`;
+      } catch (error) {
+        $("sync").textContent = `读取失败：${error.message}`;
+      }
+    }
+
     $("new-task-title").addEventListener("input", () => { createDraftRevision++; });
+
+    $("create-project").addEventListener("submit", async event => {
+      event.preventDefault();
+      const input = $("new-project-name");
+      const message = $("project-message");
+      const submit = $("project-submit");
+      const name = input.value.trim();
+      if (isSaving) return;
+      if (!name || name.length > 120) {
+        message.className = "message error";
+        message.textContent = "请输入 1–120 字的项目名称。";
+        return;
+      }
+      isSaving = true; submit.disabled = true; message.className = "message";
+      message.textContent = "正在创建项目…";
+      try {
+        const response = await fetch("/api/projects", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({name})
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+        input.value = "";
+        message.textContent = `项目创建成功：${result.project_id}`;
+        await refresh(true);
+      } catch (error) {
+        message.className = "message error";
+        message.textContent = `项目创建失败：${error.message}`;
+      } finally { isSaving = false; submit.disabled = false; }
+    });
+
+
 
     $("create-task").addEventListener("submit", async event => {
       event.preventDefault();
@@ -235,6 +460,8 @@
       const originalDraft = input.value;
       const draftRevisionAtSubmit = createDraftRevision;
       const title = originalDraft.trim();
+      const projectId = $("new-task-project").value || null;
+      const relatedIds = selectedValues($("new-task-related"));
       if (isSaving) {
         message.textContent = "另一个操作正在保存，请稍后再提交。";
         return;
@@ -244,18 +471,25 @@
         message.textContent = "请输入 1–200 字的任务名称。";
         return;
       }
+      if (projectId && relatedIds.includes(projectId)) {
+        message.className = "message error";
+        message.textContent = "主要所属项目不能同时作为关联项目。";
+        return;
+      }
       isSaving = true;
       submit.disabled = true;
       message.className = "message";
       message.textContent = "正在创建…";
       try {
+        const body = {title};
+        if (projectId) body.project_id = projectId;
+        if (relatedIds.length) body.related_project_ids = relatedIds;
         const response = await fetch("/api/tasks", {
           method: "POST", headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({title})
+          body: JSON.stringify(body)
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
-        // A delayed response must not wipe the next task drafted while this save ran.
         const draftUntouched = createDraftRevision === draftRevisionAtSubmit &&
                                input.value === originalDraft;
         if (draftUntouched) input.value = "";
