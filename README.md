@@ -2,7 +2,7 @@
 
 个人 AI 工作台，先验证 **ChatGPT → Google Drive → 本地网页 → Google Drive → ChatGPT** 的任务闭环。不需要额外的 Google Cloud 项目、付费 API 或第三方 Python 库。
 
-**当前阶段：** M1/M2/M3.1 均已合入 `main`（最近 M3.1 合并提交 `58107526`）。M3.2 任务管理字段在独立分支开发，尚未合并；仍以本机单用户工作台为目标。
+**当前阶段：** M1/M2/M3.1/M3.2 均已合入 `main`（M3.2 Squash 合并提交 `94a93bcb`）。M3.3 编号执行步骤正在独立分支开发，尚未合并；仍以本机单用户工作台为目标。
 
 ## 先在 Windows 运行
 
@@ -22,7 +22,7 @@
 
 打开本机工作台后，在页面顶部的「新建任务」输入名称，点击「创建任务」：
 - 系统自动生成一个稳定的 `TASK-<UUID>` 编号；初始状态统一是「待处理」。
-- M2 最初只接受任务名称；M3.1 允许项目关联，M3.2 将增加可选负责人、优先级、三个日期字段。浏览器不能伪造用户完成确认或指定任务 ID。
+- M2 最初只接受任务名称；M3.1 增加项目关联；M3.2 增加可选负责人、优先级、截止/计划/跟进三个独立日期。浏览器不能伪造用户完成确认或指定任务 ID。
 - 新任务作为独立 JSON 创建事件原子发布到现有 `events` 目录，原事件不覆盖；页面显示编号并刷新列表。
 - 如果创建结果不明确，请先刷新并核查列表，避免盲目重复提交。
 
@@ -56,7 +56,7 @@ ChatGPT 创建项目时，先向 `project_events/` 写入独立项目创建事�
 
 任务事件的 `changes` 可选包含 `project_id` 和 `related_project_ids`。项目名称修改通过相同项目 ID 的新 update 事件完成，`base_revision` 使用当前项目 revision。
 
-## M3.2：任务管理字段（开发分支，尚未合并）
+## M3.2：任务管理字段（PR #4 已合并）
 
 - 负责人：`owner`，自由文本（最多 100 字），可为空；空值在事件中表示 `null`。目前不引入成员名册、登录或团队权限。
 - 优先级：`priority`，可选 `low`（低）、`normal`（普通，默认）、`high`（高）、`urgent`（紧急）。
@@ -87,6 +87,55 @@ ChatGPT 创建项目时，先向 `project_events/` 写入独立项目创建事�
     "due_date": "2026-11-20",
     "planned_date": "2026-11-01",
     "follow_up_date": "2026-11-07"
+  }
+}
+```
+
+## M3.3：编号执行步骤（开发分支，尚未合并）
+
+- 每项任务可拆分最多 100 个执行步骤；每一步有稳定编号 `STEP-<32位大写十六进制>`，与显示顺序分开保存。
+- 步骤名称 1–200 字；状态沿用任务状态：`todo`（待处理）、`doing`（进行中）、`blocked`（受阻）、`done`（已完成）。
+- 新建步骤时记录创建顺序；网页可用“上移/下移”调整顺序。顺序调整以一条包含完整步骤编号序列的事件保存，避免同时写多个步骤造成半完成排序。
+- 每个步骤拥有独立 revision；编辑只追加该步骤的新事件，不改写父任务或其他步骤。并发同版本修改会冻结涉事步骤；顺序冲突只冻结排序，不冻结步骤内容读取/编辑。
+- 步骤标记完成必须用户在网页明确确认；ChatGPT 可以新增步骤或更新非完成状态，不能自行将步骤设为已完成。
+- 步骤事件写入数据目录的 `step_events/`，与任务 `events/`、项目 `project_events/` 分开。目录首次写入时自动创建；旧任务没有步骤时显示空列表，无需迁移。
+- 不支持删除步骤或嵌套子步骤；不引入独立人员、审批、自动提醒或数据库。
+
+步骤创建事件示例（虚构数据，位置从 1 开始）：
+
+```json
+{
+  "version": 1,
+  "event_id": "step-create-demo-0001",
+  "task_id": "TASK-M3-03-DEMO",
+  "step_id": "STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "action": "create",
+  "actor": "chatgpt",
+  "base_revision": 0,
+  "timestamp": "2026-10-30T00:00:00Z",
+  "changes": {
+    "title": "整理第一份资料",
+    "position": 1
+  }
+}
+```
+
+调整顺序事件示例（只能由用户操作产生；`base_revision` 是该任务的步骤顺序修订号）：
+
+```json
+{
+  "version": 1,
+  "event_id": "step-order-demo-0001",
+  "task_id": "TASK-M3-03-DEMO",
+  "action": "reorder",
+  "actor": "user",
+  "base_revision": 0,
+  "timestamp": "2026-10-30T00:00:00Z",
+  "changes": {
+    "step_ids": [
+      "STEP-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "STEP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    ]
   }
 }
 ```
@@ -128,7 +177,7 @@ node --test tests/test_create_ui.mjs
 历史 M2 CI 在 Linux/Windows 运行了 30 项 Python + 5 项 Node UI；M3.1 随后扩展了项目与任务关联回归。M3.2 新增负责人、优先级、日期校验/冲突/历史兼容/草稿保护测试，具体以 M3.2 PR 的最新固定 HEAD、CI 和独立验收结论为准。
 
 - 代码：`app.py`、`web/index.html`；测试：`tests/test_app.py`。
-- 无登录、无外网服务、无自动提醒、无多用户权限；M3.1 已合并。M3.2 的负责人、优先级、三个日期在开发分支，尚未部署；执行步骤、提醒、工作总览和搜索仍属后续阶段。
+- 无登录、无外网服务、无自动提醒、无多用户权限；M3.1 与 M3.2 已合并，M3.3 步骤功能仍在开发分支，尚未部署。自动提醒、工作总览和高级查询仍属后续阶段。
 - 首版的文件同步**不是实时数据库**。遇到 Drive 延迟、重复创建或并发修改可能需要刷新与人工核查。
 - 不要将 API 密钥、凭证、个人资料、真实台账或 Google Drive 私有链接提交到此 Public 仓库。
 
