@@ -490,6 +490,12 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
             order_candidates.extend(summarize_conflict_events(remaining))
             warnings.append(f"{task_id}: unresolved or out-of-order step order")
         known = {step["step_id"]: step for step in defaults}
+        missing_order_ids = [step_id for step_id in order_ids if step_id not in known]
+        if missing_order_ids:
+            warnings.append(
+                f"{task_id}: step order references {len(missing_order_ids)} step(s) "
+                "whose creation events have not synced"
+            )
         ordered = [known[step_id] for step_id in order_ids if step_id in known]
         ordered_ids = {step["step_id"] for step in ordered}
         ordered.extend(step for step in defaults if step["step_id"] not in ordered_ids)
@@ -498,6 +504,8 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
         task["steps"] = ordered
         task["step_order_revision"] = order_revision
         task["step_order_conflict"] = order_conflict
+        task["step_order_incomplete"] = bool(missing_order_ids)
+        task["step_order_missing_ids"] = missing_order_ids
         task["step_order_candidates"] = order_candidates
 
 
@@ -884,6 +892,11 @@ def handler_factory(data_dir: Path):
                             return self.json_response(409, {"error": "task has an unresolved conflict; refresh"})
                         if task["step_order_conflict"]:
                             return self.json_response(409, {"error": "step order has an unresolved conflict; refresh"})
+                        if task["step_order_incomplete"]:
+                            return self.json_response(
+                                409,
+                                {"error": "step order references steps whose creation events have not synced; wait for sync and refresh"},
+                            )
                         current_ids = [item["step_id"] for item in task.get("steps", [])]
                         if len(step_ids) != len(current_ids) or set(step_ids) != set(current_ids):
                             raise ValueError("step_ids must contain every current step exactly once")
