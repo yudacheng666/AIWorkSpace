@@ -128,7 +128,7 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
             target = self.root / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
-        (self.root / "VERSION").write_text("1.0.0\n", encoding="utf-8")
+        (self.root / "VERSION").write_bytes(b"1.0.0\n")
         for name in (".aiworkspace-build.json", ".aiworkspace-update-state.json"):
             (self.root / name).unlink(missing_ok=True)
 
@@ -241,7 +241,7 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
         backup = backups[-1]
         self.assertFalse(backup.resolve().is_relative_to(self.root.resolve()))
         self.assertFalse(backup.resolve().is_relative_to(self.data_dir.resolve()))
-        self.assertEqual((backup / "VERSION").read_bytes(), b"1.0.0\n")
+        self.assertEqual((backup / "VERSION").read_bytes(), self.old_files["VERSION"])
         self.assertTrue((backup / "manifest.json").is_file())
         return backup
 
@@ -278,7 +278,7 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                     self.assertEqual(status["last_update"]["status"], "rolled_back")
                     self.assertIsNotNone(self.old_process.poll(),
                                          "old service process did not exit before rollback restart")
-                    self.assertEqual((self.root / "VERSION").read_bytes(), b"1.0.0\n")
+                    self.assertEqual((self.root / "VERSION").read_bytes(), self.old_files["VERSION"])
                     for relative, content in self.old_files.items():
                         self.assertEqual((self.root / relative).read_bytes(), content,
                                          f"rollback did not restore {relative}")
