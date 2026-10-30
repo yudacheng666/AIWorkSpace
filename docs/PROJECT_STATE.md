@@ -142,15 +142,15 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
   - `tests/test_create_ui.mjs`：新增 UI 回归，确认提示、按钮禁用、无 POST，且步骤内容编辑仍可用。
   - 修复提交：`d4bde4b6ec6ee2bf7b30ddf30940698b8dadcd60`（服务端）、`1fb46d39e62009f6c2b98ed35747b124f92e37d9`（网页）、`38f054ae3a3ee041fe43605eaa8eeadcd4586c62`（Python 回归）、`0c815dad7e28c1ccd82a2b3487711e8dc4d11cd7`（Node 回归）。
   - 产品代码与测试固定 SHA：`0c815dad7e28c1ccd82a2b3487711e8dc4d11cd7`。GitHub Actions [#41026355970](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41026355970)：Linux 与 Windows 均 SUCCESS，每个平台 **Python 73 PASS + Node UI 23 PASS，0 FAIL、0 skipped**。
-  - 当前 PR HEAD：`03e493ee24721bb23a0d7626fbebf1bbacec30a3`；它在已测产品/测试 SHA 后仅增加 README、PROJECT_STATE、DECISIONS 文档提交，产品代码和测试未变化。
+  - 已测产品/测试 SHA：`0c815dad7e28c1ccd82a2b3487711e8dc4d11cd7`；其后的 PR 分支提交仅更新 README、PROJECT_STATE、DECISIONS 等文档，未改变产品代码或测试。新一轮工作必须重新读取 PR 实时 HEAD。
   - 自动化回归已 PASS；Codex 对修复后的部分同步场景尚未独立复验，故原 P2 **尚未关闭**。
 - 未访问真实 Google Drive，未部署公司 Windows 8770，未修改 main；本机测试实例保持原状。真实 Drive 延迟同步、公司 Windows UI、原生中文输入法、长期/断电耐久性仍未测试。
 - 验收边界：CI 通过不等于 P2 关闭；必须让 Codex 对修复后固定 HEAD 重新执行部分同步复现，并完成首轮失败后尚未执行的独立专项。Codex 只验收，不改产品、原测试或 CI。
 
 ## 下一步
 
-1. 等待 Actions `41026355970` 完成，检查 Linux/Windows 的 Python 与 Node 测试结果；如失败，先修 CI/测试问题，不交付 Codex。
-2. CI 全部通过后，委托 Codex 对最新固定 HEAD 做独立复验：先复测原 P2（含 C 同步后恢复），再完成首轮因停止而 NOT TESTED 的乱序/重复、独立并发与 409、父任务冲突、100 步/非法输入、Host/Origin 等专项。不得重复跑已通过的完整 Chromium 场景。
+1. Actions `41026355970` 已通过：Linux/Windows 每个平台 73 Python + 23 Node 全部 PASS。下一步委托 Codex 对修复后最新固定 HEAD 做独立复验。
+2. Codex 先复测原 P2（含 C 同步后恢复），再完成首轮因停止而 NOT TESTED 的乱序/重复、独立并发与 409、父任务冲突、100 步/非法输入、Host/Origin 等专项。不得重复跑已通过的完整 Chromium 场景。
 3. Codex 回写证据后，ChatGPT 审核并修复新发现的问题；必要时定向复验。**未经用户明确批准不合并 PR #5。**
 4. 不升级公司 Windows 8770，不访问真实 Drive，不测试远程访问；远程访问继续按 D012 暂缓。M3.3 完成后再进入 M3.4。
 
