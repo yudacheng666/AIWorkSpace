@@ -120,7 +120,7 @@ ChatGPT 创建项目时，先向 `project_events/` 写入独立项目创建事�
 }
 ```
 
-调整顺序事件示例（只能由用户操作产生；`base_revision` 是该任务的步骤顺序修订号）：
+调整顺序事件示例（可由用户操作，或由 ChatGPT 在用户明确指令下写入；`actor` 为 `user` 或 `chatgpt`，`base_revision` 是该任务的步骤顺序修订号）：
 
 ```json
 {
