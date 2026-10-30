@@ -4,6 +4,28 @@ import {readFileSync} from "node:fs";
 import {test} from "node:test";
 import vm from "node:vm";
 
+function mockWindow(confirm = () => true) {
+  const listeners = new Map();
+  return {
+    window: {
+      confirm,
+      addEventListener(type, handler) {
+        if (!listeners.has(type)) listeners.set(type, []);
+        listeners.get(type).push(handler);
+      }
+    },
+    fireBeforeUnload() {
+      const event = {
+        returnValue: undefined,
+        defaultPrevented: false,
+        preventDefault() { this.defaultPrevented = true; }
+      };
+      for (const handler of listeners.get("beforeunload") || []) handler(event);
+      return {prevented: event.defaultPrevented, returnValue: event.returnValue};
+    }
+  };
+}
+
 const page = readFileSync(new URL("../web/index.html", import.meta.url), "utf8");
 const match = page.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(match, "web page must have an inline script");
@@ -37,6 +59,7 @@ function harness() {
   const pendingResponse = new Promise(resolve => { resolveResponse = resolve; });
   const posted = [];
   const projectPosted = [];
+  const browser = mockWindow();
   const fetch = async (path, options) => {
     if (path === "/api/tasks" && options?.method === "POST") {
       posted.push(JSON.parse(options.body));
@@ -50,7 +73,7 @@ function harness() {
     return {ok: true, json: async () => ({tasks: [], projects: [], warnings: []})};
   };
   vm.runInNewContext(match[1], {
-    document, fetch, setInterval() {}, Date,
+    document, fetch, setInterval() {}, Date, window: browser.window
   }, {timeout: 2000});
 
   const input = document.getElementById("new-task-title");
@@ -60,6 +83,7 @@ function harness() {
   const type = (value) => {
     input.value = value;
     input.handlers.get("input")();
+    form.handlers.get("input")?.();
   };
   const save = () => form.handlers.get("submit")({preventDefault() {}});
   const respond = (status = 201, payload = {saved: true, task_id: "TASK-MOCK-001"}) => {
@@ -70,7 +94,8 @@ function harness() {
   const projectForm = document.getElementById("create-project");
   const createProject = () => projectForm.handlers.get("submit")({preventDefault() {}});
   return {type, save, respond, input, message, submit, posted, projectPosted,
-          projectInput, createProject, document};
+          projectInput, createProject, document,
+          beforeUnload: () => browser.fireBeforeUnload()};
 }
 
 test("a late success response must not erase a different draft", async () => {
@@ -168,6 +193,8 @@ test("project creation sends only the project name", async () => {
 // A small DOM stand-in maintains <select> selectedOptions as a browser would.
 function taskEditHarness(task) {
   const elements = new Map();
+  let confirmValue = true;
+  const browser = mockWindow(() => confirmValue);
   function fakeElement(tag = "div") {
     const node = {
       tag, textContent: "", className: "", children: [], handlers: new Map(),
@@ -205,7 +232,6 @@ function taskEditHarness(task) {
   const stepCreated = [];
   const stepUpdated = [];
   const stepReordered = [];
-  let confirmValue = true;
   let delayStepCreate = false;
   let resolveStepCreate;
   const pendingStepCreate = new Promise(resolve => { resolveStepCreate = resolve; });
@@ -231,7 +257,7 @@ function taskEditHarness(task) {
     return {ok: true, json: async () => ({tasks: [], projects: [], warnings: []})};
   };
   const {row} = vm.runInNewContext(match[1] + "\n;({row})", {
-    document, fetch, setInterval() {}, Date, window: {confirm: () => confirmValue}
+    document, fetch, setInterval() {}, Date, window: browser.window
   }, {timeout: 2000});
   const card = row({...task, steps: task.steps || [],
                     step_order_revision: task.step_order_revision ?? 0,
@@ -256,7 +282,8 @@ function taskEditHarness(task) {
           setDelayStepCreate(value) { delayStepCreate = value; },
           respondStepCreate() {
             resolveStepCreate({ok: true, json: async () => ({saved: true, step_id: "STEP-" + "9".repeat(32)})});
-          }};
+          },
+          beforeUnload: () => browser.fireBeforeUnload()};
 }
 
 test("P2: changing title preserves unsynced primary and related project IDs", async () => {
@@ -568,10 +595,11 @@ test("M3.3 an order conflict disables reorder but leaves step editing available"
  
 // M3.4: exercise the real overview/query functions with a minimal browser-like DOM.
 // The page must work entirely against GET /api/tasks without new write endpoints.
-function overviewHarness(tasks, projects = []) {
+function overviewHarness(tasks, projects = [], allowWrites = false) {
   const elements = new Map();
   const posted = [];
   let confirmValue = true;
+  const browser = mockWindow(() => confirmValue);
   function fakeNode(tag = "div") {
     const node = {
       tag, textContent: "", className: "", children: [], handlers: new Map(),
@@ -611,7 +639,22 @@ function overviewHarness(tasks, projects = []) {
   const fetch = async (path, options) => {
     if (options?.method === "POST") {
       posted.push(path);
-      throw Error("overview must never write");
+      if (!allowWrites) throw Error("overview must never write");
+      const body = JSON.parse(options.body);
+      const taskId = decodeURIComponent(path.split("/")[3] || "");
+      const task = tasks.find(item => item.task_id === taskId);
+      if (path.endsWith("/update") && task) Object.assign(task, body);
+      else if (path.endsWith("/steps") && task) {
+        task.steps.push({step_id: "STEP-" + "A".repeat(32), title: body.title,
+                         status: "todo", revision: 1, conflict: false});
+      } else if (path.includes("/steps/") && path.endsWith("/update") && task) {
+        const stepId = path.split("/steps/")[1].split("/")[0];
+        const step = task.steps.find(item => item.step_id === stepId);
+        if (step) Object.assign(step, body);
+      }
+      return {ok: true, json: async () => ({
+        saved: true, step_id: "STEP-" + "A".repeat(32), revision: 2
+      })};
     }
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
@@ -619,13 +662,14 @@ function overviewHarness(tasks, projects = []) {
   const api = vm.runInNewContext(match[1] +
     "\n;({overviewDates, matchesOverview, matchesQuery, selectOverview, refresh})", {
       document, fetch, setInterval() {}, Date,
-      window: {confirm: () => confirmValue}
+      window: browser.window
     }, {timeout: 2000});
   const el = id => document.getElementById(id);
   const submitQuery = () => el("task-query").handlers.get("submit")({preventDefault() {}});
   const resetQuery = () => el("query-reset").handlers.get("click")();
   return {api, el, posted, submitQuery, resetQuery, tasks, projects,
-          setConfirm(value) { confirmValue = value; }};
+          setConfirm(value) { confirmValue = value; },
+          beforeUnload: () => browser.fireBeforeUnload()};
 }
 
 function overviewTask(id, extras = {}) {
@@ -799,4 +843,97 @@ test("M3.4 new step drafts are also protected from view switching", async () => 
   assert.equal(page.el("tasks").children[0].children[1], card);
   assert.equal(input.value, "新增草稿尚未保存");
   assert.equal(page.posted.length, 0);
+});
+
+
+test("M3.4 browser reload prompts for an unsaved new-task form, but not after reset or save", async () => {
+  const page = harness();
+  assert.equal(page.beforeUnload().prevented, false, "clean page must not prompt");
+  page.type("尚未保存的新任务");
+  const blocked = page.beforeUnload();
+  assert.equal(blocked.prevented, true);
+  assert.equal(blocked.returnValue, "", "beforeunload must request the native browser prompt");
+
+  page.type("");
+  assert.equal(page.beforeUnload().prevented, false, "restoring the clean snapshot removes the prompt");
+
+  page.type("已保存的新任务");
+  const saving = page.save();
+  page.respond();
+  await saving;
+  assert.equal(page.beforeUnload().prevented, false, "successful save and form reset remove the prompt");
+});
+
+test("M3.4 browser reload prompts for dirty task and step edits, and clears after successful saves", async () => {
+  const task = overviewTask("TASK-BEFOREUNLOAD", {
+    title: "原始任务标题",
+    steps: [{
+      step_id: "STEP-" + "B".repeat(32), title: "原始步骤内容",
+      status: "todo", revision: 1, conflict: false
+    }]
+  });
+  const page = overviewHarness([task], [], true);
+  await page.api.refresh(true);
+  assert.equal(page.beforeUnload().prevented, false, "clean task and step forms must not prompt");
+
+  let card = page.el("tasks").children[0].children[1];
+  let taskForm = card.children.find(item => item.className === "task-form");
+  let taskTitle = taskForm.children[0].children[0];
+  taskTitle.value = "未保存的任务标题";
+  taskForm.handlers.get("input")();
+  const taskBlocked = page.beforeUnload();
+  assert.equal(taskBlocked.prevented, true);
+  assert.equal(taskBlocked.returnValue, "");
+
+  taskTitle.value = "原始任务标题";
+  taskForm.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, false,
+               "reverting the task editor to its clean snapshot removes the prompt");
+
+  taskTitle.value = "已保存的任务标题";
+  taskForm.handlers.get("input")();
+  await taskForm.handlers.get("submit")({preventDefault() {}});
+  assert.equal(page.beforeUnload().prevented, false,
+               "successful task save clears the dirty editor before rerender");
+
+  card = page.el("tasks").children[0].children[1];
+  let panel = card.children.find(item => item.className === "steps-panel");
+  let stepRow = panel.children.find(item => item.className === "step-row");
+  let stepForm = stepRow.children[1].children.find(item => item.className === "step-edit-form");
+  let stepTitle = stepForm.children[0].children[0];
+  stepTitle.value = "未保存的步骤内容";
+  stepForm.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, true,
+               "editing an existing step must request browser confirmation");
+
+  stepTitle.value = "原始步骤内容";
+  stepForm.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, false,
+               "reverting the step editor to its clean snapshot removes the prompt");
+
+  stepTitle.value = "已保存的步骤内容";
+  stepForm.handlers.get("input")();
+  await stepForm.handlers.get("submit")({preventDefault() {}});
+  assert.equal(page.beforeUnload().prevented, false,
+               "successful step save clears the dirty editor before rerender");
+
+  card = page.el("tasks").children[0].children[1];
+  panel = card.children.find(item => item.className === "steps-panel");
+  const addForm = panel.children.find(item => item.className === "step-add-form");
+  const addInput = addForm.children[0];
+  addInput.value = "未保存的新增步骤";
+  addForm.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, true,
+               "a new step draft must also request browser confirmation");
+
+  addInput.value = "";
+  addForm.handlers.get("input")();
+  assert.equal(page.beforeUnload().prevented, false,
+               "clearing the new step input removes the prompt");
+
+  addInput.value = "已保存的新增步骤";
+  addForm.handlers.get("input")();
+  await addForm.handlers.get("submit")({preventDefault() {}});
+  assert.equal(page.beforeUnload().prevented, false,
+               "successful step creation clears the dirty editor before rerender");
 });
