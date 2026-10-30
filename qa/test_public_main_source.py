@@ -86,7 +86,12 @@ class PublishedMainSourceTests(unittest.TestCase):
             for relative in files:
                 payload = (stage / relative).read_bytes()
                 staged_hashes[relative] = hashlib.sha256(payload).hexdigest()
-                self.assertEqual(payload, (REPO / relative).read_bytes(),
+                # Git on Windows checks out .py/.html with CRLF, while the
+                # public GitHub zipball retains LF. Compare the source text
+                # after newline normalization; installed bytes stay original.
+                checkout_bytes = (REPO / relative).read_bytes()
+                self.assertEqual(payload.replace(b"\r\n", b"\n"),
+                                 checkout_bytes.replace(b"\r\n", b"\n"),
                                  "live main archive does not match the shipping program: " + relative)
 
             self.assertEqual(snapshot(data_dir), original_data,
