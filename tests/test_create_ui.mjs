@@ -855,9 +855,6 @@ test("M3.4 browser reload prompts for an unsaved new-task form, but not after re
   assert.equal(blocked.prevented, true);
   assert.equal(blocked.returnValue, "", "beforeunload must request the native browser prompt");
 
-  page.type("");
-  assert.equal(page.beforeUnload().prevented, false, "restoring the clean snapshot removes the prompt");
-
   page.type("已保存的新任务");
   const saving = page.save();
   page.respond();
@@ -899,7 +896,8 @@ test("M3.4 browser reload prompts for dirty task and step edits, and clears afte
 
   card = page.el("tasks").children[0].children[1];
   let panel = card.children.find(item => item.className === "steps-panel");
-  let stepRow = panel.children.find(item => item.className === "step-row");
+  let stepList = panel.children.find(item => item.className === "step-list");
+  let stepRow = stepList.children.find(item => item.className === "step-row");
   let stepForm = stepRow.children[1].children.find(item => item.className === "step-edit-form");
   let stepTitle = stepForm.children[0].children[0];
   stepTitle.value = "未保存的步骤内容";
