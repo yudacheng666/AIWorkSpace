@@ -19,6 +19,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+from updater import (UpdateError, check_latest_update, get_install_status,
+                     launch_update_helper, prepare_update, remove_stage)
+
 
 ROOT = Path(__file__).resolve().parent
 TASK_ID = re.compile(r"^TASK-[A-Za-z0-9-]{1,50}$")
@@ -34,6 +37,7 @@ TASK_DEFAULTS = {"owner": None, "priority": "normal",
 MAX_BODY = 16_384
 MAX_STEPS_PER_TASK = 100
 _write_lock = threading.Lock()
+_update_lock = threading.Lock()
 
 
 def utc_now() -> str:
@@ -794,6 +798,13 @@ def handler_factory(data_dir: Path):
             path = urlsplit(self.path).path
             if path == "/api/tasks":
                 return self.json_response(200, read_workspace(data_dir))
+            if path == "/api/update/status":
+                return self.json_response(200, get_install_status(ROOT))
+            if path == "/api/update/check":
+                try:
+                    return self.json_response(200, check_latest_update(ROOT))
+                except UpdateError as exc:
+                    return self.json_response(502, {"error": str(exc)})
             if path in {"/", "/index.html"}:
                 return self.respond(200, (ROOT / "web" / "index.html").read_bytes(),
                                     "text/html; charset=utf-8")
@@ -808,11 +819,44 @@ def handler_factory(data_dir: Path):
             step_reorder_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/reorder", path)
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
+            applying_update = path == "/api/update/apply"
             if not (creating_task or creating_project or task_match or project_match or
-                    step_create_match or step_update_match or step_reorder_match):
+                    step_create_match or step_update_match or step_reorder_match or applying_update):
                 return self.json_response(404, {"error": "not found"})
             if not self.local_request_allowed():
                 return self.json_response(403, {"error": "local requests only"})
+            if applying_update:
+                if not _update_lock.acquire(blocking=False):
+                    return self.json_response(409, {"error": "update already in progress"})
+                stage = None
+                helper_started = False
+                try:
+                    payload = self.read_payload()
+                    if set(payload) != {"commit"}:
+                        raise ValueError("update requires the checked GitHub commit")
+                    commit = payload["commit"]
+                    if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{40}", commit):
+                        raise ValueError("invalid update commit")
+                    stage, latest = prepare_update(ROOT, data_dir, commit)
+                    launch_update_helper(stage, ROOT, data_dir, commit,
+                                         self.server.server_port, os.getpid())
+                    helper_started = True
+                    self.json_response(202, {
+                        "started": True,
+                        "commit": commit,
+                        "version": latest["latest_version"],
+                        "message": "更新包已验证，工作台正在安全重启。",
+                    })
+                    threading.Thread(target=self.server.shutdown, daemon=True).start()
+                    return
+                except UpdateError as exc:
+                    return self.json_response(502, {"error": str(exc)})
+                finally:
+                    if not helper_started:
+                        if stage is not None:
+                            remove_stage(stage)
+                        _update_lock.release()
+
             try:
                 payload = self.read_payload()
                 if step_create_match:
