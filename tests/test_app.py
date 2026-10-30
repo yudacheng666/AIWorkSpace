@@ -970,6 +970,33 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.update_step(other["step_id"], {
             "status": "doing", "revision": 1})[0], 200)
 
+    def test_concurrent_same_revision_step_updates_have_one_winner(self):
+        _, created = self.create_step()
+        step_id = created["step_id"]
+        barrier = threading.Barrier(8)
+        results = []
+        result_lock = threading.Lock()
+
+        def writer(index):
+            barrier.wait(timeout=3)
+            result = self.update_step(step_id, {
+                "title": f"并发候选步骤-{index}", "revision": 1})
+            with result_lock:
+                results.append(result)
+
+        threads = [threading.Thread(target=writer, args=(index,)) for index in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=5)
+        self.assertFalse(any(thread.is_alive() for thread in threads))
+        codes = [code for code, _ in results]
+        self.assertEqual(codes.count(200), 1, results)
+        self.assertEqual(codes.count(409), 7, results)
+        saved = read_workspace(self.data_dir)["tasks"][0]["steps"][0]
+        self.assertEqual(saved["revision"], 2)
+        self.assertIn(saved["title"], {f"并发候选步骤-{index}" for index in range(8)})
+
     def test_step_order_requires_exact_membership_and_revision(self):
         first = self.create_step(title="步骤甲")[1]["step_id"]
         second = self.create_step(title="步骤乙")[1]["step_id"]
