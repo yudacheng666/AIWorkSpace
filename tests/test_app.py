@@ -228,6 +228,32 @@ class DataTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             append_step_event(self.data_dir, done_event)
 
+    def test_step_order_referencing_another_tasks_step_is_frozen(self):
+        first_task = "TASK-STEP-ORDER-A"
+        second_task = "TASK-STEP-ORDER-B"
+        append_event(self.data_dir, event(
+            "order-parent-a", task_id=first_task,
+            changes={"title": "任务甲", "status": "todo"}))
+        append_event(self.data_dir, event(
+            "order-parent-b", task_id=second_task,
+            changes={"title": "任务乙", "status": "todo"}))
+        first_id = "STEP-" + "A" * 32
+        second_id = "STEP-" + "B" * 32
+        append_step_event(self.data_dir, step_event(
+            "order-step-a", task_id=first_task, step_id=first_id,
+            changes={"title": "甲步骤"}))
+        append_step_event(self.data_dir, step_event(
+            "order-step-b", task_id=second_task, step_id=second_id,
+            changes={"title": "乙步骤"}))
+        append_step_event(self.data_dir, step_order_event(
+            "cross-task-order", task_id=first_task, revision=0,
+            step_ids=[first_id, second_id], actor="chatgpt"))
+        tasks = {task["task_id"]: task for task in read_workspace(self.data_dir)["tasks"]}
+        self.assertTrue(tasks[first_task]["step_order_conflict"])
+        self.assertFalse(tasks[second_task]["step_order_conflict"])
+        self.assertEqual([step["step_id"] for step in tasks[first_task]["steps"]], [first_id])
+        self.assertEqual([step["step_id"] for step in tasks[second_task]["steps"]], [second_id])
+
     def test_step_order_sync_before_step_creation_events_is_reconstructed(self):
         append_event(self.data_dir, event())
         first_id = "STEP-" + "4" * 32
