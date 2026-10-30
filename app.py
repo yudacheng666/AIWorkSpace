@@ -790,7 +790,8 @@ def handler_factory(data_dir: Path):
                         event = {"version": 1, "event_id": str(uuid.uuid4()),
                                  "task_id": task["task_id"], "step_id": step_id,
                                  "action": "create", "actor": "user", "timestamp": utc_now(),
-                                 "base_revision": 0, "changes": {"title": title.strip()}}
+                                 "base_revision": 0, "changes": {"title": title.strip(),
+                                              "position": len(task.get("steps", [])) + 1}}
                         append_step_event(data_dir, event)
                     return self.json_response(201, {"saved": True, "task_id": task["task_id"],
                                                     "step_id": step_id, "revision": 1})
