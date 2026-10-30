@@ -343,7 +343,7 @@ def read_workspace(data_dir: Path) -> dict:
         task.setdefault("related_project_ids", [])
         primary = project_map.get(task["project_id"]) if task["project_id"] else None
         task["project_name"] = primary["name"] if primary and not primary["conflict"] else None
-        task["project_missing"] = bool(task["project_id"] and primary is None)
+        task["project_missing"] = bool(task["project_id"] and (primary is None or primary["conflict"]))
         related_names = []
         for project_id in task["related_project_ids"]:
             related = project_map.get(project_id)
