@@ -141,7 +141,9 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
   - `tests/test_app.py`：新增完整 API 回归，复现 `[A,C,B]` 缺 C、确认排序请求被拒且事件字节不变；C 同步后原顺序恢复，允许重新排序。
   - `tests/test_create_ui.mjs`：新增 UI 回归，确认提示、按钮禁用、无 POST，且步骤内容编辑仍可用。
   - 修复提交：`d4bde4b6ec6ee2bf7b30ddf30940698b8dadcd60`（服务端）、`1fb46d39e62009f6c2b98ed35747b124f92e37d9`（网页）、`38f054ae3a3ee041fe43605eaa8eeadcd4586c62`（Python 回归）、`0c815dad7e28c1ccd82a2b3487711e8dc4d11cd7`（Node 回归）。
-  - 当前 PR HEAD：`0c815dad7e28c1ccd82a2b3487711e8dc4d11cd7`。GitHub Actions [#41026355970](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41026355970) 正在运行；未获得结果前不得宣称 CI PASS。
+  - 产品代码与测试固定 SHA：`0c815dad7e28c1ccd82a2b3487711e8dc4d11cd7`。GitHub Actions [#41026355970](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41026355970)：Linux 与 Windows 均 SUCCESS，每个平台 **Python 73 PASS + Node UI 23 PASS，0 FAIL、0 skipped**。
+  - 当前 PR HEAD：`03e493ee24721bb23a0d7626fbebf1bbacec30a3`；它在已测产品/测试 SHA 后仅增加 README、PROJECT_STATE、DECISIONS 文档提交，产品代码和测试未变化。
+  - 自动化回归已 PASS；Codex 对修复后的部分同步场景尚未独立复验，故原 P2 **尚未关闭**。
 - 未访问真实 Google Drive，未部署公司 Windows 8770，未修改 main；本机测试实例保持原状。真实 Drive 延迟同步、公司 Windows UI、原生中文输入法、长期/断电耐久性仍未测试。
 - 验收边界：CI 通过不等于 P2 关闭；必须让 Codex 对修复后固定 HEAD 重新执行部分同步复现，并完成首轮失败后尚未执行的独立专项。Codex 只验收，不改产品、原测试或 CI。
 
