@@ -1,13 +1,13 @@
 # AIWorkSpace｜当前项目状态
 
 更新日期：2026-10-30（北京时间）  
-当前阶段：**M1/M2/M3.1/M3.2 已合入 `main`；M3.3 Draft PR #5 的代码/自动化 CI 与 Codex 独立验收均 PASS（已测范围），两项 P2 均已关闭。待用户明确批准后才能合并；公司 Windows、真实 Drive、原生输入法、长期耐久性等仍 NOT TESTED。**
+当前阶段：**M1/M2/M3.1/M3.2/M3.3 已合入 `main`；PR #5 获用户批准，于 2026-10-30 Squash 合并（`932f6f9aeb1a83ce537be43e6476674bf717300e`）。M3.3 Linux/Windows CI 与 Codex 独立验收均 PASS（已测范围），两项 P2 已关闭。下一阶段 M3.4 首页工作总览与查询尚未开发；公司 Windows、真实 Drive、原生输入法、长期耐久性等仍 NOT TESTED。**
 
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | AIWorkSpace，Public；PR #1 已以 squash 方式合并到 `main`，合并提交 `84fd0d234d799148c7a925a2d49408b11bd69481`；当前只在公司 Windows 电脑部署 |
-| 当前代码基线 | `main` 已包含 M1 + M2 + M3.1 + M3.2；PR #4 Squash 合并提交 `94a93bcb6fc0bd5123f43925ffa9981edfc20150` |
-| 最近合并 PR | [PR #4：M3.2 任务管理字段](https://github.com/yudacheng666/AIWorkSpace/pull/4)，用户批准 Squash 合并；固定 HEAD `1c9324b` Codex 独立验收 PASS，Linux/Windows CI 各 53 Python + 15 Node PASS；新阶段进入 M3.3 |
+| 当前代码基线 | `main` 已包含 M1 + M2 + M3.1 + M3.2 + M3.3；PR #5 Squash 合并提交 `932f6f9aeb1a83ce537be43e6476674bf717300e`（M3.3 原验证 SHA `633b5304e843ca632dca095d42a7ec66d4baabe4`） |
+| 最近合并 PR | [PR #5：M3.3 编号执行步骤](https://github.com/yudacheng666/AIWorkSpace/pull/5)，用户批准 Squash 合并；Codex 固定产品/测试 SHA `633b5304` 独立验收 PASS，Linux/Windows 每平台 76 Python + 23 Node PASS；下一阶段 M3.4 |
 | M1 Codex 验证的代码提交（历史） | `9f06969164e773cf08f03e5d2d02de52c38d688b`；M2 另行在 PR #2 进行 Chromium 复验与 CI |
 | 原独立验收 | Codex 对旧 head `37cde4c` 判定 **FAIL，2 项 P2**：同事件 ID 并发写入静默覆盖；GET 接口接受任意 Host |
 | 修复后 Codex 复验 | **PASS（本机 Linux 复验范围）**：两项原 P2 均通过；完整测试 23 PASS / 0 FAIL；额外 50 轮线程竞争、12 进程竞争及数据完整性检查通过；未发现新增已确认 P1/P2；限定安全扫描未发现密钥或隐私泄露 |
@@ -127,9 +127,9 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - GitHub Actions [#41013700472](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41013700472) 与 [#41013705760](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41013705760)：Linux/Windows 每个平台 **53 Python + 15 Node PASS，0 FAIL**。
 - NOT TESTED：公司 Windows 上 M3.2 新字段 UI、真实 Drive 对新字段的端到端同步、原生中文输入法、长时间运行与断电耐久性；本次不因此升级本机 8770。
 
-## M3.3 编号执行步骤（已通过已测范围验收，待批准合并，2026-10-30）
+## M3.3 编号执行步骤（已批准并 Squash 合入 main，2026-10-30）
 
-- 开发分支：`feat/m3-03-numbered-task-steps`；[Draft PR #5](https://github.com/yudacheng666/AIWorkSpace/pull/5)，base main `94a93bcb6fc0bd5123f43925ffa9981edfc20150`，**当前仍未合并**。
+- 开发分支：`feat/m3-03-numbered-task-steps`；[PR #5](https://github.com/yudacheng666/AIWorkSpace/pull/5)，base main `94a93bcb6fc0bd5123f43925ffa9981edfc20150`。**用户已明确批准并执行 Squash 合并，GitHub 返回 merged=true**；main 合并提交：`932f6f9aeb1a83ce537be43e6476674bf717300e`。
 - 已实现：每项任务最多 100 个步骤，稳定 `STEP-<32位大写十六进制>` 编号，标题 1–200 字，独立状态/修订号、创建/上移/下移、用户明确确认完成；独立 `step_events/` 追加式事件，保留旧任务与历史事件兼容。按 D013–D015 保留完整排序、部分同步保护、跨 revision 重复 event_id 的冲突冻结和候选、409/Host/Origin/原子不覆盖写入。
 - **首轮 P2（部分同步丢 STEP 引用）已关闭**：原版 `4d9e25f` 的 `[A,C,B]` 缺 C 会错误写入 `[B,A]`；修复后 Codex 在 `ce7ae42` 定向复验 PASS：缺 C 禁止排序，C 到达后恢复原排序并允许合法重排，所有旧事件字节不变。[首轮报告](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6518205090) / [复验报告](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6518742643)。
 - **第二轮 P2（重复排序 event_id 跨 revision 未冻结）已关闭**：原版不同内容却共用 `event_id` 时，被当作连续 revision 应用。修复在 `app.py` 对受影响的排序流冻结并保留候选；API 返回 409，不影响独立步骤编辑；新增 3 项回归。[原失败报告](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6518742643) / [最终复验报告](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6520276064)。
@@ -138,13 +138,14 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - **Codex 最终独立验收 PASS（已测范围）**：固定产品/测试 SHA `633b5304`。[PR #5 评论](https://github.com/yudacheng666/AIWorkSpace/pull/5#issuecomment-6520276064) 和[证据报告](https://github.com/yudacheng666/AIWorkSpace/blob/31598f1dc95dcefd14ba5bc21f6ce7281cfbd4ab/REPORT.md)：跨 revision 重复 ID 冻结、409/无文件改写、页面冻结与内容独立编辑、不同 ID 连续合法排序；同 revision 并发及旧版本拒写、步骤/排序/父任务冲突隔离、100 步上限竞争、非法输入/ID/排序成员、Host/Origin、部分同步最小回归均 PASS。无新增已确认 P1/P2/P3。Codex 额外 3 条 Python 定向回归 3 PASS，但未重新运行整套 Python/Node，整套结果以 CI 为准。
 - **仍 NOT TESTED，禁止扩大验收结论**：公司 Windows 原生 M3.3 界面、真实 Google Drive 的步骤事件双向同步、Windows 原生中文输入法、其他浏览器、真实跨设备同步、多实例并发、长时间运行和断电耐久性、远程访问。独立并发测试属于单机隔离 HTTP 服务，并非真实多设备一致性保证。
 - **限制与安全**：公开仓库仅虚构数据；Codex 证据位于独立 audit 分支，不写入产品 PR；未部署/升级公司电脑 8770，未访问真实 Drive，未修改 main；远程访问依 D012 延后。
-- **合并审批门槛**：已达到本阶段已定义的 Linux/Windows CI + 独立 Chromium/API 专项验收门槛，PR 可供用户审批；未测范围需明示。**不得把“具备合并条件”写成“已经合并”**。
+- **合并结果**：用户于 2026-10-30 明确批准。已将 PR #5 从 Draft 转 Ready 并以 Squash 合并至 main，合并 SHA `932f6f9aeb1a83ce537be43e6476674bf717300e`。CI 及 Codex 独立验收结果仅覆盖上述已测范围，不代表公司 Windows 或真实 Drive 已部署/验证。
 
 ## 下一步
 
-1. 请用户确认是否**批准将 PR #5 以 Squash 方式合入 main**。在得到明确批准前 PR 保持 Draft、不得合并。
-2. 若获批准：先再次检查 PR 最新 HEAD、base、diff、CI 与验收固定代码 SHA 一致；转 Ready 后 Squash 合并，核对 main 新 SHA，并把合并结果写回本文件及 PR。未经批准不执行。
-3. 合并不等于部署；公司 Windows 8770 保持原样，真实 Google Drive 与现有历史事件不删除、不覆盖、不擅自迁移。后续如需部署或实机检查单独按用户指令进行。
-4. M3.3 合并后才进入 M3.4 首页工作总览与查询，按 `docs/REQUIREMENTS.md` 已确认范围分阶段开发。远程访问继续推迟。
+1. **M3.3 合并已完成**，下一开发阶段是 **M3.4：首页工作总览与查询**。先依据 `docs/REQUIREMENTS.md` 已确认范围制定最小功能切片；仅包含今日亲自处理、待审核/决策、跟进他人、临近到期、逾期/受阻，以及按稳定编号、关键词、项目、状态、负责人和日期的查询。
+2. M3.4 在新的开发分支/PR 实现；不要把 M3.3 的历史中间分支或 Codex 测试报告当作 M3.4 已完成依据。继续由 ChatGPT 开发，Codex 独立验收；维护 GitHub Markdown 长期项目记忆。
+3. **公司 Windows 8770 没有因 GitHub 合并自动升级**，当前仍为旧本机测试实例；不访问、清理、覆盖或迁移真实 Google Drive 数据和历史事件。实机部署、真实同步及原生中文输入法需另行计划和验收；已测 CI/Chromium 不能替代它们。
+4. 远程访问继续按 D012 暂缓，产品阶段完成后再考虑；当前不调整 Host/Origin 白名单或加入 Tailscale 访问。
+5. 下一轮开始时读取 `AGENTS.md`、`docs/REQUIREMENTS.md`、本文件与 `docs/DECISIONS.md`，实时核验 main、分支、PR、CI 和独立验收，避免跨对话继承旧状态。
 
-**交接规则：** 下轮先读 `AGENTS.md`、`docs/REQUIREMENTS.md`、本文件与 `docs/DECISIONS.md`，实时核对 main、PR HEAD、CI 和 Codex 验收报告，不能凭旧 SHA 或记忆判断是否已合并。
+**交接规则：** M3.3 Squash 合并提交为 `932f6f9aeb1a83ce537be43e6476674bf717300e`，固定产品/测试验收 SHA 为 `633b5304e843ca632dca095d42a7ec66d4baabe4`；后续文档维护 commit 不改变这两个历史证据。
