@@ -257,7 +257,7 @@ test("phase 2 Gantt shows independent date markers and preserves invalid or miss
   const table = page.el("tasks").children[1].children[0];
   assert.equal(table.className, "gantt-table");
   assert.equal(table.children.length, 2);
-  assert.equal(table.children[0].children[1].children.length, 28);
+  assert.equal(table.children[0].children[1].children.length, 42);
   const ganttRow = table.children[1];
   const classes = ganttRow.children[1].children.map(c => c.className);
   assert.ok(classes.some(c=>c.includes("is-planned")));
@@ -297,3 +297,16 @@ test("phase 2 accepts only genuine ISO calendar dates and does not infer missing
   assert.ok(page.api.isoDayParts("2024-02-29"));
   assert.ok(page.api.isoDayParts("2026-11-05"));
 });
+
+test("phase 2 Gantt isolates conflicted tasks from any assumed schedule", async () => {
+  const task = {...sampleTask(), conflict: true,
+    planned_date: dateInCurrentMonth(5), due_date: dateInCurrentMonth(12)};
+  const page = harness([task]);
+  await page.api.refresh(true);
+  page.api.setTaskView("gantt");
+  const table = page.el("tasks").children[1].children[0];
+  assert.equal(table.children.length, 1, "no disputed date range should be plotted");
+  assert.equal(page.el("tasks").children[2].children[1].children.length, 1);
+  assert.equal(page.writes.length, 0);
+});
+
