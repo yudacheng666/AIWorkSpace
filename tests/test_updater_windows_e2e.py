@@ -361,6 +361,15 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                 page.locator("#nav-overview").click()
                 self.assertTrue(page.locator("#page-overview").is_visible())
 
+                # Create a synthetic project through real app.py in an isolated Windows directory.
+                page.locator("#nav-projects").click()
+                page.locator("#new-project-name").fill("虚构验收项目")
+                page.locator("#project-submit").click()
+                page.locator("#project-list .project-card").first.wait_for(timeout=15000)
+                self.assertEqual(page.locator("#project-list .project-card").count(), 1)
+                self.assertEqual(page.locator("#project-metrics .project-metric").count(), 4)
+                page.locator("#nav-overview").click()
+
                 # Opening and closing the modal without submitting must not write an event.
                 page.locator("#open-create-task").click()
                 self.assertTrue(page.locator("#create-modal").is_visible())
@@ -370,6 +379,7 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                 # Create one fictional task through the production UI and API.
                 page.locator("#open-create-task").click()
                 page.locator("#new-task-title").fill("虚构 UI 验收任务")
+                page.locator("#new-task-project").select_option(label="虚构验收项目")
                 # Use actual calendar dates in the current month, with no synthetic duration field.
                 month = date.today()
                 page.locator("#new-task-planned").fill(month.replace(day=5).isoformat())
@@ -388,6 +398,15 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
 
                 page.locator("#task-detail-close").click()
                 self.assertTrue(page.locator("#task-detail-drawer").is_hidden())
+                page.locator("#nav-projects").click()
+                self.assertIn("主要 1", page.locator("#project-list .project-card-stats").first.inner_text())
+                page.locator("#project-list .project-card-actions button").first.click()
+                self.assertTrue(page.locator("#project-inspector").is_visible())
+                self.assertEqual(page.locator("#project-inspector section button").count(), 1)
+                page.locator("#project-inspector > button").click()
+                self.assertTrue(page.locator("#page-tasks").is_visible())
+                self.assertEqual(page.locator("#tasks .task-summary").count(), 1)
+                page.screenshot(path=str(self.evidence_dir / "ui-v2-phase3-projects.png"), full_page=True)
                 page.locator("#global-search").fill("虚构 UI 验收任务")
                 page.locator("#global-search").press("Enter")
                 self.assertEqual(page.locator("#tasks .task-summary").count(), 1)
