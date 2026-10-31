@@ -7,6 +7,8 @@ processes. No real GitHub release, Google Drive, or company service is touched.
 """
 from __future__ import annotations
 
+from datetime import date
+
 import hashlib
 import json
 import os
@@ -259,6 +261,8 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
             page.on("dialog", lambda dialog: dialog.accept())
             try:
                 page.goto(f"http://127.0.0.1:{self.port}/", wait_until="domcontentloaded", timeout=30000)
+                # Update controls now live on the dedicated System Settings page.
+                page.locator("#nav-settings").click()
                 page.locator("#app-version").wait_for(timeout=15000)
                 self.assertIn("v1.0.0", page.locator("#app-version").inner_text())
 
@@ -330,6 +334,143 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                     pass
                 try:
                     context.tracing.stop(path=str(trace_path))
+                except Exception:
+                    pass
+                browser.close()
+
+    def test_v2_workspace_navigation_create_modal_and_task_detail_drawer(self):
+        self._scenario = "ui-shell"
+        self._start_old_service()
+
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            context = browser.new_context(viewport={"width": 1440, "height": 960})
+            context.tracing.start(screenshots=True, snapshots=True, sources=True)
+            page = context.new_page()
+            page_errors = []
+            page.on("pageerror", lambda error: page_errors.append(str(error)))
+            try:
+                page.goto(f"http://127.0.0.1:{self.port}/", wait_until="domcontentloaded", timeout=30000)
+                self.assertTrue(page.locator("#page-overview").is_visible())
+
+                page.locator("#nav-projects").click()
+                self.assertTrue(page.locator("#page-projects").is_visible())
+                page.locator("#nav-settings").click()
+                self.assertTrue(page.locator("#page-settings").is_visible())
+                page.locator("#app-version").wait_for(state="visible", timeout=15000)
+                page.locator("#nav-overview").click()
+                self.assertTrue(page.locator("#page-overview").is_visible())
+
+                # Opening and closing the modal without submitting must not write an event.
+                page.locator("#open-create-task").click()
+                self.assertTrue(page.locator("#create-modal").is_visible())
+                page.locator("#create-modal-close").click()
+                self.assertTrue(page.locator("#create-modal").is_hidden())
+
+                # Create one fictional task through the production UI and API.
+                page.locator("#open-create-task").click()
+                page.locator("#new-task-title").fill("虚构 UI 验收任务")
+                # Use actual calendar dates in the current month, with no synthetic duration field.
+                month = date.today()
+                page.locator("#new-task-planned").fill(month.replace(day=5).isoformat())
+                page.locator("#new-task-due").fill(month.replace(day=12).isoformat())
+                page.locator("#create-submit").click()
+                page.locator("#page-tasks").wait_for(state="visible", timeout=15000)
+                page.locator("#tasks .task-summary").wait_for(timeout=15000)
+                self.assertEqual(page.locator("#tasks .task-summary").count(), 1)
+
+                page.locator("#tasks .task-open").first.click()
+                page.locator("#task-detail-drawer").wait_for(state="visible", timeout=5000)
+                self.assertEqual(page.locator("#task-detail-title").inner_text(), "虚构 UI 验收任务")
+                self.assertTrue(page.locator("#task-detail-content .task-form").is_visible())
+                self.assertTrue(page.locator("#task-detail-content .steps-panel").is_visible())
+                page.screenshot(path=str(self.evidence_dir / "ui-shell-desktop-detail.png"), full_page=True)
+
+                page.locator("#task-detail-close").click()
+                self.assertTrue(page.locator("#task-detail-drawer").is_hidden())
+                page.locator("#global-search").fill("虚构 UI 验收任务")
+                page.locator("#global-search").press("Enter")
+                self.assertEqual(page.locator("#tasks .task-summary").count(), 1)
+
+                # Phase 2 read-only views share the same result set and open the existing drawer.
+                page.locator("#task-view-board").click()
+                self.assertEqual(page.locator("#tasks .board-column").count(), 5)
+                self.assertEqual(page.locator("#tasks .board-task").count(), 1)
+                page.locator("#tasks .board-task").click()
+                self.assertTrue(page.locator("#task-detail-drawer").is_visible())
+                page.locator("#task-detail-close").click()
+
+                page.locator("#nav-calendar").click()
+                self.assertEqual(page.locator("#topbar-context").inner_text(), "任务日历")
+                self.assertEqual(page.locator("#tasks .calendar-day").count(), 42)
+                page.locator("#calendar-granularity").select_option("week")
+                self.assertEqual(page.locator("#tasks .calendar-day").count(), 7)
+                week_start = page.locator("#task-period-label").inner_text()
+                page.locator("#task-period-next").click()
+                self.assertNotEqual(page.locator("#task-period-label").inner_text(), week_start)
+                page.locator("#task-period-prev").click()
+                self.assertEqual(page.locator("#task-period-label").inner_text(), week_start)
+                page.locator("#calendar-granularity").select_option("month")
+                self.assertEqual(page.locator("#tasks .calendar-day").count(), 42)
+                self.assertEqual(page.locator("#tasks .calendar-task").count(), 1)
+                self.assertIn("截止日期", page.locator("#tasks .view-explainer").inner_text())
+                page.locator("#task-date-field").select_option("follow_up_date")
+                self.assertEqual(page.locator("#tasks .calendar-task").count(), 0)
+                self.assertIn("未设置跟进日期", page.locator("#tasks .view-extra").inner_text())
+                page.locator("#task-date-field").select_option("due_date")
+
+                page.locator("#nav-gantt").click()
+                self.assertEqual(page.locator("#topbar-context").inner_text(), "日期甘特图")
+                self.assertTrue(page.locator(".gantt-scroll").evaluate(
+                    "(el) => el.scrollWidth > el.clientWidth"),
+                    "Gantt dates must remain legible using horizontal scrolling")
+                self.assertEqual(page.locator("#tasks .gantt-row").count(), 2)
+                self.assertEqual(page.locator("#tasks .gantt-cell.is-planned").count(), 1)
+                self.assertEqual(page.locator("#tasks .gantt-cell.is-due").count(), 1)
+                self.assertGreaterEqual(page.locator("#tasks .gantt-cell.is-range").count(), 1)
+                page.screenshot(path=str(self.evidence_dir / "ui-v2-phase2-gantt.png"), full_page=True)
+                before_period = page.locator("#task-period-label").inner_text()
+                page.locator("#task-period-next").click()
+                self.assertNotEqual(page.locator("#task-period-label").inner_text(), before_period)
+                page.locator("#task-period-today").click()
+                self.assertEqual(page.locator("#task-period-label").inner_text(), before_period)
+                page.locator("#task-view-list").click()
+                self.assertEqual(page.locator("#tasks .task-summary").count(), 1)
+
+                page.set_viewport_size({"width": 390, "height": 844})
+                page.locator("#nav-calendar").click()
+                page.locator("#calendar-granularity").select_option("week")
+                page.locator("#tasks .calendar-day").first.wait_for(state="visible")
+                self.assertTrue(page.evaluate("() => document.documentElement.scrollWidth <= window.innerWidth"),
+                                "mobile week calendar should scroll internally, not the page")
+                page.locator("#nav-overview").click()
+                self.assertTrue(page.locator("#page-overview").is_visible())
+                mobile_metrics = page.evaluate("""() => ({
+                    viewport: window.innerWidth,
+                    documentWidth: document.documentElement.scrollWidth,
+                    shell: document.querySelector('.app-shell')?.getBoundingClientRect().width,
+                    sidebar: document.querySelector('.sidebar')?.getBoundingClientRect().width
+                })""")
+                self.assertLessEqual(mobile_metrics["documentWidth"], mobile_metrics["viewport"],
+                                     f"mobile workspace overflow: {mobile_metrics}")
+                page.screenshot(path=str(self.evidence_dir / "ui-shell-mobile-overview.png"), full_page=True)
+
+                self.assertEqual(page_errors, [], "UI must not emit uncaught browser errors")
+                events = list((self.data_dir / "events").glob("*.json"))
+                self.assertEqual(len(events), 1, "the single create action should append exactly one task event")
+                (self.evidence_dir / "ui-shell-result.json").write_text(
+                    json.dumps({
+                        "result": "PASS",
+                        "created_task_events": len(events),
+                        "task_title": "虚构 UI 验收任务",
+                        "page_errors": page_errors,
+                        "data_snapshot": self._snapshot_data(),
+                    }, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+            finally:
+                try:
+                    context.tracing.stop(path=str(self.evidence_dir / "ui-shell-playwright-trace.zip"))
                 except Exception:
                     pass
                 browser.close()
