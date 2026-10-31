@@ -156,14 +156,259 @@
       .task-form .save { grid-column: 1 / -1; }
       .task { padding: 16px; }
     }
+
+    /* AIWorkSpace UI V2 — restrained desktop workspace */
+    :root {
+      color-scheme: light;
+      --ink: #172b4d;
+      --muted: #718096;
+      --subtle: #94a0b1;
+      --line: #e6eaf0;
+      --panel: #ffffff;
+      --canvas: #f5f7fa;
+      --blue: #2764d8;
+      --blue-soft: #edf4ff;
+      --green: #16845b;
+      --amber: #b76b17;
+      --red: #c34242;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+    }
+    body { background: var(--canvas); color: var(--ink); overflow-x: hidden; }
+    .app-shell { min-height: 100vh; display: grid; grid-template-columns: 244px minmax(0, 1fr); }
+    .sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; padding: 22px 15px 16px; background: #fff; border-right: 1px solid var(--line); z-index: 30; }
+    .sidebar-brand { display: flex; align-items: center; gap: 11px; padding: 3px 9px 26px; }
+    .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: linear-gradient(145deg,#3679ed,#2454bd); color: #fff; font-size: 21px; font-weight: 800; box-shadow: 0 4px 10px #2864d522; }
+    .brand-copy { display: grid; gap: 3px; }
+    .brand-copy strong { color: #18345e; font-size: 16px; letter-spacing: -.35px; }
+    .brand-copy small { color: var(--subtle); font-size: 10px; letter-spacing: .3px; }
+    .sidebar-section-label { padding: 9px 11px 7px; color: #9aa5b4; font-size: 10px; font-weight: 750; letter-spacing: 1px; }
+    .side-nav { display: grid; gap: 3px; }
+    .nav-item { width: 100%; min-height: 41px; display: grid; grid-template-columns: 22px minmax(0,1fr); align-items: center; gap: 9px; padding: 0 11px; border: 0; border-radius: 8px; background: transparent; color: #506078; text-align: left; font-size: 13px; font-weight: 560; }
+    .nav-item:hover:not(:disabled) { background: #f5f7fb; color: #254e91; }
+    .nav-item.is-active { background: var(--blue-soft); color: #205ac2; font-weight: 700; }
+    .nav-item:disabled { opacity: .42; cursor: not-allowed; }
+    .nav-icon { width: 20px; color: currentColor; font-size: 17px; text-align: center; line-height: 1; }
+    .sidebar-divider { height: 1px; background: #edf0f4; margin: 15px 8px 9px; }
+    .sidebar-spacer { flex: 1; min-height: 18px; }
+    .sidebar-bottom { margin-top: auto; }
+    .sidebar-footnote { padding: 13px 10px 0; color: #a1aab7; font-size: 10px; line-height: 1.6; }
+    .app-main { min-width: 0; }
+    .app-topbar { min-height: 68px; position: sticky; top: 0; z-index: 25; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 0 32px; background: rgba(255,255,255,.94); border-bottom: 1px solid var(--line); backdrop-filter: blur(12px); }
+    .topbar-breadcrumb { display: flex; align-items: center; gap: 10px; color: #8995a5; font-size: 12px; white-space: nowrap; }
+    .topbar-breadcrumb strong { color: #34445d; font-weight: 650; }
+    .breadcrumb-separator { color: #c0c7d1; }
+    .topbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; min-width: 0; }
+    .global-search-form { width: min(340px, 34vw); height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #e1e6ed; border-radius: 8px; background: #fafbfd; }
+    .global-search-form:focus-within { border-color: #9bb8eb; background: #fff; box-shadow: 0 0 0 3px #2764d810; }
+    .search-symbol { color: #8a97a8; font-size: 21px; line-height: 1; }
+    .global-search-form input { height: 34px; padding: 0; border: 0; outline: 0; background: transparent; box-shadow: none; font-size: 12px; }
+    .global-search-form input:focus-visible { outline: 0; }
+    .search-shortcut { flex: 0 0 auto; padding: 2px 5px; border: 1px solid #e5e9ef; border-radius: 4px; color: #9aa4b2; font-size: 9px; }
+    .icon-button { width: 36px; height: 36px; display: inline-grid; place-items: center; border: 1px solid #e1e6ed; border-radius: 8px; background: #fff; color: #62728a; font-size: 18px; }
+    .icon-button:hover { border-color: #c6d5eb; background: #f7faff; color: var(--blue); }
+    .primary-action { min-height: 38px; padding: 0 15px; border: 1px solid var(--blue); border-radius: 8px; background: var(--blue); color: #fff; font-size: 12px; font-weight: 700; box-shadow: 0 2px 5px #2764d81a; }
+    .primary-action:hover { background: #1f55c0; }
+    .wrap { width: 100%; max-width: none; margin: 0; padding: 30px 34px 56px; }
+    .workspace-page[hidden] { display: none !important; }
+    .page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin: 0 0 23px; }
+    .page-heading h1 { margin: 0; color: #182b49; font-size: 27px; font-weight: 760; letter-spacing: -.8px; line-height: 1.25; }
+    .page-heading .subtitle { margin: 7px 0 0; color: #8490a0; font-size: 12px; line-height: 1.5; }
+    .heading { margin: 0; }
+    .stats { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 13px; margin: 19px 0 22px; }
+    .stat { min-height: 91px; display: flex; flex-direction: column; justify-content: center; padding: 17px 20px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel); }
+    .stat b { color: #1d3457; font-size: 26px; font-weight: 760; line-height: 1.1; }
+    .stat span { margin-top: 7px; color: #8b97a7; font-size: 11px; }
+    .overview-panel { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+    .overview-head { align-items: center; margin-bottom: 12px; }
+    .overview-head h2, .query-panel h2 { color: #34445c; font-size: 14px; font-weight: 720; }
+    .overview-note, .review-note, .create-help, .field-hint, .hint, .project-panel > .project-help { display: none !important; }
+    .my-owner { display: flex; align-items: center; gap: 9px; min-width: 0; color: #7b8798; font-size: 11px; font-weight: 600; }
+    .my-owner select { width: 180px; height: 34px; margin: 0; font-size: 12px; }
+    .overview-grid { grid-template-columns: repeat(5,minmax(0,1fr)); gap: 10px; margin-top: 0; }
+    .overview-view { min-height: 104px; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 14px 15px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: #40516a; }
+    .overview-view:hover:not(:disabled) { border-color: #b7c9e8; background: #fbfdff; }
+    .overview-view.is-selected { border-color: #8db0ec; background: #f3f7ff; box-shadow: inset 3px 0 0 var(--blue); }
+    .overview-count { margin: 0; color: #1b3154; font-size: 25px; font-weight: 760; }
+    .overview-view strong { font-size: 12px; font-weight: 650; }
+    .overview-view small { display: none; }
+    .query-panel { margin: 0 0 17px; padding: 17px 19px; border: 1px solid var(--line); border-radius: 11px; background: #fff; }
+    .query-panel h2 { margin-bottom: 12px; }
+    .query-form { grid-template-columns: minmax(180px,1.6fr) repeat(3,minmax(120px,1fr)); gap: 10px; margin-top: 0; }
+    .query-date-range { grid-template-columns: repeat(3,minmax(120px,1fr)); gap: 10px; margin-top: 12px; }
+    .query-form label, .query-date-range label { color: #758296; font-size: 11px; font-weight: 600; }
+    input, select { height: 36px; border-color: #e0e5ec; border-radius: 7px; color: #293c58; font-size: 12px; }
+    input:focus, select:focus { border-color: #94b4e9; outline: 0; box-shadow: 0 0 0 3px #2764d810; }
+    .advanced-filters { margin-top: 12px; border-top: 1px solid #eff1f5; padding-top: 9px; }
+    .advanced-filters summary { color: #687990; cursor: pointer; font-size: 11px; font-weight: 650; list-style-position: inside; }
+    .query-actions { margin-top: 12px; }
+    .query-actions button { min-height: 34px; padding: 0 13px; border-radius: 7px; font-size: 11px; }
+    .query-actions .query-apply { background: var(--blue); border-color: var(--blue); }
+    .query-message { color: #8793a2; font-size: 11px; }
+    .section-head { margin: 0 0 10px; padding: 0 1px; }
+    .section-head h2 { color: #34445c; font-size: 15px; font-weight: 720; }
+    .section-actions { display: flex; align-items: center; gap: 15px; }
+    .sort-control { display: flex; flex-direction: row; align-items: center; gap: 8px; color: #8792a1; font-size: 11px; white-space: nowrap; }
+    .sort-control select { width: 140px; height: 32px; }
+    .sync { color: #9aa4b1; font-size: 10px; }
+    .task-list { display: grid; gap: 8px; }
+    .project-group { gap: 7px; }
+    .project-group-head { padding: 8px 3px 2px; }
+    .project-group-head strong { color: #5a6a80; font-size: 12px; }
+    .project-group-head span { color: #9ba5b3; font-size: 10px; }
+    .task-summary { min-width: 0; display: grid; grid-template-columns: minmax(190px,2.1fr) minmax(110px,1.1fr) minmax(82px,.8fr) 90px 74px 105px 82px; align-items: center; gap: 10px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 9px; background: #fff; transition: border-color .14s, background .14s, box-shadow .14s; }
+    .task-summary:hover { border-color: #c5d4e9; background: #fcfdff; box-shadow: 0 3px 12px #1c34570a; }
+    .task-summary-main { min-width: 0; display: grid; gap: 4px; }
+    .task-summary-title { overflow-wrap: anywhere; color: #263a57; font-size: 12px; font-weight: 680; line-height: 1.45; }
+    .task-summary-id { color: #a0a9b6; font-size: 9px; letter-spacing: .15px; }
+    .task-summary-meta { min-width: 0; overflow: hidden; color: #738198; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .status-pill, .priority-pill { display: inline-flex; justify-self: start; align-items: center; min-height: 23px; padding: 0 8px; border-radius: 6px; background: #f0f3f7; color: #64748b; font-size: 10px; font-weight: 650; white-space: nowrap; }
+    .status-pill.doing { background: #eaf2ff; color: #2863c6; }
+    .status-pill.done { background: #e8f6ef; color: #18805b; }
+    .status-pill.blocked, .status-pill.conflict { background: #fff0ee; color: #bf4540; }
+    .priority-pill.high { background: #fff4e5; color: #a96517; }
+    .priority-pill.urgent { background: #ffeded; color: #bd3e3e; }
+    .task-summary-due { color: #718096; font-size: 11px; white-space: nowrap; }
+    .task-summary-due.is-overdue { color: #c34242; font-weight: 700; }
+    .task-open { min-height: 30px; padding: 0 9px; border: 1px solid #dfe6ef; border-radius: 7px; background: #fff; color: #45628a; font-size: 10px; white-space: nowrap; }
+    .task-open:hover { border-color: #a9c1e7; color: var(--blue); background: #f7faff; }
+    .empty { padding: 54px 20px; border: 1px dashed #d8e0e9; border-radius: 11px; background: #fff; }
+    .empty strong { color: #33445c; font-size: 15px; }
+    .empty p { color: #8a96a5; font-size: 12px; }
+    .project-panel { margin: 0; padding: 19px; border: 1px solid var(--line); border-radius: 11px; background: #fff; }
+    .project-panel h2 { margin-bottom: 13px; color: #34445c; font-size: 14px; }
+    .project-panel .create-form { grid-template-columns: minmax(240px,1fr) auto; align-items: end; }
+    .project-panel .create-form > span { display: none; }
+    .project-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+    .project-card { min-width: 0; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px; padding: 10px; border: 1px solid #e8ecf2; border-radius: 8px; background: #fbfcfe; }
+    .project-card small { grid-column: 1 / -1; overflow-wrap: anywhere; color: #a0a9b6; font-size: 9px; }
+    .save { border-radius: 7px; background: var(--blue); font-size: 11px; }
+    .message { color: #8a96a5; font-size: 11px; }
+    .message.error, .alert { color: #a94b37; }
+    .alert { margin: 0 0 13px; border-radius: 8px; font-size: 11px; }
+    .update-panel { margin: 0; padding: 20px; border: 1px solid var(--line); border-radius: 11px; }
+    .update-title { color: #33445c; }
+    .update-message { color: #7f8c9d; font-size: 11px; }
+    .update-actions button { border-radius: 7px; }
+    .modal-overlay, .drawer-backdrop { position: fixed; inset: 0; z-index: 80; }
+    .modal-overlay[hidden], .drawer-backdrop[hidden] { display: none !important; }
+    .modal-overlay { display: flex; align-items: center; justify-content: center; padding: 24px; overflow: auto; background: rgba(20,31,49,.42); }
+    .create-panel { position: relative; width: min(780px,100%); max-height: calc(100vh - 48px); overflow: auto; margin: auto; padding: 22px; border: 1px solid #e1e7ef; border-radius: 13px; background: #fff; box-shadow: 0 22px 70px #172b4d2b; }
+    .modal-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 13px; }
+    .modal-heading h2 { color: #263a57; font-size: 17px; }
+    .create-panel .create-form { grid-template-columns: minmax(0,1.5fr) minmax(150px,1fr); gap: 12px; }
+    .create-panel .create-form > button { grid-column: 1 / -1; justify-self: end; min-width: 118px; }
+    .create-panel .task-meta { grid-template-columns: repeat(3,minmax(0,1fr)); }
+    .create-panel .message { margin-top: 12px; }
+    .drawer-backdrop { display: flex; justify-content: flex-end; background: rgba(20,31,49,.34); }
+    .drawer-panel { width: min(610px,calc(100vw - 28px)); height: 100%; display: flex; flex-direction: column; overflow: hidden; border-left: 1px solid #e1e7ef; background: #fff; box-shadow: -18px 0 55px #172b4d1c; }
+    .drawer-head { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 19px 22px; border-bottom: 1px solid var(--line); background: #fff; }
+    .drawer-head h2 { max-width: 490px; overflow: hidden; color: #243957; font-size: 16px; font-weight: 720; text-overflow: ellipsis; white-space: nowrap; }
+    .drawer-head p { margin: 5px 0 0; color: #a0a9b6; font-size: 10px; }
+    .task-detail-content { min-height: 0; overflow: auto; padding: 15px 20px 35px; }
+    .task-detail-content .task { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+    .task-detail-content .task-form { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 11px; }
+    .task-detail-content .task-form > label:first-child, .task-detail-content .task-form > .save { grid-column: 1 / -1; }
+    .task-detail-content .task-meta { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .task-detail-content .step-row { grid-template-columns: 25px minmax(0,1fr); }
+    .task-detail-content .step-actions { grid-column: 2; }
+    .task-detail-content .step-edit-form { grid-template-columns: minmax(0,1fr) 112px auto; }
+    .task-detail-content .conflict-detail { font-size: 11px; }
+    .project-help { color: #8b97a6; font-size: 11px; }
+    .hint { display: none; }
+    @media (max-width: 1180px) {
+      .app-shell { grid-template-columns: 218px minmax(0,1fr); }
+      .wrap { padding: 26px 24px 44px; }
+      .overview-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+      .task-summary { grid-template-columns: minmax(180px,1.7fr) minmax(100px,1fr) 90px 84px; }
+      .task-summary-meta:nth-of-type(2), .task-summary-due { display: none; }
+    }
+    @media (max-width: 820px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar { position: sticky; top: 0; height: auto; display: block; padding: 9px 12px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .sidebar-brand, .sidebar-section-label, .sidebar-divider, .sidebar-spacer, .sidebar-footnote, .sidebar-bottom { display: none; }
+      .side-nav { display: flex; gap: 4px; overflow-x: auto; }
+      .nav-item { flex: 0 0 auto; width: auto; min-height: 36px; padding: 0 10px; font-size: 11px; }
+      .nav-icon { width: auto; font-size: 14px; }
+      .app-topbar { min-height: 58px; padding: 0 15px; }
+      .global-search-form { width: min(260px,38vw); }
+      .search-shortcut { display: none; }
+      .wrap { padding: 22px 15px 40px; }
+      .page-heading h1 { font-size: 23px; }
+      .task-summary { grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
+      .task-summary-meta, .task-summary-due, .priority-pill { display: none; }
+      .task-open { grid-column: 2; grid-row: 1; }
+      .project-list { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 520px) {
+      .topbar-breadcrumb { display: none; }
+      .global-search-form { width: min(58vw,230px); }
+      .topbar-actions { width: 100%; }
+      .primary-action { padding: 0 10px; font-size: 11px; }
+      .overview-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .stats { gap: 8px; }
+      .stat { min-height: 75px; padding: 13px; }
+      .stat b { font-size: 22px; }
+      .query-panel { padding: 14px; }
+      .query-form, .query-date-range { grid-template-columns: 1fr; }
+      .section-head { align-items: flex-start; flex-direction: column; }
+      .section-actions { width: 100%; justify-content: space-between; }
+      .sort-control select { width: 125px; }
+      .drawer-panel { width: 100vw; }
+      .task-detail-content { padding: 12px 13px 30px; }
+      .task-detail-content .task-form, .task-detail-content .task-meta { grid-template-columns: 1fr; }
+      .task-detail-content .task-form > label:first-child, .task-detail-content .task-form > .save { grid-column: 1; }
+      .create-panel { padding: 17px 15px; }
+      .create-panel .create-form, .create-panel .task-meta { grid-template-columns: 1fr; }
+      .create-panel .create-form > button { grid-column: 1; justify-self: stretch; }
+    }
+
   </style>
 </head>
 <body>
-  <main class="wrap">
-    <header class="top">
-      <div class="brand">AIWorkSpace <small>个人 AI 工作台 · 最小验证版</small></div>
-      <div class="pill">本机运行 · 不需要额外云服务</div>
+
+<div class="app-shell">
+  <aside class="sidebar" aria-label="主导航">
+    <div class="sidebar-brand">
+      <span class="brand-mark" aria-hidden="true">A</span>
+      <span class="brand-copy"><strong>AIWorkSpace</strong><small>个人 AI 工作台</small></span>
+    </div>
+    <div class="sidebar-section-label">工作台</div>
+    <nav class="side-nav" aria-label="工作台导航">
+      <button type="button" class="nav-item is-active" id="nav-overview"><span class="nav-icon">▦</span><span>工作总览</span></button>
+      <button type="button" class="nav-item" id="nav-tasks"><span class="nav-icon">☷</span><span>全部任务</span></button>
+      <button type="button" class="nav-item" id="nav-today"><span class="nav-icon">◷</span><span>今日处理</span></button>
+      <button type="button" class="nav-item" id="nav-followup"><span class="nav-icon">↗</span><span>跟进他人</span></button>
+      <button type="button" class="nav-item" id="nav-due"><span class="nav-icon">▣</span><span>7 天内到期</span></button>
+      <button type="button" class="nav-item" id="nav-risk"><span class="nav-icon">△</span><span>风险事项</span></button>
+    </nav>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section-label">项目</div>
+    <nav class="side-nav" aria-label="项目导航">
+      <button type="button" class="nav-item" id="nav-projects"><span class="nav-icon">▤</span><span>项目管理</span></button>
+    </nav>
+    <div class="sidebar-spacer"></div>
+    <nav class="side-nav sidebar-bottom" aria-label="系统导航">
+      <button type="button" class="nav-item" id="nav-settings"><span class="nav-icon">⚙</span><span>系统设置</span></button>
+    </nav>
+    <div class="sidebar-footnote">本机运行 · 数据保存在指定目录</div>
+  </aside>
+  <div class="app-main">
+    <header class="app-topbar">
+      <div class="topbar-breadcrumb"><span>工作台</span><span class="breadcrumb-separator">/</span><strong id="topbar-context">工作总览</strong></div>
+      <div class="topbar-actions">
+        <form class="global-search-form" id="global-search-form" role="search">
+          <span class="search-symbol" aria-hidden="true">⌕</span>
+          <input id="global-search" type="search" placeholder="搜索任务名称或编号" aria-label="搜索任务名称或编号">
+          <span class="search-shortcut" aria-hidden="true">Enter</span>
+        </form>
+        <button type="button" class="icon-button refresh-top" id="refresh" title="刷新任务">↻</button>
+        <button type="button" class="primary-action" id="open-create-task"><span aria-hidden="true">＋</span> 新建任务</button>
+      </div>
     </header>
+  <main class="wrap">
+    <section id="page-settings" class="workspace-page" hidden>
+      <div class="page-heading"><div><h1>系统设置</h1><p class="subtitle">版本信息与软件更新。</p></div></div>
     <section class="update-panel" aria-labelledby="update-heading">
       <div class="update-copy">
         <div class="update-title-row">
@@ -177,33 +422,123 @@
         <button type="button" class="save" id="apply-update" hidden disabled>立即更新</button>
       </div>
     </section>
-    <div class="heading">
-      <div><h1>我的任务</h1><p class="subtitle">从 ChatGPT 录入，在这里查看和更新。</p></div>
-      <button type="button" class="refresh" id="refresh">刷新任务</button>
+    </section>
+    <section id="page-overview" class="workspace-page is-active">
+    <div class="page-heading">
+      <div><h1>工作总览</h1><p class="subtitle">集中查看今日工作、他人跟进、临近到期与风险事项。</p></div>
     </div>
     <section class="overview-panel" aria-labelledby="overview-heading">
       <div class="overview-head">
         <div>
-          <h2 id="overview-heading">工作总览</h2>
-          <p class="overview-note">按当前本机日期与已保存任务字段统计。点击卡片筛选下方任务；不会修改任务或写入事件。</p>
+          <h2 id="overview-heading">工作分类</h2>
+          <p class="overview-note" title="按本机日期与已保存任务字段统计。选择分类只筛选显示，不修改任务或写入事件。">按当前本机日期与已保存任务字段统计。</p>
         </div>
-        <label class="my-owner" for="overview-owner">我的负责人名称
+        <label class="my-owner" for="overview-owner" title="选择现有负责人名单中与你对应的名称，未选择时不会推测本人身份。">本人
           <select id="overview-owner" aria-label="选择本人对应的负责人"><option value="">先选择本人</option></select>
         </label>
       </div>
       <p class="overview-note" id="overview-date"></p>
       <div class="overview-grid" aria-label="工作分类快捷视图">
-        <button class="overview-view is-selected" type="button" id="view-all"><span class="overview-count" id="view-all-count">—</span><strong>全部任务</strong><small>查看所有事项</small></button>
-        <button class="overview-view" type="button" id="view-mine" disabled><span class="overview-count" id="view-mine-count">—</span><strong>今日亲自处理</strong><small>本人计划执行日期为今天或更早，且未完成</small></button>
-        <button class="overview-view" type="button" id="view-followup" disabled><span class="overview-count" id="view-followup-count">—</span><strong>跟进他人</strong><small>其他负责人下次跟进日期已到，且未完成</small></button>
-        <button class="overview-view" type="button" id="view-due"><span class="overview-count" id="view-due-count">—</span><strong>7 天内到期</strong><small>含今天，不含已过期及已完成</small></button>
-        <button class="overview-view" type="button" id="view-risk"><span class="overview-count" id="view-risk-count">—</span><strong>逾期／受阻／冲突</strong><small>过期未完成、受阻或需要人工核查</small></button>
+        <button class="overview-view is-selected" type="button" id="view-all" title="查看全部任务"><span class="overview-count" id="view-all-count">—</span><strong>全部任务</strong><small>查看所有事项</small></button>
+        <button class="overview-view" type="button" id="view-mine" title="本人计划执行日期为今天或更早，且未完成" disabled><span class="overview-count" id="view-mine-count">—</span><strong>今日亲自处理</strong><small>本人计划执行日期为今天或更早，且未完成</small></button>
+        <button class="overview-view" type="button" id="view-followup" title="其他负责人下次跟进日期已到，且未完成" disabled><span class="overview-count" id="view-followup-count">—</span><strong>跟进他人</strong><small>其他负责人下次跟进日期已到，且未完成</small></button>
+        <button class="overview-view" type="button" id="view-due" title="截止日期为今天至未来 7 天，不含逾期和已完成任务"><span class="overview-count" id="view-due-count">—</span><strong>7 天内到期</strong><small>含今天，不含已过期及已完成</small></button>
+        <button class="overview-view" type="button" id="view-risk" title="包括逾期未完成、受阻及需要人工核查的任务"><span class="overview-count" id="view-risk-count">—</span><strong>逾期／受阻／冲突</strong><small>过期未完成、受阻或需要人工核查</small></button>
       </div>
-      <p class="review-note">待审核／决策：现有任务尚无明确的审核或决策标记，暂不生成数量或自动归类，避免把普通任务误判为待审批。</p>
-      <p class="overview-note" id="overview-owner-hint">先选择与自己一致的负责人名称，才能准确区分亲自处理与跟进他人。此选择只影响当前页面，不写入任务数据。</p>
+      <p class="review-note" title="现有任务没有明确的审核或决策字段，因此不自动推断。">待审核／决策不会根据普通任务自动推断。</p>
+      <p class="overview-note" id="overview-owner-hint" title="本人选择只影响当前页面统计，不写入任务数据。">先选择与自己一致的负责人名称，才能准确区分亲自处理与跟进他人。此选择只影响当前页面，不写入任务数据。</p>
     </section>
-    <section class="create-panel" aria-labelledby="create-heading">
-      <h2 id="create-heading">新建任务</h2>
+    <section id="page-projects" class="workspace-page" hidden>
+      <div class="page-heading"><div><h1>项目管理</h1><p class="subtitle">管理项目，并查看任务的主要归属与关联关系。</p></div></div>
+    <section class="project-panel" aria-labelledby="project-heading">
+      <h2 id="project-heading">项目管理</h2>
+      <p class="project-help">项目有独立编号；任务可归属一个主要项目，也可关联其他项目。项目不会因没有任务而自动删除。</p>
+      <form class="create-form" id="create-project">
+        <label for="new-project-name">新项目名称
+          <input id="new-project-name" type="text" maxlength="120" required placeholder="输入项目名称" autocomplete="off">
+        </label>
+        <span></span><span></span>
+        <button class="save" id="project-submit" type="submit">创建项目</button>
+      </form>
+      <p class="message" id="project-message" role="status" aria-live="polite"></p>
+      <div class="project-list" id="project-list" aria-label="项目列表"></div>
+    </section>
+    </section>
+    <div class="stats" aria-label="任务统计">
+      <div class="stat"><b id="total">—</b><span>全部任务</span></div>
+      <div class="stat"><b id="active">—</b><span>待处理或进行中</span></div>
+      <div class="stat"><b id="finished">—</b><span>已完成</span></div>
+    </div>
+    </section>
+    <section id="page-tasks" class="workspace-page" hidden>
+      <div class="page-heading"><div><h1>全部任务</h1><p class="subtitle">按项目查看和维护任务；搜索与筛选只影响当前显示。</p></div></div>
+    <section class="query-panel" aria-labelledby="query-heading">
+      <h2 id="query-heading">任务查询</h2>
+      <p class="overview-note" title="支持任务名称、任务编号、步骤名称、步骤编号、项目、状态、负责人和日期范围组合筛选。">可组合筛选任务、项目、负责人和日期。</p>
+      <form id="task-query" aria-label="任务查询条件">
+        <div class="query-form">
+          <label for="query-keyword">编号／关键词
+            <input id="query-keyword" type="search" autocomplete="off" placeholder="TASK / STEP 编号或关键词">
+          </label>
+          <label for="query-project">所属／关联项目
+            <select id="query-project"><option value="">全部项目</option></select>
+          </label>
+          <label for="query-status">任务状态
+            <select id="query-status">
+              <option value="">全部状态</option>
+              <option value="todo">待处理</option><option value="doing">进行中</option>
+              <option value="blocked">受阻</option><option value="done">已完成</option>
+              <option value="conflict">需要人工核查</option>
+            </select>
+          </label>
+          <label for="query-owner">负责人
+            <select id="query-owner"><option value="">全部负责人</option></select>
+          </label>
+        </div>
+        <details class="advanced-filters"><summary>日期范围筛选</summary><div class="query-date-range">
+          <label for="query-date-field">日期类型
+            <select id="query-date-field">
+              <option value="due_date">截止日期</option>
+              <option value="planned_date">计划执行日期</option>
+              <option value="follow_up_date">下次跟进日期</option>
+            </select>
+          </label>
+          <label for="query-date-from">起始日期（含）
+            <input id="query-date-from" type="date">
+          </label>
+          <label for="query-date-to">结束日期（含）
+            <input id="query-date-to" type="date">
+          </label>
+        </div></details>
+        <div class="query-actions">
+          <button type="submit" class="query-apply" id="query-apply">应用筛选</button>
+          <button type="button" id="query-reset">清除所有筛选</button>
+          <p class="query-message" id="query-message" role="status"></p>
+        </div>
+      </form>
+    </section>
+    <div class="section-head">
+      <h2>任务列表 <span class="sync" id="query-result-count"></span></h2>
+      <div class="section-actions">
+        <label class="sort-control" for="task-sort">排序
+          <select id="task-sort" aria-label="任务排序">
+            <option value="project">按项目</option>
+            <option value="due">截止日期优先</option>
+            <option value="priority">优先级优先</option>
+            <option value="title">任务名称</option>
+          </select>
+        </label>
+        <div class="sync" id="sync" role="status">正在读取…</div>
+      </div>
+    </div>
+    <div class="alert" id="warnings" role="alert" hidden></div>
+    <section class="task-list" id="tasks" aria-label="任务列表"></section>
+    <p class="hint" title="数据由本机指定文件夹提供。Google Drive 同步可能存在延迟；编辑冲突时系统会停止自动覆盖并提示核查。">本机数据同步与冲突保护说明。</p>
+    </section>
+  </main>
+  <div class="modal-overlay" id="create-modal" hidden>
+        <section class="create-panel" aria-labelledby="create-heading">
+      <div class="modal-heading"><h2 id="create-heading">新建任务</h2><button type="button" class="icon-button" id="create-modal-close" aria-label="关闭新建任务">×</button></div>
       <p class="create-help">创建后自动生成任务编号，初始状态为「待处理」。</p>
       <form class="create-form" id="create-task">
         <label for="new-task-title">任务名称
@@ -242,74 +577,18 @@
       <p class="field-hint">三个日期相互独立，留空表示未设置；负责人可后续补充。</p>
       <p class="message" id="create-message" role="status" aria-live="polite"></p>
     </section>
-    <section class="project-panel" aria-labelledby="project-heading">
-      <h2 id="project-heading">项目管理</h2>
-      <p class="project-help">项目有独立编号；任务可归属一个主要项目，也可关联其他项目。项目不会因没有任务而自动删除。</p>
-      <form class="create-form" id="create-project">
-        <label for="new-project-name">新项目名称
-          <input id="new-project-name" type="text" maxlength="120" required placeholder="输入项目名称" autocomplete="off">
-        </label>
-        <span></span><span></span>
-        <button class="save" id="project-submit" type="submit">创建项目</button>
-      </form>
-      <p class="message" id="project-message" role="status" aria-live="polite"></p>
-      <div class="project-list" id="project-list" aria-label="项目列表"></div>
-    </section>
-    <div class="stats" aria-label="任务统计">
-      <div class="stat"><b id="total">—</b><span>全部任务</span></div>
-      <div class="stat"><b id="active">—</b><span>待处理或进行中</span></div>
-      <div class="stat"><b id="finished">—</b><span>已完成</span></div>
-    </div>
-    <section class="query-panel" aria-labelledby="query-heading">
-      <h2 id="query-heading">任务查询</h2>
-      <p class="overview-note">编号或关键词支持任务名称、步骤编号与步骤名称；条件组合筛选，可随时清除。项目包含主要和关联项目。</p>
-      <form id="task-query" aria-label="任务查询条件">
-        <div class="query-form">
-          <label for="query-keyword">编号／关键词
-            <input id="query-keyword" type="search" autocomplete="off" placeholder="TASK / STEP 编号或关键词">
-          </label>
-          <label for="query-project">所属／关联项目
-            <select id="query-project"><option value="">全部项目</option></select>
-          </label>
-          <label for="query-status">任务状态
-            <select id="query-status">
-              <option value="">全部状态</option>
-              <option value="todo">待处理</option><option value="doing">进行中</option>
-              <option value="blocked">受阻</option><option value="done">已完成</option>
-              <option value="conflict">需要人工核查</option>
-            </select>
-          </label>
-          <label for="query-owner">负责人
-            <select id="query-owner"><option value="">全部负责人</option></select>
-          </label>
-        </div>
-        <div class="query-date-range">
-          <label for="query-date-field">日期类型
-            <select id="query-date-field">
-              <option value="due_date">截止日期</option>
-              <option value="planned_date">计划执行日期</option>
-              <option value="follow_up_date">下次跟进日期</option>
-            </select>
-          </label>
-          <label for="query-date-from">起始日期（含）
-            <input id="query-date-from" type="date">
-          </label>
-          <label for="query-date-to">结束日期（含）
-            <input id="query-date-to" type="date">
-          </label>
-        </div>
-        <div class="query-actions">
-          <button type="submit" class="query-apply" id="query-apply">应用筛选</button>
-          <button type="button" id="query-reset">清除所有筛选</button>
-          <p class="query-message" id="query-message" role="status"></p>
-        </div>
-      </form>
-    </section>
-    <div class="section-head"><h2>任务列表 <span class="sync" id="query-result-count"></span></h2><div class="sync" id="sync" role="status">正在读取…</div></div>
-    <div class="alert" id="warnings" role="alert" hidden></div>
-    <section class="task-list" id="tasks" aria-label="任务列表"></section>
-    <p class="hint">数据由本机指定文件夹提供。Google Drive 同步存在延迟；如显示异常，请检查同步状态后点击“刷新任务”。遇到编辑冲突时，系统停止自动覆盖并提示核查。</p>
-  </main>
+  </div>
+  <div class="drawer-backdrop" id="task-detail-drawer" hidden>
+    <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="task-detail-title">
+      <div class="drawer-head">
+        <div><h2 id="task-detail-title">任务详情</h2><p id="task-detail-id"></p></div>
+        <button type="button" class="icon-button" id="task-detail-close" aria-label="关闭任务详情">×</button>
+      </div>
+      <div class="task-detail-content" id="task-detail-content"></div>
+    </aside>
+  </div>
+  </div>
+</div>
   <script>
     "use strict";
     const $ = id => document.getElementById(id);
@@ -324,6 +603,8 @@
     let createDraftRevision = 0;
     let overviewView = "all";
     let selectedSelfOwner = "";
+    let activeDetailTaskId = "";
+    let activePage = "overview";
     const unsavedTaskEditors = new Set();
     const unsavedPersistentEditors = new Set();
     let appliedQuery = {keyword: "", project: "", status: "", owner: "",
@@ -834,6 +1115,73 @@
     }
 
 
+
+    function taskSummaryRow(task) {
+      const card = element("article", "task-summary");
+      const main = element("div", "task-summary-main");
+      main.append(
+        element("strong", "task-summary-title", task.title || "未命名任务"),
+        element("small", "task-summary-id", task.task_id)
+      );
+      const projectName = task.project_name || (task.project_id ? "项目未同步／需核查" : "未归类／收件箱");
+      const ownerName = task.owner || "未指派";
+      const statusName = task.conflict ? "需要人工核查" : (labels[task.status] || "未知状态");
+      const statusClass = task.conflict ? "conflict" : (task.status || "todo");
+      const priorityName = priorities[task.priority || "normal"] || "普通";
+      const priorityClass = task.priority || "normal";
+      const dueDate = task.due_date || "未设置";
+      const overdue = !!(task.due_date && task.due_date < localDayISO(new Date()) &&
+                         task.status !== "done" && !task.conflict);
+      card.append(
+        main,
+        element("span", "task-summary-meta", projectName),
+        element("span", "task-summary-meta", ownerName),
+        element("span", "status-pill " + statusClass, statusName),
+        element("span", "priority-pill " + priorityClass, priorityName),
+        element("span", "task-summary-due" + (overdue ? " is-overdue" : ""), dueDate)
+      );
+      const open = element("button", "task-open", "查看详情");
+      open.type = "button";
+      open.addEventListener("click", () => openTaskDetail(task.task_id));
+      card.append(open);
+      return card;
+    }
+
+    function renderTaskDetail(taskId) {
+      const task = current.find(item => item.task_id === taskId);
+      if (!task) {
+        activeDetailTaskId = "";
+        $("task-detail-drawer").hidden = true;
+        $("task-detail-content").replaceChildren();
+        return false;
+      }
+      $("task-detail-title").textContent = task.title || "任务详情";
+      $("task-detail-id").textContent = task.task_id;
+      $("task-detail-content").replaceChildren(row(task));
+      $("task-detail-drawer").hidden = false;
+      return true;
+    }
+
+    function openTaskDetail(taskId) {
+      if (activeDetailTaskId && activeDetailTaskId !== taskId && unsavedTaskEditors.size &&
+          !confirmDiscardUnsaved()) return false;
+      if (activeDetailTaskId === taskId) return true;
+      activeDetailTaskId = taskId;
+      return renderTaskDetail(taskId);
+    }
+
+    function closeTaskDetail() {
+      if (unsavedTaskEditors.size && !confirmDiscardUnsaved()) return false;
+      activeDetailTaskId = "";
+      $("task-detail-drawer").hidden = true;
+      $("task-detail-content").replaceChildren();
+      return true;
+    }
+
+    function renderOpenTaskDetail() {
+      if (activeDetailTaskId) renderTaskDetail(activeDetailTaskId);
+    }
+
     function localDayISO(date) {
       const pad = n => String(n).padStart(2, "0");
       return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -917,6 +1265,8 @@
         $("query-project").value || "");
       updateFilterSelect($("query-owner"), [["", "全部负责人"], ["__none__", "未设置"],
         ...owners.map(owner => [owner, owner])], $("query-owner").value || "");
+      $("nav-today").disabled = !selectedSelfOwner;
+      $("nav-followup").disabled = !selectedSelfOwner;
       const days = overviewDates();
       $("overview-date").textContent = `统计日期：${days.today}（本机日期）`;
       $("overview-owner-hint").textContent = selectedSelfOwner
@@ -936,8 +1286,18 @@
       const visible = current.filter(task =>
         matchesOverview(task, overviewView, selectedSelfOwner, days) &&
         matchesQuery(task, appliedQuery));
+      const sortMode = $("task-sort").value || "project";
+      if (sortMode === "due") {
+        visible.sort((a, b) => (a.due_date || "9999-99-99").localeCompare(b.due_date || "9999-99-99"));
+      } else if (sortMode === "priority") {
+        const rank = {urgent: 3, high: 2, normal: 1, low: 0};
+        visible.sort((a, b) => (rank[b.priority || "normal"] || 0) - (rank[a.priority || "normal"] || 0));
+      } else if (sortMode === "title") {
+        visible.sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), "zh-CN"));
+      }
       $("query-result-count").textContent = `（${visible.length} / ${current.length}）`;
       const list = $("tasks");
+      unsavedTaskEditors.clear();
       if (!visible.length) {
         const empty = element("div", "empty");
         const noData = current.length === 0;
@@ -946,6 +1306,7 @@
             ? "先通过上方表单新建任务；也可以由已验证的数据同步方式导入。"
             : "可切换总览卡片或清除查询筛选；已有数据未被删除。"));
         list.replaceChildren(empty);
+        renderOpenTaskDetail();
         return;
       }
       const groups = new Map();
@@ -964,15 +1325,15 @@
         else if (!currentProjects.some(project => project.project_id === key))
           ordered.push([key, "项目未同步 / 需核查", tasks]);
       }
-      unsavedTaskEditors.clear();
       list.replaceChildren(...ordered.map(([key, name, tasks]) => {
         const group = element("section", "project-group");
         const head = element("div", "project-group-head");
         head.append(element("strong", "", name),
                     element("span", "", `${tasks.length} 项任务`));
-        group.append(head, ...tasks.map(row));
+        group.append(head, ...tasks.map(taskSummaryRow));
         return group;
       }));
+      renderOpenTaskDetail();
     }
 
     function readQueryForm() {
@@ -987,13 +1348,50 @@
       };
     }
 
+
+    const pageMeta = {
+      overview: {title: "工作总览", nav: "nav-overview"},
+      tasks: {title: "全部任务", nav: "nav-tasks"},
+      projects: {title: "项目管理", nav: "nav-projects"},
+      settings: {title: "系统设置", nav: "nav-settings"}
+    };
+
+    function setActivePage(page, view) {
+      if (!pageMeta[page]) return false;
+      if ((view === "mine" || view === "followup") && !selectedSelfOwner) return false;
+      if (activeDetailTaskId && !closeTaskDetail()) return false;
+      if (unsavedTaskEditors.size && !confirmDiscardUnsaved()) return false;
+      activePage = page;
+      for (const id of ["overview", "tasks", "projects", "settings"]) {
+        $("page-" + id).hidden = id !== page;
+        $("page-" + id).className = "workspace-page" + (id === page ? " is-active" : "");
+      }
+      for (const id of ["nav-overview", "nav-tasks", "nav-projects", "nav-settings",
+                        "nav-today", "nav-followup", "nav-due", "nav-risk"]) {
+        const button = $(id);
+        button.className = "nav-item";
+      }
+      if (view) {
+        overviewView = view;
+        const navByView = {mine: "nav-today", followup: "nav-followup",
+                           due: "nav-due", risk: "nav-risk"};
+        if (navByView[view]) $(navByView[view]).className = "nav-item is-active";
+        else $("nav-tasks").className = "nav-item is-active";
+      } else {
+        if (page === "tasks") overviewView = "all";
+        $(pageMeta[page].nav).className = "nav-item is-active";
+      }
+      $("topbar-context").textContent = pageMeta[page].title;
+      refreshOverviewControls();
+      renderTaskList();
+      return true;
+    }
+
     function selectOverview(view) {
       if (!overviewViews.includes(view)) return;
       if ((view === "mine" || view === "followup") && !selectedSelfOwner) return;
-      if (isSaving || !confirmDiscardUnsaved()) return;
-      overviewView = view;
-      refreshOverviewControls();
-      renderTaskList();
+      if (isSaving) return;
+      setActivePage("tasks", view);
     }
 
     async function refresh(force = false, allowDiscard = false) {
@@ -1151,6 +1549,10 @@
         message.textContent = `创建成功：${result.task_id}（待处理）` +
           (draftUntouched ? "" : "；正在输入的下一条任务草稿已保留，尚未保存");
         await refresh(true);
+        if (draftUntouched) {
+          $("create-modal").hidden = true;
+          setActivePage("tasks", "all");
+        }
       } catch (error) {
         message.className = "message error";
         message.textContent = `创建结果未确认：${error.message}。请先刷新列表核对，避免重复创建。`;
@@ -1172,8 +1574,7 @@
     for (const view of overviewViews) {
       $("view-" + view).addEventListener("click", () => selectOverview(view));
     }
-    $("task-query").addEventListener("submit", event => {
-      event.preventDefault();
+    function applyTaskQuery() {
       if (isSaving) return;
       const next = readQueryForm();
       if (next.dateFrom && next.dateTo && next.dateFrom > next.dateTo) {
@@ -1184,12 +1585,18 @@
       appliedQuery = next;
       $("query-message").textContent = "筛选已应用（只影响显示，不会写入任务）";
       renderTaskList();
+    }
+
+    $("task-query").addEventListener("submit", event => {
+      event.preventDefault();
+      applyTaskQuery();
     });
     $("query-reset").addEventListener("click", () => {
       if (isSaving || !confirmDiscardUnsaved()) return;
       overviewView = "all";
       for (const id of ["query-keyword", "query-project", "query-status",
                         "query-owner", "query-date-from", "query-date-to"]) $(id).value = "";
+      $("global-search").value = "";
       $("query-date-field").value = "due_date";
       appliedQuery = {keyword: "", project: "", status: "", owner: "",
                       dateField: "due_date", dateFrom: "", dateTo: ""};
@@ -1303,8 +1710,37 @@
       }
     }
 
+
+    const navBindings = [
+      ["nav-overview", "overview", null],
+      ["nav-tasks", "tasks", "all"],
+      ["nav-today", "tasks", "mine"],
+      ["nav-followup", "tasks", "followup"],
+      ["nav-due", "tasks", "due"],
+      ["nav-risk", "tasks", "risk"],
+      ["nav-projects", "projects", null],
+      ["nav-settings", "settings", null]
+    ];
+    for (const [id, page, view] of navBindings) {
+      $(id).addEventListener("click", () => setActivePage(page, view));
+    }
+    $("task-sort").addEventListener("change", () => renderTaskList());
+    $("global-search-form").addEventListener("submit", event => {
+      event.preventDefault();
+      $("query-keyword").value = $("global-search").value;
+      if (setActivePage("tasks", "all")) applyTaskQuery();
+    });
+    $("open-create-task").addEventListener("click", () => {
+      if (activeDetailTaskId && !closeTaskDetail()) return;
+      $("create-modal").hidden = false;
+    });
+    $("create-modal-close").addEventListener("click", () => {
+      $("create-modal").hidden = true;
+    });
+    $("task-detail-close").addEventListener("click", closeTaskDetail);
     $("check-update").addEventListener("click", checkForUpdates);
     $("apply-update").addEventListener("click", applyUpdate);
+    setActivePage("overview");
     loadUpdateStatus();
 
     $("refresh").addEventListener("click", () => refresh(true, true));

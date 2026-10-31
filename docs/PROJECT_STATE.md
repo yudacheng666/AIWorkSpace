@@ -191,3 +191,15 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - **真实 main 更新源校验（合并后已执行）**：官方 GitHub API/main、固定 commit RAW VERSION 现可读取 1.0.0，旧 404 阻塞已解除。[QA PR #8](https://github.com/yudacheng666/AIWorkSpace/pull/8) 的 Windows Runner 使用原版 `updater.prepare_update()`、**真实 GitHub API/raw/zipball（无 HTTP mock）**，按实际提交 `163827338372fafa57a15e55939d4f0955959310` 下载 ZIP，通过路径/白名单/来源校验后暂存和 `apply_staged_update()` 安装到临时应用目录，验证备份、构建信息与真实 `app.py` 在独立本地端口启动，`GET /api/update/status` 返回版本 1.0.0 和官方 SHA；虚构 data 根及 events/project_events/step_events 哨兵文件 SHA 未变化。[Actions #41077145985](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41077145985) 三个 job 全部 SUCCESS、真实公开源烟测 1 PASS；[结果 JSON 和服务日志](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41077145985/artifacts/12987521846)。首轮失败仅因为 Windows checkout CRLF 与 GitHub ZIP LF 的严格比较，修正 QA 的文本比较后重跑通过；**无产品代码更改**。该测试验证真实公开源 ZIP 下载/校验/安装/启动；不包含同一测试中的网页按钮/helper/回滚，后三项已在固定来源隔离 Windows Chromium E2E 2 PASS。语义版本仍为 1.0.0，后续仅文档提交可能改变 build SHA。
 - **截至本轮仍 NOT TESTED**：将真实 GitHub ZIP 下载与网页按钮/helper/故障回滚合并为一条完整联合链路（真实 ZIP 单独安装已 PASS，浏览器/独立 helper/回滚已在固定来源隔离 E2E PASS）；公司 Windows 8770 上的新程序升级、真实 Drive、企业网络代理/权限、Windows IME、长时/断电、多浏览器、多客户端及远程访问。**GitHub 合并不会自动升级公司电脑**。
 - **下一步**：已完成发布源真实 ZIP/隔离安装校验；QA PR #8 保持 Draft、未合并，仅用于验证和证据归档。下一阶段准备首次 Windows 非生产目录安装预演与操作手册，确认旧程序安全保留、独立 `--data-dir`、服务停止/启动和数据文件核对。只有用户另行明确批准本机部署后，才能升级公司 Windows 8770 或访问真实 Drive。首次正式部署最新版后，工作台网页的一键更新才可用于后续版本。
+
+
+## UI V2 正式改造（2026-10-31 起，阶段一进行中）
+
+- **用户批准**：以独立 HTML 交互原型 V2 作为正式 UI 设计基线；用户体验后整体满意，批准按阶段实施。用户明确要求先确认小样、不得转交 Work，并要求开发记忆长久化。
+- **本轮执行范围**：从 main `654d14b33f859d2b85e762e95154d0495ade116c` 建立独立分支 `feat/20261031-ui-v2-phase1-layout`。阶段一聚焦统一导航/顶部工具栏、工作总览、任务列表、任务详情右侧抽屉、新建任务弹窗、项目与设置分页面。
+- **已核实基线**：当前 `web/index.html` 仍是单页纵向堆叠布局；M3.4 已有工作总览与查询；任务编辑、项目编辑、执行步骤均使用现有 API/追加式事件流。当前没有日历/甘特图实现，计划在后续阶段基于已有日期字段开发。
+- **数据与交互边界**：本阶段不改变 `events/`、`project_events/`、`step_events/` 数据结构/API；不新增工时、百分比进度、依赖关系等未确认字段。任务详情复用现有 `row(task)` 编辑逻辑及步骤面板，继续使用 revision、409、完成确认和草稿 watcher。新建任务仍调用原 `POST /api/tasks`。
+- **记忆目录**：此前仓库尚无 `docs/ai-memory/sessions/` 目录；本次按 AGENTS 约定新建该目录及本会话记录。后续重要开发进展继续更新本文件、DECISIONS 与 sessions。
+- **当前提交/PR/测试**：分支已建立；本次代码、回归测试和记忆更新正在准备为一个提交。CI 尚未运行，不能标记 PASS。未修改 main、未合并、未部署、未访问真实 Drive 或公司 Windows 服务。
+- **阶段一验收门槛**：Linux/Windows GitHub Actions Python + Node 回归均通过；新增 UI shell/导航/抽屉测试通过；审查 diff 确认业务 API 与持久化代码未被改写。真实浏览器视觉验收与用户体验仍待 PR 后续安排，不把 Node DOM 模拟测试等同于 GUI 验收。
+- **下一步**：完成独立分支提交并创建 Draft PR；核对准确 SHA 的 CI。CI 失败时只修复受影响项并复验。阶段一通过后提供可体验版本供用户实际使用，再进入看板、日历和甘特图阶段。合并仍需用户另行批准。
