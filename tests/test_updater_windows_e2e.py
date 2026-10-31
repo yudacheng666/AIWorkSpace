@@ -438,10 +438,21 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                 self.assertEqual(page.locator("#tasks .task-summary").count(), 1)
 
                 page.set_viewport_size({"width": 390, "height": 844})
+                page.locator("#nav-calendar").click()
+                page.locator("#calendar-granularity").select_option("week")
+                page.locator("#tasks .calendar-day").first.wait_for(state="visible")
+                self.assertTrue(page.evaluate("() => document.documentElement.scrollWidth <= window.innerWidth"),
+                                "mobile week calendar should scroll internally, not the page")
                 page.locator("#nav-overview").click()
                 self.assertTrue(page.locator("#page-overview").is_visible())
-                self.assertTrue(page.evaluate("() => document.documentElement.scrollWidth <= window.innerWidth"),
-                                "mobile workspace must not overflow horizontally")
+                mobile_metrics = page.evaluate("""() => ({
+                    viewport: window.innerWidth,
+                    documentWidth: document.documentElement.scrollWidth,
+                    shell: document.querySelector('.app-shell')?.getBoundingClientRect().width,
+                    sidebar: document.querySelector('.sidebar')?.getBoundingClientRect().width
+                })""")
+                self.assertLessEqual(mobile_metrics["documentWidth"], mobile_metrics["viewport"],
+                                     f"mobile workspace overflow: {mobile_metrics}")
                 page.screenshot(path=str(self.evidence_dir / "ui-shell-mobile-overview.png"), full_page=True)
 
                 self.assertEqual(page_errors, [], "UI must not emit uncaught browser errors")
