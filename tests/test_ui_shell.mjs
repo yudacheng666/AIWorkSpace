@@ -66,7 +66,6 @@ function harness(tasks = [], confirm = () => true) {
     return {ok: true, json: async () => ({tasks, projects: [], warnings: []})};
   };
   const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList})", {
-    "\\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList})", {
       document, window, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, writes, el: id => document.getElementById(id)};
