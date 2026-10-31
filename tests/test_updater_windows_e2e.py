@@ -400,6 +400,7 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                 self.assertTrue(page.locator("#task-detail-drawer").is_hidden())
                 page.locator("#nav-projects").click()
                 self.assertIn("主要 1", page.locator("#project-list .project-card-stats").first.inner_text())
+                page.screenshot(path=str(self.evidence_dir / "ui-v2-phase3-project-overview.png"), full_page=True)
                 page.locator("#project-list .project-card-actions button").first.click()
                 self.assertTrue(page.locator("#project-inspector").is_visible())
                 self.assertEqual(page.locator("#project-inspector section button").count(), 1)

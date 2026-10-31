@@ -246,3 +246,5 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - 新分支 `feat/20261031-ui-v2-phase3-projects` 从第二阶段未合并代码派生，项目卡片增加主要归属/关联/风险统计、项目检索排序、项目任务只读概览以及直达已筛选任务列表。同步缺失的项目仅标记待核查，不生成新的事件或抹除原项目 ID。
 - 项目新增和改名仍由原 API 保存；新增项目编辑草稿的刷新/切换保护；保留原 revision/409 和任务人工确认机制。app.py、持久化事件结构保持不变。
 - Node 新增四组项目专项，尚需准确 SHA 的 GitHub CI 与 Windows Chromium 真实浏览器测试。未合并、未部署，不触碰真实 Google Drive。
+
+- **2026-10-31 测试包构建方案**：第三阶段第一轮固定 SHA `6c6b5b85f43469a143640b4e5b1a02be9eaeea7b`，GitHub Actions #41203032835 三组 SUCCESS；为用户交付可实操的 V2 测试版本，在同分支添加无外部依赖的隔离启动脚本 `preview/launch_isolated.py` 和 Windows 双击启动器。测试时由系统临时目录复制应用白名单文件、使用随机 `127.0.0.1` 端口和全新临时 data-dir；按 Enter 终止并清理，不访问真实 Drive/8770。Windows CI 通过后上传 `AIWorkSpace-UI-V2-isolated-preview` Artifact ZIP，供用户下载实操；首次构建需按新 SHA 复验，不提前宣告 PASS。
