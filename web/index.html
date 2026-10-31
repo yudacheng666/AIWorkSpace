@@ -449,10 +449,16 @@
       <p class="review-note" title="现有任务没有明确的审核或决策字段，因此不自动推断。">待审核／决策不会根据普通任务自动推断。</p>
       <p class="overview-note" id="overview-owner-hint" title="本人选择只影响当前页面统计，不写入任务数据。">先选择与自己一致的负责人名称，才能准确区分亲自处理与跟进他人。此选择只影响当前页面，不写入任务数据。</p>
     </section>
+    <div class="stats" aria-label="任务统计">
+      <div class="stat"><b id="total">—</b><span>全部任务</span></div>
+      <div class="stat"><b id="active">—</b><span>待处理或进行中</span></div>
+      <div class="stat"><b id="finished">—</b><span>已完成</span></div>
+    </div>
+    </section>
     <section id="page-projects" class="workspace-page" hidden>
       <div class="page-heading"><div><h1>项目管理</h1><p class="subtitle">管理项目，并查看任务的主要归属与关联关系。</p></div></div>
     <section class="project-panel" aria-labelledby="project-heading">
-      <h2 id="project-heading">项目管理</h2>
+      <h2 id="project-heading">项目列表</h2>
       <p class="project-help">项目有独立编号；任务可归属一个主要项目，也可关联其他项目。项目不会因没有任务而自动删除。</p>
       <form class="create-form" id="create-project">
         <label for="new-project-name">新项目名称
@@ -465,12 +471,7 @@
       <div class="project-list" id="project-list" aria-label="项目列表"></div>
     </section>
     </section>
-    <div class="stats" aria-label="任务统计">
-      <div class="stat"><b id="total">—</b><span>全部任务</span></div>
-      <div class="stat"><b id="active">—</b><span>待处理或进行中</span></div>
-      <div class="stat"><b id="finished">—</b><span>已完成</span></div>
-    </div>
-    </section>
+    
     <section id="page-tasks" class="workspace-page" hidden>
       <div class="page-heading"><div><h1>全部任务</h1><p class="subtitle">按项目查看和维护任务；搜索与筛选只影响当前显示。</p></div></div>
     <section class="query-panel" aria-labelledby="query-heading">
