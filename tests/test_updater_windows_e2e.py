@@ -336,6 +336,83 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                     pass
                 browser.close()
 
+    def test_v2_workspace_navigation_create_modal_and_task_detail_drawer(self):
+        self._scenario = "ui-shell"
+        self._start_old_service()
+
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            context = browser.new_context(viewport={"width": 1440, "height": 960})
+            context.tracing.start(screenshots=True, snapshots=True, sources=True)
+            page = context.new_page()
+            page_errors = []
+            page.on("pageerror", lambda error: page_errors.append(str(error)))
+            try:
+                page.goto(f"http://127.0.0.1:{self.port}/", wait_until="domcontentloaded", timeout=30000)
+                self.assertTrue(page.locator("#page-overview").is_visible())
+
+                page.locator("#nav-projects").click()
+                self.assertTrue(page.locator("#page-projects").is_visible())
+                page.locator("#nav-settings").click()
+                self.assertTrue(page.locator("#page-settings").is_visible())
+                page.locator("#app-version").wait_for(state="visible", timeout=15000)
+                page.locator("#nav-overview").click()
+                self.assertTrue(page.locator("#page-overview").is_visible())
+
+                # Opening and closing the modal without submitting must not write an event.
+                page.locator("#open-create-task").click()
+                self.assertTrue(page.locator("#create-modal").is_visible())
+                page.locator("#create-modal-close").click()
+                self.assertTrue(page.locator("#create-modal").is_hidden())
+
+                # Create one fictional task through the production UI and API.
+                page.locator("#open-create-task").click()
+                page.locator("#new-task-title").fill("虚构 UI 验收任务")
+                page.locator("#create-submit").click()
+                page.locator("#page-tasks").wait_for(state="visible", timeout=15000)
+                page.locator("#tasks .task-summary").wait_for(timeout=15000)
+                self.assertEqual(page.locator("#tasks .task-summary").count(), 1)
+
+                page.locator("#tasks .task-open").first.click()
+                page.locator("#task-detail-drawer").wait_for(state="visible", timeout=5000)
+                self.assertEqual(page.locator("#task-detail-title").inner_text(), "虚构 UI 验收任务")
+                self.assertTrue(page.locator("#task-detail-content .task-form").is_visible())
+                self.assertTrue(page.locator("#task-detail-content .steps-panel").is_visible())
+                page.screenshot(path=str(self.evidence_dir / "ui-shell-desktop-detail.png"), full_page=True)
+
+                page.locator("#task-detail-close").click()
+                self.assertTrue(page.locator("#task-detail-drawer").is_hidden())
+                page.locator("#global-search").fill("虚构 UI 验收任务")
+                page.locator("#global-search").press("Enter")
+                self.assertEqual(page.locator("#tasks .task-summary").count(), 1)
+
+                page.set_viewport_size({"width": 390, "height": 844})
+                page.locator("#nav-overview").click()
+                self.assertTrue(page.locator("#page-overview").is_visible())
+                self.assertTrue(page.evaluate("() => document.documentElement.scrollWidth <= window.innerWidth"),
+                                "mobile workspace must not overflow horizontally")
+                page.screenshot(path=str(self.evidence_dir / "ui-shell-mobile-overview.png"), full_page=True)
+
+                self.assertEqual(page_errors, [], "UI must not emit uncaught browser errors")
+                events = list((self.data_dir / "events").glob("*.json"))
+                self.assertEqual(len(events), 1, "the single create action should append exactly one task event")
+                (self.evidence_dir / "ui-shell-result.json").write_text(
+                    json.dumps({
+                        "result": "PASS",
+                        "created_task_events": len(events),
+                        "task_title": "虚构 UI 验收任务",
+                        "page_errors": page_errors,
+                        "data_snapshot": self._snapshot_data(),
+                    }, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+            finally:
+                try:
+                    context.tracing.stop(path=str(self.evidence_dir / "ui-shell-playwright-trace.zip"))
+                except Exception:
+                    pass
+                browser.close()
+
     def test_real_app_browser_one_click_update_restarts_on_same_port_and_preserves_data(self):
         self._run_browser_update("success", expect_rollback=False)
 
