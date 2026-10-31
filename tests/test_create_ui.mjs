@@ -817,58 +817,59 @@ test("M3.4 selected self owner remains local to UI and survives refresh without 
   assert.equal(page.posted.length, 0);
 });
 
-test("M3.4 filter changes and refresh never silently discard unsaved task edits", async () => {
+test("M3.4 navigation and refresh never silently discard an unsaved task detail draft", async () => {
   const page = overviewHarness([
     overviewTask("TASK-ONE", {title: "原始任务"}),
     overviewTask("TASK-TWO", {title: "另一项任务"})
   ]);
   await page.api.refresh(true);
-  const group = page.el("tasks").children[0];
-  const card = group.children[1];
+  const card = openTaskEditor(page, "TASK-ONE");
   const form = card.children.find(item => item.className === "task-form");
   const titleInput = form.children[0].children[0];
   titleInput.value = "还没有保存的修改";
   form.handlers.get("input")();
   page.setConfirm(false);
 
-  page.el("view-risk").handlers.get("click")();
-  assert.equal(page.el("query-result-count").textContent, "（2 / 2）",
-               "declined navigation must not change visible task list");
-  assert.equal(page.el("tasks").children[0].children[1], card,
-               "same edit DOM must remain mounted");
+  page.api.selectOverview("risk");
+  assert.equal(page.el("task-detail-drawer").hidden, false,
+               "declined navigation must keep the detail drawer open");
+  assert.equal(page.el("task-detail-content").children[0], card,
+               "declined navigation must keep the same edit DOM mounted");
   assert.equal(titleInput.value, "还没有保存的修改");
 
-  page.el("query-keyword").value = "不匹配";
-  page.submitQuery();
-  assert.equal(page.el("query-result-count").textContent, "（2 / 2）");
   await page.api.refresh(false);
-  assert.equal(page.el("tasks").children[0].children[1], card,
-               "background refresh must not discard dirty draft");
+  assert.equal(page.el("task-detail-content").children[0], card,
+               "background refresh must not discard the dirty detail draft");
   assert.match(page.el("sync").textContent, /尚未保存/);
   assert.equal(page.posted.length, 0);
 
   page.setConfirm(true);
-  page.submitQuery();
+  page.api.selectOverview("risk");
+  assert.equal(page.el("task-detail-drawer").hidden, true,
+               "confirmed navigation may close the editor");
   assert.equal(page.el("query-result-count").textContent, "（0 / 2）",
-               "explicitly confirmed navigation may replace the edit DOM");
+               "confirmed navigation applies the selected overview filter");
 });
 
-test("M3.4 new step drafts are also protected from view switching", async () => {
+test("M3.4 new step drafts are protected when leaving the task detail drawer", async () => {
   const page = overviewHarness([overviewTask("TASK-STEP-DRAFT")]);
   await page.api.refresh(true);
-  const card = page.el("tasks").children[0].children[1];
+  const card = openTaskEditor(page, "TASK-STEP-DRAFT");
   const panel = card.children.find(item => item.className === "steps-panel");
   const addForm = panel.children.find(item => item.className === "step-add-form");
   const input = addForm.children[0];
   input.value = "新增草稿尚未保存";
   addForm.handlers.get("input")();
   page.setConfirm(false);
-  page.el("view-risk").handlers.get("click")();
-  assert.equal(page.el("tasks").children[0].children[1], card);
+  page.api.selectOverview("risk");
+  assert.equal(page.el("task-detail-drawer").hidden, false);
+  assert.equal(page.el("task-detail-content").children[0], card);
   assert.equal(input.value, "新增草稿尚未保存");
   assert.equal(page.posted.length, 0);
+  page.setConfirm(true);
+  page.api.selectOverview("risk");
+  assert.equal(page.el("task-detail-drawer").hidden, true);
 });
-
 
 test("M3.4 browser reload prompts for an unsaved new-task form, but not after reset or save", async () => {
   const page = harness();
