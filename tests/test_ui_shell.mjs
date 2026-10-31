@@ -46,7 +46,7 @@ function harness(tasks = [], confirm = () => true) {
       if (!elements.has(id)) {
         const selects = new Set(["overview-owner", "query-project", "query-owner",
           "query-status", "query-date-field", "new-task-project", "new-task-related",
-          "new-task-priority", "task-sort"]);
+          "new-task-priority", "task-sort", "task-date-field"]);
         elements.set(id, node(selects.has(id) ? "select" : "div"));
       }
       return elements.get(id);
@@ -65,7 +65,7 @@ function harness(tasks = [], confirm = () => true) {
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects: [], warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts})", {
       document, window, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, writes, el: id => document.getElementById(id)};
@@ -166,4 +166,134 @@ test("global search applies the existing task query without creating or updating
   assert.equal(page.el("page-tasks").hidden, false);
   assert.equal(page.el("query-keyword").value, "TASK-UI-V2");
   assert.equal(page.writes.length, 0);
+});
+
+function dateInCurrentMonth(day) {
+  const now = new Date();
+  return String(now.getFullYear()) + "-" + String(now.getMonth() + 1).padStart(2,"0") +
+    "-" + String(day).padStart(2,"0");
+}
+
+test("phase 2 status board groups conflicts separately and only opens task detail", async () => {
+  const doing = sampleTask();
+  const conflict = {...sampleTask(), task_id: "TASK-UI-CONFLICT", title: "冲突样本", conflict: true};
+  const blocked = {...sampleTask(), task_id: "TASK-UI-BLOCKED", title: "阻塞样本", status: "blocked"};
+  const page = harness([doing, conflict, blocked]);
+  await page.api.refresh(true);
+  assert.equal(page.api.setTaskView("board"), true);
+  assert.equal(page.el("tasks").className, "task-list is-board");
+  const note = page.el("tasks").children[0];
+  const board = page.el("tasks").children[1];
+  assert.match(note.textContent, /只读/);
+  assert.equal(board.children.length, 5);
+  assert.equal(board.children[1].children[1].children.length, 1);
+  assert.equal(board.children[2].children[1].children.length, 1);
+  assert.equal(board.children[4].children[1].children.length, 1);
+  const card = board.children[4].children[1].children[0];
+  card.handlers.get("click")[0]();
+  assert.equal(page.el("task-detail-title").textContent, "冲突样本");
+  assert.equal(page.writes.length, 0);
+});
+
+test("phase 2 calendar renders 42 cells and distinguishes due, planned and followup dates", async () => {
+  const due = dateInCurrentMonth(12);
+  const planned = dateInCurrentMonth(9);
+  const task = {...sampleTask(), due_date: due, planned_date: planned, follow_up_date: null};
+  const noDate = {...sampleTask(), task_id: "TASK-UI-NODATE",
+                   due_date: null, planned_date: null, follow_up_date: null};
+  const page = harness([task, noDate]);
+  await page.api.refresh(true);
+  assert.equal(page.api.setTaskView("calendar"), true);
+  assert.equal(page.el("task-date-tools").hidden, false);
+  assert.equal(page.el("task-date-field-label").hidden, false);
+  let grid = page.el("tasks").children[2];
+  assert.equal(grid.className, "calendar-grid");
+  assert.equal(grid.children.length, 42);
+  const dueCell = grid.children.find(c => c.title?.startsWith(due + " ·"));
+  assert.ok(dueCell);
+  assert.equal(dueCell.children.length, 2);
+  const undated = page.el("tasks").children[3];
+  assert.match(undated.children[0].textContent, /未设置截止日期/);
+  assert.equal(undated.children[1].children.length, 1);
+  page.el("task-date-field").value = "planned_date";
+  page.el("task-date-field").handlers.get("change")[0]();
+  grid = page.el("tasks").children[2];
+  const plannedCell = grid.children.find(c => c.title?.startsWith(planned + " ·"));
+  assert.equal(plannedCell.children.length, 2);
+  page.el("task-date-field").value = "follow_up_date";
+  page.el("task-date-field").handlers.get("change")[0]();
+  grid = page.el("tasks").children[2];
+  assert.equal(grid.children.reduce((n,c) => n + c.children.length, 0), 42);
+  assert.equal(page.el("tasks").children[3].children[1].children.length, 2);
+  assert.equal(page.writes.length, 0);
+});
+
+test("phase 2 calendar retains an empty month grid and period buttons change the label", async () => {
+  const page = harness([]);
+  await page.api.refresh(true);
+  page.api.setTaskView("calendar");
+  assert.equal(page.el("tasks").children[2].children.length, 42);
+  const before = page.el("task-period-label").textContent;
+  page.el("task-period-next").handlers.get("click")[0]();
+  const after = page.el("task-period-label").textContent;
+  assert.notEqual(after, before);
+  page.el("task-period-prev").handlers.get("click")[0]();
+  assert.equal(page.el("task-period-label").textContent, before);
+  assert.equal(page.writes.length, 0);
+});
+
+test("phase 2 Gantt shows independent date markers and preserves invalid or missing tasks", async () => {
+  const planned = dateInCurrentMonth(5);
+  const due = dateInCurrentMonth(12);
+  const good = {...sampleTask(), planned_date: planned, due_date: due};
+  const invalid = {...sampleTask(), task_id: "TASK-UI-INVALID",
+                   planned_date: due, due_date: planned};
+  const missing = {...sampleTask(), task_id: "TASK-UI-MISSING",
+                   planned_date: null, due_date: null};
+  const page = harness([good, invalid, missing]);
+  await page.api.refresh(true);
+  assert.equal(page.api.setTaskView("gantt"), true);
+  assert.equal(page.el("task-date-field-label").hidden, true);
+  const table = page.el("tasks").children[1].children[0];
+  assert.equal(table.className, "gantt-table");
+  assert.equal(table.children.length, 2);
+  assert.equal(table.children[0].children[1].children.length, 28);
+  const ganttRow = table.children[1];
+  const classes = ganttRow.children[1].children.map(c => c.className);
+  assert.ok(classes.some(c=>c.includes("is-planned")));
+  assert.ok(classes.some(c=>c.includes("is-due")));
+  assert.ok(classes.some(c=>c.includes("is-range")));
+  assert.equal(page.el("tasks").children[2].children[1].children.length, 2);
+  assert.equal(page.writes.length, 0);
+});
+
+test("phase 2 refuses view switching when an unsaved task draft cannot be discarded", async () => {
+  let allowDiscard = false;
+  const page = harness([sampleTask()], () => allowDiscard);
+  await page.api.refresh(true);
+  page.api.openTaskDetail("TASK-UI-V2-001");
+  const form = page.el("task-detail-content").children[0].children
+    .find(item => item.className === "task-form");
+  const title = form.children[0].children[0];
+  title.value = "未保存看板草稿";
+  form.handlers.get("input")[0]();
+  assert.equal(page.api.setTaskView("board"), false);
+  assert.equal(page.el("tasks").className, "task-list");
+  assert.equal(page.el("task-detail-content").children[0].children.find(x=>x.className==="task-form"), form);
+  assert.equal(title.value, "未保存看板草稿");
+  allowDiscard = true;
+  assert.equal(page.api.setTaskView("board"), true);
+  assert.equal(page.el("task-detail-drawer").hidden, true);
+  assert.equal(page.el("tasks").className, "task-list is-board");
+  assert.equal(page.writes.length, 0);
+});
+
+test("phase 2 accepts only genuine ISO calendar dates and does not infer missing values", async () => {
+  const page = harness([]);
+  await page.api.refresh(true);
+  for (const bad of ["", "2026-02-30", "2026-13-01", "2026-00-01", "abc", null]) {
+    assert.equal(page.api.isoDayParts(bad), null);
+  }
+  assert.ok(page.api.isoDayParts("2024-02-29"));
+  assert.ok(page.api.isoDayParts("2026-11-05"));
 });
