@@ -191,3 +191,25 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - **真实 main 更新源校验（合并后已执行）**：官方 GitHub API/main、固定 commit RAW VERSION 现可读取 1.0.0，旧 404 阻塞已解除。[QA PR #8](https://github.com/yudacheng666/AIWorkSpace/pull/8) 的 Windows Runner 使用原版 `updater.prepare_update()`、**真实 GitHub API/raw/zipball（无 HTTP mock）**，按实际提交 `163827338372fafa57a15e55939d4f0955959310` 下载 ZIP，通过路径/白名单/来源校验后暂存和 `apply_staged_update()` 安装到临时应用目录，验证备份、构建信息与真实 `app.py` 在独立本地端口启动，`GET /api/update/status` 返回版本 1.0.0 和官方 SHA；虚构 data 根及 events/project_events/step_events 哨兵文件 SHA 未变化。[Actions #41077145985](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41077145985) 三个 job 全部 SUCCESS、真实公开源烟测 1 PASS；[结果 JSON 和服务日志](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41077145985/artifacts/12987521846)。首轮失败仅因为 Windows checkout CRLF 与 GitHub ZIP LF 的严格比较，修正 QA 的文本比较后重跑通过；**无产品代码更改**。该测试验证真实公开源 ZIP 下载/校验/安装/启动；不包含同一测试中的网页按钮/helper/回滚，后三项已在固定来源隔离 Windows Chromium E2E 2 PASS。语义版本仍为 1.0.0，后续仅文档提交可能改变 build SHA。
 - **截至本轮仍 NOT TESTED**：将真实 GitHub ZIP 下载与网页按钮/helper/故障回滚合并为一条完整联合链路（真实 ZIP 单独安装已 PASS，浏览器/独立 helper/回滚已在固定来源隔离 E2E PASS）；公司 Windows 8770 上的新程序升级、真实 Drive、企业网络代理/权限、Windows IME、长时/断电、多浏览器、多客户端及远程访问。**GitHub 合并不会自动升级公司电脑**。
 - **下一步**：已完成发布源真实 ZIP/隔离安装校验；QA PR #8 保持 Draft、未合并，仅用于验证和证据归档。下一阶段准备首次 Windows 非生产目录安装预演与操作手册，确认旧程序安全保留、独立 `--data-dir`、服务停止/启动和数据文件核对。只有用户另行明确批准本机部署后，才能升级公司 Windows 8770 或访问真实 Drive。首次正式部署最新版后，工作台网页的一键更新才可用于后续版本。
+
+
+## UI V2 正式改造（阶段一已完成，等待用户体验确认，2026-10-31）
+
+- **用户批准**：用户体验独立 HTML V2 交互原型后表示整体满意，批准按阶段正式开发，并要求开发记忆长久化；用户明确要求不转交 Work。本阶段通过 GitHub 仓库协作直接实施。
+- **设计基线**：以用户确认的 V2 原型为准。阶段一先统一框架、工作总览、任务列表、任务详情抽屉、新建任务弹窗、项目与设置分页面；看板、日历、甘特图属于后续阶段。
+- **开发分支 / PR**：`feat/20261031-ui-v2-phase1-layout`；[Draft PR #10](https://github.com/yudacheng666/AIWorkSpace/pull/10)，目标 `main`，保持 Draft / 未合并。UI 代码测试 SHA：`f29f0be8f6557e134a65fb58c7d2dd8eb15b5a3e`；基线 main SHA：`654d14b33f859d2b85e762e95154d0495ade116c`。
+- **阶段一已实施**：
+  1. 左侧统一导航和顶部工具栏；工作总览、全部任务、项目管理、系统设置拆分为独立页面。
+  2. 软件更新中心移入系统设置，不再占据业务首页。
+  3. 工作总览保留 M3.4 的五类快捷分类和统计；说明性小字收敛到悬浮提示。
+  4. 任务列表使用摘要行，支持全局搜索、既有组合筛选及本地排序（项目/截止日期/优先级/名称）。
+  5. 任务详情改为右侧抽屉，复用原有 `row(task)` 编辑器与 `stepPanel`，保留任务/步骤保存、revision/409、完成确认、步骤排序冲突和草稿保护。
+  6. 新建任务改为弹窗，继续调用原有 `POST /api/tasks`，关闭弹窗保留未保存草稿；创建成功后进入任务列表。
+  7. 项目管理独立成页；统一按钮、字体、间距、状态色、列表和响应式布局。
+- **数据与安全边界**：未修改 `app.py`、API 契约或 `events/`、`project_events/`、`step_events/` 事件结构；没有新增工时、百分比进度、任务依赖等未批准字段。仅使用虚构数据；没有访问真实 Google Drive、公司 Windows 8770 或部署程序。
+- **测试结果**：[GitHub Actions #41192430422](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41192430422) 三个 job 全部 SUCCESS：Linux Python 103/103、Node UI 44/44；Windows Python 103/103、Node UI 44/44；Windows 真实 app.py + Chromium E2E 3/3 PASS（软件更新成功、失败回滚、新 UI 工作流）。UI 浏览器专项覆盖导航、设置页、弹窗打开/关闭、通过真实 API 新建虚构任务、任务详情/执行步骤抽屉、全局搜索、390px 窄屏无横向溢出及无未捕获页面错误。
+- **视觉证据**：[Windows Chromium 截图、Playwright trace、测试结果和隔离服务日志 Artifact](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41192430422/artifacts/13039321657)。证据均来自 GitHub-hosted Windows 临时目录和虚构数据。
+- **明确未测范围**：用户公司电脑、真实 Google Drive、企业代理环境、真实数据升级/部署、其他浏览器、真实手机设备、屏幕阅读器/完整键盘可访问性及长时间耐久性。Chromium 的 390px 视口检查不能替代真实手机验收。
+- **合并 / 部署状态**：PR #10 保持 Draft / 未合并；`main` 未修改；未部署。所有自动化通过不代表用户已完成视觉验收，也不代表可以直接合并。
+- **下一步**：用户查看 PR #10 和浏览器证据；如有细节问题，继续在本分支迭代。只有用户明确批准合并后才可合并；阶段一确认后再进入阶段二看板、日历、甘特图。
+

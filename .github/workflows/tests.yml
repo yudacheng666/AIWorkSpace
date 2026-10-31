@@ -2,8 +2,15 @@ name: tests
 
 on:
   push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
 
 permissions:
   contents: read
@@ -29,8 +36,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Run new-task draft regression tests
-        run: node --test tests/test_create_ui.mjs
+      - name: Run UI regression tests
+        run: node --test tests/test_create_ui.mjs tests/test_ui_shell.mjs
 
   windows-update-e2e:
     name: Windows real app + Chromium updater E2E
