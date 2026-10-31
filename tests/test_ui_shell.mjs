@@ -25,7 +25,7 @@ function harness(tasks = [], confirm = () => true) {
     };
     Object.defineProperty(item, "value", {
       get() {
-        if (tag === "select") return item.children.find(child => child.selected)?.value ?? "";
+        if (tag === "select") return item.children.find(child => child.selected)?.value ?? item._value;
         return item._value;
       },
       set(value) {
