@@ -367,6 +367,10 @@
 
     /* UI V2 Phase 2: read-only task board, calendar and date Gantt */
     .task-view-toolbar { display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin:5px 0 16px; }
+    .task-filter-disclosure {margin:0 0 15px;border:1px solid #e3e8f0;border-radius:9px;background:#fff;}
+    .task-filter-disclosure > summary {padding:11px 16px;color:#586b83;font-size:12px;font-weight:680;cursor:pointer;}
+    .task-filter-disclosure > summary small {margin-left:9px;color:#9ba7b5;font-size:10px;font-weight:500;}
+    .task-filter-disclosure .query-panel {margin:0;border:0;border-top:1px solid #edf1f5;border-radius:0 0 9px 9px;}
     .task-view-switch {display:inline-flex;gap:3px;padding:4px;border:1px solid #e3e8f0;border-radius:9px;background:#fff;}
     .task-view-switch button {min-width:62px;min-height:32px;padding:0 13px;border:0;border-radius:6px;background:transparent;color:#66758a;font-size:12px;font-weight:630;}
     .task-view-switch button.is-active {background:#ebf2ff;color:#265fca;box-shadow:0 1px 3px #1e37651a;}
@@ -395,6 +399,9 @@
     .calendar-weekdays {border:1px solid #e3e9f0;border-bottom:0;border-radius:10px 10px 0 0;background:#f9fbfd;}
     .calendar-weekdays span {padding:11px 3px;color:#7b899a;font-size:11px;text-align:center;}
     .calendar-grid {border-top:1px solid #e3e9f0;border-left:1px solid #e3e9f0;border-radius:0 0 10px 10px;overflow:hidden;background:#fff;}
+    .task-list.is-calendar {overflow-x:auto;}
+    .calendar-grid.is-week, .calendar-weekdays.is-week {min-width:740px;}
+    .calendar-grid.is-week .calendar-day {min-height:240px;}
     .calendar-day {min-width:0;min-height:111px;padding:7px 6px;border-right:1px solid #e3e9f0;border-bottom:1px solid #e3e9f0;background:#fff;}
     .calendar-day.is-outside {background:#f9fafc;}
     .calendar-day.is-today {background:#f2f7ff;}
@@ -409,14 +416,14 @@
     .view-extra-list button {padding:8px 10px;border:1px solid #e6ebf1;border-radius:7px;background:#f8fafc;color:#526680;font-size:11px;}
     .view-extra-list button:hover {border-color:#a9c1e7;color:#265fca;}
     .gantt-scroll {width:100%;overflow-x:auto;border:1px solid #e3e9f0;border-radius:10px;background:#fff;}
-    .gantt-table {min-width:1020px;}
+    .gantt-table {min-width:1840px;}
     .gantt-row {display:grid;grid-template-columns:235px minmax(0,1fr);border-bottom:1px solid #eff1f5;}
     .gantt-row:last-child {border-bottom:0;}
     .gantt-task-info {position:sticky;left:0;z-index:1;display:grid;gap:3px;align-content:center;padding:11px 12px;border-right:1px solid #e7ebf1;background:#fff;}
     .gantt-task-info button {padding:0;border:0;background:transparent;color:#344762;font-size:11px;font-weight:680;text-align:left;overflow-wrap:anywhere;}
     .gantt-task-info small {color:#8996a7;font-size:9px;}
-    .gantt-days {display:grid;grid-template-columns:repeat(42,minmax(24px,1fr));align-items:stretch;}
-    .gantt-date {display:grid;align-content:center;justify-items:center;min-height:43px;padding:7px 0;background:#f8fafd;border-right:1px solid #edf1f5;color:#718098;font-size:9px;}
+    .gantt-days {display:grid;grid-template-columns:repeat(42,minmax(36px,1fr));align-items:stretch;}
+    .gantt-date {display:grid;align-content:center;justify-items:center;min-height:43px;padding:7px 0;background:#f8fafd;border-right:1px solid #edf1f5;color:#718098;font-size:10px;white-space:nowrap;}
     .gantt-date.is-today {background:#eaf2ff;color:#2b61bf;font-weight:750;}
     .gantt-cell {min-height:43px;border-right:1px solid #f0f2f6;background:#fff;}
     .gantt-cell.is-range {background:#e6f0ff;box-shadow:inset 0 11px 0 #fff,inset 0 -11px 0 #fff;}
@@ -424,6 +431,7 @@
     .gantt-cell.is-due {background:#f3bc8b;box-shadow:inset 0 9px 0 #fff,inset 0 -9px 0 #fff;}
     .gantt-cell.is-same-day {background:linear-gradient(90deg,#bfd6ff 50%,#f3bc8b 50%);box-shadow:inset 0 9px 0 #fff,inset 0 -9px 0 #fff;}
     .gantt-cell.is-today {border-left:1px solid #a5c3ec;}
+    .gantt-date.is-week-start, .gantt-cell.is-week-start {border-left:2px solid #d4dfed;}
     .gantt-table .gantt-row:first-child .gantt-task-info {background:#f8fafd;color:#708198;}
     @media (max-width: 1050px) {.task-board{grid-template-columns:repeat(5,minmax(188px,1fr));}}
     @media (max-width: 820px) {.calendar-day{min-height:90px;padding:4px 3px;}.calendar-task{font-size:9px;padding:4px;}.task-date-tools{width:100%;justify-content:flex-start;}.task-view-toolbar{align-items:flex-start;}}
@@ -443,6 +451,9 @@
     <nav class="side-nav" aria-label="工作台导航">
       <button type="button" class="nav-item is-active" id="nav-overview"><span class="nav-icon">▦</span><span>工作总览</span></button>
       <button type="button" class="nav-item" id="nav-tasks"><span class="nav-icon">☷</span><span>全部任务</span></button>
+      <button type="button" class="nav-item" id="nav-board"><span class="nav-icon">▥</span><span>状态看板</span></button>
+      <button type="button" class="nav-item" id="nav-calendar"><span class="nav-icon">▦</span><span>任务日历</span></button>
+      <button type="button" class="nav-item" id="nav-gantt"><span class="nav-icon">▰</span><span>日期甘特图</span></button>
       <button type="button" class="nav-item" id="nav-today"><span class="nav-icon">◷</span><span>今日处理</span></button>
       <button type="button" class="nav-item" id="nav-followup"><span class="nav-icon">↗</span><span>跟进他人</span></button>
       <button type="button" class="nav-item" id="nav-due"><span class="nav-icon">▣</span><span>7 天内到期</span></button>
@@ -538,7 +549,9 @@
     </section>
     
     <section id="page-tasks" class="workspace-page" hidden>
-      <div class="page-heading"><div><h1>全部任务</h1><p class="subtitle">按项目查看和维护任务；搜索与筛选只影响当前显示。</p></div></div>
+      <div class="page-heading"><div><h1 id="tasks-page-title">全部任务</h1><p class="subtitle">统一任务数据 · 多视图查看与管理</p></div></div>
+    <details id="task-filter-disclosure" class="task-filter-disclosure">
+      <summary>条件筛选 <small>项目 · 状态 · 负责人 · 日期</small></summary>
     <section class="query-panel" aria-labelledby="query-heading">
       <h2 id="query-heading">任务查询</h2>
       <p class="overview-note" title="支持任务名称、任务编号、步骤名称、步骤编号、项目、状态、负责人和日期范围组合筛选。">可组合筛选任务、项目、负责人和日期。</p>
@@ -584,6 +597,7 @@
         </div>
       </form>
     </section>
+    </details>
     <div class="task-view-toolbar" aria-label="任务视图工具栏">
       <div class="task-view-switch" role="group" aria-label="选择任务视图">
         <button id="task-view-list" type="button" class="is-active" aria-pressed="true">列表</button>
@@ -597,6 +611,12 @@
             <option value="due_date">截止日期</option>
             <option value="planned_date">计划执行日期</option>
             <option value="follow_up_date">下次跟进日期</option>
+          </select>
+        </label>
+        <label id="calendar-granularity-label" for="calendar-granularity">视图
+          <select id="calendar-granularity" aria-label="日历时间尺度">
+            <option value="month">月</option>
+            <option value="week">周</option>
           </select>
         </label>
         <button type="button" id="task-period-prev" aria-label="上一个时间段">‹</button>
@@ -696,6 +716,7 @@
     let taskViewMode = "list";
     let taskMonthCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     let taskTimelineCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    let taskWeekCursor = mondayOf(new Date());
 
     const unsavedTaskEditors = new Set();
     const unsavedPersistentEditors = new Set();
@@ -1393,6 +1414,11 @@
       return String(date.getFullYear()) + " 年 " + String(date.getMonth() + 1) + " 月";
     }
 
+    function mondayOf(date) {
+      const day = (date.getDay() + 6) % 7;
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate() - day);
+    }
+
     function dateWindow(start, length) {
       return Array.from({length}, (_, i) =>
         localDayISO(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)));
@@ -1451,21 +1477,22 @@
       const monthStart = new Date(taskMonthCursor.getFullYear(), taskMonthCursor.getMonth(), 1);
       const offset = (monthStart.getDay() + 6) % 7;
       const firstCell = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1 - offset);
-      const days = dateWindow(firstCell, 42);
+      const isWeek = $("calendar-granularity").value === "week";
+      const days = isWeek ? dateWindow(taskWeekCursor, 7) : dateWindow(firstCell, 42);
       const byDay = new Map();
       for (const task of tasks) {
         if (!isoDayParts(task[field])) continue;
         if (!byDay.has(task[field])) byDay.set(task[field], []);
         byDay.get(task[field]).push(task);
       }
-      const weekHead = element("div", "calendar-weekdays");
+      const weekHead = element("div", "calendar-weekdays" + (isWeek ? " is-week" : ""));
       for (const label of ["周一", "周二", "周三", "周四", "周五", "周六", "周日"])
         weekHead.append(element("span", "", label));
-      const grid = element("div", "calendar-grid");
+      const grid = element("div", "calendar-grid" + (isWeek ? " is-week" : ""));
       const selectedMonth = localDayISO(monthStart).slice(0, 7);
       for (const iso of days) {
         const items = byDay.get(iso) || [];
-        const outside = iso.slice(0, 7) !== selectedMonth;
+        const outside = !isWeek && iso.slice(0, 7) !== selectedMonth;
         const cell = element("section", "calendar-day" +
           (outside ? " is-outside" : "") + (iso === today ? " is-today" : ""));
         cell.title = iso + " · " + items.length + " 项" + dateFields[field] + "任务";
@@ -1480,7 +1507,8 @@
       }
       const undated = tasks.filter(t => !isoDayParts(t[field]));
       container.replaceChildren(
-        element("p", "view-explainer", "当前显示" + dateFields[field] + "日期；三种日期独立，未填的不推算。跨月的浅色日期用于对齐周次。"),
+        element("p", "view-explainer", "当前显示" + dateFields[field] + "日期；三种日期独立，未填的不推算。" +
+          (isWeek ? "可按周导航查看当天任务。" : "跨月浅色日期用于对齐周次。")),
         weekHead, grid, undatedTaskPanel(undated, "未设置" + dateFields[field] + "日期")
       );
     }
@@ -1493,7 +1521,8 @@
       header.append(element("div", "gantt-task-info", "任务 / 日期"));
       const headerDays = element("div", "gantt-days");
       for (const iso of days) {
-        const label = element("span", "gantt-date" + (iso === today ? " is-today" : ""),
+        const boundary = isoDayParts(iso).getDay() === 1 ? " is-week-start" : "";
+        const label = element("span", "gantt-date" + (iso === today ? " is-today" : "") + boundary,
           iso.slice(5).replace("-", "/"));
         label.title = iso;
         headerDays.append(label);
@@ -1521,7 +1550,8 @@
           const inside = planned && due && planned <= iso && iso <= due;
           const state = iso === due && iso === planned ? " is-same-day" : iso === due ? " is-due" : iso === planned ? " is-planned" :
             inside ? " is-range" : "";
-          const cell = element("span", "gantt-cell" + state + (iso === today ? " is-today" : ""));
+          const boundary = isoDayParts(iso).getDay() === 1 ? " is-week-start" : "";
+          const cell = element("span", "gantt-cell" + state + (iso === today ? " is-today" : "") + boundary);
           cell.title = iso + (iso === planned ? " · 计划执行" : "") +
             (iso === due ? " · 截止" : "") +
             (inside && iso !== planned && iso !== due ? " · 计划日与截止日之间" : "");
@@ -1551,10 +1581,26 @@
       const dated = taskViewMode === "calendar" || taskViewMode === "gantt";
       $("task-date-tools").hidden = !dated;
       $("task-date-field-label").hidden = taskViewMode !== "calendar";
-      const currentPeriod = taskViewMode === "calendar" ? taskMonthCursor : taskTimelineCursor;
+      $("calendar-granularity-label").hidden = taskViewMode !== "calendar";
+      const isWeek = $("calendar-granularity").value === "week";
+      const currentPeriod = taskViewMode === "calendar" ?
+        (isWeek ? taskWeekCursor : taskMonthCursor) : taskTimelineCursor;
       $("task-period-label").textContent = taskViewMode === "calendar" ?
-        monthText(currentPeriod) :
+        (isWeek ? localDayISO(taskWeekCursor) + " — " + localDayISO(new Date(
+          taskWeekCursor.getFullYear(), taskWeekCursor.getMonth(), taskWeekCursor.getDate() + 6)) :
+          monthText(currentPeriod)) :
         localDayISO(currentPeriod) + " 起 42 天";
+      if (activePage === "tasks") {
+        const heading = {list: "全部任务", board: "状态看板", calendar: "任务日历", gantt: "日期甘特图"}[taskViewMode];
+        $("tasks-page-title").textContent = heading;
+        if (overviewView === "all") {
+          for (const id of ["nav-tasks", "nav-board", "nav-calendar", "nav-gantt"])
+            $(id).className = "nav-item";
+          const activeNav = taskViewMode === "list" ? "nav-tasks" : "nav-" + taskViewMode;
+          $(activeNav).className = "nav-item is-active";
+          $("topbar-context").textContent = heading;
+        }
+      }
     }
 
     function setTaskView(view) {
@@ -1569,8 +1615,12 @@
     function moveTaskPeriod(amount) {
       if (isSaving) return;
       if (activeDetailTaskId && !closeTaskDetail()) return;
-      const cursor = taskViewMode === "calendar" ? taskMonthCursor : taskTimelineCursor;
-      if (taskViewMode === "calendar") {
+      const isWeek = taskViewMode === "calendar" && $("calendar-granularity").value === "week";
+      const cursor = taskViewMode === "calendar" ?
+        (isWeek ? taskWeekCursor : taskMonthCursor) : taskTimelineCursor;
+      if (isWeek) {
+        taskWeekCursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + amount * 7);
+      } else if (taskViewMode === "calendar") {
         taskMonthCursor = new Date(cursor.getFullYear(), cursor.getMonth() + amount, 1);
       } else if (taskViewMode === "gantt") {
         taskTimelineCursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + amount * 14);
@@ -1584,6 +1634,7 @@
       const now = new Date();
       taskMonthCursor = new Date(now.getFullYear(), now.getMonth(), 1);
       taskTimelineCursor = new Date(now.getFullYear(), now.getMonth(), 1);
+      taskWeekCursor = mondayOf(now);
       renderTaskList();
     }
 
@@ -1679,18 +1730,19 @@
       settings: {title: "系统设置", nav: "nav-settings"}
     };
 
-    function setActivePage(page, view) {
+    function setActivePage(page, view, mode) {
       if (!pageMeta[page]) return false;
       if ((view === "mine" || view === "followup") && !selectedSelfOwner) return false;
       if (activeDetailTaskId && !closeTaskDetail()) return false;
       if (unsavedTaskEditors.size && !confirmDiscardUnsaved()) return false;
       activePage = page;
+      if (page === "tasks") taskViewMode = taskViewModes.includes(mode) ? mode : "list";
       for (const id of ["overview", "tasks", "projects", "settings"]) {
         $("page-" + id).hidden = id !== page;
         $("page-" + id).className = "workspace-page" + (id === page ? " is-active" : "");
       }
-      for (const id of ["nav-overview", "nav-tasks", "nav-projects", "nav-settings",
-                        "nav-today", "nav-followup", "nav-due", "nav-risk"]) {
+      for (const id of ["nav-overview", "nav-tasks", "nav-board", "nav-calendar", "nav-gantt",
+                        "nav-projects", "nav-settings", "nav-today", "nav-followup", "nav-due", "nav-risk"]) {
         const button = $(id);
         button.className = "nav-item";
       }
@@ -2036,7 +2088,10 @@
 
     const navBindings = [
       ["nav-overview", "overview", null],
-      ["nav-tasks", "tasks", "all"],
+      ["nav-tasks", "tasks", "all", "list"],
+      ["nav-board", "tasks", "all", "board"],
+      ["nav-calendar", "tasks", "all", "calendar"],
+      ["nav-gantt", "tasks", "all", "gantt"],
       ["nav-today", "tasks", "mine"],
       ["nav-followup", "tasks", "followup"],
       ["nav-due", "tasks", "due"],
@@ -2044,13 +2099,17 @@
       ["nav-projects", "projects", null],
       ["nav-settings", "settings", null]
     ];
-    for (const [id, page, view] of navBindings) {
-      $(id).addEventListener("click", () => setActivePage(page, view));
+    for (const [id, page, view, mode] of navBindings) {
+      $(id).addEventListener("click", () => setActivePage(page, view, mode));
     }
     $("task-sort").addEventListener("change", () => renderTaskList());
     for (const view of taskViewModes)
       $("task-view-" + view).addEventListener("click", () => setTaskView(view));
     $("task-date-field").addEventListener("change", () => renderTaskList());
+    $("calendar-granularity").addEventListener("change", () => {
+      if (isSaving || (activeDetailTaskId && !closeTaskDetail())) return;
+      renderTaskList();
+    });
     $("task-period-prev").addEventListener("click", () => moveTaskPeriod(-1));
     $("task-period-next").addEventListener("click", () => moveTaskPeriod(1));
     $("task-period-today").addEventListener("click", resetTaskPeriod);

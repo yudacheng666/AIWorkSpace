@@ -46,7 +46,7 @@ function harness(tasks = [], confirm = () => true) {
       if (!elements.has(id)) {
         const selects = new Set(["overview-owner", "query-project", "query-owner",
           "query-status", "query-date-field", "new-task-project", "new-task-related",
-          "new-task-priority", "task-sort", "task-date-field"]);
+          "new-task-priority", "task-sort", "task-date-field", "calendar-granularity"]);
         elements.set(id, node(selects.has(id) ? "select" : "div"));
       }
       return elements.get(id);
@@ -310,3 +310,58 @@ test("phase 2 Gantt isolates conflicted tasks from any assumed schedule", async 
   assert.equal(page.writes.length, 0);
 });
 
+
+test("V2 polishing: calendar and Gantt have direct sidebar navigation", async () => {
+  const page = harness([sampleTask()]);
+  await page.api.refresh(true);
+  page.el("nav-calendar").handlers.get("click")[0]();
+  assert.equal(page.el("page-tasks").hidden, false);
+  assert.equal(page.el("tasks").className, "task-list is-calendar");
+  assert.equal(page.el("tasks-page-title").textContent, "任务日历");
+  assert.equal(page.el("topbar-context").textContent, "任务日历");
+  assert.equal(page.el("nav-calendar").className, "nav-item is-active");
+  page.el("nav-gantt").handlers.get("click")[0]();
+  assert.equal(page.el("tasks").className, "task-list is-gantt");
+  assert.equal(page.el("tasks-page-title").textContent, "日期甘特图");
+  assert.equal(page.el("nav-gantt").className, "nav-item is-active");
+  page.el("nav-board").handlers.get("click")[0]();
+  assert.equal(page.el("tasks").className, "task-list is-board");
+  page.el("nav-tasks").handlers.get("click")[0]();
+  assert.equal(page.el("tasks").className, "task-list");
+  assert.equal(page.el("topbar-context").textContent, "全部任务");
+  assert.equal(page.writes.length, 0);
+});
+
+test("V2 polishing: calendar week toggle renders seven days and never changes task records", async () => {
+  const page = harness([{...sampleTask(), due_date: dateInCurrentMonth(16)}]);
+  await page.api.refresh(true);
+  page.el("nav-calendar").handlers.get("click")[0]();
+  assert.equal(page.el("tasks").children[2].children.length, 42);
+  page.el("calendar-granularity").value = "week";
+  page.el("calendar-granularity").handlers.get("change")[0]();
+  assert.equal(page.el("tasks").children[2].children.length, 7);
+  assert.equal(page.el("tasks").children[2].className, "calendar-grid is-week");
+  const label = page.el("task-period-label").textContent;
+  page.el("task-period-next").handlers.get("click")[0]();
+  assert.notEqual(page.el("task-period-label").textContent, label);
+  page.el("task-period-prev").handlers.get("click")[0]();
+  assert.equal(page.el("task-period-label").textContent, label);
+  page.el("calendar-granularity").value = "month";
+  page.el("calendar-granularity").handlers.get("change")[0]();
+  assert.equal(page.el("tasks").children[2].children.length, 42);
+  assert.equal(page.writes.length, 0);
+});
+
+test("V2 polishing: filters remain accessible and Gantt uses legible horizontally scrollable dates", async () => {
+  assert.match(html, /id="task-filter-disclosure"/);
+  assert.match(html, /\.gantt-table \{min-width:1840px;\}/);
+  assert.match(html, /repeat\(42,minmax\(36px,1fr\)\)/);
+  assert.match(html, /is-week-start/);
+  const page = harness([sampleTask()]);
+  await page.api.refresh(true);
+  page.el("nav-gantt").handlers.get("click")[0]();
+  const dates = page.el("tasks").children[1].children[0].children[0].children[1].children;
+  assert.equal(dates.length, 42);
+  assert.ok(dates.some(d=>d.className.includes("is-week-start")));
+  assert.equal(page.writes.length, 0);
+});

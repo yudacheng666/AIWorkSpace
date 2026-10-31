@@ -400,7 +400,17 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                 self.assertTrue(page.locator("#task-detail-drawer").is_visible())
                 page.locator("#task-detail-close").click()
 
-                page.locator("#task-view-calendar").click()
+                page.locator("#nav-calendar").click()
+                self.assertEqual(page.locator("#topbar-context").inner_text(), "任务日历")
+                self.assertEqual(page.locator("#tasks .calendar-day").count(), 42)
+                page.locator("#calendar-granularity").select_option("week")
+                self.assertEqual(page.locator("#tasks .calendar-day").count(), 7)
+                week_start = page.locator("#task-period-label").inner_text()
+                page.locator("#task-period-next").click()
+                self.assertNotEqual(page.locator("#task-period-label").inner_text(), week_start)
+                page.locator("#task-period-prev").click()
+                self.assertEqual(page.locator("#task-period-label").inner_text(), week_start)
+                page.locator("#calendar-granularity").select_option("month")
                 self.assertEqual(page.locator("#tasks .calendar-day").count(), 42)
                 self.assertEqual(page.locator("#tasks .calendar-task").count(), 1)
                 self.assertIn("截止日期", page.locator("#tasks .view-explainer").inner_text())
@@ -409,7 +419,11 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                 self.assertIn("未设置跟进日期", page.locator("#tasks .view-extra").inner_text())
                 page.locator("#task-date-field").select_option("due_date")
 
-                page.locator("#task-view-gantt").click()
+                page.locator("#nav-gantt").click()
+                self.assertEqual(page.locator("#topbar-context").inner_text(), "日期甘特图")
+                self.assertTrue(page.locator(".gantt-scroll").evaluate(
+                    "(el) => el.scrollWidth > el.clientWidth"),
+                    "Gantt dates must remain legible using horizontal scrolling")
                 self.assertEqual(page.locator("#tasks .gantt-row").count(), 2)
                 self.assertEqual(page.locator("#tasks .gantt-cell.is-planned").count(), 1)
                 self.assertEqual(page.locator("#tasks .gantt-cell.is-due").count(), 1)
