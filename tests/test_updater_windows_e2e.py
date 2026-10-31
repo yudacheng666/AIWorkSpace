@@ -259,6 +259,8 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
             page.on("dialog", lambda dialog: dialog.accept())
             try:
                 page.goto(f"http://127.0.0.1:{self.port}/", wait_until="domcontentloaded", timeout=30000)
+                # Update controls now live on the dedicated System Settings page.
+                page.locator("#nav-settings").click()
                 page.locator("#app-version").wait_for(timeout=15000)
                 self.assertIn("v1.0.0", page.locator("#app-version").inner_text())
 
