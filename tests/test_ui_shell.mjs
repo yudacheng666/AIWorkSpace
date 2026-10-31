@@ -8,7 +8,7 @@ const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8")
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(scriptMatch, "the production page must contain its inline script");
 
-function harness(tasks = [], confirm = () => true) {
+function harness(tasks = [], confirm = () => true, projects = []) {
   const elements = new Map();
   const writes = [];
   function node(tag = "div") {
@@ -46,7 +46,7 @@ function harness(tasks = [], confirm = () => true) {
       if (!elements.has(id)) {
         const selects = new Set(["overview-owner", "query-project", "query-owner",
           "query-status", "query-date-field", "new-task-project", "new-task-related",
-          "new-task-priority", "task-sort", "task-date-field", "calendar-granularity"]);
+          "new-task-priority", "task-sort", "task-date-field", "calendar-granularity", "project-sort"]);
         elements.set(id, node(selects.has(id) ? "select" : "div"));
       }
       return elements.get(id);
@@ -63,9 +63,9 @@ function harness(tasks = [], confirm = () => true) {
       return {ok: true, json: async () => ({version: "1.0.0", build_short: "abcdef0"})};
     }
     assert.equal(path, "/api/tasks");
-    return {ok: true, json: async () => ({tasks, projects: [], warnings: []})};
+    return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks})", {
       document, window, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, writes, el: id => document.getElementById(id)};
@@ -364,4 +364,53 @@ test("V2 polishing: filters remain accessible and Gantt uses legible horizontall
   assert.equal(dates.length, 42);
   assert.ok(dates.some(d=>d.className.includes("is-week-start")));
   assert.equal(page.writes.length, 0);
+});
+
+test("stage3 project counts separate primary and related without duplicate",async()=>{
+ const p="PROJECT-DEMO-1";
+ const tasks=[{...sampleTask(),task_id:"A",project_id:p,related_project_ids:[p]},
+ {...sampleTask(),task_id:"B",project_id:"OTHER",related_project_ids:[p],status:"blocked"}];
+ const x=harness(tasks,()=>true,[{project_id:p,name:"虚构项目",revision:1,conflict:false}]);
+ await x.api.refresh(true);
+ assert.equal(x.api.projectCounts(p).primary,1);
+ assert.equal(x.api.projectCounts(p).related,1);
+ assert.equal(x.api.projectCounts(p).total,2);
+ assert.equal(x.api.projectCounts(p).risk,1);
+ assert.equal(x.writes.length,0);
+});
+test("stage3 project detail and task list link preserve task ID with no write",async()=>{
+ const p="PROJECT-DEMO-1";
+ const x=harness([{...sampleTask(),project_id:p}],()=>true,
+  [{project_id:p,name:"虚构项目",revision:1,conflict:false}]);
+ await x.api.refresh(true);
+ x.api.setActivePage("projects");
+ const card=x.el("project-list").children[0];
+ card.children.find(c=>c.className==="project-card-actions").children[0].handlers.get("click")[0]();
+ assert.equal(x.el("project-inspector").hidden,false);
+ assert.equal(x.el("project-inspector").children[1].children.length,2);
+ assert.equal(x.api.openProjectTasks(p),true);
+ assert.equal(x.el("query-project").value,p);
+ assert.equal(x.el("query-result-count").textContent,"（1 / 1）");
+ assert.equal(x.writes.length,0);
+});
+test("stage3 project name draft cannot be discarded by navigation or auto refresh",async()=>{
+ let consent=false;
+ const x=harness([],()=>consent,[{project_id:"P",name:"虚构项目",revision:1,conflict:false}]);
+ await x.api.refresh(true);x.api.setActivePage("projects");
+ const card=x.el("project-list").children[0],input=card.children[0];
+ input.value="未保存新名称";card.handlers.get("input")[0]();
+ await x.api.refresh(false);
+ assert.equal(x.el("project-list").children[0],card);
+ assert.equal(x.api.setActivePage("tasks","all"),false);
+ assert.equal(input.value,"未保存新名称");
+ consent=true;assert.equal(x.api.setActivePage("tasks","all"),true);
+ assert.equal(x.writes.length,0);
+});
+test("stage3 shows unresolved project references read only",async()=>{
+ const x=harness([{...sampleTask(),project_id:"PROJECT-NOT-SYNCED"}]);
+ await x.api.refresh(true);
+ const card=x.el("project-list").children[0];
+ assert.equal(card.children[0].disabled,true);
+ assert.equal(x.api.projectCounts("PROJECT-NOT-SYNCED").primary,1);
+ assert.equal(x.writes.length,0);
 });

@@ -437,6 +437,31 @@
     @media (max-width: 820px) {.calendar-day{min-height:90px;padding:4px 3px;}.calendar-task{font-size:9px;padding:4px;}.task-date-tools{width:100%;justify-content:flex-start;}.task-view-toolbar{align-items:flex-start;}}
     @media (max-width: 520px) {.calendar-day{min-height:65px;}.calendar-task{font-size:9px;line-height:1.2;}.calendar-weekdays span{font-size:10px;}.task-view-switch{width:100%;}.task-view-switch button{flex:1;min-width:0;padding:0 5px;}}
 
+
+    /* Stage 3: project overview */
+    .project-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0 18px;}
+    .project-metric{padding:15px;border:1px solid #e3eaf1;border-radius:9px;background:#f7fafd;}
+    .project-metric strong{display:block;font-size:23px;color:#263f60;}
+    .project-metric span{font-size:11px;color:#8493a5;}
+    .project-filter{display:grid;grid-template-columns:minmax(0,1fr) 140px auto auto;gap:9px;align-items:center;margin-bottom:13px;}
+    .project-filter button{height:36px;padding:0 12px;border:1px solid #d9e4f2;border-radius:7px;background:#fff;color:#45617f;font-size:11px;}
+    .project-card{display:flex;flex-direction:column;gap:9px;padding:16px;}
+    .project-card input{min-width:0;font-weight:640;}
+    .project-card .save{align-self:end;}
+    .project-card small{font-size:10px;}
+    .project-card-stats{display:flex;flex-wrap:wrap;gap:9px;padding:8px 0;color:#60748e;font-size:11px;}
+    .project-card-stats span{padding:5px 8px;border-radius:6px;background:#edf3fb;}
+    .project-card-actions{display:flex;gap:8px;flex-wrap:wrap;}
+    .project-card-actions button{padding:8px 10px;border:1px solid #b9d0ee;border-radius:7px;background:#f2f7ff;color:#315fa6;font-size:11px;}
+    .project-inspector[hidden]{display:none;}
+    .project-inspector{margin-top:20px;padding:16px;border:1px solid #e1e8f1;border-radius:10px;background:#fafcff;}
+    .project-inspector h3{margin:0 0 12px;font-size:15px;color:#304966;}
+    .project-inspector section{display:grid;gap:7px;margin:11px 0;}
+    .project-inspector h4{margin:0;font-size:12px;color:#647792;}
+    .project-inspector button{padding:7px 10px;border:1px solid #dce7f4;border-radius:7px;background:#fff;color:#305e9b;font-size:11px;text-align:left;}
+    @media(max-width:850px){.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}.project-filter{grid-template-columns:minmax(0,1fr) auto auto;}.project-filter select{width:130px;}}
+    @media(max-width:520px){.project-filter{grid-template-columns:1fr 1fr;}.project-filter input{grid-column:1/-1;}.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}}
+
   </style>
 </head>
 <body>
@@ -535,6 +560,15 @@
       <div class="page-heading"><div><h1>项目管理</h1><p class="subtitle">管理项目，并查看任务的主要归属与关联关系。</p></div></div>
     <section class="project-panel" aria-labelledby="project-heading">
       <h2 id="project-heading">项目列表</h2>
+      <div id="project-metrics" class="project-metrics"></div>
+      <form id="project-filter" class="project-filter" role="search">
+        <input id="project-keyword" type="search" placeholder="搜索项目名称或编号" aria-label="搜索项目">
+        <select id="project-sort" aria-label="项目排序">
+          <option value="name">名称</option><option value="tasks">任务数量</option><option value="risk">风险事项</option>
+        </select>
+        <button type="submit">筛选</button><button type="button" id="project-reset">清除</button>
+      </form>
+      <p id="project-count" class="project-help"></p>
       <p class="project-help">项目有独立编号；任务可归属一个主要项目，也可关联其他项目。项目不会因没有任务而自动删除。</p>
       <form class="create-form" id="create-project">
         <label for="new-project-name">新项目名称
@@ -545,6 +579,7 @@
       </form>
       <p class="message" id="project-message" role="status" aria-live="polite"></p>
       <div class="project-list" id="project-list" aria-label="项目列表"></div>
+      <section id="project-inspector" class="project-inspector" aria-label="项目任务详情" hidden></section>
     </section>
     </section>
     
@@ -720,6 +755,9 @@
 
     const unsavedTaskEditors = new Set();
     const unsavedPersistentEditors = new Set();
+    const unsavedProjectEditors = new Set();
+    let projectKeyword = "";
+    let selectedProjectId = "";
     let appliedQuery = {keyword: "", project: "", status: "", owner: "",
                         dateField: "due_date", dateFrom: "", dateTo: ""};
     const overviewViews = ["all", "mine", "followup", "due", "risk"];
@@ -757,7 +795,8 @@
     // Browser-level reload/close/navigation protection complements in-page
     // confirmations. Never prompt when all task/step drafts are clean.
     window.addEventListener("beforeunload", event => {
-      if (!unsavedTaskEditors.size && !unsavedPersistentEditors.size) return;
+      if (!unsavedTaskEditors.size && !unsavedPersistentEditors.size &&
+          !unsavedProjectEditors.size) return;
       event.preventDefault();
       event.returnValue = "";
     });
@@ -805,17 +844,110 @@
       return Array.from(select.selectedOptions || []).map(option => option.value);
     }
 
+
+    function projectTasks(id) {
+      return {primary: current.filter(t=>t.project_id===id),
+        related: current.filter(t=>t.project_id!==id && (t.related_project_ids||[]).includes(id))};
+    }
+    function projectCounts(id) {
+      const p=projectTasks(id),all=[...p.primary,...p.related],today=localDayISO(new Date());
+      return {primary:p.primary.length,related:p.related.length,total:all.length,
+        risk:all.filter(t=>t.conflict||t.status==="blocked"||
+            (t.status!=="done"&&t.due_date&&t.due_date<today)).length};
+    }
+    function availableProjects() {
+      const result=[...currentProjects],ids=new Set(result.map(p=>p.project_id));
+      for(const task of current) for(const id of [task.project_id,...(task.related_project_ids||[])]) {
+        if(id&&!ids.has(id)){ids.add(id);result.push({project_id:id,name:"项目尚未同步",conflict:true,missing:true});}
+      }
+      return result;
+    }
+    function renderProjectInspector() {
+      const target=$("project-inspector"),project=availableProjects().find(p=>p.project_id===selectedProjectId);
+      if(!project){target.hidden=true;target.replaceChildren();return;}
+      const tasks=projectTasks(project.project_id);
+      const title=element("h3","",project.name+" · "+project.project_id);
+      const blocks=[];
+      for(const [label,rows] of [["主要归属",tasks.primary],["关联任务",tasks.related]]) {
+        const section=element("section");
+        section.append(element("h4","",label+"（"+rows.length+"）"));
+        if(!rows.length)section.append(element("p","project-help","暂无任务"));
+        else for(const task of rows) {
+          const b=element("button","",task.title+" · "+task.task_id);
+          b.type="button";b.addEventListener("click",()=>openTaskDetail(task.task_id));section.append(b);
+        }
+        blocks.push(section);
+      }
+      const go=element("button","","在任务列表中查看");
+      go.type="button";go.addEventListener("click",()=>openProjectTasks(project.project_id));
+      target.replaceChildren(title,...blocks,go);target.hidden=false;
+    }
+    function renderProjects() {
+      const all=availableProjects();
+      const q=projectKeyword.trim().toLocaleLowerCase();
+      const visible=all.filter(p=>!q||String(p.name||"").toLocaleLowerCase().includes(q)||
+        p.project_id.toLocaleLowerCase().includes(q));
+      const sort=$("project-sort").value||"name";
+      visible.sort((a,b)=>{
+        if(sort==="tasks")return projectCounts(b.project_id).total-projectCounts(a.project_id).total;
+        if(sort==="risk")return projectCounts(b.project_id).risk-projectCounts(a.project_id).risk;
+        return String(a.name||"").localeCompare(String(b.name||""),"zh-CN");
+      });
+      const summary=[["项目",currentProjects.length],
+        ["关联任务",current.filter(t=>t.project_id||(t.related_project_ids||[]).length).length],
+        ["未归类",current.filter(t=>!t.project_id).length],
+        ["待核查项目",all.filter(p=>p.conflict||p.missing).length]];
+      $("project-metrics").replaceChildren(...summary.map(([label,count])=>{
+        const e=element("div","project-metric");
+        e.append(element("strong","",String(count)),element("span","",label));return e;
+      }));
+      $("project-count").textContent="显示 "+visible.length+" 个项目，含尚未同步的引用";
+      $("project-list").replaceChildren(...(visible.length?visible.map(projectRow):
+        [element("p","project-help",all.length?"无匹配项目":"尚无项目，可以在上方创建")]));
+      renderProjectInspector();
+    }
+    function confirmProjectDrafts() {
+      if(!unsavedProjectEditors.size)return true;
+      if(!window.confirm("有尚未保存的项目名称或新建项目草稿，确定放弃？"))return false;
+      unsavedProjectEditors.clear();
+      $("new-project-name").value="";
+      projectCreateWatch.markClean("");
+      renderProjects();return true;
+    }
+    function openProjectTasks(id) {
+      if(!setActivePage("tasks","all","list"))return false;
+      for(const field of ["query-keyword","query-status","query-owner","query-date-from","query-date-to"])
+        $(field).value="";
+      $("global-search").value="";
+      $("query-project").value=id;
+      appliedQuery={keyword:"",project:id,status:"",owner:"",dateField:"due_date",dateFrom:"",dateTo:""};
+      $("task-filter-disclosure").open=true;
+      renderTaskList();return true;
+    }
+
     function projectRow(project) {
       const card = element("form", "project-card");
       const input = element("input");
       input.type = "text"; input.maxLength = 120; input.required = true;
-      input.value = project.name; input.disabled = project.conflict;
+      input.value = project.name; input.disabled = !!(project.conflict||project.missing);
       const button = element("button", "save", "保存");
-      button.type = "submit"; button.disabled = project.conflict;
+      button.type = "submit"; button.disabled = !!(project.conflict||project.missing);
       card.append(input, button);
+      const watch=watchUnsavedEditor(card,()=>input.value,unsavedProjectEditors);
+      const metric=projectCounts(project.project_id);
+      card.append(element("div","project-card-stats",
+        "主要 "+metric.primary+" · 关联 "+metric.related+" · 风险 "+metric.risk));
+      const actions=element("div","project-card-actions");
+      const detail=element("button","","查看项目任务");
+      detail.type="button";detail.addEventListener("click",()=>{
+        selectedProjectId=project.project_id;renderProjectInspector();
+      });
+      const go=element("button","","进入任务列表");
+      go.type="button";go.addEventListener("click",()=>openProjectTasks(project.project_id));
+      actions.append(detail,go);card.append(actions);
       card.addEventListener("submit", async event => {
         event.preventDefault();
-        if (isSaving || project.conflict || input.value.trim() === project.name) return;
+        if (isSaving || project.conflict || project.missing || input.value.trim() === project.name) return;
         isSaving = true; button.disabled = true;
         try {
           const response = await fetch(`/api/projects/${encodeURIComponent(project.project_id)}/update`, {
@@ -824,6 +956,7 @@
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+          project.name=input.value.trim();watch.markClean(input.value);
           $("project-message").textContent = "项目名称已保存为一条新记录";
           await refresh(true);
         } catch (error) {
@@ -1735,6 +1868,7 @@
       if ((view === "mine" || view === "followup") && !selectedSelfOwner) return false;
       if (activeDetailTaskId && !closeTaskDetail()) return false;
       if (unsavedTaskEditors.size && !confirmDiscardUnsaved()) return false;
+      if (activePage==="projects" && page!=="projects" && !confirmProjectDrafts()) return false;
       activePage = page;
       if (page === "tasks") taskViewMode = taskViewModes.includes(mode) ? mode : "list";
       for (const id of ["overview", "tasks", "projects", "settings"]) {
@@ -1777,6 +1911,11 @@
           return;
         }
       }
+      if (unsavedProjectEditors.size) {
+        if (!allowDiscard || !confirmProjectDrafts()){
+          $("sync").textContent="项目编辑草稿尚未保存；暂停刷新";return;
+        }
+      }
       if (!force && (document.activeElement?.closest(".overview-panel") ||
                      document.activeElement?.closest(".query-panel") ||
                      document.activeElement?.closest(".task") ||
@@ -1799,12 +1938,7 @@
         const priorRelated = selectedValues(createRelatedSelect);
         projectOptions(createProjectSelect, priorProject);
         projectOptions(createRelatedSelect, priorRelated, true);
-        const projectList = $("project-list");
-        if (!currentProjects.length) {
-          projectList.replaceChildren(element("p", "project-help", "还没有项目。可以先创建项目，再把任务归入项目；也可以暂时放在未归类收件箱。"));
-        } else {
-          projectList.replaceChildren(...currentProjects.map(projectRow));
-        }
+        renderProjects();
         refreshOverviewControls();
         renderTaskList();
         const warnings = $("warnings");
@@ -1833,6 +1967,17 @@
     const createTaskDraftWatch = watchUnsavedEditor(
       $("create-task"), createMetadataSnapshot, unsavedPersistentEditors);
 
+    const projectCreateWatch=watchUnsavedEditor(
+      $("create-project"),()=> $("new-project-name").value,unsavedProjectEditors);
+    $("project-filter").addEventListener("submit",event=>{
+      event.preventDefault();if(!confirmProjectDrafts())return;
+      projectKeyword=$("project-keyword").value;renderProjects();
+    });
+    $("project-reset").addEventListener("click",()=>{
+      if(!confirmProjectDrafts())return;
+      projectKeyword="";$("project-keyword").value="";$("project-sort").value="name";renderProjects();
+    });
+    $("project-sort").addEventListener("change",()=>{if(confirmProjectDrafts())renderProjects();});
     $("create-project").addEventListener("submit", async event => {
       event.preventDefault();
       const input = $("new-project-name");
@@ -1855,6 +2000,7 @@
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
         input.value = "";
+        projectCreateWatch.markClean("");
         message.textContent = `项目创建成功：${result.project_id}`;
         await refresh(true);
       } catch (error) {
