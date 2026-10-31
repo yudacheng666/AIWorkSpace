@@ -7,6 +7,8 @@ processes. No real GitHub release, Google Drive, or company service is touched.
 """
 from __future__ import annotations
 
+from datetime import date
+
 import hashlib
 import json
 import os
@@ -368,6 +370,10 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                 # Create one fictional task through the production UI and API.
                 page.locator("#open-create-task").click()
                 page.locator("#new-task-title").fill("虚构 UI 验收任务")
+                # Use actual calendar dates in the current month, with no synthetic duration field.
+                month = date.today()
+                page.locator("#new-task-planned").fill(month.replace(day=5).isoformat())
+                page.locator("#new-task-due").fill(month.replace(day=12).isoformat())
                 page.locator("#create-submit").click()
                 page.locator("#page-tasks").wait_for(state="visible", timeout=15000)
                 page.locator("#tasks .task-summary").wait_for(timeout=15000)
@@ -384,6 +390,37 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                 self.assertTrue(page.locator("#task-detail-drawer").is_hidden())
                 page.locator("#global-search").fill("虚构 UI 验收任务")
                 page.locator("#global-search").press("Enter")
+                self.assertEqual(page.locator("#tasks .task-summary").count(), 1)
+
+                # Phase 2 read-only views share the same result set and open the existing drawer.
+                page.locator("#task-view-board").click()
+                self.assertEqual(page.locator("#tasks .board-column").count(), 5)
+                self.assertEqual(page.locator("#tasks .board-task").count(), 1)
+                page.locator("#tasks .board-task").click()
+                self.assertTrue(page.locator("#task-detail-drawer").is_visible())
+                page.locator("#task-detail-close").click()
+
+                page.locator("#task-view-calendar").click()
+                self.assertEqual(page.locator("#tasks .calendar-day").count(), 42)
+                self.assertEqual(page.locator("#tasks .calendar-task").count(), 1)
+                self.assertIn("截止日期", page.locator("#tasks .view-explainer").inner_text())
+                page.locator("#task-date-field").select_option("follow_up_date")
+                self.assertEqual(page.locator("#tasks .calendar-task").count(), 0)
+                self.assertIn("未设置跟进日期", page.locator("#tasks .view-extra").inner_text())
+                page.locator("#task-date-field").select_option("due_date")
+
+                page.locator("#task-view-gantt").click()
+                self.assertEqual(page.locator("#tasks .gantt-row").count(), 2)
+                self.assertEqual(page.locator("#tasks .gantt-cell.is-planned").count(), 1)
+                self.assertEqual(page.locator("#tasks .gantt-cell.is-due").count(), 1)
+                self.assertGreaterEqual(page.locator("#tasks .gantt-cell.is-range").count(), 1)
+                page.screenshot(path=str(self.evidence_dir / "ui-v2-phase2-gantt.png"), full_page=True)
+                before_period = page.locator("#task-period-label").inner_text()
+                page.locator("#task-period-next").click()
+                self.assertNotEqual(page.locator("#task-period-label").inner_text(), before_period)
+                page.locator("#task-period-today").click()
+                self.assertEqual(page.locator("#task-period-label").inner_text(), before_period)
+                page.locator("#task-view-list").click()
                 self.assertEqual(page.locator("#tasks .task-summary").count(), 1)
 
                 page.set_viewport_size({"width": 390, "height": 844})
