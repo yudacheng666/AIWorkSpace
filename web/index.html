@@ -421,6 +421,7 @@
     .gantt-cell.is-range {background:#e6f0ff;box-shadow:inset 0 11px 0 #fff,inset 0 -11px 0 #fff;}
     .gantt-cell.is-planned {background:#bfd6ff;box-shadow:inset 0 9px 0 #fff,inset 0 -9px 0 #fff;}
     .gantt-cell.is-due {background:#f3bc8b;box-shadow:inset 0 9px 0 #fff,inset 0 -9px 0 #fff;}
+    .gantt-cell.is-same-day {background:linear-gradient(90deg,#bfd6ff 50%,#f3bc8b 50%);box-shadow:inset 0 9px 0 #fff,inset 0 -9px 0 #fff;}
     .gantt-cell.is-today {border-left:1px solid #a5c3ec;}
     .gantt-table .gantt-row:first-child .gantt-task-info {background:#f8fafd;color:#708198;}
     @media (max-width: 1050px) {.task-board{grid-template-columns:repeat(5,minmax(188px,1fr));}}
@@ -590,7 +591,7 @@
         <button id="task-view-gantt" type="button" aria-pressed="false">甘特图</button>
       </div>
       <div class="task-date-tools" id="task-date-tools" hidden>
-        <label for="task-date-field">日期
+        <label id="task-date-field-label" for="task-date-field">日期
           <select id="task-date-field" aria-label="日历日期类型">
             <option value="due_date">截止日期</option>
             <option value="planned_date">计划执行日期</option>
@@ -604,7 +605,7 @@
       </div>
     </div>
     <div class="section-head">
-      <h2 id="task-view-heading">任务列表 <span class="sync" id="query-result-count"></span></h2>
+      <h2 id="task-view-heading"><span id="task-view-title">任务列表</span> <span class="sync" id="query-result-count"></span></h2>
       <div class="section-actions">
         <label class="sort-control" for="task-sort">排序
           <select id="task-sort" aria-label="任务排序">
@@ -1380,7 +1381,7 @@
     const dateFields = {due_date: "截止", planned_date: "计划", follow_up_date: "跟进"};
 
     function isoDayParts(value) {
-      if (typeof value !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return null;
+      if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
       const [y, m, d] = value.split("-").map(Number);
       const date = new Date(y, m - 1, d);
       return date.getFullYear() === y && date.getMonth() === m - 1 &&
@@ -1397,7 +1398,7 @@
     }
 
     function detailOpenButton(task, className, title) {
-      const button = element("button", className, title || task.title || "未命名任务");
+      const button = element("button", className, title === undefined ? (task.title || "未命名任务") : title);
       button.type = "button";
       button.title = task.task_id + " · 点击查看详情";
       button.addEventListener("click", () => openTaskDetail(task.task_id));
@@ -1517,7 +1518,7 @@
         const cells = element("div", "gantt-days");
         for (const iso of days) {
           const inside = planned && due && planned <= iso && iso <= due;
-          const state = iso === due ? " is-due" : iso === planned ? " is-planned" :
+          const state = iso === due && iso === planned ? " is-same-day" : iso === due ? " is-due" : iso === planned ? " is-planned" :
             inside ? " is-range" : "";
           const cell = element("span", "gantt-cell" + state + (iso === today ? " is-today" : ""));
           cell.title = iso + (iso === planned ? " · 计划执行" : "") +
@@ -1540,7 +1541,7 @@
     function updateTaskViewControls() {
       const headings = {list: "任务列表", board: "状态看板",
                         calendar: "任务日历", gantt: "日期甘特图"};
-      $("task-view-heading").textContent = headings[taskViewMode] + " ";
+      $("task-view-title").textContent = headings[taskViewMode];
       for (const view of taskViewModes) {
         const button = $("task-view-" + view);
         button.className = taskViewMode === view ? "is-active" : "";
@@ -1548,7 +1549,7 @@
       }
       const dated = taskViewMode === "calendar" || taskViewMode === "gantt";
       $("task-date-tools").hidden = !dated;
-      $("task-date-field").hidden = taskViewMode !== "calendar";
+      $("task-date-field-label").hidden = taskViewMode !== "calendar";
       const currentPeriod = taskViewMode === "calendar" ? taskMonthCursor : taskTimelineCursor;
       $("task-period-label").textContent = taskViewMode === "calendar" ?
         monthText(currentPeriod) :
@@ -1604,7 +1605,7 @@
       const list = $("tasks");
       if (unsavedTaskEditors.size) return;
       list.className = "task-list" + (taskViewMode === "list" ? "" : " is-" + taskViewMode);
-      if (!visible.length) {
+      if (!visible.length && taskViewMode === "list") {
         const empty = element("div", "empty");
         const noData = current.length === 0;
         empty.append(element("strong", "", noData ? "这里还没有任务" : "没有符合条件的任务"),
