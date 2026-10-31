@@ -5,7 +5,7 @@ import {test} from "node:test";
 import vm from "node:vm";
 
 const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8");
-const scriptMatch = html.match(/<script>([\\s\\S]*?)<\\/script>/);
+const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(scriptMatch, "the production page must contain its inline script");
 
 function harness(tasks = [], confirm = () => true) {
@@ -65,7 +65,7 @@ function harness(tasks = [], confirm = () => true) {
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects: [], warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] +
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList})", {
     "\\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList})", {
       document, window, fetch, Date, setInterval() {}
     }, {timeout: 2500});
