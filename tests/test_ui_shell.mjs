@@ -147,6 +147,17 @@ test("navigation cannot discard a dirty task draft when the user cancels", async
   assert.equal(page.el("page-projects").hidden, false);
 });
 
+
+test("task creation modal opens and closes without writing task events", async () => {
+  const page = harness([sampleTask()]);
+  await page.api.refresh(true);
+  page.el("open-create-task").handlers.get("click")[0]();
+  assert.equal(page.el("create-modal").hidden, false);
+  page.el("create-modal-close").handlers.get("click")[0]();
+  assert.equal(page.el("create-modal").hidden, true);
+  assert.equal(page.writes.length, 0);
+});
+
 test("global search applies the existing task query without creating or updating events", async () => {
   const page = harness([sampleTask()]);
   await page.api.refresh(true);
