@@ -215,10 +215,16 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 
 
 
-## UI V2 第二阶段（2026-10-31，测试待验证）
-- **用户指令**：“继续”。根据已批准的 V2 分阶段路线，第一阶段 Draft PR #10 的 HEAD `15a96bcc5f8f74221161b10b1c0cdfa6d81ddaed`、[Actions #41192788941](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41192788941) 已是 Linux、Windows、Chromium 三组 SUCCESS，尚未合并、部署。
-- **开发分支**：`feat/20261031-ui-v2-phase2-views` 从第一阶段 HEAD 创建；阶段二单独 Draft PR 承接第一阶段依赖，不更改 main。相关测试结果必须以阶段二准确 SHA 为准。
-- **已写入功能**：全部任务页的列表／看板／月历／日期甘特图；五个状态/冲突独立分栏；日历三个日期字段择一（默认截止）；甘特显示 42 天计划日与截止日日期窗口，不推断工时、进度、依赖；日期缺失/冲突/倒序独立列出；所有卡片共用任务详情抽屉和既有筛选。
-- **保留边界**：不改 app.py、API、追加事件数据结构；不允许通过看板拖放直接保存任务；未保存任务/步骤草稿切换前继续确认；保存、完成确认、409、排序保护沿用旧逻辑。公司 Windows、真实 Drive 均未接触。
-- **定向验收**：已新增 Node 只读视图和日期保护测试，Windows Chromium 隔离真实应用 E2E 已添加创建带日期虚构任务后多视图操作；目前**尚未运行阶段二固定 SHA 的 CI，不能判 PASS**。
-- **下一步**：创建 Draft PR 并执行 GitHub Actions，查看准确 SHA、失败日志，仅修受影响项。通过后更新本状态并提供体验入口，不合并 main，不转交 Codex 重测已覆盖范围。
+## UI V2 第二阶段（2026-10-31，开发和自动化验收已通过，等待用户体验）
+
+- **阶段关系**：第一阶段 Draft [PR #10](https://github.com/yudacheng666/AIWorkSpace/pull/10) HEAD `15a96bcc5f8f74221161b10b1c0cdfa6d81ddaed`，[Actions #41192788941](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41192788941) 全部 SUCCESS，仍未合并。第二阶段在其 HEAD 建立 `feat/20261031-ui-v2-phase2-views`；[Draft PR #11](https://github.com/yudacheng666/AIWorkSpace/pull/11) 对 main 展示累计变更，**依赖 #10，不应独立合并**。
+- **已实现功能**：全部任务页四视图（列表／看板／日历／日期甘特图）。看板按待处理、进行中、受阻、已完成、冲突分别展示，任务可打开已有详情；日历按截止日期、计划执行日、跟进日期择一展示，缺失日期单列；日期甘特显示 42 天计划日及截止日窗口，日期缺失、倒序、冲突不强行绘制。没有工时、实际进度、依赖关系、拖放写入或新增持久化字段。
+- **已保留保护**：所有视图共用既有搜索、筛选、排序与任务详情抽屉；切换视图前保护未保存任务或步骤草稿。app.py、更新器、事件结构/API 未修改；完成状态仍需明确人工确认。
+- **固定验收 SHA**：`295dfb6fb88ef063697a67502585ed5935484ae6`；[GitHub Actions #41196846211](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41196846211) 全部 SUCCESS：
+  - Linux：Python 103 PASS；Node UI 51 PASS（0 FAIL）。
+  - Windows：Python 103 PASS；Node UI 51 PASS（0 FAIL）。
+  - Windows 隔离真实 app.py + Chromium：3 PASS（原软件更新成功／故障回滚、新的 UI 工作流）。
+  - 新 Chromium UI 工作流包含真实网页创建带日期虚构任务、看板分组、日历三日期逻辑、甘特日期标记与导航、筛选、390px 模拟移动视口和无未捕获页面错误。它不是用户公司电脑或实体手机验收。
+- **测试证据**：[Windows Chromium 截图、Playwright trace、结果 JSON 及服务日志 Artifact](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41196846211/artifacts/13040502691)。CI 使用虚构数据和 Windows 临时隔离安装目录，没有访问公司 8770 或 Google Drive 真实数据。
+- **剩余未测与门槛**：用户实际视觉/业务体验、真实公司 Windows/Drive 环境、真实手机设备、其他浏览器、完整键盘可访问性/屏幕阅读器、长时间运行。自动化 PASS 不等于整体用户体验验收，也不授权合并/部署。
+- **下一步**：用户查看 PR #11 的 UI 截图/证据；如有反馈，在独立分支精确修复。保留 PR #10/#11 Draft；只在用户明确批准合并后按依赖顺序进入 main。后续阶段增强需沿用已批准范围，不擅自引入新的业务字段。
