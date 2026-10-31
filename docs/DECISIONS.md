@@ -26,7 +26,7 @@
 
 | D020（Windows 更新端到端验收） | 软件更新功能的 Windows 关键链路由 GitHub-hosted Windows Runner 在隔离临时安装目录、虚构 data-dir 和真实 Chromium 浏览器中执行真实 app.py + updater helper；只 mock 固定官方 GitHub API/raw/zipball 响应，其他外部网络 fail-closed。必须覆盖网页一键更新成功、旧服务退出、新服务原端口/data-dir 重启，以及新版本启动失败后的旧程序/旧服务回滚和数据 SHA 不变 | Codex Cloud 当前仅有 Linux 执行环境；GitHub Windows Runner 可提供可重复、无公司数据风险的原生 Windows 验收。stub helper 测试不能代替真实应用网页链路；真实 GitHub main 发布下载需合并后另行隔离验证 |
 
-| D021（测试去重与风险分流，2026-10-30） | GitHub Actions 为默认自动回归入口；Codex 仅对 CI 无法充分覆盖的中高风险场景作增量独立验收，同 SHA/同环境同覆盖 PASS 不重测；仅对修复失败项与受影响范围复验；Windows Runner 优先、真实设备专项补缺；CI 配额异常仅定向替跑缺口，不冒充 CI PASS | 减少重复验收与 Codex 额度消耗，同时保留更新/回滚、数据安全等高风险准入门槛；具体执行见 AGENTS.md |
+| D021（测试去重与风险分流，2026-10-30） | GitHub Actions 为默认自动回归入口；Codex 仅对 CI 无法充分覆盖的中高风险场景作增量独立验收，同 SHA/同环境同覆盖 PASS 不重测；仅对修复失败项与受影响范围复验；Windows Runner 优先、真实设备专项补缺；CI 配额异常仅定向替跑缺口，不冒充 CI PASS。仓库 Actions 对 PR 执行回归，对 push 仅在 main 执行，避免同一分支提交因 push + pull_request 触发两套相同矩阵 | 减少重复验收与 Codex 额度消耗，同时保留更新/回滚、数据安全等高风险准入门槛；具体执行见 AGENTS.md |
 
 | D022（UI V2 正式改造基线，2026-10-31） | 以用户确认的独立 HTML 交互原型 V2 作为正式 UI 改造基线；分阶段重构统一导航与工作总览、任务列表及详情抽屉、新建任务弹窗，后续再完善看板/日历/甘特图与项目视图。UI 仅重组现有数据展示，不擅自增加工时、进度百分比、任务依赖等未确认字段；保留现有任务/项目/步骤事件模型、revision/409 冲突保护、完成确认和未保存草稿保护。 | 先让用户体验可持续迭代的真实工作台界面；降低一次性大改风险，避免 UI 改造引入数据迁移或未经批准的业务扩展 |
 
