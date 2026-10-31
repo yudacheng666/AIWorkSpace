@@ -374,6 +374,7 @@
     .task-date-tools {display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
     .task-date-tools[hidden] {display:none;}
     .task-date-tools label {display:flex;align-items:center;gap:7px;font-size:11px;color:#738198;}
+    .task-date-tools label[hidden] {display:none;}
     .task-date-tools select {width:140px;height:32px;}
     .task-date-tools button {min-width:32px;height:32px;padding:0 9px;border:1px solid #e0e6ee;border-radius:7px;background:#fff;color:#536785;font-size:12px;}
     .task-date-tools strong {min-width:102px;text-align:center;color:#3a4c67;font-size:12px;font-weight:680;white-space:nowrap;}
@@ -414,7 +415,7 @@
     .gantt-task-info {position:sticky;left:0;z-index:1;display:grid;gap:3px;align-content:center;padding:11px 12px;border-right:1px solid #e7ebf1;background:#fff;}
     .gantt-task-info button {padding:0;border:0;background:transparent;color:#344762;font-size:11px;font-weight:680;text-align:left;overflow-wrap:anywhere;}
     .gantt-task-info small {color:#8996a7;font-size:9px;}
-    .gantt-days {display:grid;grid-template-columns:repeat(28,minmax(24px,1fr));align-items:stretch;}
+    .gantt-days {display:grid;grid-template-columns:repeat(42,minmax(24px,1fr));align-items:stretch;}
     .gantt-date {display:grid;align-content:center;justify-items:center;min-height:43px;padding:7px 0;background:#f8fafd;border-right:1px solid #edf1f5;color:#718098;font-size:9px;}
     .gantt-date.is-today {background:#eaf2ff;color:#2b61bf;font-weight:750;}
     .gantt-cell {min-height:43px;border-right:1px solid #f0f2f6;background:#fff;}
@@ -1485,7 +1486,7 @@
     }
 
     function renderGanttView(tasks, container) {
-      const days = dateWindow(taskTimelineCursor, 28);
+      const days = dateWindow(taskTimelineCursor, 42);
       const today = localDayISO(new Date());
       const table = element("div", "gantt-table");
       const header = element("div", "gantt-row");
@@ -1504,7 +1505,7 @@
       for (const task of tasks) {
         const planned = isoDayParts(task.planned_date) ? task.planned_date : "";
         const due = isoDayParts(task.due_date) ? task.due_date : "";
-        if ((!planned && !due) || (planned && due && planned > due)) {
+        if (task.conflict || (!planned && !due) || (planned && due && planned > due)) {
           invalid.push(task);
           continue;
         }
@@ -1533,8 +1534,8 @@
       scroll.append(table);
       container.replaceChildren(
         element("p", "view-explainer",
-          "蓝色表示计划执行日、橙色表示截止日；两日期之间仅展示日期窗口，不代表预计工期、工作量或依赖关系。日期矛盾的任务不强行绘制。"),
-        scroll, undatedTaskPanel(invalid, "未排期／日期需要核查")
+          "蓝色表示计划执行日、橙色表示截止日；两日期之间仅展示日期窗口，不代表预计工期、工作量或依赖关系。存在冲突或日期矛盾的任务不强行绘制。"),
+        scroll, undatedTaskPanel(invalid, "未排期／日期或冲突需要核查")
       );
     }
 
@@ -1553,7 +1554,7 @@
       const currentPeriod = taskViewMode === "calendar" ? taskMonthCursor : taskTimelineCursor;
       $("task-period-label").textContent = taskViewMode === "calendar" ?
         monthText(currentPeriod) :
-        localDayISO(currentPeriod) + " 起 28 天";
+        localDayISO(currentPeriod) + " 起 42 天";
     }
 
     function setTaskView(view) {
