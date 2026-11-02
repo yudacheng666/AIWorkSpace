@@ -2,8 +2,15 @@ name: tests
 
 on:
   push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
 
 permissions:
   contents: read
@@ -29,8 +36,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Run new-task draft regression tests
-        run: node --test tests/test_create_ui.mjs
+      - name: Run UI regression tests
+        run: node --test tests/test_create_ui.mjs tests/test_ui_shell.mjs
 
   windows-update-e2e:
     name: Windows real app + Chromium updater E2E
@@ -58,3 +65,23 @@ jobs:
           name: windows-update-e2e-evidence
           path: ${{ runner.temp }}/aiworkspace-update-e2e/
           if-no-files-found: warn
+
+      - name: Verify isolated UI preview launcher
+        run: python preview/launch_isolated.py --check
+      - name: Prepare isolated UI preview bundle
+        shell: pwsh
+        run: |
+          $bundle = Join-Path $env:RUNNER_TEMP 'aiworkspace-v2-ui-preview'
+          New-Item -ItemType Directory -Force -Path $bundle | Out-Null
+          New-Item -ItemType Directory -Force -Path (Join-Path $bundle 'web') | Out-Null
+          New-Item -ItemType Directory -Force -Path (Join-Path $bundle 'preview') | Out-Null
+          Copy-Item app.py,updater.py,VERSION,start_ui_v2_preview.bat -Destination $bundle
+          Copy-Item web/index.html -Destination (Join-Path $bundle 'web')
+          Copy-Item preview/launch_isolated.py,preview/README_独立测试版.md -Destination (Join-Path $bundle 'preview')
+          Write-Host "UI preview contains application files only: no real events, project data, keys or credentials."
+      - name: Upload isolated UI V2 preview bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIWorkSpace-UI-V2-isolated-preview
+          path: ${{ runner.temp }}/aiworkspace-v2-ui-preview/
+          if-no-files-found: error

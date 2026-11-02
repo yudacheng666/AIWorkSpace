@@ -1,12 +1,14 @@
 # AIWorkSpace
 
+> **UI V2 发布候选（2026-11-02）**：第一至第三阶段已完成功能开发、Linux/Windows/Chromium 自动化测试及用户 8/8 人工体验检查。当前此分支为待合并候选，正式合并后 UI 语义版本 `2.0.0`。本次更新只替换程序白名单文件，不修改任务、项目和步骤事件模型。**GitHub 合并本身不会操作公司的 Windows 程序或 Google Drive 数据**。需单独批准真实环境更新，并先检查备份和回滚；详见 `docs/PROJECT_STATE.md`。
+
 个人 AI 工作台，先验证 **ChatGPT → Google Drive → 本地网页 → Google Drive → ChatGPT** 的任务闭环。不需要额外的 Google Cloud 项目、付费 API 或第三方 Python 库。
 
 **当前阶段：** M1/M2/M3.1/M3.2/M3.3/M3.4 及内置软件更新中心均已合入 `main`。软件更新中心 [PR #7](https://github.com/yudacheng666/AIWorkSpace/pull/7) 于 2026-10-30 获用户批准并 Squash 合并（`ecac63dd1c03d1aa3ba02433bdcafb3d1139b7d2`）；[Actions #41074274048](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41074274048) Linux/Windows 全部成功，276 PASS / 0 FAIL / 6 个设计性 SKIP；Codex Linux 独立验收 PASS（已测范围），Windows 真实 app.py + Chromium 更新成功及失败回滚 E2E 2 PASS。正式 GitHub main 的 API/raw VERSION、真实 ZIP 下载及 Windows 隔离安装和程序启动已 PASS（[QA PR #8](https://github.com/yudacheng666/AIWorkSpace/pull/8)，[Actions #41077145985](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41077145985)）；公司 Windows 8770 和真实 Drive 尚未测试或部署。**代码合并不代表本机部署。**
 
 ## 软件更新中心（PR #7 已合并，尚未部署）
 
-- 当前版本 `1.0.0` 与短 build SHA 会在页面显示；检查固定 GitHub main 的最新版后，可在网页中申请一键更新。
+- 当前版本 `2.0.0` 与短 build SHA 会在页面显示；检查固定 GitHub main 的最新版后，可在网页中申请一键更新。
 - 下载、校验、备份、安装、重启及失败回滚仅操作白名单程序文件；任务/项目/步骤事件数据目录不参与更新。
 - [Codex Linux 独立验收](https://github.com/yudacheng666/AIWorkSpace/pull/7#issuecomment-6524335908) PASS（已测范围）；[CI #41073083681](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41073083681) 的 GitHub-hosted Windows Runner 使用真实 app.py、updater helper 和 Chromium，完成一键更新成功及启动失败回滚 **2 PASS**，并上传[截图、Playwright trace、日志及数据哈希证据](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41073083681/artifacts/12986271493)。此前 Windows helper mock 服务专项仍保留为单元级补充，不冒充网页 E2E。
 - **发布状态**：`main` 包含正式 `VERSION=1.0.0`；[QA PR #8](https://github.com/yudacheng666/AIWorkSpace/pull/8) 已在 GitHub-hosted Windows Runner 上不使用 GitHub mock，真实访问 API/main、RAW VERSION 和官方 zipball，使用生产 `updater.py` 完成白名单/ZIP 校验、隔离应用安装、备份与真实 `app.py` 本地启动；版本/build 正确，虚构数据哈希未变。[CI 证据](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41077145985) 1 PASS。该真实来源烟测与此前 mock 版本的浏览器/helper/失败回滚 E2E 是两项互补验证，不能视为同一条真实公网浏览器完整链路。**公司 Windows 8770、真实 Drive、企业网络及长期运行未验证或部署。**
@@ -31,7 +33,7 @@
 - 更新通过独立 helper 等待旧服务退出，再安装并按原 --data-dir、端口重新启动。更新前若页面存在未保存任务/步骤草稿，网页会阻止更新，要求先处理草稿。
 - **数据保护边界**：更新器检查程序目录与 --data-dir 不重叠；只写程序白名单及本机隐藏构建/更新状态文件，绝不读取、覆盖、删除或搬迁 events/、project_events/、step_events/。备份不放入数据目录。
 - 初次从 GitHub ZIP 安装时没有本机登记的构建 SHA，版本区显示“未登记”；第一次检查会提示当前 main 构建可安装，点击更新后登记精确 commit。之后按本机 SHA 与 main SHA 判断是否需要更新。
-- 当前 VERSION 为 1.0.0；每次 main 提交都以短 SHA 区分构建，语义版本号在正式产品版本变化时维护。仅检查更新，不会在后台自动下载或安装。
+- 当前 VERSION 为 2.0.0；每次 main 提交都以短 SHA 区分构建，语义版本号在正式产品版本变化时维护。仅检查更新，不会在后台自动下载或安装。
 - 本功能合并并经独立验收前，仍按原方式运行当前版本；**不得把分支中的更新能力当成公司电脑已具备**。更新器实际 Windows 自动重启、文件锁、真实数据目录隔离和失败回滚，需在隔离虚构目录及 Windows 专项验收后才能用于公司电脑。
 
 ## 先在 Windows 运行

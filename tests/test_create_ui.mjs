@@ -679,7 +679,7 @@ function overviewHarness(tasks, projects = [], allowWrites = false) {
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
   const api = vm.runInNewContext(match[1] +
-    "\n;({overviewDates, matchesOverview, matchesQuery, selectOverview, refresh})", {
+    "\n;({overviewDates, matchesOverview, matchesQuery, selectOverview, refresh, openTaskDetail})", {
       document, fetch, setInterval() {}, Date,
       window: browser.window
     }, {timeout: 2000});
@@ -697,6 +697,11 @@ function overviewTask(id, extras = {}) {
     conflict: false, owner: null, project_id: null, related_project_ids: [],
     steps: [], ...extras
   };
+}
+
+function openTaskEditor(page, taskId) {
+  assert.equal(page.api.openTaskDetail(taskId), true, "task detail drawer should open");
+  return page.el("task-detail-content").children[0];
 }
 
 test("M3.4 local dates include today and next 7 calendar days, including across year boundary", () => {
@@ -812,58 +817,59 @@ test("M3.4 selected self owner remains local to UI and survives refresh without 
   assert.equal(page.posted.length, 0);
 });
 
-test("M3.4 filter changes and refresh never silently discard unsaved task edits", async () => {
+test("M3.4 navigation and refresh never silently discard an unsaved task detail draft", async () => {
   const page = overviewHarness([
     overviewTask("TASK-ONE", {title: "原始任务"}),
     overviewTask("TASK-TWO", {title: "另一项任务"})
   ]);
   await page.api.refresh(true);
-  const group = page.el("tasks").children[0];
-  const card = group.children[1];
+  const card = openTaskEditor(page, "TASK-ONE");
   const form = card.children.find(item => item.className === "task-form");
   const titleInput = form.children[0].children[0];
   titleInput.value = "还没有保存的修改";
   form.handlers.get("input")();
   page.setConfirm(false);
 
-  page.el("view-risk").handlers.get("click")();
-  assert.equal(page.el("query-result-count").textContent, "（2 / 2）",
-               "declined navigation must not change visible task list");
-  assert.equal(page.el("tasks").children[0].children[1], card,
-               "same edit DOM must remain mounted");
+  page.api.selectOverview("risk");
+  assert.equal(page.el("task-detail-drawer").hidden, false,
+               "declined navigation must keep the detail drawer open");
+  assert.equal(page.el("task-detail-content").children[0], card,
+               "declined navigation must keep the same edit DOM mounted");
   assert.equal(titleInput.value, "还没有保存的修改");
 
-  page.el("query-keyword").value = "不匹配";
-  page.submitQuery();
-  assert.equal(page.el("query-result-count").textContent, "（2 / 2）");
   await page.api.refresh(false);
-  assert.equal(page.el("tasks").children[0].children[1], card,
-               "background refresh must not discard dirty draft");
+  assert.equal(page.el("task-detail-content").children[0], card,
+               "background refresh must not discard the dirty detail draft");
   assert.match(page.el("sync").textContent, /尚未保存/);
   assert.equal(page.posted.length, 0);
 
   page.setConfirm(true);
-  page.submitQuery();
+  page.api.selectOverview("risk");
+  assert.equal(page.el("task-detail-drawer").hidden, true,
+               "confirmed navigation may close the editor");
   assert.equal(page.el("query-result-count").textContent, "（0 / 2）",
-               "explicitly confirmed navigation may replace the edit DOM");
+               "confirmed navigation applies the selected overview filter");
 });
 
-test("M3.4 new step drafts are also protected from view switching", async () => {
+test("M3.4 new step drafts are protected when leaving the task detail drawer", async () => {
   const page = overviewHarness([overviewTask("TASK-STEP-DRAFT")]);
   await page.api.refresh(true);
-  const card = page.el("tasks").children[0].children[1];
+  const card = openTaskEditor(page, "TASK-STEP-DRAFT");
   const panel = card.children.find(item => item.className === "steps-panel");
   const addForm = panel.children.find(item => item.className === "step-add-form");
   const input = addForm.children[0];
   input.value = "新增草稿尚未保存";
   addForm.handlers.get("input")();
   page.setConfirm(false);
-  page.el("view-risk").handlers.get("click")();
-  assert.equal(page.el("tasks").children[0].children[1], card);
+  page.api.selectOverview("risk");
+  assert.equal(page.el("task-detail-drawer").hidden, false);
+  assert.equal(page.el("task-detail-content").children[0], card);
   assert.equal(input.value, "新增草稿尚未保存");
   assert.equal(page.posted.length, 0);
+  page.setConfirm(true);
+  page.api.selectOverview("risk");
+  assert.equal(page.el("task-detail-drawer").hidden, true);
 });
-
 
 test("M3.4 browser reload prompts for an unsaved new-task form, but not after reset or save", async () => {
   const page = harness();
@@ -941,7 +947,7 @@ test("M3.4 browser reload prompts for dirty task and step edits, and clears afte
   await page.api.refresh(true);
   assert.equal(page.beforeUnload().prevented, false, "clean task and step forms must not prompt");
 
-  let card = page.el("tasks").children[0].children[1];
+  let card = openTaskEditor(page, task.task_id);
   let taskForm = card.children.find(item => item.className === "task-form");
   let taskTitle = taskForm.children[0].children[0];
   taskTitle.value = "未保存的任务标题";
@@ -961,7 +967,7 @@ test("M3.4 browser reload prompts for dirty task and step edits, and clears afte
   assert.equal(page.beforeUnload().prevented, false,
                "successful task save clears the dirty editor before rerender");
 
-  card = page.el("tasks").children[0].children[1];
+  card = page.el("task-detail-content").children[0];
   let panel = card.children.find(item => item.className === "steps-panel");
   let stepList = panel.children.find(item => item.className === "step-list");
   let stepRow = stepList.children.find(item => item.className === "step-row");
@@ -983,7 +989,7 @@ test("M3.4 browser reload prompts for dirty task and step edits, and clears afte
   assert.equal(page.beforeUnload().prevented, false,
                "successful step save clears the dirty editor before rerender");
 
-  card = page.el("tasks").children[0].children[1];
+  card = page.el("task-detail-content").children[0];
   panel = card.children.find(item => item.className === "steps-panel");
   const addForm = panel.children.find(item => item.className === "step-add-form");
   const addInput = addForm.children[0];
@@ -1005,90 +1011,65 @@ test("M3.4 browser reload prompts for dirty task and step edits, and clears afte
 });
 
 
-test("M3.4 successful task save advances clean baseline when sibling draft defers rerender", async () => {
-  const taskA = overviewTask("TASK-SAVED-A", {title: "保存前标题X"});
-  const taskB = overviewTask("TASK-DRAFT-B", {title: "兄弟任务原始标题B"});
-  const page = overviewHarness([taskA, taskB], [], true);
+test("M3.4 successful task save advances the clean baseline in the detail drawer", async () => {
+  const task = overviewTask("TASK-SAVED-A", {title: "保存前标题X"});
+  const page = overviewHarness([task], [], true);
   await page.api.refresh(true);
+  const card = openTaskEditor(page, task.task_id);
+  const form = card.children.find(node => node.className === "task-form");
+  const title = form.children[0].children[0];
 
-  const cardFor = id => page.el("tasks").children[0].children.find(card =>
-    card.children?.[0]?.children?.[0]?.textContent === id);
-  const formFor = id => cardFor(id).children.find(node => node.className === "task-form");
-  const inputFor = id => formFor(id).children[0].children[0];
-  const formA = formFor("TASK-SAVED-A");
-  const formB = formFor("TASK-DRAFT-B");
-  const titleA = inputFor("TASK-SAVED-A");
-  const titleB = inputFor("TASK-DRAFT-B");
-
-  titleA.value = "保存成功的新标题Y";
-  formA.handlers.get("input")();
-  titleB.value = "兄弟任务未保存草稿";
-  formB.handlers.get("input")();
-  assert.equal(page.beforeUnload().prevented, true);
-  page.setConfirm(false);
-
-  await formA.handlers.get("submit")({preventDefault() {}});
-  assert.equal(taskA.title, "保存成功的新标题Y", "the server has persisted Y");
-  assert.equal(formFor("TASK-SAVED-A"), formA,
-               "sibling draft must defer list rerender and keep A's editor mounted");
-  assert.equal(page.beforeUnload().prevented, true,
-               "the remaining sibling draft continues to protect the page");
-
-  titleB.value = "兄弟任务原始标题B";
-  formB.handlers.get("input")();
+  title.value = "保存成功的新标题Y";
+  form.handlers.get("input")();
+  await form.handlers.get("submit")({preventDefault() {}});
+  assert.equal(task.title, "保存成功的新标题Y", "the server has persisted Y");
   assert.equal(page.beforeUnload().prevented, false,
-               "reverting the sibling draft leaves no unrelated dirty editor");
+               "successful save should establish a clean persisted baseline");
 
-  titleA.value = "保存前标题X";
-  formA.handlers.get("input")();
+  const refreshedCard = page.el("task-detail-content").children[0];
+  const refreshedForm = refreshedCard.children.find(node => node.className === "task-form");
+  const refreshedTitle = refreshedForm.children[0].children[0];
+  refreshedTitle.value = "保存前标题X";
+  refreshedForm.handlers.get("input")();
   assert.equal(page.beforeUnload().prevented, true,
-               "reverting A to its pre-save value is a new unsaved change against persisted Y");
-  assert.equal(titleA.value, "保存前标题X",
+               "reverting to the pre-save value is a new unsaved edit against persisted Y");
+  assert.equal(refreshedTitle.value, "保存前标题X",
                "the new draft remains present until the user chooses whether to leave");
 });
 
-test("M3.4 successful step save advances clean baseline when sibling draft defers rerender", async () => {
-  const taskA = overviewTask("TASK-STEP-SAVED", {
+test("M3.4 successful step save advances the clean baseline in the detail drawer", async () => {
+  const task = overviewTask("TASK-STEP-SAVED", {
     title: "步骤所属任务",
     steps: [{step_id: "STEP-SAVED-BASELINE", title: "保存前步骤X",
              status: "todo", revision: 1, conflict: false}]
   });
-  const taskB = overviewTask("TASK-STEP-SIBLING", {title: "兄弟任务原始标题B"});
-  const page = overviewHarness([taskA, taskB], [], true);
+  const page = overviewHarness([task], [], true);
   await page.api.refresh(true);
-
-  const cardFor = id => page.el("tasks").children[0].children.find(card =>
-    card.children?.[0]?.children?.[0]?.textContent === id);
-  const formFor = id => cardFor(id).children.find(node => node.className === "task-form");
-  const titleB = formFor("TASK-STEP-SIBLING").children[0].children[0];
-  const cardA = cardFor("TASK-STEP-SAVED");
-  const panelA = cardA.children.find(node => node.className === "steps-panel");
-  const stepRow = panelA.children.find(node => node.className === "step-list")
+  const card = openTaskEditor(page, task.task_id);
+  const panel = card.children.find(node => node.className === "steps-panel");
+  const stepRow = panel.children.find(node => node.className === "step-list")
     .children.find(node => node.className === "step-row");
   const stepForm = stepRow.children[1].children.find(node => node.className === "step-edit-form");
   const stepTitle = stepForm.children[0].children[0];
-  const siblingForm = formFor("TASK-STEP-SIBLING");
 
   stepTitle.value = "保存成功的新步骤Y";
   stepForm.handlers.get("input")();
-  titleB.value = "兄弟任务未保存草稿";
-  siblingForm.handlers.get("input")();
-  page.setConfirm(false);
   await stepForm.handlers.get("submit")({preventDefault() {}});
-  assert.equal(taskA.steps[0].title, "保存成功的新步骤Y");
-  assert.equal(cardFor("TASK-STEP-SAVED"), cardA,
-               "sibling draft must defer list rerender and keep the step editor mounted");
+  assert.equal(task.steps[0].title, "保存成功的新步骤Y");
+  assert.equal(page.beforeUnload().prevented, false,
+               "successful step save should establish a clean persisted baseline");
 
-  titleB.value = "兄弟任务原始标题B";
-  siblingForm.handlers.get("input")();
-  assert.equal(page.beforeUnload().prevented, false);
-
-  stepTitle.value = "保存前步骤X";
-  stepForm.handlers.get("input")();
+  const refreshedCard = page.el("task-detail-content").children[0];
+  const refreshedPanel = refreshedCard.children.find(node => node.className === "steps-panel");
+  const refreshedRow = refreshedPanel.children.find(node => node.className === "step-list")
+    .children.find(node => node.className === "step-row");
+  const refreshedForm = refreshedRow.children[1].children.find(node => node.className === "step-edit-form");
+  const refreshedTitle = refreshedForm.children[0].children[0];
+  refreshedTitle.value = "保存前步骤X";
+  refreshedForm.handlers.get("input")();
   assert.equal(page.beforeUnload().prevented, true,
-               "reverting a saved step to its pre-save value is still an unsaved edit");
+               "reverting to the pre-save value remains an unsaved edit");
 });
-
 
 test("update center displays the installed version and checks the fixed latest build", async () => {
   const page = harness();
