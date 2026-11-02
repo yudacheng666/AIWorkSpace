@@ -103,6 +103,28 @@ class ReducerTests(unittest.TestCase):
         app.expire_trashed_tasks(self.data_dir)
         self.assertEqual(app.read_workspace(self.data_dir, include_trashed=True)["tasks"], [])
 
+    def test_concurrent_retention_setting_disables_destructive_auto_purge(self):
+        app.append_event(self.data_dir, evt("fake-trash-001", "trash", 1,
+                                            {"trashed_at": "2020-01-01T01:00:00Z"}))
+        for suffix, days in (("one", 7), ("two", 90)):
+            setting = {"version": 1, "event_id": "settings-concurrent-" + suffix,
+                       "key": "trash_retention_days", "days": days,
+                       "timestamp": "2026-11-02T01:00:00Z"}
+            app._append_json_event(self.data_dir, setting, "settings_events")
+        days, warnings = app.read_trash_retention(self.data_dir)
+        self.assertEqual(days, 0)
+        self.assertTrue(any("conflict" in text for text in warnings))
+        app.expire_trashed_tasks(self.data_dir)
+        self.assertEqual(len(app.read_workspace(self.data_dir, include_trashed=True)["tasks"]), 1)
+
+    def test_invalid_lifecycle_cannot_be_used_as_purge_marker(self):
+        event = evt("fake-purge-invalid", "purge", 1,
+                    {"purged_at": "2026-11-02T00:00:00Z"}, actor="chatgpt")
+        folder = self.data_dir / "events"
+        (folder / "evt_fake-purge-invalid.json").write_text(
+            json.dumps(event), encoding="utf-8")
+        self.assertEqual(len(app.read_workspace(self.data_dir)["tasks"]), 1)
+
     def test_step_rollup_blocked_and_all_done_pending_user_confirmation(self):
         step_id = "STEP-" + "A" * 32
         app.append_step_event(self.data_dir, step("fake-step-001", step_id=step_id))
