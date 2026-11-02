@@ -257,3 +257,13 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - **验收依据**：[PR #12 人工体验原始记录](https://github.com/yudacheng666/AIWorkSpace/pull/12#issuecomment-6568183016)；此前已完成的准确产品 SHA `2760425ecc9b9f8f23b477a5b69f719632fe6554` 和 [Actions #41203324785](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41203324785) 仍为代码与 CI 权威证据（Linux/Windows Python 103 PASS、Node 58 PASS；Windows 真实 Chromium 3 PASS）。
 - **发布边界**：用户体验采用随机 `127.0.0.1` 端口、临时数据目录；不等于在公司 8770/真实 Google Drive 上已验证安装与升级。#10、#11、#12 均仍 Draft/未合并；main 仍为 `654d14b33f859d2b85e762e95154d0495ade116c`，没有正式升级 1.0。
 - **下一步**：待用户明确反馈是否仍有需要修改的操作/视觉问题；如明确批准合并，先核对三阶段分支依赖与重复差异并按用户批准的方案合并。正式升级前补足非生产真实 Windows 安装、备份/回滚、真实数据隔离边界检查；未经用户明确授权不执行合并或部署。
+
+
+## 2026-11-02 UI V2 合并批准与版本发布候选
+
+- **明确用户授权**：用户批准把已体验的 UI V2 合并到 `main`；没有批准在公司电脑部署、点击网页一键更新或访问/修改 Google Drive 真实数据。
+- **合并预检**：#10 HEAD `15a96bcc`、#11 HEAD `1a6ce378`、#12 HEAD `77cf74fd` 形成线性祖先链，后者完整包含前两个阶段；main `654d14b` 未改变。对比 main→#12 共 28 提交，14 个文件，仅网页、测试、CI、项目记忆和独立预览脚本；未修改 `app.py`、`updater.py` 或现有事件数据结构。
+- **已有测试/体验证据**：上一产品 SHA `2760425ecc9b9f8f23b477a5b69f719632fe6554` 的 [Actions #41203324785](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41203324785) Linux/Windows Python 103 PASS、Node 58 PASS，Windows Chromium 3 PASS；后续文档改动不改变产品。用户隔离体验 8/8 已检查，见 [PR #12 回评](https://github.com/yudacheng666/AIWorkSpace/pull/12#issuecomment-6568183016)。
+- **发布版本标记**：在同一个集成 PR #12 中将 `VERSION` 从 `1.0.0` 更新为 `2.0.0`，同时维护真实版本端点测试和说明。这一版本变动需按新的准确 SHA 重跑必要 CI，**运行通过前不得称为正式 PASS 或合并**。
+- **最终合并策略**：只用 #12 作为三阶段累计变更的最终 Git 合并入口，使用保留历史的 merge commit 使 #10/#11 的祖先提交进入 main；对两旧 PR 保留记录，若 GitHub 未自动关闭，则以重复已吸收为由关闭（不分别重复合并）。
+- **正式部署门槛**：合并与代码发布不启动公司 Windows、8770、Drive 同步或任何程序自动更新；真实生产环境仍须独立安装与备份/回滚验证及明确授权。
