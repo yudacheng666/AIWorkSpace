@@ -847,6 +847,7 @@
     let currentArchive = {inbox: [], records: [], warnings: []};
     let activeArchiveRecordId = "";
     let activeArchiveInboxId = "";
+    let archiveDrawerOpen = false;
     let archiveQuery = {keyword: "", category: ""};
     let quickCaptureKey = "";
     let quickCaptureDraftRevision = 0;
@@ -1964,6 +1965,240 @@
       };
     }
 
+
+    const archiveCategoryNames = {
+      meeting: "会议", communication: "沟通", decision: "决策",
+      problem: "问题", action: "行动", result: "成果", idea: "想法", other: "其他"
+    };
+
+    function archiveDateText(record) {
+      return record.occurred_at || record.created_at || "时间未注明";
+    }
+
+    function renderArchive() {
+      const records = currentArchive.records || [];
+      const keyword = archiveQuery.keyword.trim().toLocaleLowerCase();
+      const visible = records.filter(record => {
+        if (archiveQuery.category && record.category !== archiveQuery.category) return false;
+        if (!keyword) return true;
+        return [record.record_id, record.title, record.summary, record.project_name]
+          .some(value => String(value || "").toLocaleLowerCase().includes(keyword));
+      });
+      $("archive-record-count").textContent = \`（\${visible.length}/\${records.length}）\`;
+      $("archive-inbox-count").textContent = \`（\${(currentArchive.inbox || []).length}）\`;
+      const recordList = $("archive-record-list");
+      if (!visible.length) {
+        const empty = element("div", "archive-empty",
+          records.length ? "没有符合条件的工作记录。" : "还没有整理好的工作记录。可以先快速记录原始内容。");
+        recordList.replaceChildren(empty);
+      } else {
+        recordList.replaceChildren(...visible.map(record => {
+          const card = element("article", "archive-record-card");
+          const head = element("div", "archive-record-title");
+          head.append(element("strong", "", record.title || "未命名记录"));
+          head.append(element("span", "archive-status" + (record.conflict ? " is-conflict" : ""),
+            record.conflict ? "需要核查" : (archiveCategoryNames[record.category] || "其他")));
+          const summary = element("p", "", record.summary || "");
+          const meta = element("div", "archive-meta");
+          meta.append(element("span", "", archiveDateText(record)));
+          meta.append(element("span", "", record.project_name || (record.project_id ? "项目未同步" : "未关联项目")));
+          if ((record.action_links || []).length)
+            meta.append(element("span", "", \`\${record.action_links.length} 项任务/步骤关联\`));
+          if ((record.evidence_refs || []).length)
+            meta.append(element("span", "", \`\${record.evidence_refs.length} 份证据\`));
+          const open = element("button", "archive-card-action", "查看记录");
+          open.type = "button";
+          open.addEventListener("click", () => openArchiveRecord(record.record_id));
+          card.append(head, summary, meta, open);
+          return card;
+        }));
+      }
+
+      const inboxList = $("archive-inbox-list");
+      const inboxItems = currentArchive.inbox || [];
+      if (!inboxItems.length) {
+        inboxList.replaceChildren(element("div", "archive-empty", "暂无原始输入。可以从顶部随时快速记录。"));
+      } else {
+        inboxList.replaceChildren(...inboxItems.map(item => {
+          const card = element("article", "archive-inbox-card");
+          const head = element("div", "archive-record-title");
+          head.append(element("strong", "", item.status === "processed" ? "已关联工作记录" : "待整理原文"));
+          head.append(element("span", "archive-status", item.status === "processed" ? "已整理" : "待整理"));
+          const text = element("p", "", item.content || "");
+          const meta = element("div", "archive-meta");
+          meta.append(element("span", "", item.captured_at || "录入时间未知"));
+          meta.append(element("span", "", item.source || "未知来源"));
+          const action = element("button", "archive-card-action",
+            item.status === "processed" ? "查看关联记录" : "整理为工作记录");
+          action.type = "button";
+          action.addEventListener("click", () => {
+            if (item.linked_record_ids?.length) openArchiveRecord(item.linked_record_ids[0]);
+            else openArchiveRecord("", item.inbox_id);
+          });
+          card.append(head, text, meta, action);
+          return card;
+        }));
+      }
+      if (archiveDrawerOpen && !unsavedArchiveEditors.size) renderArchiveRecordDrawer();
+    }
+
+    async function loadWorkArchive() {
+      if (unsavedArchiveEditors.size) return;
+      try {
+        const response = await fetch("/api/work-archive", {cache: "no-store"});
+        if (!response.ok) throw new Error(\`HTTP \${response.status}\`);
+        currentArchive = await response.json();
+        renderArchive();
+        $("archive-message").textContent = currentArchive.warnings?.length
+          ? \`有 \${currentArchive.warnings.length} 项档案数据需要核查。\`
+          : \`已读取 \${currentArchive.records?.length || 0} 条工作记录和 \${currentArchive.inbox?.length || 0} 条原始输入。\`;
+      } catch (error) {
+        $("archive-message").textContent = \`工作档案读取失败：\${error.message}\`;
+      }
+    }
+
+    function openArchiveRecord(recordId = "", inboxId = "") {
+      if (activeDetailTaskId && !closeTaskDetail()) return false;
+      if (archiveDrawerOpen && !closeArchiveRecord()) return false;
+      activeArchiveRecordId = recordId;
+      activeArchiveInboxId = inboxId;
+      archiveDrawerOpen = true;
+      renderArchiveRecordDrawer();
+      return true;
+    }
+
+    function closeArchiveRecord() {
+      if (!archiveDrawerOpen) return true;
+      if (unsavedArchiveEditors.size && !confirmDiscardUnsaved()) return false;
+      archiveDrawerOpen = false;
+      activeArchiveRecordId = "";
+      activeArchiveInboxId = "";
+      $("archive-record-drawer").hidden = true;
+      $("archive-record-content").replaceChildren();
+      return true;
+    }
+
+    function renderArchiveRecordDrawer() {
+      const record = currentArchive.records.find(item => item.record_id === activeArchiveRecordId);
+      const inbox = currentArchive.inbox.find(item => item.inbox_id === activeArchiveInboxId);
+      if (activeArchiveRecordId && !record) return false;
+      if (!record && !inbox) return false;
+      $("archive-record-title").textContent = record ? (record.title || "工作记录") : "整理原始输入";
+      $("archive-record-id").textContent = record ? record.record_id : inbox.inbox_id;
+      const content = $("archive-record-content");
+      const form = element("form", "archive-record-form");
+      const title = element("input");
+      title.type = "text";
+      title.maxLength = 200;
+      title.required = true;
+      title.value = record?.title || "";
+      const summary = element("textarea");
+      summary.maxLength = 12000;
+      summary.required = true;
+      summary.value = record?.summary || inbox?.content || "";
+      const category = element("select");
+      for (const [value, name] of Object.entries(archiveCategoryNames)) {
+        const option = element("option", "", name);
+        option.value = value;
+        category.append(option);
+      }
+      category.value = record?.category || "other";
+      const occurred = element("input");
+      occurred.type = "date";
+      const occurredValue = record?.occurred_at || inbox?.occurred_at || "";
+      occurred.value = occurredValue ? String(occurredValue).slice(0, 10) : "";
+      const project = element("select");
+      projectOptions(project, record?.project_id || null);
+      const titleLabel = element("label", "", "记录标题");
+      titleLabel.append(title);
+      const summaryLabel = element("label", "", "工作内容与结果");
+      summaryLabel.append(summary);
+      const categoryLabel = element("label", "", "分类");
+      categoryLabel.append(category);
+      const occurredLabel = element("label", "", "发生日期（可选）");
+      occurredLabel.append(occurred);
+      const projectLabel = element("label", "", "所属项目（可选）");
+      projectLabel.append(project);
+      form.append(titleLabel, summaryLabel, categoryLabel, occurredLabel, projectLabel);
+
+      const links = element("div", "archive-record-links");
+      links.append(element("strong", "", "来源与关联"));
+      const sourceIds = record?.source_ids || (inbox ? [inbox.inbox_id] : []);
+      const evidenceRefs = record?.evidence_refs || inbox?.evidence_refs || [];
+      const actionLinks = record?.action_links || [];
+      links.append(element("p", "", sourceIds.length ? "原始输入：" + sourceIds.join("、") : "原始输入：无"));
+      links.append(element("p", "", evidenceRefs.length
+        ? "证据文件：" + evidenceRefs.map(item => item.name).join("、") : "证据文件：无"));
+      links.append(element("p", "", actionLinks.length
+        ? "关联行动：" + actionLinks.map(item => item.target_id).join("、") : "关联行动：无"));
+      if (record?.missing_action_links?.length)
+        links.append(element("p", "", "部分任务/步骤尚未同步，关联暂待核查。"));
+      const message = element("p", "message", record?.conflict ? "记录存在版本冲突，当前只读。" : "");
+      const save = element("button", "save", record ? "保存修改" : "保存工作记录");
+      save.type = "submit";
+      save.disabled = !!record?.conflict;
+      form.append(links, save, message);
+      if (record?.conflict) {
+        for (const control of [title, summary, category, occurred, project]) control.disabled = true;
+      }
+      const snapshot = () => ({
+        title: title.value, summary: summary.value, category: category.value,
+        occurred_at: occurred.value || null, project_id: project.value || null,
+      });
+      const draftWatch = watchUnsavedEditor(form, snapshot, unsavedArchiveEditors);
+      form.addEventListener("submit", async event => {
+        event.preventDefault();
+        if (isSaving || record?.conflict) return;
+        const draft = snapshot();
+        if (!draft.title.trim() || !draft.summary.trim()) {
+          message.className = "message error";
+          message.textContent = "标题和工作内容不能为空。";
+          return;
+        }
+        const revision = record?.revision;
+        const body = {
+          ...draft,
+          source_ids: sourceIds,
+          evidence_refs: evidenceRefs,
+          action_links: actionLinks,
+        };
+        const path = record
+          ? \`/api/work-archive/records/\${encodeURIComponent(record.record_id)}/update\`
+          : "/api/work-archive/records";
+        if (record) body.revision = revision;
+        isSaving = true;
+        save.disabled = true;
+        message.className = "message";
+        message.textContent = "正在保存工作记录…";
+        try {
+          const response = await fetch(path, {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(body),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || \`HTTP \${response.status}\`);
+          const untouched = JSON.stringify(snapshot()) === JSON.stringify(draft);
+          draftWatch.markClean(draft);
+          if (!record) activeArchiveRecordId = result.record_id;
+          activeArchiveInboxId = "";
+          if (untouched) {
+            message.textContent = "工作记录已保存。";
+            await loadWorkArchive();
+          } else {
+            message.textContent = "提交时的内容已保存；之后输入的新内容仍保留为未保存草稿。";
+          }
+        } catch (error) {
+          message.className = "message error";
+          message.textContent = \`保存结果未确认：\${error.message}。请刷新核对，避免重复创建。\`;
+        } finally {
+          isSaving = false;
+          save.disabled = !!record?.conflict;
+        }
+      });
+      content.replaceChildren(form);
+      $("archive-record-drawer").hidden = false;
+      return true;
+    }
 
     const pageMeta = {
       overview: {title: "工作总览", nav: "nav-overview"},
