@@ -65,3 +65,5 @@
 | D-20261102-UI-10（用户批准 2.0.2 GitHub 正式发布） | 用户明确批准将已通过准确 RC SHA `faa092d2d9359171f53a01d3f7145197e6412a28` 和 [Actions #41443451302](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41443451302) 3/3 SUCCESS 的 PR #17 合入 main；ChatGPT 成功执行 Draft→Ready，使用 GitHub 原生普通 merge，返回合并 SHA `bfb741bbb9da943f1d63241a9f8b85df008e0b4a`；`main/VERSION=2.0.2`，PR CLOSED/MERGED。RC SHA 后仅文档修改；合并后 push CI 状态未通过当前仅列 PR 运行的连接器独立确认。真实 Windows 和 Google Drive 更新未获授权也未执行；工作档案暂停。 | 正式发布须以用户明确审批、准确 SHA 的 CI 和 GitHub 实际合并结果为依据，严格区别 GitHub main 发布与本地电脑部署以及真实账号 Drive 端到端验收。 |
 
 | D-20261102-UI-11（回收站改为侧栏独立页面） | 用户要求回收站在左侧导航中与其他页面并列，不再以任务列表按钮弹出浮层。采用现有 workspace-page / nav-item 机制呈现“回收站”主页面，沿用现有 API、恢复、自动清理、彻底删除及草稿保护；不修改事件模型与原有权限边界。 | 与工作台导航保持一致，避免重要功能隐藏在任务列表的临时按钮中；此项为 2.0.2 之后的独立 UI 微调，先以 Draft PR 验证，正式版本号和部署另行决定。 |
+
+| D-20261102-UI-12（2.0.3 发布候选准备） | 回收站侧栏独立页面属于 2.0.2 正式版本之后的增量 UI 变更；在同一 Draft PR #18 上仅把候选分支 `VERSION` 更新为 `2.0.3`，不另建版本系统、不更改 `main/VERSION=2.0.2`；所有产品/测试与版本变化以最终准确 SHA 的 GitHub CI 重新判定。需用户明确授权才能正式合并，真实电脑升级单独审批。 | 继承工作台统一语义版本，避免已正式发布的 2.0.2 仍显示同一版本号却有不同 UI；不重复开发已通过的产品逻辑或已覆盖的测试，保持 GitHub/Windows/Drive 责任边界。 |
