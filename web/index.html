@@ -2127,6 +2127,67 @@
       }
     }
 
+
+    let trashItems = [];
+    async function loadTrash() {
+      const message = $("trash-message");
+      message.textContent = "正在读取回收站…";
+      try {
+        const response = await fetch("/api/trash", {cache: "no-store"});
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "无法读取回收站");
+        trashItems = payload.tasks || [];
+        $("trash-retention").value = String(payload.retention_days);
+        const list = $("trash-list");
+        list.replaceChildren();
+        if (!trashItems.length) list.append(element("p", "hint", "回收站为空。"));
+        for (const item of trashItems) {
+          const row = element("div", "trash-row");
+          const pick = element("input");
+          pick.type = "checkbox"; pick.className = "trash-pick";
+          pick.value = item.task_id;
+          pick.disabled = item.conflict;
+          pick.setAttribute("aria-label", "选择彻底删除：" + taskDisplayId(item));
+          const label = element("div", "trash-row-label");
+          label.append(element("strong", "", item.title || "任务状态冲突"),
+                       element("small", "", taskDisplayId(item) + " · 删除时间 " + (item.trashed_at || "未知")));
+          const restore = element("button", "", "恢复");
+          restore.type = "button"; restore.disabled = item.conflict;
+          restore.addEventListener("click", async () => {
+            if (!window.confirm("恢复任务「" + item.title + "」及其执行步骤？")) return;
+            await actOnTrashedTask(item, "restore");
+          });
+          row.append(pick, label, restore);
+          list.append(row);
+        }
+        message.textContent = (payload.warnings || []).length
+          ? "部分同步数据需核查：" + payload.warnings.slice(0, 2).join("；")
+          : "共 " + trashItems.length + " 项。到期清理会在下次访问时执行。";
+      } catch (error) {
+        message.textContent = "回收站读取失败：" + error.message;
+      }
+    }
+
+    async function actOnTrashedTask(task, action, skipReload = false) {
+      const response = await fetch("/api/tasks/" + encodeURIComponent(task.task_id) + "/" + action, {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          revision: task.revision,
+          ...(action === "purge" ? {confirmed_purge: true} : {})
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "操作失败");
+      if (!skipReload) { await loadTrash(); await refresh(true, true); }
+    }
+
+    function openTrashModal() {
+      if (activeDetailTaskId && !closeTaskDetail()) return;
+      if (!confirmDiscardUnsaved()) return;
+      $("trash-modal").hidden = false;
+      loadTrash();
+    }
+
     $("new-task-title").addEventListener("input", () => { createDraftRevision++; });
 
     function createMetadataSnapshot() {
@@ -2448,6 +2509,57 @@
     });
     $("create-modal-close").addEventListener("click", () => {
       $("create-modal").hidden = true;
+    });
+    $("open-trash").addEventListener("click", openTrashModal);
+    $("trash-close").addEventListener("click", () => { $("trash-modal").hidden = true; });
+    $("trash-modal").addEventListener("click", event => {
+      if (event.target === $("trash-modal")) $("trash-modal").hidden = true;
+    });
+    $("trash-select-all").addEventListener("click", () => {
+      const items = [...document.querySelectorAll(".trash-pick:not(:disabled)")];
+      const select = items.some(item => !item.checked);
+      for (const item of items) item.checked = select;
+    });
+    $("trash-save-retention").addEventListener("click", async () => {
+      if (isSaving) return;
+      const days = Number($("trash-retention").value);
+      if (![0, 7, 30, 90].includes(days)) return;
+      if (days && !window.confirm("确认将回收站自动清空周期设为 " + days +
+                                   " 天？超过此期限的任务将在下一次访问时永久删除。")) return;
+      isSaving = true;
+      try {
+        const response = await fetch("/api/trash/settings", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({retention_days: days})
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "无法保存设置");
+        $("trash-message").textContent = "自动清空周期已保存";
+      } catch (error) {
+        $("trash-message").textContent = "设置失败：" + error.message;
+      } finally { isSaving = false; }
+    });
+    $("trash-purge-selected").addEventListener("click", async () => {
+      if (isSaving) return;
+      const selected = new Set([...document.querySelectorAll(".trash-pick:checked")]
+        .map(item => item.value));
+      const items = trashItems.filter(item => selected.has(item.task_id));
+      if (!items.length) { $("trash-message").textContent = "请先勾选任务。"; return; }
+      if (!window.confirm("不可撤销：彻底删除选中的 " + items.length +
+                          " 项任务？本机删除不能保证清除其他设备和云端历史备份。")) return;
+      isSaving = true;
+      const failures = [];
+      try {
+        for (const item of items) {
+          try { await actOnTrashedTask(item, "purge", true); }
+          catch (error) { failures.push(taskDisplayId(item) + ": " + error.message); }
+        }
+      } finally { isSaving = false; }
+      await loadTrash();
+      await refresh(true, true);
+      $("trash-message").textContent = failures.length
+        ? "部分删除未成功：" + failures.join("；")
+        : "所选任务已在本机永久删除，保留不可复活的最小删除标记。";
     });
     $("task-detail-close").addEventListener("click", closeTaskDetail);
     $("task-detail-id").addEventListener("click", copyTaskDisplayId);
