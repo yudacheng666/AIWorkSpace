@@ -1,11 +1,12 @@
 # AIWorkSpace｜当前项目状态
 
-## 2026-11-02：回收站按钮及列表统一 UI V2（开发中，独立候选）
+## 2026-11-02：回收站按钮及列表统一 UI V2（2.0.4 发布候选，Draft PR #19）
 
 - **需求**：用户确认左侧回收站导航满意，但页面内部按钮/列表仍过于原始，要求视觉与工作台整体一致。
 - **基线**：main `68a3212360fed942ccf2dbfca97afd8f4e224bd3`，正式 VERSION=2.0.3；用户批准的 PR #18 已合并；main push [Actions #41451769129](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41451769129) 3/3 SUCCESS。工作档案 PR #14 暂停。
 - **隔离变更**：分支 `feat/20261102-trash-polish`，只调整回收站的 UI V2 样式、结构、选择反馈及对应测试；保持后端事件/API/永久删除安全行为不变，正式 main/VERSION 不变，不触及真实 Windows/Drive 数据。
-- **验收门槛**：Node 仿真检验空状态、全选/取消、冲突项禁用、未选择禁用危险按钮；Windows 真实 Chromium 恢复和彻底删除 E2E 增加样式/选择反馈断言。最终准确 SHA 的 GitHub CI 证据需在 Draft PR 获取；用户审批前不合并或部署。无新缺口不重复 Codex 测试。
+- **准确 UI 代码验收**：SHA `092c8909de5085f0e8d4bc65aa6bdef225ea3e0a` 的 [GitHub Actions #41453008757](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41453008757) **3/3 SUCCESS / 0 FAIL**：Ubuntu Python 115 PASS/9 SKIP、Windows Python 117 PASS/7 SKIP、两端 Node 62 PASS，Windows 真 app.py + Chromium 7 PASS（更新/回滚 3、任务 UI 4）。新增空状态、全选/取消、冲突项禁用和危险按钮禁用断言通过；原恢复/彻底删除路径通过。
+- **发布候选**：因网页一键更新依赖工作台统一版本号，本 Draft PR #19 分支将 `VERSION` 更新为 **2.0.4 RC**；正式 main 保持 `2.0.3`，只新增版本/文档变动。必须等待 **2.0.4 最终准确 SHA 的新 CI**，不能借用 2.0.3 版本上的旧 SHA 冒充完整 RC 验收；用户明确批准前不合并、不部署或触及真实 Windows/Drive 数据，无新缺口不重复 Codex。
 
 
 
