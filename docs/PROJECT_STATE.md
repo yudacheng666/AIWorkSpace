@@ -1,6 +1,6 @@
 # AIWorkSpace｜当前项目状态
 
-## 2026-11-02：2.0.2 回收站／步骤状态／Drive 引用已实现，最终验收中（暂不发布）
+## 2026-11-02：2.0.2 回收站／步骤状态／Drive 引用已实现，准确 SHA CI PASS（未发布）
 
 - **需求来源**：用户确认实际 Windows 工作台 2.0.1 网页一键升级成功，并明确要求下一版实现任务删除与回收站、执行步骤与任务状态联动、Google Drive 文档关联。实际升级成功是用户反馈，非本轮独立设备核验。
 - **隔离范围**：[Draft PR #17](https://github.com/yudacheng666/AIWorkSpace/pull/17)，分支 `feat/20261102-v202-trash-step-rollup-drive-links`，正式 `main/VERSION=2.0.1` 未修改；2.0.2 仅为后续发布目标，未合并、未部署，工作档案继续暂停。
@@ -10,9 +10,9 @@
   - 非冲突且完整同步的步骤推导有效任务状态：受阻优先，其余有 doing/done 则 doing，全部 todo 则 todo；全部步骤 done 仍仅提示用户亲自确认任务完成，不自动写 done，也不更改原任务事件状态/修订号。
   - 任务可关联最多 20 个经校验的官方 HTTPS Google Drive/Docs/Sheets/Slides 链接，显示/打开/取消关联，不复制文件或改动权限。AI 实际读取依赖用户已授权 Google Drive 连接器和文件访问权限，不保证仅凭链接即可读取。
 - **已通过的准确产品/测试 SHA**：`9d25552e9899f27150899a12ab3be48e22b158c1`， [GitHub Actions #41430035182](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41430035182) **3/3 SUCCESS**：Ubuntu Python 123 total，114 PASS / 9 SKIP，Node 60 PASS；Windows Python 123 total，116 PASS / 7 SKIP，Node 60 PASS；Windows 真 Chromium 原更新 E2E 3 PASS、任务交互 E2E 4 PASS（其中本次新增 2 条）。此前浏览器 E2E 提示隐藏和保存时序错误均已定向修复，未绕过 CSP 或缩减业务断言。
-- **最新额外两设备仿真**：后续新增针对延迟同步的双设备回归时，旧断言错误要求第二设备自动删除本地事件，已改为“旧事件不会让任务复活，远端 purge 标记不会擅自物理清除本机历史”。最新代码/测试 SHA `5e995c7d2ef67bc4039cc91bba65e3e6d0bceba2`，**准确 SHA CI 仍待核实**，不能沿用前一 SHA 冒充新 SHA PASS。
+- **最新额外两设备仿真**：后续新增针对延迟同步的双设备回归时，旧断言错误要求第二设备自动删除本地事件，已改为“旧事件不会让任务复活，远端 purge 标记不会擅自物理清除本机历史”。最新代码/测试 SHA `5e995c7d2ef67bc4039cc91bba65e3e6d0bceba2`，**[Actions #41430588371](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41430588371) 已对准确 SHA 完成 3/3 SUCCESS**；Ubuntu Python 124 total / 115 PASS / 9 SKIP、Node 60 PASS，Windows Python 124 total / 117 PASS / 7 SKIP、Node 60 PASS，Windows 真实 Chromium 原更新链路 3 PASS、任务交互 4 PASS。新增两设备延迟文件同步回归 PASS；不代表真实 Google Drive 服务端/两台电脑已测试，不能沿用前一 SHA 冒充新 SHA PASS。
 - **仍未验收的范围**：真实跨电脑 Google Drive 同步、异步断网/同步历史、不同账户的实际 Drive 文档权限、公司真实任务文件、生产升级及长时运行均 NOT TESTED。此类高风险缺口先评估现有测试与必要的定向独立验收；禁止自动合并、升级、对真实数据操作。
-- **下一步**：核实最新 SHA 的 CI，按风险补独立缺口；发布前只在获得用户明确批准后修改 VERSION、发布 RC、合并与正式部署，继续采用 CI-first 去重策略。
+- **下一步**：准确 SHA 自动化 CI 已 PASS。按既定 D021 针对删除/同步及真实 Drive 文件权限的高风险缺口决定必要的增量独立验收；在用户明确批准前不修改正式 VERSION、不合并 main、不部署真实电脑，继续采用 CI-first 去重策略。
 
 
 ## 2026-11-02：用户确认 2.0.1 网页实际一键更新成功；2.0.2 三项任务增强开发中
