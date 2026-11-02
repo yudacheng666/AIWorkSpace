@@ -78,6 +78,18 @@ class ReducerTests(unittest.TestCase):
                                             changes={"title": "旧副本重现", "status": "todo"}))
         self.assertEqual(app.read_workspace(self.data_dir)["tasks"], [])
 
+    def test_imported_purge_marker_hides_without_erasing_unconfirmed_local_files(self):
+        # A synced purge marker is not an authenticated local request to erase
+        # old event bytes. Preserve files pending explicit local cleanup while
+        # hiding the task from both active and trash API results.
+        app.append_event(self.data_dir, evt("remote-purge-marker-001", "purge", 1,
+                                            {"purged_at": "2026-11-02T00:00:00Z"}))
+        before = sorted((self.data_dir / "events").glob("*.json"))
+        self.assertEqual(len(before), 2)
+        self.assertEqual(app.read_workspace(self.data_dir)["tasks"], [])
+        app.expire_trashed_tasks(self.data_dir)
+        self.assertEqual(sorted((self.data_dir / "events").glob("*.json")), before)
+
     def test_duplicate_trash_and_restore_revision_is_frozen(self):
         app.append_event(self.data_dir, evt("fake-trash-001", "trash", 1,
                                             {"trashed_at": "2026-10-01T01:00:00Z"}))
