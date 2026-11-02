@@ -2029,7 +2029,7 @@
           meta.append(element("span", "", item.captured_at || "录入时间未知"));
           meta.append(element("span", "", item.source || "未知来源"));
           const action = element("button", "archive-card-action",
-            item.status === "processed" ? "查看关联记录" : "整理为工作记录");
+            item.status === "processed" ? "查看关联记录" : "手动整理为记录");
           action.type = "button";
           action.addEventListener("click", () => {
             if (item.linked_record_ids?.length) openArchiveRecord(item.linked_record_ids[0]);
@@ -2069,12 +2069,14 @@
 
     function closeArchiveRecord() {
       if (!archiveDrawerOpen) return true;
-      if (unsavedArchiveEditors.size && !confirmDiscardUnsaved()) return false;
+      const hadDirtyDraft = unsavedArchiveEditors.size > 0;
+      if (hadDirtyDraft && !confirmDiscardUnsaved()) return false;
       archiveDrawerOpen = false;
       activeArchiveRecordId = "";
       activeArchiveInboxId = "";
       $("archive-record-drawer").hidden = true;
       $("archive-record-content").replaceChildren();
+      if (hadDirtyDraft && activePage === "archive") loadWorkArchive();
       return true;
     }
 
