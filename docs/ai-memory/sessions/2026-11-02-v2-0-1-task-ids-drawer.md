@@ -80,3 +80,11 @@
 - 调用 GitHub 正常 PR merge，`merged=true`；准确合并 SHA `7d1a0f2c8cf8135b78a43108f666d750538d6a18`。再次读取 main HEAD 和 VERSION 验证为该 SHA 和 `2.0.1`。
 - main push CI 状态暂时未核实：当前 GitHub 连接器仅枚举 PR 事件的 Actions，不能以此证明 push CI PASS。仓库 PR 自动化证据已通过，合并后 CI 仍待确认。
 - 已按 AGENTS 维护 `PROJECT_STATE.md`、`DECISIONS.md`、此 session；没有操作实际 Windows 工作台、真实 Drive 任务数据，也没有修改暂停的工作档案开发分支。
+
+## 2026-11-02：公开 GitHub 正式包的 Windows 隔离升级补缺验收
+
+- 既有正式 RC [Actions #41421749629](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41421749629) 已有 Linux/Windows Python/Node 及 Windows Chromium 网页一键更新成功、故障回滚和 2.0.1 任务操作的 PASS 证据，本轮不重复完整回归。
+- 独立 QA 分支执行真实公开源测试：从官方旧 main SHA `fa51b0123aaac76ddff2064d34178e7cc6e3ab11` 读取 2.0.0 程序文件，再获取官方 main SHA `31963c3c48c9d9cd95663c971a55cb3bb9b108f6` / VERSION `2.0.1` / zipball。Windows Runner 在临时目录中下载校验、备份旧版、安装新版、随机本地端口启动服务、核对 build SHA 和虚构数据哈希不变，再从备份恢复 2.0.0 程序并验证逐文件 SHA-256。
+- [QA PR #16](https://github.com/yudacheng666/AIWorkSpace/pull/16) 准确 QA HEAD `749beb40f3748617356861a6919c2f75dd9f4167`；[Actions #41425066853](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41425066853) **SUCCESS / 1 PASS / 0 FAIL**；artifact `qa-v201-real-public-source` ID `13130903143`，[证据评论](https://github.com/yudacheng666/AIWorkSpace/pull/16#issuecomment-6574287190)。PR #16 已关闭，未合并 main。
+- 合并 SHA `7d1a0f2c8cf8135b78a43108f666d750538d6a18` 的 main push CI 当前连接器只能查 PR workflow run，无法据此核实结果；不得将其写为 PASS。真实公司 Windows 电脑、Google Drive、长期运行均 NOT TESTED/NOT DEPLOYED。
+- 2.0.1 已在 GitHub main 发布；下一步应先核查实际电脑当前版本、程序目录、数据目录、备份和未保存草稿，再单独授权真实升级，不因隔离测试 PASS 直接触碰生产。工作档案仍暂停。
