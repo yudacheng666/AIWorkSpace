@@ -421,3 +421,102 @@ test("stage3 shows unresolved project references read only",async()=>{
  assert.equal(x.api.projectCounts("PROJECT-NOT-SYNCED").primary,1);
  assert.equal(x.writes.length,0);
 });
+
+
+function sampleArchiveRecord() {
+  return {
+    record_id: "RECORD-" + "A".repeat(32),
+    title: "虚构会议记录：接口调整",
+    summary: "已与生产部门沟通接口字段调整。",
+    category: "meeting",
+    occurred_at: "2026-11-02",
+    created_at: "2026-11-02T10:00:00Z",
+    revision: 1, conflict: false,
+    project_id: null, project_name: null,
+    source_ids: [], evidence_refs: [], action_links: [],
+    missing_action_links: [],
+  };
+}
+
+test("M1 work archive has its own page and shows records separately from raw input", async () => {
+  const archive = {
+    records: [sampleArchiveRecord()],
+    inbox: [{
+      inbox_id: "INBOX-" + "B".repeat(32),
+      content: "今天和生产部门沟通接口字段调整。",
+      source: "workbench", captured_at: "2026-11-02T10:00:00Z",
+      status: "pending", linked_record_ids: [],
+    }],
+    warnings: [],
+  };
+  const page = harness([sampleTask()], () => true, [], archive);
+  await page.api.refresh(true);
+  page.el("nav-archive").handlers.get("click")[0]();
+  await page.api.loadWorkArchive();
+  assert.equal(page.el("page-archive").hidden, false);
+  assert.equal(page.el("nav-archive").className, "nav-item is-active");
+  assert.equal(page.el("topbar-context").textContent, "工作档案");
+  assert.equal(page.el("archive-record-list").children.length, 1);
+  assert.equal(page.el("archive-inbox-list").children.length, 1);
+  assert.equal(page.writes.length, 0);
+});
+
+test("M1 quick capture saves the original text to the inbox, not to tasks", async () => {
+  const page = harness([sampleTask()]);
+  await page.api.refresh(true);
+  page.el("open-quick-capture").handlers.get("click")[0]();
+  assert.equal(page.el("quick-capture-modal").hidden, false);
+  const input = page.el("quick-capture-content");
+  input.value = "今天完成一次虚构供应商沟通，等待资料回传。";
+  input.handlers.get("input")[0]();
+  const form = page.el("quick-capture-form");
+  await form.handlers.get("submit")[0]({preventDefault() {}});
+  assert.equal(page.writes.length, 1);
+  assert.equal(page.writes[0].path, "/api/work-archive/inbox");
+  assert.equal(page.writes[0].body.content, input.value === "" ? "今天完成一次虚构供应商沟通，等待资料回传。" : input.value);
+  assert.equal(page.writes[0].body.source, "workbench");
+  assert.ok(page.writes[0].body.capture_key);
+  assert.equal(page.el("quick-capture-modal").hidden, true);
+});
+
+test("M1 work record detail edits with its current revision", async () => {
+  const archive = {
+    records: [sampleArchiveRecord()], inbox: [], warnings: [],
+  };
+  const page = harness([sampleTask()], () => true, [], archive);
+  await page.api.refresh(true);
+  page.el("nav-archive").handlers.get("click")[0]();
+  await page.api.loadWorkArchive();
+  const card = page.el("archive-record-list").children[0];
+  card.children[3].handlers.get("click")[0]();
+  assert.equal(page.el("archive-record-drawer").hidden, false);
+  const form = page.el("archive-record-content").children[0];
+  const summary = form.children[1].children[0];
+  summary.value = "补充后的虚构会议结论。";
+  form.handlers.get("input")[0]();
+  await form.handlers.get("submit")[0]({preventDefault() {}});
+  assert.equal(page.writes.length, 1);
+  assert.match(page.writes[0].path, /\\/api\\/work-archive\\/records\\/RECORD-/);
+  assert.equal(page.writes[0].body.revision, 1);
+  assert.equal(page.writes[0].body.summary, "补充后的虚构会议结论。");
+});
+
+test("M1 archive search filters the record timeline without writing task events", async () => {
+  const archive = {
+    records: [sampleArchiveRecord(), {
+      ...sampleArchiveRecord(),
+      record_id: "RECORD-" + "C".repeat(32),
+      title: "虚构沟通记录：供应商资料",
+      category: "communication",
+    }],
+    inbox: [], warnings: [],
+  };
+  const page = harness([], () => true, [], archive);
+  await page.api.refresh(true);
+  page.el("nav-archive").handlers.get("click")[0]();
+  await page.api.loadWorkArchive();
+  page.el("archive-search").value = "供应商";
+  page.el("archive-filter").handlers.get("submit")[0]({preventDefault() {}});
+  assert.equal(page.el("archive-record-list").children.length, 1);
+  assert.equal(page.writes.length, 0);
+});
