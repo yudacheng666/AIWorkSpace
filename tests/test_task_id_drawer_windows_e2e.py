@@ -111,6 +111,16 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         document.locator("input[type='text']").fill("虚构云端计划")
         document.locator("input[type='url']").fill(
             "https://drive.google.com/file/d/SYNTHETIC_DOC_TEST/view")
+        title_editor = page.locator("#task-detail-content .task-form input[type='text']").first
+        original_title = title_editor.input_value()
+        title_editor.fill("虚构未保存的任务草稿")
+        document.get_by_role("button", name="添加链接").click()
+        page.get_by_text("其他任务或步骤有未保存的草稿", exact=False).wait_for(state="visible")
+        self.assertEqual(title_editor.input_value(), "虚构未保存的任务草稿")
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["title"], original_title)
+        # Once the other draft is restored to its original baseline, adding
+        # the link must succeed without losing or overwriting the task.
+        title_editor.fill(original_title)
         document.get_by_role("button", name="添加链接").click()
         link = page.locator("#task-detail-content .doc-row a").first
         link.wait_for(state="visible")
