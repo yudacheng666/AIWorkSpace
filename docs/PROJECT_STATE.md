@@ -1,5 +1,72 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-02：用户已批准 2.0.1 合并，但 GitHub Draft 状态尚未解除（BLOCKED）
+
+- **用户审批**：2026-11-02 用户在 RC 验收结果及下一步“合并 PR #15 到 main”的上下文中回复“批准”，明确授权 **仅合并 PR #15**；并未授权公司电脑实际升级、Google Drive 数据操作或工作档案恢复开发。
+- **前置条件已满足**：2.0.1 RC 产品/测试准确 SHA `97ca50d74641fcb8ae2f232a95651ab7c50fbcd0`，对应 [GitHub Actions #41421749629](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41421749629) 3/3 SUCCESS。其后到 PR 最新代码仅修改 Markdown 文档；`main` 原 SHA `fa51b0123aaac76ddff2064d34178e7cc6e3ab11`，版本 2.0.0。合并目标为版本 2.0.1，优先普通 `merge` 保留原 PR 历史。
+- **实际阻塞**：PR #15 仍是 **Draft**。GitHub 连接器的 `mark_pull_request_ready_for_review` 操作被当前平台安全检查阻止；随后原生 GitHub merge API 带 `expected_head_sha` 请求得到 HTTP 405 `Pull Request is still a draft`。**没有合并，main 未变化，不能将用户“批准”写为已发布或 CI post-merge PASS**。
+- **最小下一步**：需要在 [PR #15](https://github.com/yudacheng666/AIWorkSpace/pull/15) 网页点击一次 **Ready for review** 解除 Draft。之后按最新 PR HEAD 再次核实产品/测试 SHA、`main`、CI，执行已批准的普通 Git merge，核验 main 精确 SHA 与 push CI；不要求用户重复批准合并。
+- **严格边界**：不得通过强制改写 main、伪造 merge、重复创建 PR 或部署真实机器来绕过 Draft 校验。工作档案继续暂停。
+
+
+## 2026-11-02：2.0.1 正式发布候选（RC）完成并通过完整免费 CI，等待用户合并批准
+
+- **授权范围**：用户批准制作 2.0.1 正式发布候选并测试；**未授权合并 `main`、公司电脑升级或真实 Google Drive 数据操作**。工作档案 M1 继续暂停，PR #14 / M1 分支没有修改。
+- **PR**：[Draft PR #15](https://github.com/yudacheng666/AIWorkSpace/pull/15)，开发分支 `feat/20261102-v2-0-1-task-ids-drawer`，`main` 仍为 `fa51b0123aaac76ddff2064d34178e7cc6e3ab11`，`main/VERSION=2.0.0`。
+- **2.0.1 发布候选的完整产品/测试 SHA**：`97ca50d74641fcb8ae2f232a95651ab7c50fbcd0`。正式发布候选 `VERSION=2.0.1`，对应 `tests/test_app.py` 的服务版本状态断言由 2.0.0 改为 2.0.1；未修改其他产品逻辑或数据事件 schema。
+- **准确 SHA 正式 CI**：[GitHub Actions run #41421749629](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41421749629) **SUCCESS / 3 of 3 jobs**（公开仓库标准免费 Ubuntu / Windows runner）：
+  - Ubuntu Python 3.12：107 total，**100 PASS / 7 SKIP / 0 FAIL**；Node 22：**60 PASS / 0 FAIL**。
+  - Windows Python 3.12：107 total，**102 PASS / 5 SKIP / 0 FAIL**；Node 22：**60 PASS / 0 FAIL**。
+  - Windows 真 `app.py` + Chromium：原有更新回滚及 UI E2E **3 PASS**，2.0.1 新增编号复制与抽屉草稿保护 E2E **2 PASS**，**0 FAIL**。
+- **去重**：此前 2.0.1 功能完整回归 [run #41420159188](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41420159188) 已通过；RC 只追加版本状态断言和 `VERSION`，没有额外重复派 Codex 验收。CI 的 Skip 为 Windows/Linux 环境选择型测试跳过，不伪装为 PASS。
+- **完成界限**：这是 GitHub 仓库内 **RC READY / CI PASS**，**不是 main 发布**，亦非正式工作台一键更新或真实 Drive 数据验证。Windows 实际电脑升级、Google Drive 实际同步、长期运行等**NOT TESTED / NOT DEPLOYED**。
+- **下一步**：保持 PR #15 Draft；由用户审阅并明确批准合并到 main 后，按既定发布流程合并并复核 main 精确 SHA。实际电脑升级另行独立授权；工作档案继续暂停。本记忆更新仅 Markdown，不影响 RC 的受测产品和测试代码 SHA。
+
+
+## 2026-11-02：2.0.1 GitHub Actions 免费 CI 验收通过（待发布批准）
+
+- **用户测试指令**：用户指出 Actions 在公开仓库可免费运行，要求恢复执行仓库既定 D021：准确 SHA 的 GitHub Actions CI 为默认验证，Codex 不重复跑同范围。已核实仓库 Public，`.github/workflows/tests.yml` 仅使用 `ubuntu-latest` 与 `windows-latest` 标准 GitHub 托管 runner，不使用计费 larger runner。
+- **Draft PR**：[PR #15](https://github.com/yudacheng666/AIWorkSpace/pull/15)，`feat/20261102-v2-0-1-task-ids-drawer` 对 `main`，尚未合并；与工作档案 PR #14 / M1 功能分支隔离。
+- **精确 CI 产品/测试 SHA**：`65126022808bc0af1847d67dd999ea7f6e31dee9`。[Actions #41420159188](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41420159188)：**SUCCESS，3/3 jobs**。
+- **Ubuntu Python 3.12**：`Ran 107 tests`，**100 PASS / 7 SKIP / 0 FAIL**；Node 22：**60 PASS / 0 FAIL**。
+- **Windows Python 3.12**：`Ran 107 tests`，**102 PASS / 5 SKIP / 0 FAIL**；Node 22：**60 PASS / 0 FAIL**。
+- **Windows 真实 app + Chromium**：原有更新/回滚和 UI E2E **3 PASS**；本次新增任务短编号复制/抽屉遮罩/未保存草稿保护 Chromium E2E **2 PASS**。独立测试使用随机本地端口、临时虚构 data-dir，测试后检查事件文件哈希不变。
+- **失败及根因**：上一 SHA `73840f58a13195ad4daa6b4ec3bad710dd8d2229` 的 [Actions #41419903019](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41419903019) 中，新增复制测试因测试脚本 `page.wait_for_function` 触发产品 CSP 的 `unsafe-eval` 禁止而 ERROR；不是产品复制/草稿保护逻辑的已确认缺陷。仅将该测试改为 CSP 兼容的 Playwright locator wait，提交 `65126022808bc0af1847d67dd999ea7f6e31dee9`，不放松 CSP 或改变产品代码。最新准确 SHA 全绿。
+- **测试覆盖与去重**：已经有完整 Linux/Windows 常规回归与实际 Windows Chromium 定向 E2E，因此**无需 Codex 重复验收相同路径**；本轮不做公司真实 Google Drive、Windows 正式安装/一键升级、其他浏览器或生产数据验收，这些属于未来独立部署门槛。
+- **版本与安全**：`VERSION` 仍是 `2.0.0`，`2.0.1` 是下一候选发布版本；不合并、不部署、不改 `main` 和工作档案分支，也不接触真实业务数据。此记忆更新是文档-only，不使已通过的产品/测试代码 SHA 失效。
+- **下一步**：PR #15 保持 Draft，向用户提交结果与发布候选审阅；获得明确批准并确认版本号处理后才考虑合入 main/安排正式部署。工作档案仍暂停。
+
+
+## 2026-11-02：V2.0.1 任务编号与抽屉操作优化开发中（工作档案暂停）
+
+### 2026-11-02 本轮隔离验证（对前述开发状态的增量更新）
+
+- **产品与测试源码 HEAD**：`187e097ecfd414b0c8fd1c7bf615be74daae748d`；此后只更新了 Markdown 项目记忆，`app.py` blob `8954614469261816b55a74ede3a4abfc72bb599e`、`web/index.html` blob `8558a60d1c0a44423b90f829f5c69cf074d7633c`、`tests/test_ui_shell.mjs` blob `98c88e8cb9c4467d908ae7fc63598d25b9ebab59`。
+- **V8 沙箱 JavaScript 执行 PASS（22/22）**：直接用 GitHub 连接器取得本分支真实网页内嵌 JS 和 `tests/test_ui_shell.mjs`；在可执行 V8 沙箱中加载真实页面脚本，使用该测试文件的模拟 DOM 测试逻辑（将 Node 的 vm/runInNewContext 适配为同隔离作用域 eval，不改变业务断言），执行全部 22 条，其中短编号复制/搜索、抽屉遮罩点击、取消关闭保留草稿均 PASS。
+- **Python 函数级隔离执行 PASS（6/6）**：直接从 GitHub `app.py` blob 抽取 `display_task_id` 原函数，在隔离 Python 3.13.5 中复制原函数内容执行 6 条断言：常规 UUID、历史任务、非法日期、时区字符串、大小写和缺日期均 PASS。此测试不是完整 app.py 的 `unittest` 套件，也不验证 reducer 与 HTTP。
+- **隔离执行环境**：V8 运行时代码模式及 Linux Python 3.13.5；另一个隔离容器虽具备 Node v22.16.0 和 Chromium，但不能连通 GitHub 获取完整仓库，因此没有运行仓库原始 Node 测试命令或真实 Chromium E2E，也未运行完整 Python unittest。
+- **重要区分**：本轮结果只代表 V8 模拟 DOM JS 22/22 与复制的 Python 单函数 6/6；**完整 Python、原生 Node、真实 Chromium、Windows 和 GitHub Actions 均 NOT TESTED**。旧 main SHA 的 CI PASS 不可作为此 SHA 的验收证据。
+- **安全和费用**：没有创建 PR（避免 `pull_request` 自动触发 Actions）、没有主动触发 CI、没有修改 main/工作档案分支、没有部署或触碰真实数据。
+- **下一步门槛**：在不触发未经批准费用的可访问源码环境运行准确 SHA 的 `python -m unittest discover -s tests -v`、`node --test tests/test_ui_shell.mjs`、必要的真实浏览器定向测试；再审查安全/文件差异及用户批准，方可进入正式 2.0.1 发布和合并。工作档案继续暂停。
+
+
+
+- **用户最新优先级**：本对话负责上述小版本改进；个人工作档案开发暂缓，保留原 M0/功能分支不修改。
+- **准确 main 基线**：`fa51b0123aaac76ddff2064d34178e7cc6e3ab11`；GitHub 正式 `VERSION=2.0.0`，UI V2 生产电脑/真实 Drive 部署尚不视为通过。
+- **本轮分支**：`feat/20261102-v2-0-1-task-ids-drawer`，从上述 main SHA 创建，与 `docs/20261102-personal-work-archive-m0` 和 `feat/20261102-m1-work-archive` 完全隔离。
+- **产品代码实现**：
+  - `app.py` 在 `GET /api/tasks` 中为任务生成稳定 `display_id`，保留 `task_id` 主键，创建接口也返回 `display_id`；同工作区显示编号碰撞时回退完整 ID 并警示。
+  - `web/index.html` 的项目/列表/看板/日历/甘特与详情优先显示短编号，查询可用新旧编号；点击任务详情编号或复制图标使用剪贴板写入并告知结果。
+  - 抽屉遮罩仅点击遮罩本体触发既有 `closeTaskDetail()`，保留草稿保护。
+  - 没有改写事件格式、没有重编号旧任务、没有把工作事实伪装为已完成任务。
+- **测试用例已新增、尚未执行 CI**：`tests/test_app.py` 覆盖历史/UUID 的稳定显示编号、非标准旧 ID、碰撞回退、事件文件不新增；`tests/test_ui_shell.mjs` 覆盖详情复制、短号搜索、遮罩关闭与未保存草稿取消。
+- **测试状态**：本分支代码 **NOT TESTED（运行时）**，只做了 GitHub 内容读取和静态变更自查；不继承 main 的 CI PASS 冒充本 SHA PASS。本轮明确不触发 Actions，也不默认消耗 Codex 额度。批准 CI 后应在准确分支 SHA 跑定向回归，确认后再正式候选发布。
+- **其他分支**：工作档案 PR #14 与 `feat/20261102-m1-work-archive` 仍独立保存，不修改、不合并；小版本合并之前若工作档案恢复推进，须在其代码分支同步 `main` 并处理重叠区域。
+- **VERSION/合并/数据**：当前 VERSION 未变；未触发收费 Actions，未部署、未合并 main，未读写真实云盘工作数据。
+- **下一步**：完成定向自测/CI 及风险审查，核对 Windows 隔离更新与数据完整性，再按用户批准建立/合并正式 PR。对事件型事项的记录模型等工作档案恢复后统一实现。
+
+
+
 ## 2026-11-02：UI V2.0.0 已发布到 GitHub main（尚未正式部署）
 
 - **用户明确批准**：2026-11-02 授权将 UI V2 第一至第三阶段合并到 GitHub main。批准范围**仅限代码仓库合并**，不包含公司电脑、真实 Google Drive 或现有任务数据的更新。

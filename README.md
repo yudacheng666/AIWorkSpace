@@ -1,5 +1,8 @@
 # AIWorkSpace
 
+> **2.0.1 发布候选（2026-11-02，未合并）**：任务短显示编号、复制及抽屉遮罩/草稿保护改进见 [Draft PR #15](https://github.com/yudacheng666/AIWorkSpace/pull/15)。发布候选版本 `VERSION=2.0.1`，准确产品/测试 SHA `97ca50d74641fcb8ae2f232a95651ab7c50fbcd0` 的 [GitHub Actions #41421749629](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41421749629) **3/3 SUCCESS**（Ubuntu/Windows Python、Node、Windows Chromium）。`main` 仍是 `2.0.0`，本地公司电脑及真实 Google Drive **未升级、未验证**；工作档案功能暂停。
+
+
 > **UI V2 发布候选（2026-11-02）**：第一至第三阶段已完成功能开发、Linux/Windows/Chromium 自动化测试及用户 8/8 人工体验检查。当前此分支为待合并候选，正式合并后 UI 语义版本 `2.0.0`。本次更新只替换程序白名单文件，不修改任务、项目和步骤事件模型。**GitHub 合并本身不会操作公司的 Windows 程序或 Google Drive 数据**。需单独批准真实环境更新，并先检查备份和回滚；详见 `docs/PROJECT_STATE.md`。
 
 个人 AI 工作台，先验证 **ChatGPT → Google Drive → 本地网页 → Google Drive → ChatGPT** 的任务闭环。不需要额外的 Google Cloud 项目、付费 API 或第三方 Python 库。

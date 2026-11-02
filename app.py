@@ -7,6 +7,7 @@ Google Drive for desktop synchronizes, or omit it for isolated demo data.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -42,6 +43,23 @@ _update_lock = threading.Lock()
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def display_task_id(task_id: str, created_at: str = "") -> str:
+    """Derive a short, stable user-facing identifier without changing event IDs."""
+    day = "000000"
+    if isinstance(created_at, str):
+        matched = re.match(r"^(\d{4})-(\d{2})-(\d{2})", created_at)
+        if matched:
+            try:
+                date.fromisoformat("-".join(matched.groups()))
+                day = "".join(matched.groups())[2:]
+            except ValueError:
+                pass
+    matched_uuid = re.fullmatch(r"TASK-([0-9a-fA-F]{32})", task_id)
+    suffix = (matched_uuid.group(1)[:12].upper() if matched_uuid else
+              hashlib.sha256(task_id.encode("utf-8")).hexdigest()[:12].upper())
+    return f"T-{day}-{suffix}"
 
 
 def validate_event(value: object) -> dict:
@@ -656,6 +674,23 @@ def read_workspace(data_dir: Path) -> dict:
                     existing.add(signature)
             warnings.append(f"{task_id}: event_id {event_id} has conflicting content; needs review")
 
+    # User-facing identifiers are derived at read time. Historical append-only
+    # events and API/step/project foreign keys retain the original TASK UUID.
+    used_display_ids: dict[str, list[dict]] = defaultdict(list)
+    for task in tasks:
+        creation = created.get(task["task_id"], [])
+        if len(creation) != 1:
+            task["display_id"] = task["task_id"]
+            continue
+        task["created_at"] = creation[0].get("timestamp", "")
+        task["display_id"] = display_task_id(task["task_id"], task["created_at"])
+        used_display_ids[task["display_id"]].append(task)
+    for short_id, duplicates in used_display_ids.items():
+        if len(duplicates) > 1:
+            for task in duplicates:
+                task["display_id"] = task["task_id"]
+            warnings.append(f"display identifier collision: {short_id}; using full IDs")
+
     project_map = {project["project_id"]: project for project in project_state["projects"]}
     for task in tasks:
         for field, default in TASK_DEFAULTS.items():
@@ -1066,7 +1101,9 @@ def handler_factory(data_dir: Path):
                                  "base_revision": 0, "changes": changes}
                         validate_event(event)
                         append_event(data_dir, event)
-                    return self.json_response(201, {"saved": True, "task_id": task_id, "revision": 1})
+                    return self.json_response(201, {"saved": True, "task_id": task_id,
+                                                    "display_id": display_task_id(task_id, event["timestamp"]),
+                                                    "revision": 1})
 
                 if task_match:
                     allowed = {"title", "status", "revision", "project_id",
