@@ -1481,6 +1481,23 @@ class WorkArchiveDataTests(unittest.TestCase):
         self.assertEqual(next((self.data_dir / "events").glob("*.json")).read_bytes(), original)
         self.assertFalse((self.data_dir / "work_archive").exists())
 
+    def test_duplicate_capture_key_with_same_content_is_idempotent_in_reducer(self):
+        first = work_inbox_event(
+            event_id="inbox-event-003", inbox_id="INBOX-" + "C" * 32,
+            capture_key="capture-key-duplicate-01",
+        )
+        second = work_inbox_event(
+            event_id="inbox-event-004", inbox_id="INBOX-" + "D" * 32,
+            capture_key="capture-key-duplicate-01",
+        )
+        folder = self.data_dir / "work_archive" / "inbox"
+        folder.mkdir(parents=True)
+        (folder / "a.json").write_text(json.dumps(first), encoding="utf-8")
+        (folder / "b.json").write_text(json.dumps(second), encoding="utf-8")
+        archive = read_work_archive(self.data_dir)
+        self.assertEqual(len(archive["inbox"]), 1)
+        self.assertTrue(any("duplicate capture_key" in warning for warning in archive["warnings"]))
+
     def test_raw_inbox_text_is_persisted_without_rewriting(self):
         raw = "  今天和生产部门沟通接口调整；保留原始输入格式。  "
         path = append_work_inbox_event(self.data_dir, work_inbox_event(content=raw))
