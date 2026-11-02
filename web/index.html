@@ -469,9 +469,7 @@
 
 
     /* V2.0.2 lifecycle and linked references: reuse restrained workspace visual language. */
-    .trash-overlay[hidden] { display:none; }
-    .trash-overlay {position:fixed;inset:0;background:rgba(12,20,38,.52);display:flex;align-items:center;justify-content:center;z-index:110;padding:20px;}
-    .trash-panel {width:min(700px,96vw);max-height:82vh;overflow-y:auto;background:var(--surface,#fff);color:var(--text,#1f2937);border-radius:12px;padding:20px;box-shadow:0 18px 55px rgba(0,0,0,.2);}
+    .trash-panel {width:100%;max-width:960px;background:var(--surface,#fff);color:var(--text,#1f2937);border:1px solid var(--line);border-radius:12px;padding:22px;box-shadow:0 2px 10px rgba(12,20,38,.04);}
     .trash-head,.trash-toolbar {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
     .trash-warning {display:block;font-size:13px;line-height:1.5;color:#9a3412;margin:8px 0;}
     .trash-list {display:grid;gap:8px;margin:14px 0;}
@@ -517,6 +515,7 @@
     </nav>
     <div class="sidebar-spacer"></div>
     <nav class="side-nav sidebar-bottom" aria-label="系统导航">
+      <button type="button" class="nav-item" id="nav-trash"><span class="nav-icon">♲</span><span>回收站</span></button>
       <button type="button" class="nav-item" id="nav-settings"><span class="nav-icon">⚙</span><span>系统设置</span></button>
     </nav>
     <div class="sidebar-footnote">本机运行 · 数据保存在指定目录</div>
@@ -550,6 +549,29 @@
         <button type="button" class="save" id="apply-update" hidden disabled>立即更新</button>
       </div>
     </section>
+    </section>
+    <section id="page-trash" class="workspace-page" hidden>
+      <div class="page-heading"><div><h1 id="trash-title">回收站</h1><p class="subtitle">管理已删除的任务及自动清理设置。</p></div></div>
+      <section class="trash-panel" aria-labelledby="trash-title">
+      <div class="trash-toolbar">
+        <label for="trash-retention">自动清空周期
+          <select id="trash-retention">
+            <option value="0">关闭自动清空</option>
+            <option value="7">7 天</option>
+            <option value="30">30 天</option>
+            <option value="90">90 天</option>
+          </select>
+        </label>
+        <button type="button" id="trash-save-retention">保存周期</button>
+      </div>
+      <p class="trash-warning">到期后将在下次访问工作台时清理。本机彻底删除无法保证清除其他设备、云端版本历史或备份中的副本。</p>
+      <div class="trash-list" id="trash-list" aria-label="已删除任务"></div>
+      <div class="trash-toolbar">
+        <button type="button" id="trash-select-all">全选</button>
+        <button type="button" id="trash-purge-selected">将选中任务彻底删除</button>
+      </div>
+      <p id="trash-message" class="message" role="status"></p>
+      </section>
     </section>
     <section id="page-overview" class="workspace-page is-active">
     <div class="page-heading">
@@ -689,7 +711,6 @@
     <div class="section-head">
       <h2 id="task-view-heading"><span id="task-view-title">任务列表</span> <span class="sync" id="query-result-count"></span></h2>
       <div class="section-actions">
-        <button type="button" id="open-trash" title="查看已删除的任务">回收站</button>
         <label class="sort-control" for="task-sort">排序
           <select id="task-sort" aria-label="任务排序">
             <option value="project">按项目</option>
@@ -749,32 +770,6 @@
     </section>
   </div>
 
-  <div class="trash-overlay" id="trash-modal" hidden>
-    <section class="trash-panel" role="dialog" aria-modal="true" aria-labelledby="trash-title">
-      <div class="trash-head">
-        <h2 id="trash-title">任务回收站</h2>
-        <button type="button" id="trash-close" aria-label="关闭回收站">关闭</button>
-      </div>
-      <div class="trash-toolbar">
-        <label for="trash-retention">自动清空周期
-          <select id="trash-retention">
-            <option value="0">关闭自动清空</option>
-            <option value="7">7 天</option>
-            <option value="30">30 天</option>
-            <option value="90">90 天</option>
-          </select>
-        </label>
-        <button type="button" id="trash-save-retention">保存周期</button>
-      </div>
-      <p class="trash-warning">到期后将在下次访问工作台时清理。本机彻底删除无法保证清除其他设备、云端版本历史或备份中的副本。</p>
-      <div class="trash-list" id="trash-list" aria-label="已删除任务"></div>
-      <div class="trash-toolbar">
-        <button type="button" id="trash-select-all">全选</button>
-        <button type="button" id="trash-purge-selected">将选中任务彻底删除</button>
-      </div>
-      <p id="trash-message" class="message" role="status"></p>
-    </section>
-  </div>
   <div class="drawer-backdrop" id="task-detail-drawer" hidden>
     <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="task-detail-title">
       <div class="drawer-head">
@@ -2052,6 +2047,7 @@
       overview: {title: "工作总览", nav: "nav-overview"},
       tasks: {title: "全部任务", nav: "nav-tasks"},
       projects: {title: "项目管理", nav: "nav-projects"},
+      trash: {title: "回收站", nav: "nav-trash"},
       settings: {title: "系统设置", nav: "nav-settings"}
     };
 
@@ -2063,12 +2059,12 @@
       if (activePage==="projects" && page!=="projects" && !confirmProjectDrafts()) return false;
       activePage = page;
       if (page === "tasks") taskViewMode = taskViewModes.includes(mode) ? mode : "list";
-      for (const id of ["overview", "tasks", "projects", "settings"]) {
+      for (const id of ["overview", "tasks", "projects", "trash", "settings"]) {
         $("page-" + id).hidden = id !== page;
         $("page-" + id).className = "workspace-page" + (id === page ? " is-active" : "");
       }
       for (const id of ["nav-overview", "nav-tasks", "nav-board", "nav-calendar", "nav-gantt",
-                        "nav-projects", "nav-settings", "nav-today", "nav-followup", "nav-due", "nav-risk"]) {
+                        "nav-projects", "nav-trash", "nav-settings", "nav-today", "nav-followup", "nav-due", "nav-risk"]) {
         const button = $(id);
         button.className = "nav-item";
       }
@@ -2085,6 +2081,7 @@
       $("topbar-context").textContent = pageMeta[page].title;
       refreshOverviewControls();
       renderTaskList();
+      if (page === "trash") loadTrash();
       return true;
     }
 
@@ -2194,13 +2191,6 @@
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "操作失败");
       if (!skipReload) { await loadTrash(); await refresh(true, true); }
-    }
-
-    function openTrashModal() {
-      if (activeDetailTaskId && !closeTaskDetail()) return;
-      if (!confirmDiscardUnsaved()) return;
-      $("trash-modal").hidden = false;
-      loadTrash();
     }
 
     $("new-task-title").addEventListener("input", () => { createDraftRevision++; });
@@ -2496,6 +2486,7 @@
       ["nav-due", "tasks", "due"],
       ["nav-risk", "tasks", "risk"],
       ["nav-projects", "projects", null],
+      ["nav-trash", "trash", null],
       ["nav-settings", "settings", null]
     ];
     for (const [id, page, view, mode] of navBindings) {
@@ -2524,11 +2515,6 @@
     });
     $("create-modal-close").addEventListener("click", () => {
       $("create-modal").hidden = true;
-    });
-    $("open-trash").addEventListener("click", openTrashModal);
-    $("trash-close").addEventListener("click", () => { $("trash-modal").hidden = true; });
-    $("trash-modal").addEventListener("click", event => {
-      if (event.target === $("trash-modal")) $("trash-modal").hidden = true;
     });
     $("trash-select-all").addEventListener("click", () => {
       const items = [...document.querySelectorAll(".trash-pick:not(:disabled)")];
@@ -2587,7 +2573,7 @@
     setActivePage("overview");
     loadUpdateStatus();
 
-    $("refresh").addEventListener("click", () => refresh(true, true));
+    $("refresh").addEventListener("click", () => { refresh(true, true); if (activePage === "trash") loadTrash(); });
     refresh(true);
     setInterval(() => refresh(false), 5000);
   </script>
