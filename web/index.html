@@ -462,6 +462,40 @@
     @media(max-width:850px){.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}.project-filter{grid-template-columns:minmax(0,1fr) auto auto;}.project-filter select{width:130px;}}
     @media(max-width:520px){.project-filter{grid-template-columns:1fr 1fr;}.project-filter input{grid-column:1/-1;}.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}}
 
+
+    .archive-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(300px,.9fr);gap:16px;align-items:start;}
+    .archive-panel{min-width:0;padding:19px;border:1px solid #e5eaf1;border-radius:13px;background:#fff;box-shadow:0 3px 12px #24395708;}
+    .archive-panel h2{margin:0;color:#263a57;font-size:15px;font-weight:730;}
+    .archive-panel .section-head{margin-bottom:14px;}
+    .archive-filter{display:grid;grid-template-columns:minmax(0,1fr) 145px auto auto;gap:8px;margin-bottom:12px;}
+    .archive-filter input,.archive-filter select{min-width:0;height:36px;border:1px solid #dce4ee;border-radius:7px;padding:0 10px;background:#fff;color:#30445f;font-size:12px;}
+    .archive-filter button,.archive-card-action{height:36px;padding:0 11px;border:1px solid #dce4ee;border-radius:7px;background:#fff;color:#425a78;font-size:12px;}
+    .archive-list{display:grid;gap:9px;}
+    .archive-record-card,.archive-inbox-card{padding:13px;border:1px solid #e8edf3;border-radius:9px;background:#fff;}
+    .archive-record-title{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px;}
+    .archive-record-title strong{color:#243957;font-size:14px;line-height:1.5;}
+    .archive-record-card p,.archive-inbox-card p{margin:7px 0;color:#53647a;font-size:12px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere;}
+    .archive-meta{display:flex;flex-wrap:wrap;gap:6px 12px;color:#8a96a5;font-size:10px;}
+    .archive-status{flex:0 0 auto;padding:3px 7px;border-radius:5px;background:#f0f4f8;color:#61748c;font-size:10px;}
+    .archive-status.is-conflict{background:#fff2e7;color:#a85a18;}
+    .archive-card-action{margin-top:9px;height:30px;color:#315f9d;}
+    .archive-empty{padding:32px 14px;border:1px dashed #dce4ed;border-radius:9px;color:#8a96a5;text-align:center;font-size:12px;line-height:1.7;}
+    .archive-capture-action{height:35px;padding:0 13px;border:1px solid #d6e1ed;border-radius:7px;background:#fff;color:#315b91;font-size:12px;font-weight:650;}
+    .archive-capture-form{display:grid;gap:13px;}
+    .archive-capture-form label,.archive-record-form label{display:grid;gap:6px;color:#53647a;font-size:12px;font-weight:620;}
+    .archive-capture-form textarea,.archive-record-form textarea{width:100%;min-height:150px;resize:vertical;border:1px solid #dce4ee;border-radius:8px;padding:11px;background:#fff;color:#263a57;font:inherit;font-size:13px;line-height:1.7;}
+    .archive-record-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+    .archive-record-form label:first-child,.archive-record-form label:nth-child(2),.archive-record-form .archive-form-related,.archive-record-form .message{grid-column:1/-1;}
+    .archive-record-form input,.archive-record-form select{width:100%;height:36px;border:1px solid #dce4ee;border-radius:7px;padding:0 10px;background:#fff;color:#30445f;font-size:12px;}
+    .archive-record-form textarea{min-height:190px;}
+    .archive-record-links{margin:15px 0;padding:12px;border-radius:8px;background:#f7f9fc;color:#63738a;font-size:11px;line-height:1.8;overflow-wrap:anywhere;}
+    .archive-record-links strong{display:block;margin-bottom:5px;color:#42556f;}
+    .archive-record-links p{margin:3px 0;}
+    .archive-record-form .save{grid-column:1/-1;}
+    .archive-detail-message{grid-column:1/-1;margin:0;color:#7d8a9b;font-size:11px;}
+    @media(max-width:900px){.archive-layout{grid-template-columns:1fr;}}
+    @media(max-width:600px){.archive-filter{grid-template-columns:1fr 1fr;}.archive-filter input{grid-column:1/-1;}.archive-record-form{grid-template-columns:1fr;}.archive-record-form label:first-child,.archive-record-form label:nth-child(2),.archive-record-form .archive-form-related,.archive-record-form .message,.archive-record-form .save{grid-column:1;}}
+
   </style>
 </head>
 <body>
@@ -483,6 +517,7 @@
       <button type="button" class="nav-item" id="nav-followup"><span class="nav-icon">↗</span><span>跟进他人</span></button>
       <button type="button" class="nav-item" id="nav-due"><span class="nav-icon">▣</span><span>7 天内到期</span></button>
       <button type="button" class="nav-item" id="nav-risk"><span class="nav-icon">△</span><span>风险事项</span></button>
+      <button type="button" class="nav-item" id="nav-archive"><span class="nav-icon">▧</span><span>工作档案</span></button>
     </nav>
     <div class="sidebar-divider"></div>
     <div class="sidebar-section-label">项目</div>
@@ -506,6 +541,7 @@
         </form>
         <button type="button" class="icon-button refresh-top" id="refresh" title="刷新任务">↻</button>
         <button type="button" class="primary-action" id="open-create-task"><span aria-hidden="true">＋</span> 新建任务</button>
+        <button type="button" class="archive-capture-action" id="open-quick-capture">＋ 快速记录</button>
       </div>
     </header>
   <main class="wrap">
@@ -555,6 +591,43 @@
       <div class="stat"><b id="active">—</b><span>待处理或进行中</span></div>
       <div class="stat"><b id="finished">—</b><span>已完成</span></div>
     </div>
+    </section>
+    <section id="page-archive" class="workspace-page" hidden>
+      <div class="page-heading">
+        <div><h1>工作档案</h1><p class="subtitle">记录已经发生的工作；未来行动仍由任务和步骤管理。</p></div>
+        <button type="button" class="archive-capture-action" id="open-archive-capture">＋ 快速记录</button>
+      </div>
+      <div class="archive-layout">
+        <section class="archive-panel" aria-labelledby="archive-record-heading">
+          <div class="section-head">
+            <h2 id="archive-record-heading">工作记录 <span class="sync" id="archive-record-count"></span></h2>
+          </div>
+          <form class="archive-filter" id="archive-filter" role="search">
+            <input id="archive-search" type="search" placeholder="搜索标题、内容或编号" aria-label="搜索工作记录">
+            <select id="archive-category" aria-label="工作记录分类">
+              <option value="">全部分类</option>
+              <option value="meeting">会议</option>
+              <option value="communication">沟通</option>
+              <option value="decision">决策</option>
+              <option value="problem">问题</option>
+              <option value="action">行动</option>
+              <option value="result">成果</option>
+              <option value="idea">想法</option>
+              <option value="other">其他</option>
+            </select>
+            <button type="submit">筛选</button>
+            <button type="button" id="archive-reset">清除</button>
+          </form>
+          <div class="archive-list" id="archive-record-list" aria-label="工作记录时间线"></div>
+        </section>
+        <section class="archive-panel" aria-labelledby="archive-inbox-heading">
+          <div class="section-head">
+            <h2 id="archive-inbox-heading">原始输入 <span class="sync" id="archive-inbox-count"></span></h2>
+          </div>
+          <div class="archive-list" id="archive-inbox-list" aria-label="待整理原始输入"></div>
+        </section>
+      </div>
+      <p class="message" id="archive-message" role="status" aria-live="polite"></p>
     </section>
     <section id="page-projects" class="workspace-page" hidden>
       <div class="page-heading"><div><h1>项目管理</h1><p class="subtitle">管理项目，并查看任务的主要归属与关联关系。</p></div></div>
@@ -679,6 +752,25 @@
     <p class="hint" title="数据由本机指定文件夹提供。Google Drive 同步可能存在延迟；编辑冲突时系统会停止自动覆盖并提示核查。">本机数据同步与冲突保护说明。</p>
     </section>
   </main>
+  <div class="modal-overlay" id="quick-capture-modal" hidden>
+    <section class="create-panel" aria-labelledby="quick-capture-heading">
+      <div class="modal-heading">
+        <h2 id="quick-capture-heading">快速记录</h2>
+        <button type="button" class="icon-button" id="quick-capture-close" aria-label="关闭快速记录">×</button>
+      </div>
+      <p class="create-help">先保存原始内容，不要求现在分类或拆解；之后可由 ChatGPT 整理。</p>
+      <form class="archive-capture-form" id="quick-capture-form">
+        <label for="quick-capture-content">工作内容
+          <textarea id="quick-capture-content" maxlength="12000" required placeholder="写下刚刚发生的事情、沟通、会议、想法或结果……"></textarea>
+        </label>
+        <label for="quick-capture-date">发生日期（可选）
+          <input id="quick-capture-date" type="date">
+        </label>
+        <button class="save" id="quick-capture-submit" type="submit">保存原始记录</button>
+      </form>
+      <p class="message" id="quick-capture-message" role="status" aria-live="polite"></p>
+    </section>
+  </div>
   <div class="modal-overlay" id="create-modal" hidden>
         <section class="create-panel" aria-labelledby="create-heading">
       <div class="modal-heading"><h2 id="create-heading">新建任务</h2><button type="button" class="icon-button" id="create-modal-close" aria-label="关闭新建任务">×</button></div>
@@ -720,6 +812,15 @@
       <p class="field-hint">三个日期相互独立，留空表示未设置；负责人可后续补充。</p>
       <p class="message" id="create-message" role="status" aria-live="polite"></p>
     </section>
+  </div>
+  <div class="drawer-backdrop" id="archive-record-drawer" hidden>
+    <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="archive-record-title">
+      <div class="drawer-head">
+        <div><h2 id="archive-record-title">工作记录</h2><p id="archive-record-id"></p></div>
+        <button type="button" class="icon-button" id="archive-record-close" aria-label="关闭工作记录">×</button>
+      </div>
+      <div class="task-detail-content" id="archive-record-content"></div>
+    </aside>
   </div>
   <div class="drawer-backdrop" id="task-detail-drawer" hidden>
     <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="task-detail-title">
