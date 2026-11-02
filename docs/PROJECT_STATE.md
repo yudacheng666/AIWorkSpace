@@ -2,6 +2,18 @@
 
 ## 2026-11-02：V2.0.1 任务编号与抽屉操作优化开发中（工作档案暂停）
 
+### 2026-11-02 本轮隔离验证（对前述开发状态的增量更新）
+
+- **产品与测试源码 HEAD**：`187e097ecfd414b0c8fd1c7bf615be74daae748d`；此后只更新了 Markdown 项目记忆，`app.py` blob `8954614469261816b55a74ede3a4abfc72bb599e`、`web/index.html` blob `8558a60d1c0a44423b90f829f5c69cf074d7633c`、`tests/test_ui_shell.mjs` blob `98c88e8cb9c4467d908ae7fc63598d25b9ebab59`。
+- **V8 沙箱 JavaScript 执行 PASS（22/22）**：直接用 GitHub 连接器取得本分支真实网页内嵌 JS 和 `tests/test_ui_shell.mjs`；在可执行 V8 沙箱中加载真实页面脚本，使用该测试文件的模拟 DOM 测试逻辑（将 Node 的 vm/runInNewContext 适配为同隔离作用域 eval，不改变业务断言），执行全部 22 条，其中短编号复制/搜索、抽屉遮罩点击、取消关闭保留草稿均 PASS。
+- **Python 函数级隔离执行 PASS（6/6）**：直接从 GitHub `app.py` blob 抽取 `display_task_id` 原函数，在隔离 Python 3.13.5 中复制原函数内容执行 6 条断言：常规 UUID、历史任务、非法日期、时区字符串、大小写和缺日期均 PASS。此测试不是完整 app.py 的 `unittest` 套件，也不验证 reducer 与 HTTP。
+- **隔离执行环境**：V8 运行时代码模式及 Linux Python 3.13.5；另一个隔离容器虽具备 Node v22.16.0 和 Chromium，但不能连通 GitHub 获取完整仓库，因此没有运行仓库原始 Node 测试命令或真实 Chromium E2E，也未运行完整 Python unittest。
+- **重要区分**：本轮结果只代表 V8 模拟 DOM JS 22/22 与复制的 Python 单函数 6/6；**完整 Python、原生 Node、真实 Chromium、Windows 和 GitHub Actions 均 NOT TESTED**。旧 main SHA 的 CI PASS 不可作为此 SHA 的验收证据。
+- **安全和费用**：没有创建 PR（避免 `pull_request` 自动触发 Actions）、没有主动触发 CI、没有修改 main/工作档案分支、没有部署或触碰真实数据。
+- **下一步门槛**：在不触发未经批准费用的可访问源码环境运行准确 SHA 的 `python -m unittest discover -s tests -v`、`node --test tests/test_ui_shell.mjs`、必要的真实浏览器定向测试；再审查安全/文件差异及用户批准，方可进入正式 2.0.1 发布和合并。工作档案继续暂停。
+
+
+
 - **用户最新优先级**：本对话负责上述小版本改进；个人工作档案开发暂缓，保留原 M0/功能分支不修改。
 - **准确 main 基线**：`fa51b0123aaac76ddff2064d34178e7cc6e3ab11`；GitHub 正式 `VERSION=2.0.0`，UI V2 生产电脑/真实 Drive 部署尚不视为通过。
 - **本轮分支**：`feat/20261102-v2-0-1-task-ids-drawer`，从上述 main SHA 创建，与 `docs/20261102-personal-work-archive-m0` 和 `feat/20261102-m1-work-archive` 完全隔离。
