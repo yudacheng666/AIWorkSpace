@@ -124,6 +124,100 @@ def resolve_step_status(task: dict) -> None:
     task["status_source"] = "steps"
 
 
+
+def validate_parent_assignment(tasks: list[dict], task_id: str,
+                               parent_task_id: str | None) -> None:
+    """Only explicit, valid, acyclic links can be created or changed."""
+    if parent_task_id is None:
+        return
+    if not isinstance(parent_task_id, str) or not TASK_ID.fullmatch(parent_task_id):
+        raise ValueError("invalid parent_task_id")
+    by_id = {item["task_id"]: item for item in tasks}
+    seen = {task_id}
+    ancestor = parent_task_id
+    while ancestor:
+        if ancestor in seen:
+            raise ValueError("parent task relationship would form a cycle")
+        seen.add(ancestor)
+        parent = by_id.get(ancestor)
+        if parent is None or parent.get("conflict") or parent.get("trashed_at"):
+            raise ValueError("parent task is missing, deleted or conflicted")
+        ancestor = parent.get("parent_task_id")
+
+
+def resolve_task_hierarchy(tasks: list[dict], warnings: list[str]) -> None:
+    """Read-only parent rollup. No synthetic events or revision changes."""
+    by_id = {task["task_id"]: task for task in tasks}
+    children_by_parent: dict[str, list[dict]] = defaultdict(list)
+    for task in tasks:
+        task.setdefault("parent_task_id", None)
+        task["parent_missing"] = False
+        task["parent_cycle"] = False
+        task["status_rollup_incomplete"] = False
+        task["child_task_ids"] = []
+        task["parent_title"] = None
+    for task in tasks:
+        parent_id = task["parent_task_id"]
+        if not parent_id:
+            continue
+        parent = by_id.get(parent_id)
+        if parent_id == task["task_id"] or parent is None or parent.get("trashed_at"):
+            task["parent_missing"] = True
+            warnings.append(f'{task["task_id"]}: linked parent task unavailable')
+            continue
+        task["parent_title"] = parent.get("title")
+        if not task.get("trashed_at"):
+            children_by_parent[parent_id].append(task)
+
+    resolved: set[str] = set()
+    visiting: list[str] = []
+    def visit(task: dict) -> None:
+        tid = task["task_id"]
+        if tid in resolved:
+            return
+        if tid in visiting:
+            cycle = visiting[visiting.index(tid):]
+            for cid in cycle:
+                by_id[cid]["parent_cycle"] = True
+            warnings.append("cycle in parent tasks: " + " -> ".join(cycle))
+            return
+        visiting.append(tid)
+        children = sorted(children_by_parent.get(tid, []), key=lambda t: t["task_id"])
+        for child in children:
+            visit(child)
+        visiting.pop()
+        resolved.add(tid)
+        task["child_task_ids"] = [child["task_id"] for child in children]
+        steps = task.get("steps", [])
+        incomplete = (task.get("conflict") or task.get("step_order_conflict") or
+                      task.get("step_order_incomplete") or
+                      any(step.get("conflict") for step in steps) or
+                      any(child.get("conflict") or child.get("parent_cycle") or
+                          child.get("status_rollup_incomplete") for child in children) or
+                      task["parent_cycle"])
+        if incomplete:
+            task["status_rollup_incomplete"] = True
+            task["status"] = task.get("manual_status", task["status"])
+            task["status_source"] = "task"
+            task["step_completion_pending"] = False
+            if children:
+                warnings.append(f"{tid}: child status unresolved; parent rollup frozen")
+            return
+        if not children:
+            return  # Existing step-only behavior is unchanged.
+        if task.get("manual_status") == "done":
+            task["status"] = "done"
+            task["status_source"] = "user_confirmed"
+            task["step_completion_pending"] = False
+            return
+        statuses = [step["status"] for step in steps] + [child["status"] for child in children]
+        task["status"] = ("blocked" if "blocked" in statuses else
+                          "doing" if any(v in {"doing", "done"} for v in statuses) else "todo")
+        task["status_source"] = "steps_and_children" if steps else "children"
+        task["step_completion_pending"] = all(v == "done" for v in statuses)
+    for task in sorted(tasks, key=lambda t: t["task_id"]):
+        visit(task)
+
 def validate_event(value: object) -> dict:
     """Validate both remote ChatGPT files and locally generated events."""
     if not isinstance(value, dict) or value.get("version") != 1:
@@ -162,7 +256,7 @@ def validate_event(value: object) -> dict:
             except ValueError as exc:
                 raise ValueError("invalid lifecycle timestamp") from exc
         return value
-    if set(changes) - {"title", "status", "project_id", "related_project_ids",
+    if set(changes) - {"title", "status", "project_id", "related_project_ids", "parent_task_id",
                        "document_links", *TASK_MANAGEMENT_FIELDS}:
         raise ValueError("unknown fields")
     if "document_links" in changes:
@@ -172,6 +266,11 @@ def validate_event(value: object) -> dict:
         raise ValueError("title must be 1–200 characters")
     if "status" in changes and changes["status"] not in STATUSES:
         raise ValueError("invalid status")
+    if "parent_task_id" in changes:
+        parent = changes["parent_task_id"]
+        if parent is not None and (not isinstance(parent, str) or not TASK_ID.fullmatch(parent)
+                                   or parent == value["task_id"]):
+            raise ValueError("invalid parent_task_id")
     if "project_id" in changes and changes["project_id"] is not None:
         if not isinstance(changes["project_id"], str) or not PROJECT_ID.fullmatch(changes["project_id"]):
             raise ValueError("invalid project_id")
@@ -804,6 +903,7 @@ def read_workspace(data_dir: Path, include_trashed: bool = False) -> dict:
         if task["project_missing"]:
             warnings.append(f"{task['task_id']}: referenced project has not synced or is unavailable")
     read_steps(data_dir, tasks, warnings)
+    resolve_task_hierarchy(tasks, warnings)
     warnings.extend(project_state["warnings"])
     if not include_trashed:
         tasks = [task for task in tasks if not task.get("trashed_at")]
@@ -1343,7 +1443,7 @@ def handler_factory(data_dir: Path):
                     return self.json_response(200, {"saved": True, "project_id": project_match.group(1)})
 
                 if creating_task:
-                    if set(payload) - {"title", "project_id", "related_project_ids", *TASK_MANAGEMENT_FIELDS}:
+                    if set(payload) - {"title", "project_id", "related_project_ids", "parent_task_id", *TASK_MANAGEMENT_FIELDS}:
                         raise ValueError("new task accepts title, project references and management fields only")
                     title = payload.get("title")
                     if not isinstance(title, str) or not 1 <= len(title.strip()) <= 200:
@@ -1353,6 +1453,8 @@ def handler_factory(data_dir: Path):
                     with _write_lock:
                         workspace = read_workspace(data_dir)
                         validate_project_references(workspace, project_id, related_ids)
+                        parent_id = payload.get("parent_task_id")
+                        validate_parent_assignment(workspace["tasks"], "TASK-NEW-UNALLOCATED", parent_id)
                         existing = {task["task_id"] for task in workspace["tasks"]}
                         for _ in range(5):
                             task_id = f"TASK-{uuid.uuid4().hex.upper()}"
@@ -1361,6 +1463,8 @@ def handler_factory(data_dir: Path):
                         else:
                             return self.json_response(409, {"error": "unable to allocate unique task ID"})
                         changes = {"title": title.strip(), "status": "todo"}
+                        if parent_id:
+                            changes["parent_task_id"] = parent_id
                         changes.update(normalized_task_fields(payload))
                         if "project_id" in payload:
                             changes["project_id"] = project_id
@@ -1378,7 +1482,7 @@ def handler_factory(data_dir: Path):
 
                 if task_match:
                     allowed = {"title", "status", "revision", "project_id",
-                               "related_project_ids", "confirmed_done", *TASK_MANAGEMENT_FIELDS}
+                               "related_project_ids", "parent_task_id", "confirmed_done", *TASK_MANAGEMENT_FIELDS}
                     if set(payload) - allowed:
                         raise ValueError("unknown task update fields")
                     title = payload.get("title")
@@ -1386,12 +1490,14 @@ def handler_factory(data_dir: Path):
                     revision = payload.get("revision")
                     if not isinstance(title, str) or not 1 <= len(title.strip()) <= 200:
                         raise ValueError("title must be 1–200 characters")
-                    if status not in STATUSES:
+                    if "status" in payload and status not in STATUSES:
                         raise ValueError("invalid status")
                     if type(revision) is not int or revision < 1:
                         raise ValueError("invalid revision")
                     if status == "done" and payload.get("confirmed_done") is not True:
                         raise ValueError("completion needs user confirmation")
+                    if "confirmed_done" in payload and status != "done":
+                        raise ValueError("unexpected completion confirmation")
                     with _write_lock:
                         workspace = read_workspace(data_dir)
                         tasks = {task["task_id"]: task for task in workspace["tasks"]}
@@ -1400,7 +1506,17 @@ def handler_factory(data_dir: Path):
                             return self.json_response(404, {"error": "task not found"})
                         if current["conflict"] or current["revision"] != revision:
                             return self.json_response(409, {"error": "task changed or has a conflict; refresh"})
-                        changes = {"title": title.strip(), "status": status}
+                        changes = {}
+                        if title.strip() != current["title"]:
+                            changes["title"] = title.strip()
+                        # Manual status must never be overwritten by the computed rollup on an unrelated edit.
+                        if status is not None and status != current.get("manual_status", current["status"]):
+                            changes["status"] = status
+                        if "parent_task_id" in payload:
+                            parent_id = payload["parent_task_id"]
+                            if parent_id != current.get("parent_task_id"):
+                                validate_parent_assignment(workspace["tasks"], current["task_id"], parent_id)
+                                changes["parent_task_id"] = parent_id
                         for field, value in normalized_task_fields(payload).items():
                             if value != current.get(field, TASK_DEFAULTS[field]):
                                 changes[field] = value
@@ -1413,11 +1529,13 @@ def handler_factory(data_dir: Path):
                             if ("related_project_ids" in payload and
                                     related_ids != current.get("related_project_ids", [])):
                                 changes["related_project_ids"] = related_ids
+                        if not changes:
+                            return self.json_response(200, {"saved": False, "task_id": current["task_id"]})
                         event = {"version": 1, "event_id": str(uuid.uuid4()),
                                  "task_id": current["task_id"], "action": "update",
                                  "actor": "user", "timestamp": utc_now(),
                                  "base_revision": revision, "changes": changes}
-                        if status == "done":
+                        if changes.get("status") == "done":
                             event["confirmed_done"] = True
                         validate_event(event)
                         append_event(data_dir, event)
