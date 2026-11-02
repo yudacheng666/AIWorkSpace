@@ -1,5 +1,14 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-02：用户已批准 2.0.1 合并，但 GitHub Draft 状态尚未解除（BLOCKED）
+
+- **用户审批**：2026-11-02 用户在 RC 验收结果及下一步“合并 PR #15 到 main”的上下文中回复“批准”，明确授权 **仅合并 PR #15**；并未授权公司电脑实际升级、Google Drive 数据操作或工作档案恢复开发。
+- **前置条件已满足**：2.0.1 RC 产品/测试准确 SHA `97ca50d74641fcb8ae2f232a95651ab7c50fbcd0`，对应 [GitHub Actions #41421749629](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41421749629) 3/3 SUCCESS。其后到 PR 最新代码仅修改 Markdown 文档；`main` 原 SHA `fa51b0123aaac76ddff2064d34178e7cc6e3ab11`，版本 2.0.0。合并目标为版本 2.0.1，优先普通 `merge` 保留原 PR 历史。
+- **实际阻塞**：PR #15 仍是 **Draft**。GitHub 连接器的 `mark_pull_request_ready_for_review` 操作被当前平台安全检查阻止；随后原生 GitHub merge API 带 `expected_head_sha` 请求得到 HTTP 405 `Pull Request is still a draft`。**没有合并，main 未变化，不能将用户“批准”写为已发布或 CI post-merge PASS**。
+- **最小下一步**：需要在 [PR #15](https://github.com/yudacheng666/AIWorkSpace/pull/15) 网页点击一次 **Ready for review** 解除 Draft。之后按最新 PR HEAD 再次核实产品/测试 SHA、`main`、CI，执行已批准的普通 Git merge，核验 main 精确 SHA 与 push CI；不要求用户重复批准合并。
+- **严格边界**：不得通过强制改写 main、伪造 merge、重复创建 PR 或部署真实机器来绕过 Draft 校验。工作档案继续暂停。
+
+
 ## 2026-11-02：2.0.1 正式发布候选（RC）完成并通过完整免费 CI，等待用户合并批准
 
 - **授权范围**：用户批准制作 2.0.1 正式发布候选并测试；**未授权合并 `main`、公司电脑升级或真实 Google Drive 数据操作**。工作档案 M1 继续暂停，PR #14 / M1 分支没有修改。
