@@ -1,7 +1,10 @@
 # AIWorkSpace
 
-> **2.0.1 发布候选（2026-11-02，未合并）**：任务短显示编号、复制及抽屉遮罩/草稿保护改进见 [Draft PR #15](https://github.com/yudacheng666/AIWorkSpace/pull/15)。发布候选版本 `VERSION=2.0.1`，准确产品/测试 SHA `97ca50d74641fcb8ae2f232a95651ab7c50fbcd0` 的 [GitHub Actions #41421749629](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41421749629) **3/3 SUCCESS**（Ubuntu/Windows Python、Node、Windows Chromium）。`main` 仍是 `2.0.0`，本地公司电脑及真实 Google Drive **未升级、未验证**；工作档案功能暂停。
-
+> **2.0.2 发布候选（2026-11-02，尚未合并）**：[Draft PR #17](https://github.com/yudacheng666/AIWorkSpace/pull/17) 将任务回收站（恢复、30 天默认及可选 0/7/90 天自动清空、勾选彻底删除）、步骤状态与任务状态联动、Google Drive 文档引用加入统一 AI 工作台。分支当前 `VERSION=2.0.2`，正式 `main/VERSION=2.0.1`。最后一次产品/测试完整基准 SHA `5e995c7d2ef67bc4039cc91bba65e3e6d0bceba2` 的 [Actions #41430588371](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41430588371) **3/3 SUCCESS**；正式 RC VERSION 变更须再次依据准确 SHA 的 CI 验证。未合并、未部署、未操作任何真实工作数据；工作档案开发继续暂停。
+>
+> **安全与权限边界**：彻底删除先写防复活墓碑再清除本机事件；通过同步接收到墓碑会隐藏任务，但不会自动物理擦除另一台设备的历史文件。Google Drive 链接只保存 URL，不会自动授予 AI 文件权限或复制原文档。实际双电脑 Google Drive 服务同步仍未独立验收。
+>
+> **2.0.1 已正式发布并由用户反馈在其工作台网页一键升级成功**：[PR #15](https://github.com/yudacheng666/AIWorkSpace/pull/15) 已并入 `main`，合并 SHA `7d1a0f2c8cf8135b78a43108f666d750538d6a18`；用户确认本机自动更新成功，但不作为 ChatGPT 独立读取实际本机数据的证据。
 
 > **UI V2 发布候选（2026-11-02）**：第一至第三阶段已完成功能开发、Linux/Windows/Chromium 自动化测试及用户 8/8 人工体验检查。当前此分支为待合并候选，正式合并后 UI 语义版本 `2.0.0`。本次更新只替换程序白名单文件，不修改任务、项目和步骤事件模型。**GitHub 合并本身不会操作公司的 Windows 程序或 Google Drive 数据**。需单独批准真实环境更新，并先检查备份和回滚；详见 `docs/PROJECT_STATE.md`。
 

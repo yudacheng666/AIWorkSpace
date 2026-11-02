@@ -16,7 +16,7 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 try:
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import expect, sync_playwright
 except ImportError:
     sync_playwright = None
 
@@ -102,6 +102,97 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.mouse.click(140, 400)
         self.assertTrue(page.locator("#task-detail-drawer").evaluate("(e) => e.hidden"))
         self.assertEqual(self._file_hashes(), self.before)
+
+
+    def test_v202_document_link_and_safe_trash_restore_purge(self):
+        """Real UI exercises all three storage transitions on fictional data."""
+        page = self._open_browser()
+        document = page.locator("#task-detail-content .doc-add-form")
+        document.locator("input[type='text']").fill("虚构云端计划")
+        document.locator("input[type='url']").fill(
+            "https://drive.google.com/file/d/SYNTHETIC_DOC_TEST/view")
+        title_editor = page.locator("#task-detail-content .task-form input[type='text']").first
+        original_title = title_editor.input_value()
+        title_editor.fill("虚构未保存的任务草稿")
+        document.get_by_role("button", name="添加链接").click()
+        page.get_by_text("其他任务或步骤有未保存的草稿", exact=False).wait_for(state="visible")
+        self.assertEqual(title_editor.input_value(), "虚构未保存的任务草稿")
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["title"], original_title)
+        # Once the other draft is restored to its original baseline, adding
+        # the link must succeed without losing or overwriting the task.
+        title_editor.fill(original_title)
+        document.get_by_role("button", name="添加链接").click()
+        link = page.locator("#task-detail-content .doc-row a").first
+        link.wait_for(state="visible")
+        self.assertEqual(link.inner_text(), "虚构云端计划")
+        self.assertEqual(
+            link.get_attribute("href"),
+            "https://drive.google.com/file/d/SYNTHETIC_DOC_TEST/view")
+        self.assertEqual(link.get_attribute("target"), "_blank")
+        self.assertEqual(link.get_attribute("rel"), "noopener noreferrer")
+        self.assertEqual(len(read_workspace(self.data_dir)["tasks"][0]["document_links"]), 1)
+
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator(".task-lifecycle-controls button").click()
+        page.locator("#task-detail-drawer").wait_for(state="hidden")
+        self.assertEqual(read_workspace(self.data_dir)["tasks"], [])
+
+        page.locator("#open-trash").click()
+        row = page.locator(".trash-row").first
+        row.wait_for(state="visible")
+        self.assertIn("虚构任务", row.inner_text())
+        page.once("dialog", lambda dialog: dialog.accept())
+        row.get_by_role("button", name="恢复").click()
+        page.locator(".trash-row").wait_for(state="hidden")
+        self.assertEqual(len(read_workspace(self.data_dir)["tasks"]), 1)
+        page.locator("#trash-close").click()
+
+        page.locator(".task-summary .task-open").first.click()
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator(".task-lifecycle-controls button").click()
+        page.locator("#task-detail-drawer").wait_for(state="hidden")
+        page.locator("#open-trash").click()
+        row = page.locator(".trash-row").first
+        row.wait_for(state="visible")
+        row.locator("input[type='checkbox']").check()
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator("#trash-purge-selected").click()
+        page.locator(".trash-row").wait_for(state="hidden")
+        self.assertEqual(read_workspace(self.data_dir, include_trashed=True)["tasks"], [])
+        remaining = list((self.data_dir / "events").glob("*.json"))
+        self.assertEqual(len(remaining), 1)
+        self.assertEqual(json.loads(remaining[0].read_text("utf-8"))["action"], "purge")
+
+    def test_v202_step_status_updates_task_without_automatic_done(self):
+        page = self._open_browser()
+        page.locator(".step-add-form input").fill("虚构第一步")
+        page.locator(".step-add-form button").click()
+        page.locator(".step-row").wait_for(state="visible")
+        page.locator(".step-edit-form select").first.select_option("blocked")
+        page.locator(".step-edit-form button.save").first.click()
+        expect(page.locator("#task-detail-content .task-form select").first).to_have_value("blocked", timeout=10000)
+        page.locator("#task-detail-content .step-status-note").wait_for(state="visible")
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["status"], "blocked")
+        self.assertEqual(page.locator(".task-form select").first.input_value(), "blocked")
+
+        page.locator(".step-edit-form select").first.select_option("done")
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator(".step-edit-form button.save").first.click()
+        page.get_by_text("全部执行步骤已完成", exact=False).wait_for(state="visible")
+        state = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual(state["status"], "doing")
+        self.assertTrue(state["step_completion_pending"])
+        self.assertEqual(state["manual_status"], "todo")
+
+        page.locator(".task-form select").first.select_option("done")
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator(".task-form button.save").first.click()
+        # A "hidden" locator may be true before the asynchronous POST even
+        # starts. Wait for the save-success event written after refresh instead.
+        expect(page.locator("#sync")).to_contain_text("保存成功", timeout=10000)
+        state = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual(state["manual_status"], "done")
+        self.assertEqual(state["status"], "done")
 
     def test_unsaved_draft_cannot_be_silently_discarded(self):
         page = self._open_browser()

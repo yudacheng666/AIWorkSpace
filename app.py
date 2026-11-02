@@ -15,10 +15,10 @@ import tempfile
 import threading
 import uuid
 from collections import defaultdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 from updater import (UpdateError, check_latest_update, get_install_status,
                      launch_update_helper, prepare_update, remove_stage)
@@ -30,6 +30,8 @@ PROJECT_ID = re.compile(r"^PROJECT-[A-F0-9]{32}$")
 STEP_ID = re.compile(r"^STEP-[A-F0-9]{32}$")
 EVENT_ID = re.compile(r"^[A-Za-z0-9-]{8,80}$")
 STATUSES = {"todo", "doing", "blocked", "done"}
+TASK_LIFECYCLE_ACTIONS = {"trash", "restore", "purge"}
+MAX_DOCUMENT_LINKS = 20
 PRIORITIES = {"low", "normal", "high", "urgent"}
 DATE_FIELDS = ("due_date", "planned_date", "follow_up_date")
 TASK_MANAGEMENT_FIELDS = ("owner", "priority", *DATE_FIELDS)
@@ -62,6 +64,66 @@ def display_task_id(task_id: str, created_at: str = "") -> str:
     return f"T-{day}-{suffix}"
 
 
+
+def validate_document_links(links: object) -> list[dict]:
+    """Only save Google HTTPS references. Actual AI reading requires Drive access."""
+    if not isinstance(links, list) or len(links) > MAX_DOCUMENT_LINKS:
+        raise ValueError("document_links must be a list of up to 20 items")
+    seen = set()
+    results = []
+    for item in links:
+        if not isinstance(item, dict) or set(item) != {"title", "url"}:
+            raise ValueError("document link requires title and url")
+        title, url = item["title"], item["url"]
+        if not isinstance(title, str) or not 1 <= len(title.strip()) <= 120:
+            raise ValueError("document title length must be 1-120")
+        if not isinstance(url, str) or not 1 <= len(url) <= 2048:
+            raise ValueError("invalid document URL")
+        parsed = urlsplit(url)
+        if (parsed.scheme != "https" or parsed.hostname not in
+                {"drive.google.com", "docs.google.com"} or
+                parsed.username or parsed.password or parsed.port or parsed.fragment or
+                any(ord(char) < 32 for char in url)):
+            raise ValueError("only Google Drive HTTPS links are supported")
+        if parsed.hostname == "drive.google.com":
+            valid = (re.fullmatch(r"/file/d/[A-Za-z0-9_-]+(/view)?/?", parsed.path) or
+                     re.fullmatch(r"/drive/(u/[0-9]+/)?folders/[A-Za-z0-9_-]+/?", parsed.path) or
+                     (parsed.path == "/open" and
+                      re.fullmatch(r"[A-Za-z0-9_-]+", parse_qs(parsed.query).get("id", [""])[0])))
+        else:
+            valid = re.fullmatch(
+                r"/(document|spreadsheets|presentation)/d/[A-Za-z0-9_-]+(/.*)?",
+                parsed.path)
+        if not valid:
+            raise ValueError("unsupported Google Drive link format")
+        if url in seen:
+            raise ValueError("duplicate document link")
+        seen.add(url)
+        results.append({"title": title.strip(), "url": url})
+    return results
+
+
+def resolve_step_status(task: dict) -> None:
+    """No synthetic event: derive aggregate status from reliably synced steps."""
+    task["manual_status"] = task["status"]
+    task["status_source"] = "task"
+    task["step_completion_pending"] = False
+    steps = task.get("steps", [])
+    if (not steps or task.get("conflict") or task.get("step_order_conflict")
+            or task.get("step_order_incomplete")
+            or any(item.get("conflict") for item in steps)):
+        return
+    statuses = {item["status"] for item in steps}
+    if statuses == {"done"} and task["status"] != "done":
+        task["step_completion_pending"] = True
+    if task["status"] == "done":
+        task["status_source"] = "user_confirmed"
+        return
+    task["status"] = ("blocked" if "blocked" in statuses else
+                      "doing" if "done" in statuses or "doing" in statuses else "todo")
+    task["status_source"] = "steps"
+
+
 def validate_event(value: object) -> dict:
     """Validate both remote ChatGPT files and locally generated events."""
     if not isinstance(value, dict) or value.get("version") != 1:
@@ -70,7 +132,7 @@ def validate_event(value: object) -> dict:
         raise ValueError("invalid event_id")
     if not isinstance(value.get("task_id"), str) or not TASK_ID.fullmatch(value["task_id"]):
         raise ValueError("invalid task_id")
-    if value.get("action") not in {"create", "update"}:
+    if value.get("action") not in {"create", "update", *TASK_LIFECYCLE_ACTIONS}:
         raise ValueError("invalid action")
     if value.get("actor") not in {"chatgpt", "user"}:
         raise ValueError("invalid actor")
@@ -80,8 +142,31 @@ def validate_event(value: object) -> dict:
     changes = value.get("changes")
     if not isinstance(changes, dict) or not changes:
         raise ValueError("changes must be a nonempty object")
-    if set(changes) - {"title", "status", "project_id", "related_project_ids", *TASK_MANAGEMENT_FIELDS}:
+    if value["action"] in TASK_LIFECYCLE_ACTIONS:
+        if value["actor"] != "user" or revision < 1:
+            raise ValueError("task lifecycle must be a user action on existing task")
+        expected = {"trash": "trashed_at", "restore": "trashed_at",
+                    "purge": "purged_at"}[value["action"]]
+        if set(changes) != {expected}:
+            raise ValueError("unexpected lifecycle fields")
+        stamp = changes[expected]
+        if value["action"] == "restore":
+            if stamp is not None:
+                raise ValueError("restore must clear trashed_at")
+        elif not isinstance(stamp, str):
+            raise ValueError("lifecycle timestamp required")
+        else:
+            try:
+                if datetime.fromisoformat(stamp.replace("Z", "+00:00")).tzinfo is None:
+                    raise ValueError("timezone required")
+            except ValueError as exc:
+                raise ValueError("invalid lifecycle timestamp") from exc
+        return value
+    if set(changes) - {"title", "status", "project_id", "related_project_ids",
+                       "document_links", *TASK_MANAGEMENT_FIELDS}:
         raise ValueError("unknown fields")
+    if "document_links" in changes:
+        validate_document_links(changes["document_links"])
     if "title" in changes and (not isinstance(changes["title"], str)
                                or not 1 <= len(changes["title"].strip()) <= 200):
         raise ValueError("title must be 1–200 characters")
@@ -551,13 +636,15 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
         task["step_order_incomplete"] = bool(missing_order_ids)
         task["step_order_missing_ids"] = missing_order_ids
         task["step_order_candidates"] = order_candidates
+        resolve_step_status(task)
 
 
-def read_workspace(data_dir: Path) -> dict:
+def read_workspace(data_dir: Path, include_trashed: bool = False) -> dict:
     """Reduce independent event files; never silently choose a concurrent edit."""
     event_dir = data_dir / "events"
     created: dict[str, list[dict]] = defaultdict(list)
     updated: dict[str, list[dict]] = defaultdict(list)
+    purged_ids: set[str] = set()
     warnings: list[str] = []
     seen: dict[str, dict] = {}
     duplicate_conflicts: dict[str, list[dict]] = defaultdict(list)
@@ -590,11 +677,15 @@ def read_workspace(data_dir: Path) -> dict:
                 seen[event["event_id"]] = event
             destination = created if event["action"] == "create" else updated
             destination[event["task_id"]].append(event)
+            if event["action"] == "purge":
+                purged_ids.add(event["task_id"])
         except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
             warnings.append(f"{path.name}: {exc}")
 
     tasks: list[dict] = []
     for task_id in sorted(set(created) | set(updated)):
+        if task_id in purged_ids:
+            continue  # Irrevocable marker prevents resurrection on delayed sync.
         roots = created[task_id]
         if not roots:
             warnings.append(f"{task_id}: waiting for task creation file")
@@ -614,6 +705,7 @@ def read_workspace(data_dir: Path) -> dict:
             })
             continue
         task = {"task_id": task_id, **roots[0]["changes"],
+                "trashed_at": None,
                 "title": roots[0]["changes"]["title"].strip(),
                 "status": roots[0]["changes"].get("status", "todo"),
                 "revision": 1, "conflict": False,
@@ -697,6 +789,7 @@ def read_workspace(data_dir: Path) -> dict:
             task.setdefault(field, default)
         task.setdefault("project_id", None)
         task.setdefault("related_project_ids", [])
+        task.setdefault("document_links", [])
         primary = project_map.get(task["project_id"]) if task["project_id"] else None
         task["project_name"] = primary["name"] if primary and not primary["conflict"] else None
         task["project_missing"] = bool(task["project_id"] and (primary is None or primary["conflict"]))
@@ -712,6 +805,8 @@ def read_workspace(data_dir: Path) -> dict:
             warnings.append(f"{task['task_id']}: referenced project has not synced or is unavailable")
     read_steps(data_dir, tasks, warnings)
     warnings.extend(project_state["warnings"])
+    if not include_trashed:
+        tasks = [task for task in tasks if not task.get("trashed_at")]
     return {"tasks": tasks, "projects": project_state["projects"], "warnings": warnings}
 
 
@@ -761,6 +856,105 @@ def append_project_event(data_dir: Path, event: dict) -> Path:
 def append_step_event(data_dir: Path, event: dict) -> Path:
     validate_step_event(event)
     return _append_json_event(data_dir, event, "step_events")
+
+
+
+def read_trash_retention(data_dir: Path) -> tuple[int, list[str]]:
+    """Append-only shared settings; ambiguous same-second edits disable auto-purge."""
+    directory = data_dir / "settings_events"
+    items = []
+    warnings = []
+    for path in sorted(directory.glob("*.json")) if directory.is_dir() else []:
+        if not path.is_file() or path.is_symlink():
+            continue
+        try:
+            if path.stat().st_size > MAX_BODY:
+                raise ValueError("settings file too large")
+            event = json.loads(path.read_text(encoding="utf-8-sig"))
+            if (not isinstance(event, dict) or event.get("version") != 1 or
+                    not isinstance(event.get("event_id"), str) or
+                    not EVENT_ID.fullmatch(event["event_id"]) or
+                    event.get("key") != "trash_retention_days" or
+                    type(event.get("days")) is not int or
+                    event["days"] not in {0, 7, 30, 90}):
+                raise ValueError("invalid shared trash retention setting")
+            stamp = datetime.fromisoformat(event["timestamp"].replace("Z", "+00:00"))
+            if stamp.tzinfo is None:
+                raise ValueError("timezone required")
+            items.append((stamp, event["days"], event["event_id"]))
+        except (OSError, ValueError, TypeError, KeyError, UnicodeError) as exc:
+            warnings.append(f"{path.name}: {exc}")
+    if not items:
+        return 30, warnings
+    last = max(item[0] for item in items)
+    values = {days for stamp, days, _ in items if stamp == last}
+    if len(values) != 1:
+        warnings.append("concurrent retention settings conflict; auto-purge disabled")
+        return 0, warnings
+    return next(iter(values)), warnings
+
+
+def purge_local_task_history(data_dir: Path, task_id: str) -> int:
+    """Best-effort local erase AFTER durable tombstone; other synced copies can return."""
+    removed = 0
+    for folder in ("events", "step_events"):
+        directory = data_dir / folder
+        if not directory.is_dir() or directory.is_symlink():
+            continue
+        for path in directory.glob("*.json"):
+            if not path.is_file() or path.is_symlink():
+                continue
+            try:
+                if path.stat().st_size > MAX_BODY:
+                    continue
+                entry = json.loads(path.read_text(encoding="utf-8-sig"))
+                if (entry.get("task_id") != task_id or
+                        (folder == "events" and entry.get("action") == "purge")):
+                    continue
+                path.unlink()
+                removed += 1
+            except (OSError, ValueError, TypeError, UnicodeError):
+                continue
+    return removed
+
+
+def append_task_lifecycle(data_dir: Path, task: dict, action: str) -> dict:
+    timestamp = utc_now()
+    field = "purged_at" if action == "purge" else "trashed_at"
+    value = None if action == "restore" else timestamp
+    event = {"version": 1, "event_id": str(uuid.uuid4()),
+             "task_id": task["task_id"], "action": action, "actor": "user",
+             "timestamp": timestamp, "base_revision": task["revision"],
+             "changes": {field: value}}
+    append_event(data_dir, event)
+    if action == "purge":
+        purge_local_task_history(data_dir, task["task_id"])
+    return event
+
+
+def expire_trashed_tasks(data_dir: Path) -> None:
+    """Sweep locally expired trashed tasks on workspace access, not while offline.
+
+    A tombstone imported from another device hides the task, but MUST NOT
+    independently erase local history. Only a local user's purge API or this
+    local retention sweep may remove physical event files.
+    """
+    days, warnings = read_trash_retention(data_dir)
+    if not days or warnings:
+        return
+    workspace = read_workspace(data_dir, include_trashed=True)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    for task in workspace["tasks"]:
+        if not task.get("trashed_at") or task.get("conflict"):
+            continue
+        if task.get("step_order_conflict") or task.get("step_order_incomplete"):
+            continue
+        try:
+            stamp = datetime.fromisoformat(task["trashed_at"].replace("Z", "+00:00"))
+            if stamp.tzinfo is not None and stamp <= cutoff:
+                append_task_lifecycle(data_dir, task, "purge")
+        except (ValueError, OSError):
+            continue
 
 
 def validate_project_references(workspace: dict, project_id: object,
@@ -832,7 +1026,20 @@ def handler_factory(data_dir: Path):
                 return self.json_response(403, {"error": "local requests only"})
             path = urlsplit(self.path).path
             if path == "/api/tasks":
-                return self.json_response(200, read_workspace(data_dir))
+                with _write_lock:
+                    expire_trashed_tasks(data_dir)
+                    workspace = read_workspace(data_dir)
+                return self.json_response(200, workspace)
+            if path == "/api/trash":
+                with _write_lock:
+                    expire_trashed_tasks(data_dir)
+                    state = read_workspace(data_dir, include_trashed=True)
+                    days, policy_warnings = read_trash_retention(data_dir)
+                    trashed = [item for item in state["tasks"] if item.get("trashed_at")]
+                return self.json_response(200, {
+                    "tasks": trashed, "retention_days": days,
+                    "warnings": state["warnings"] + policy_warnings
+                })
             if path == "/api/update/status":
                 return self.json_response(200, get_install_status(ROOT))
             if path == "/api/update/check":
@@ -848,6 +1055,9 @@ def handler_factory(data_dir: Path):
         def do_POST(self):
             path = unquote(urlsplit(self.path).path)
             task_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/update", path)
+            documents_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/documents", path)
+            lifecycle_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/(trash|restore|purge)", path)
+            changing_retention = path == "/api/trash/settings"
             project_match = re.fullmatch(r"/api/projects/(PROJECT-[A-F0-9]{32})/update", path)
             step_create_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps", path)
             step_update_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/update", path)
@@ -856,7 +1066,8 @@ def handler_factory(data_dir: Path):
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
             if not (creating_task or creating_project or task_match or project_match or
-                    step_create_match or step_update_match or step_reorder_match or applying_update):
+                    step_create_match or step_update_match or step_reorder_match or applying_update or
+                    documents_match or lifecycle_match or changing_retention):
                 return self.json_response(404, {"error": "not found"})
             if not self.local_request_allowed():
                 return self.json_response(403, {"error": "local requests only"})
@@ -904,6 +1115,66 @@ def handler_factory(data_dir: Path):
 
             try:
                 payload = self.read_payload()
+                if changing_retention:
+                    if set(payload) != {"retention_days"} or type(payload["retention_days"]) is not int or payload["retention_days"] not in {0, 7, 30, 90}:
+                        raise ValueError("retention_days must be 0, 7, 30 or 90")
+                    with _write_lock:
+                        record = {"version": 1, "event_id": str(uuid.uuid4()),
+                                  "key": "trash_retention_days",
+                                  "days": payload["retention_days"], "timestamp": utc_now()}
+                        _append_json_event(data_dir, record, "settings_events")
+                    return self.json_response(200, {"saved": True, "retention_days": payload["retention_days"]})
+
+                if lifecycle_match:
+                    action = lifecycle_match.group(2)
+                    if set(payload) - {"revision", "confirmed_purge"} or "revision" not in payload:
+                        raise ValueError("task lifecycle requires revision")
+                    if type(payload["revision"]) is not int or payload["revision"] < 1:
+                        raise ValueError("invalid task revision")
+                    if action == "purge":
+                        if payload.get("confirmed_purge") is not True:
+                            raise ValueError("permanent deletion requires explicit confirmation")
+                    elif "confirmed_purge" in payload:
+                        raise ValueError("unexpected purge confirmation")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir, include_trashed=True)
+                        task = next((item for item in workspace["tasks"]
+                                     if item["task_id"] == lifecycle_match.group(1)), None)
+                        if task is None:
+                            return self.json_response(404, {"error": "task not found"})
+                        if task["conflict"] or task["revision"] != payload["revision"]:
+                            return self.json_response(409, {"error": "task changed or has a conflict; refresh"})
+                        if action == "trash" and task.get("trashed_at"):
+                            return self.json_response(409, {"error": "task already in trash"})
+                        if action != "trash" and not task.get("trashed_at"):
+                            return self.json_response(409, {"error": "task must be in trash first"})
+                        append_task_lifecycle(data_dir, task, action)
+                    return self.json_response(200, {"saved": True, "action": action})
+
+                if documents_match:
+                    if set(payload) != {"revision", "links"}:
+                        raise ValueError("document update requires revision and links")
+                    if type(payload["revision"]) is not int or payload["revision"] < 1:
+                        raise ValueError("invalid revision")
+                    links = validate_document_links(payload["links"])
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        task = next((item for item in workspace["tasks"]
+                                     if item["task_id"] == documents_match.group(1)), None)
+                        if not task:
+                            return self.json_response(404, {"error": "task not found"})
+                        if task["conflict"] or task["revision"] != payload["revision"]:
+                            return self.json_response(409, {"error": "task changed or has a conflict; refresh"})
+                        if task["document_links"] == links:
+                            return self.json_response(200, {"saved": False, "revision": task["revision"]})
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "task_id": task["task_id"], "action": "update",
+                                 "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": task["revision"],
+                                 "changes": {"document_links": links}}
+                        append_event(data_dir, event)
+                    return self.json_response(200, {"saved": True, "revision": task["revision"] + 1})
+
                 if step_create_match:
                     if set(payload) != {"title"}:
                         raise ValueError("step create accepts only title")

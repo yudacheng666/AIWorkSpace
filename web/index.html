@@ -467,6 +467,27 @@
     @media(max-width:850px){.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}.project-filter{grid-template-columns:minmax(0,1fr) auto auto;}.project-filter select{width:130px;}}
     @media(max-width:520px){.project-filter{grid-template-columns:1fr 1fr;}.project-filter input{grid-column:1/-1;}.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}}
 
+
+    /* V2.0.2 lifecycle and linked references: reuse restrained workspace visual language. */
+    .trash-overlay[hidden] { display:none; }
+    .trash-overlay {position:fixed;inset:0;background:rgba(12,20,38,.52);display:flex;align-items:center;justify-content:center;z-index:110;padding:20px;}
+    .trash-panel {width:min(700px,96vw);max-height:82vh;overflow-y:auto;background:var(--surface,#fff);color:var(--text,#1f2937);border-radius:12px;padding:20px;box-shadow:0 18px 55px rgba(0,0,0,.2);}
+    .trash-head,.trash-toolbar {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+    .trash-warning {display:block;font-size:13px;line-height:1.5;color:#9a3412;margin:8px 0;}
+    .trash-list {display:grid;gap:8px;margin:14px 0;}
+    .trash-row {display:flex;align-items:center;gap:12px;padding:10px;border:1px solid #dce1e9;border-radius:8px;}
+    .trash-row-label {flex:1;min-width:0;overflow-wrap:anywhere;}
+    .trash-row small {display:block;opacity:.72;}
+    .doc-panel {border-top:1px solid #dfe4eb;margin-top:18px;padding-top:12px;}
+    .doc-panel h3 {font-size:15px;margin:0 0 8px;}
+    .doc-row {display:flex;align-items:center;gap:10px;margin:8px 0;flex-wrap:wrap;overflow-wrap:anywhere;}
+    .doc-add-form {display:flex;align-items:end;gap:8px;flex-wrap:wrap;margin-top:12px;}
+    .doc-add-form label {flex:1;min-width:130px;}
+    .doc-add-form input {width:100%;max-width:100%;}
+    .step-status-note {grid-column:1 / -1;display:block;margin:3px 0;color:var(--text,#334155);font-size:13px;line-height:1.5;}
+    .task-lifecycle-controls {display:flex;align-items:center;justify-content:flex-end;margin-top:10px;}
+    .task-lifecycle-controls button {border:1px solid #b45353;color:#a33434;background:transparent;border-radius:6px;padding:8px 12px;}
+
   </style>
 </head>
 <body>
@@ -668,6 +689,7 @@
     <div class="section-head">
       <h2 id="task-view-heading"><span id="task-view-title">任务列表</span> <span class="sync" id="query-result-count"></span></h2>
       <div class="section-actions">
+        <button type="button" id="open-trash" title="查看已删除的任务">回收站</button>
         <label class="sort-control" for="task-sort">排序
           <select id="task-sort" aria-label="任务排序">
             <option value="project">按项目</option>
@@ -724,6 +746,33 @@
       </form>
       <p class="field-hint">三个日期相互独立，留空表示未设置；负责人可后续补充。</p>
       <p class="message" id="create-message" role="status" aria-live="polite"></p>
+    </section>
+  </div>
+
+  <div class="trash-overlay" id="trash-modal" hidden>
+    <section class="trash-panel" role="dialog" aria-modal="true" aria-labelledby="trash-title">
+      <div class="trash-head">
+        <h2 id="trash-title">任务回收站</h2>
+        <button type="button" id="trash-close" aria-label="关闭回收站">关闭</button>
+      </div>
+      <div class="trash-toolbar">
+        <label for="trash-retention">自动清空周期
+          <select id="trash-retention">
+            <option value="0">关闭自动清空</option>
+            <option value="7">7 天</option>
+            <option value="30">30 天</option>
+            <option value="90">90 天</option>
+          </select>
+        </label>
+        <button type="button" id="trash-save-retention">保存周期</button>
+      </div>
+      <p class="trash-warning">到期后将在下次访问工作台时清理。本机彻底删除无法保证清除其他设备、云端版本历史或备份中的副本。</p>
+      <div class="trash-list" id="trash-list" aria-label="已删除任务"></div>
+      <div class="trash-toolbar">
+        <button type="button" id="trash-select-all">全选</button>
+        <button type="button" id="trash-purge-selected">将选中任务彻底删除</button>
+      </div>
+      <p id="trash-message" class="message" role="status"></p>
     </section>
   </div>
   <div class="drawer-backdrop" id="task-detail-drawer" hidden>
@@ -1341,7 +1390,13 @@
           message.textContent = `保存失败：${error.message}。请刷新后重试。`;
         } finally { isSaving = false; button.disabled = false; }
       });
-      card.append(top, form, stepPanel(task));
+      if (task.status_source === "steps") {
+        form.append(element("p", "step-status-note", "任务状态根据执行步骤联动；全部完成时仍须亲自确认任务完成。"));
+      }
+      if (task.step_completion_pending) {
+        form.append(element("p", "step-message", "全部执行步骤已完成，请人工确认是否将任务标记为完成。"));
+      }
+      card.append(top, form, stepPanel(task), documentPanel(task), lifecyclePanel(task));
       if (task.conflict) {
         const details = [];
         const valuesFor = field => [...new Set(candidates
@@ -1373,6 +1428,117 @@
     }
 
 
+
+
+    async function updateDocumentLinks(task, links, feedback, ownForm = null) {
+      if (isSaving || task.conflict) return false;
+      // Never silently drop another editor's draft just to add/remove a link.
+      if ([...unsavedTaskEditors].some(editor => editor !== ownForm)) {
+        feedback.textContent = "其他任务或步骤有未保存的草稿，请先保存或放弃再修改文档关联。";
+        return false;
+      }
+      const inputs = ownForm ? [...ownForm.querySelectorAll("input")] : [];
+      const submittedInput = inputs.map(input => input.value);
+      isSaving = true;
+      feedback.textContent = "正在保存关联文档…";
+      try {
+        const response = await fetch("/api/tasks/" + encodeURIComponent(task.task_id) + "/documents", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({revision: task.revision, links: links})
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "关联文档保存失败");
+        // Do not discard typing that happened while the request was in flight.
+        if (ownForm && inputs.some((input, i) => input.value !== submittedInput[i])) {
+          unsavedTaskEditors.add(ownForm);
+          feedback.textContent = "链接已保存；保存期间的新输入仍是未保存草稿，刷新前请核对。";
+          return true;
+        }
+        for (const input of inputs) input.value = "";
+        if (ownForm) unsavedTaskEditors.delete(ownForm);
+        feedback.textContent = "关联文档已保存";
+        await refresh(true);
+        return true;
+      } catch (error) {
+        feedback.textContent = "关联文档保存失败：" + error.message + "。草稿已保留，请核对并发变更。";
+        return false;
+      } finally { isSaving = false; }
+    }
+
+    function documentPanel(task) {
+      const panel = element("section", "doc-panel");
+      panel.append(element("h3", "", "关联文档 · Google Drive"));
+      const message = element("p", "message");
+      const links = Array.isArray(task.document_links) ? task.document_links : [];
+      if (!links.length) panel.append(element("p", "hint", "未关联文档。这里只存储云端链接，不会复制文件。"));
+      for (const item of links) {
+        const row = element("div", "doc-row");
+        const anchor = element("a", "", item.title);
+        anchor.href = item.url; anchor.target = "_blank"; anchor.rel = "noopener noreferrer";
+        anchor.title = item.url;
+        row.append(anchor);
+        const remove = element("button", "", "取消关联");
+        remove.type = "button"; remove.disabled = task.conflict;
+        remove.addEventListener("click", () => {
+          if (!window.confirm("确认取消关联「" + item.title + "」？不会删除 Google Drive 原文档。")) return;
+          updateDocumentLinks(task, links.filter(link => link.url !== item.url), message);
+        });
+        row.append(remove); panel.append(row);
+      }
+      const form = element("form", "doc-add-form");
+      const nameLabel = element("label", "", "文档名称");
+      const title = element("input"); title.type = "text"; title.maxLength = 120; title.required = true;
+      title.placeholder = "例如：项目计划";
+      nameLabel.append(title);
+      const urlLabel = element("label", "", "Google Drive 链接");
+      const url = element("input"); url.type = "url"; url.maxLength = 2048; url.required = true;
+      url.placeholder = "https://drive.google.com/…";
+      urlLabel.append(url);
+      const save = element("button", "save", "添加链接");
+      save.type = "submit"; save.disabled = task.conflict || links.length >= 20;
+      form.append(nameLabel, urlLabel, save);
+      watchUnsavedEditor(form, () => JSON.stringify([title.value, url.value]));
+      form.addEventListener("submit", async event => {
+        event.preventDefault();
+        const next = {title: title.value.trim(), url: url.value.trim()};
+        if (!next.title || !next.url || links.some(item => item.url === next.url)) {
+          message.textContent = "文档名称或链接无效，或链接已存在。";
+          return;
+        }
+        const success = await updateDocumentLinks(task, [...links, next], message, form);
+        if (!success) return; // Draft preservation and safe refresh are handled above.
+      });
+      panel.append(form, message);
+      panel.append(element("p", "hint", "文档权限保持原样。AI 能否读取取决于已连接 Google Drive 的文件访问权限。"));
+      return panel;
+    }
+
+    function lifecyclePanel(task) {
+      const panel = element("div", "task-lifecycle-controls");
+      const remove = element("button", "", "删除任务");
+      remove.type = "button"; remove.disabled = task.conflict;
+      remove.addEventListener("click", async () => {
+        if (isSaving || !confirmDiscardUnsaved()) return;
+        if (!window.confirm("确认将此任务移入回收站？关联步骤将暂时隐藏，可在回收站恢复。")) return;
+        isSaving = true; remove.disabled = true;
+        try {
+          const response = await fetch("/api/tasks/" + encodeURIComponent(task.task_id) + "/trash", {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({revision: task.revision})
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "删除失败");
+          activeDetailTaskId = "";
+          $("task-detail-drawer").hidden = true;
+          $("task-detail-content").replaceChildren();
+          await refresh(true, true);
+        } catch (error) {
+          window.alert("移入回收站失败：" + error.message);
+        } finally { isSaving = false; remove.disabled = task.conflict; }
+      });
+      panel.append(remove);
+      return panel;
+    }
 
     function taskSummaryRow(task) {
       const card = element("article", "task-summary");
@@ -1976,6 +2142,67 @@
       }
     }
 
+
+    let trashItems = [];
+    async function loadTrash() {
+      const message = $("trash-message");
+      message.textContent = "正在读取回收站…";
+      try {
+        const response = await fetch("/api/trash", {cache: "no-store"});
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "无法读取回收站");
+        trashItems = payload.tasks || [];
+        $("trash-retention").value = String(payload.retention_days);
+        const list = $("trash-list");
+        list.replaceChildren();
+        if (!trashItems.length) list.append(element("p", "hint", "回收站为空。"));
+        for (const item of trashItems) {
+          const row = element("div", "trash-row");
+          const pick = element("input");
+          pick.type = "checkbox"; pick.className = "trash-pick";
+          pick.value = item.task_id;
+          pick.disabled = item.conflict;
+          pick.setAttribute("aria-label", "选择彻底删除：" + taskDisplayId(item));
+          const label = element("div", "trash-row-label");
+          label.append(element("strong", "", item.title || "任务状态冲突"),
+                       element("small", "", taskDisplayId(item) + " · 删除时间 " + (item.trashed_at || "未知")));
+          const restore = element("button", "", "恢复");
+          restore.type = "button"; restore.disabled = item.conflict;
+          restore.addEventListener("click", async () => {
+            if (!window.confirm("恢复任务「" + item.title + "」及其执行步骤？")) return;
+            await actOnTrashedTask(item, "restore");
+          });
+          row.append(pick, label, restore);
+          list.append(row);
+        }
+        message.textContent = (payload.warnings || []).length
+          ? "部分同步数据需核查：" + payload.warnings.slice(0, 2).join("；")
+          : "共 " + trashItems.length + " 项。到期清理会在下次访问时执行。";
+      } catch (error) {
+        message.textContent = "回收站读取失败：" + error.message;
+      }
+    }
+
+    async function actOnTrashedTask(task, action, skipReload = false) {
+      const response = await fetch("/api/tasks/" + encodeURIComponent(task.task_id) + "/" + action, {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          revision: task.revision,
+          ...(action === "purge" ? {confirmed_purge: true} : {})
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "操作失败");
+      if (!skipReload) { await loadTrash(); await refresh(true, true); }
+    }
+
+    function openTrashModal() {
+      if (activeDetailTaskId && !closeTaskDetail()) return;
+      if (!confirmDiscardUnsaved()) return;
+      $("trash-modal").hidden = false;
+      loadTrash();
+    }
+
     $("new-task-title").addEventListener("input", () => { createDraftRevision++; });
 
     function createMetadataSnapshot() {
@@ -2297,6 +2524,57 @@
     });
     $("create-modal-close").addEventListener("click", () => {
       $("create-modal").hidden = true;
+    });
+    $("open-trash").addEventListener("click", openTrashModal);
+    $("trash-close").addEventListener("click", () => { $("trash-modal").hidden = true; });
+    $("trash-modal").addEventListener("click", event => {
+      if (event.target === $("trash-modal")) $("trash-modal").hidden = true;
+    });
+    $("trash-select-all").addEventListener("click", () => {
+      const items = [...document.querySelectorAll(".trash-pick:not(:disabled)")];
+      const select = items.some(item => !item.checked);
+      for (const item of items) item.checked = select;
+    });
+    $("trash-save-retention").addEventListener("click", async () => {
+      if (isSaving) return;
+      const days = Number($("trash-retention").value);
+      if (![0, 7, 30, 90].includes(days)) return;
+      if (days && !window.confirm("确认将回收站自动清空周期设为 " + days +
+                                   " 天？超过此期限的任务将在下一次访问时永久删除。")) return;
+      isSaving = true;
+      try {
+        const response = await fetch("/api/trash/settings", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({retention_days: days})
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "无法保存设置");
+        $("trash-message").textContent = "自动清空周期已保存";
+      } catch (error) {
+        $("trash-message").textContent = "设置失败：" + error.message;
+      } finally { isSaving = false; }
+    });
+    $("trash-purge-selected").addEventListener("click", async () => {
+      if (isSaving) return;
+      const selected = new Set([...document.querySelectorAll(".trash-pick:checked")]
+        .map(item => item.value));
+      const items = trashItems.filter(item => selected.has(item.task_id));
+      if (!items.length) { $("trash-message").textContent = "请先勾选任务。"; return; }
+      if (!window.confirm("不可撤销：彻底删除选中的 " + items.length +
+                          " 项任务？本机删除不能保证清除其他设备和云端历史备份。")) return;
+      isSaving = true;
+      const failures = [];
+      try {
+        for (const item of items) {
+          try { await actOnTrashedTask(item, "purge", true); }
+          catch (error) { failures.push(taskDisplayId(item) + ": " + error.message); }
+        }
+      } finally { isSaving = false; }
+      await loadTrash();
+      await refresh(true, true);
+      $("trash-message").textContent = failures.length
+        ? "部分删除未成功：" + failures.join("；")
+        : "所选任务已在本机永久删除，保留不可复活的最小删除标记。";
     });
     $("task-detail-close").addEventListener("click", closeTaskDetail);
     $("task-detail-id").addEventListener("click", copyTaskDisplayId);
