@@ -1184,6 +1184,9 @@ def handler_factory(data_dir: Path):
             path = urlsplit(self.path).path
             if path == "/api/tasks":
                 return self.json_response(200, read_workspace(data_dir))
+            if path == "/api/work-archive":
+                workspace = read_workspace(data_dir)
+                return self.json_response(200, read_work_archive(data_dir, workspace))
             if path == "/api/update/status":
                 return self.json_response(200, get_install_status(ROOT))
             if path == "/api/update/check":
@@ -1203,11 +1206,17 @@ def handler_factory(data_dir: Path):
             step_create_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps", path)
             step_update_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/update", path)
             step_reorder_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/reorder", path)
+            work_record_update_match = re.fullmatch(
+                r"/api/work-archive/records/(RECORD-[A-F0-9]{32})/update", path
+            )
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
+            creating_work_inbox = path == "/api/work-archive/inbox"
+            creating_work_record = path == "/api/work-archive/records"
             applying_update = path == "/api/update/apply"
-            if not (creating_task or creating_project or task_match or project_match or
-                    step_create_match or step_update_match or step_reorder_match or applying_update):
+            if not (creating_task or creating_project or creating_work_inbox or creating_work_record or
+                    task_match or project_match or step_create_match or step_update_match or
+                    step_reorder_match or work_record_update_match or applying_update):
                 return self.json_response(404, {"error": "not found"})
             if not self.local_request_allowed():
                 return self.json_response(403, {"error": "local requests only"})
