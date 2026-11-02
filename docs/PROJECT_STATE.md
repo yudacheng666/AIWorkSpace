@@ -1,5 +1,19 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-02：2.0.1 GitHub Actions 免费 CI 验收通过（待发布批准）
+
+- **用户测试指令**：用户指出 Actions 在公开仓库可免费运行，要求恢复执行仓库既定 D021：准确 SHA 的 GitHub Actions CI 为默认验证，Codex 不重复跑同范围。已核实仓库 Public，`.github/workflows/tests.yml` 仅使用 `ubuntu-latest` 与 `windows-latest` 标准 GitHub 托管 runner，不使用计费 larger runner。
+- **Draft PR**：[PR #15](https://github.com/yudacheng666/AIWorkSpace/pull/15)，`feat/20261102-v2-0-1-task-ids-drawer` 对 `main`，尚未合并；与工作档案 PR #14 / M1 功能分支隔离。
+- **精确 CI 产品/测试 SHA**：`65126022808bc0af1847d67dd999ea7f6e31dee9`。[Actions #41420159188](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41420159188)：**SUCCESS，3/3 jobs**。
+- **Ubuntu Python 3.12**：`Ran 107 tests`，**100 PASS / 7 SKIP / 0 FAIL**；Node 22：**60 PASS / 0 FAIL**。
+- **Windows Python 3.12**：`Ran 107 tests`，**102 PASS / 5 SKIP / 0 FAIL**；Node 22：**60 PASS / 0 FAIL**。
+- **Windows 真实 app + Chromium**：原有更新/回滚和 UI E2E **3 PASS**；本次新增任务短编号复制/抽屉遮罩/未保存草稿保护 Chromium E2E **2 PASS**。独立测试使用随机本地端口、临时虚构 data-dir，测试后检查事件文件哈希不变。
+- **失败及根因**：上一 SHA `73840f58a13195ad4daa6b4ec3bad710dd8d2229` 的 [Actions #41419903019](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41419903019) 中，新增复制测试因测试脚本 `page.wait_for_function` 触发产品 CSP 的 `unsafe-eval` 禁止而 ERROR；不是产品复制/草稿保护逻辑的已确认缺陷。仅将该测试改为 CSP 兼容的 Playwright locator wait，提交 `65126022808bc0af1847d67dd999ea7f6e31dee9`，不放松 CSP 或改变产品代码。最新准确 SHA 全绿。
+- **测试覆盖与去重**：已经有完整 Linux/Windows 常规回归与实际 Windows Chromium 定向 E2E，因此**无需 Codex 重复验收相同路径**；本轮不做公司真实 Google Drive、Windows 正式安装/一键升级、其他浏览器或生产数据验收，这些属于未来独立部署门槛。
+- **版本与安全**：`VERSION` 仍是 `2.0.0`，`2.0.1` 是下一候选发布版本；不合并、不部署、不改 `main` 和工作档案分支，也不接触真实业务数据。此记忆更新是文档-only，不使已通过的产品/测试代码 SHA 失效。
+- **下一步**：PR #15 保持 Draft，向用户提交结果与发布候选审阅；获得明确批准并确认版本号处理后才考虑合入 main/安排正式部署。工作档案仍暂停。
+
+
 ## 2026-11-02：V2.0.1 任务编号与抽屉操作优化开发中（工作档案暂停）
 
 ### 2026-11-02 本轮隔离验证（对前述开发状态的增量更新）
