@@ -35,6 +35,7 @@ TASK_MANAGEMENT_FIELDS = ("owner", "priority", *DATE_FIELDS)
 TASK_DEFAULTS = {"owner": None, "priority": "normal",
                  "due_date": None, "planned_date": None, "follow_up_date": None}
 MAX_BODY = 16_384
+MAX_ARCHIVE_BODY = 128_000
 MAX_STEPS_PER_TASK = 100
 WORK_RECORD_ID = re.compile(r"^RECORD-[A-F0-9]{32}$")
 WORK_INBOX_ID = re.compile(r"^INBOX-[A-F0-9]{32}$")
@@ -948,7 +949,7 @@ def read_work_archive(data_dir: Path, workspace: dict | None = None) -> dict:
             if not path.is_file():
                 continue
             try:
-                if path.stat().st_size > MAX_BODY:
+                if path.stat().st_size > MAX_ARCHIVE_BODY:
                     raise ValueError("file too large")
                 event = validate_work_inbox_event(json.loads(path.read_text(encoding="utf-8-sig")))
                 previous = seen_inbox_events.get(event["event_id"])
@@ -991,7 +992,7 @@ def read_work_archive(data_dir: Path, workspace: dict | None = None) -> dict:
             if not path.is_file():
                 continue
             try:
-                if path.stat().st_size > MAX_BODY:
+                if path.stat().st_size > MAX_ARCHIVE_BODY:
                     raise ValueError("file too large")
                 event = validate_work_record_event(json.loads(path.read_text(encoding="utf-8-sig")))
                 previous = seen_record_events.get(event["event_id"])
@@ -1185,11 +1186,11 @@ def handler_factory(data_dir: Path):
         def json_response(self, code: int, payload: dict):
             self.respond(code, json.dumps(payload, ensure_ascii=False).encode("utf-8"))
 
-        def read_payload(self) -> dict:
+        def read_payload(self, max_body: int = MAX_BODY) -> dict:
             if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
                 raise TypeError("JSON required")
             length = int(self.headers.get("Content-Length", "0"))
-            if not 0 < length <= MAX_BODY:
+            if not 0 < length <= max_body:
                 raise ValueError("invalid body length")
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
             if not isinstance(payload, dict):
@@ -1281,7 +1282,8 @@ def handler_factory(data_dir: Path):
                         _update_lock.release()
 
             try:
-                payload = self.read_payload()
+                archive_write = creating_work_inbox or creating_work_record or bool(work_record_update_match)
+                payload = self.read_payload(MAX_ARCHIVE_BODY if archive_write else MAX_BODY)
                 if creating_work_inbox:
                     allowed = {"content", "occurred_at", "source", "evidence_refs", "capture_key"}
                     if set(payload) - allowed:
