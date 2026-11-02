@@ -1431,8 +1431,13 @@
 
     async function updateDocumentLinks(task, links, feedback, ownForm = null) {
       if (isSaving || task.conflict) return false;
-      if (ownForm) unsavedTaskEditors.delete(ownForm);
-      if (!confirmDiscardUnsaved()) return false;
+      // Never silently drop another editor's draft just to add/remove a link.
+      if ([...unsavedTaskEditors].some(editor => editor !== ownForm)) {
+        feedback.textContent = "其他任务或步骤有未保存的草稿，请先保存或放弃再修改文档关联。";
+        return false;
+      }
+      const inputs = ownForm ? [...ownForm.querySelectorAll("input")] : [];
+      const submittedInput = inputs.map(input => input.value);
       isSaving = true;
       feedback.textContent = "正在保存关联文档…";
       try {
@@ -1442,11 +1447,19 @@
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "关联文档保存失败");
+        // Do not discard typing that happened while the request was in flight.
+        if (ownForm && inputs.some((input, i) => input.value !== submittedInput[i])) {
+          unsavedTaskEditors.add(ownForm);
+          feedback.textContent = "链接已保存；保存期间的新输入仍是未保存草稿，刷新前请核对。";
+          return true;
+        }
+        for (const input of inputs) input.value = "";
+        if (ownForm) unsavedTaskEditors.delete(ownForm);
         feedback.textContent = "关联文档已保存";
-        await refresh(true, true);
+        await refresh(true);
         return true;
       } catch (error) {
-        feedback.textContent = "关联文档保存失败：" + error.message + "。请刷新检查是否出现并发变更。";
+        feedback.textContent = "关联文档保存失败：" + error.message + "。草稿已保留，请核对并发变更。";
         return false;
       } finally { isSaving = false; }
     }
@@ -1492,7 +1505,7 @@
           return;
         }
         const success = await updateDocumentLinks(task, [...links, next], message, form);
-        if (success) { title.value = ""; url.value = ""; unsavedTaskEditors.delete(form); }
+        if (!success) return; // Draft preservation and safe refresh are handled above.
       });
       panel.append(form, message);
       panel.append(element("p", "hint", "文档权限保持原样。AI 能否读取取决于已连接 Google Drive 的文件访问权限。"));
