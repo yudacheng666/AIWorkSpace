@@ -49,3 +49,6 @@
 
 
 | D-20261102-UI-04（Actions 免费 CI 与去重确认） | 对公开仓库使用标准 GitHub 托管 `ubuntu-latest`、`windows-latest` runner 的 Actions 为免费，必须继续把 CI 当作默认常规测试；不得把“避免收费”误解成一律禁止 Actions。创建 PR 触发正式测试，Codex 仅补准确 SHA 的 CI 未覆盖缺口。仍不使用付费 larger runner、超额计费服务，也不重复跑已有 PASS。 | 2026-11-02 用户要求按 D021 测试规则执行；GitHub 官方计费说明公开仓库标准 runner 免费，当前仓库 tests.yml 与此吻合。 |
+
+
+| D-20261102-UI-05（用户批准 2.0.1 GitHub 合并，待 Draft 解除） | 用户于 2026-11-02 明确批准将已通过 CI 的 PR #15 合入 main；不包含公司电脑或 Google Drive 部署。合并应普通 merge 保留历史，必须等待 PR 解除 Draft 并核对 HEAD。当前 Draft 转 Ready 的连接器操作被平台阻止，GitHub merge API 返回 405，故尚未合并；不会使用强制更新 main 绕过保护。 | 区分已获用户授权与 GitHub 实际执行成功，确保审批可追溯且后续无需重复询问已批准的合并，保留安全门槛。 |
