@@ -64,6 +64,7 @@ function harness(tasks = [], confirm = () => true, projects = []) {
     if (path === "/api/update/status") {
       return {ok: true, json: async () => ({version: "1.0.0", build_short: "abcdef0"})};
     }
+    if (path === "/api/trash") return {ok: true, json: async () => ({tasks: [], retention_days: 30, warnings: []})};
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
@@ -85,7 +86,7 @@ function sampleTask() {
 
 test("V2 shell has distinct overview, tasks, projects and settings pages", () => {
   for (const id of ["app-shell", "sidebar", "app-topbar", "page-overview",
-    "page-tasks", "page-projects", "page-settings", "create-modal",
+    "page-tasks", "page-projects", "page-settings", "page-trash", "create-modal",
     "task-detail-drawer", "global-search-form"]) {
     assert.match(html, new RegExp('id="' + id + '"|class="' + id + '"'),
       "missing V2 shell element: " + id);
@@ -94,6 +95,9 @@ test("V2 shell has distinct overview, tasks, projects and settings pages", () =>
   assert.match(html, /id="nav-tasks"/);
   assert.match(html, /id="nav-projects"/);
   assert.match(html, /id="nav-settings"/);
+  assert.match(html, /id="nav-trash"/);
+  assert.doesNotMatch(html, /id="open-trash"/);
+  assert.doesNotMatch(html, /id="trash-modal"/);
 });
 
 test("page navigation changes the active workspace without writing task data", async () => {
@@ -106,6 +110,20 @@ test("page navigation changes the active workspace without writing task data", a
   assert.equal(page.el("page-tasks").hidden, false);
   assert.equal(page.el("topbar-context").textContent, "全部任务");
   assert.equal(page.writes.length, 0);
+});
+
+test("trash uses a real sidebar page rather than a task-list button or modal", async () => {
+  const page = harness([sampleTask()]);
+  await page.api.refresh(true);
+  page.el("nav-trash").handlers.get("click")[0]();
+  assert.equal(page.el("page-trash").hidden, false);
+  assert.equal(page.el("page-tasks").hidden, true);
+  assert.equal(page.el("nav-trash").className, "nav-item is-active");
+  assert.equal(page.el("topbar-context").textContent, "回收站");
+  page.el("nav-tasks").handlers.get("click")[0]();
+  assert.equal(page.el("page-trash").hidden, true);
+  assert.equal(page.el("page-tasks").hidden, false);
+  assert.equal(page.writes.length, 0, "navigation must not change task data");
 });
 
 test("task summary opens the existing revision-protected editor in a detail drawer", async () => {

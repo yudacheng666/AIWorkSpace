@@ -137,7 +137,9 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.locator("#task-detail-drawer").wait_for(state="hidden")
         self.assertEqual(read_workspace(self.data_dir)["tasks"], [])
 
-        page.locator("#open-trash").click()
+        page.locator("#nav-trash").click()
+        self.assertFalse(page.locator("#page-trash").evaluate("(e) => e.hidden"))
+        self.assertIn("is-active", page.locator("#nav-trash").get_attribute("class"))
         row = page.locator(".trash-row").first
         row.wait_for(state="visible")
         self.assertIn("虚构任务", row.inner_text())
@@ -145,13 +147,14 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         row.get_by_role("button", name="恢复").click()
         page.locator(".trash-row").wait_for(state="hidden")
         self.assertEqual(len(read_workspace(self.data_dir)["tasks"]), 1)
-        page.locator("#trash-close").click()
+        page.locator("#nav-tasks").click()
+        self.assertTrue(page.locator("#page-trash").evaluate("(e) => e.hidden"))
 
         page.locator(".task-summary .task-open").first.click()
         page.once("dialog", lambda dialog: dialog.accept())
         page.locator(".task-lifecycle-controls button").click()
         page.locator("#task-detail-drawer").wait_for(state="hidden")
-        page.locator("#open-trash").click()
+        page.locator("#nav-trash").click()
         row = page.locator(".trash-row").first
         row.wait_for(state="visible")
         row.locator("input[type='checkbox']").check()

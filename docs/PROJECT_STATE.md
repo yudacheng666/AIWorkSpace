@@ -1,5 +1,13 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-02：回收站左侧导航独立页面（2.0.3 RC 候选，正式 main 仍为 2.0.2）
+
+- **用户要求**：回收站入口置于左侧导航标签，不再是“全部任务”页面上的独立按钮。先遵守 AGENTS.md、REQUIREMENTS.md、PROJECT_STATE.md、DECISIONS.md 的持久化规则，核对 2.0.2 main 和合并 PR #17，工作档案 PR #14 继续暂停。
+- **隔离开发**：从正式 `main` SHA `8e299ce832a2adb143e45b13882ed1d6b2a4e928` 派生 `feat/20261102-trash-sidebar-page`；不修改 main、不操作 Windows 8770 或 Google Drive 真实任务。UI 基线在分支保持 `VERSION=2.0.2` 通过 CI，现准备独立 `2.0.3 RC`：仅 PR 分支改为 `VERSION=2.0.3`，正式 main 仍为 2.0.2。
+- **产品变化**：左下系统导航新增“回收站”，点击进入独立工作区页面，具有导航高亮和顶部当前位置；移除任务列表原按钮及回收站弹窗，将原恢复、勾选永久删除、清空周期等控件移入页面。继续使用既有 API 和事件逻辑，沿用切换页面时的草稿保护。
+- **UI 基线验证**：新增 Node 页面导航测试，调整 Windows 真实 Chromium 原有恢复/彻底删除 E2E；准确代码 SHA `1245bbbe6c2d1a56cbf66d18044a9ed8248509ed` 的 [Actions #41450315589](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41450315589) **3/3 SUCCESS**：Ubuntu Python 115 PASS/9 SKIP，Windows Python 117 PASS/7 SKIP，各端 Node UI 61 PASS；Windows 真 app.py + Chromium 共 7 PASS。详见 [PR #18 测试证据](https://github.com/yudacheng666/AIWorkSpace/pull/18#issuecomment-6577973397)。
+- **发布候选准入**：2026-11-02 继续按统一版本规划，在同一 Draft PR #18 提升分支 `VERSION=2.0.3`；README 与项目记忆同步标示历史/当前状态。新的准确 RC SHA 和 3 组 CI **尚待执行/核实**，不借用上一 SHA 的 PASS。下一步核验 RC CI 与合并适配；未经用户明确批准不合并、发布或部署，也不默认安排 Codex 重复测试。
+
 ## 2026-11-02：用户批准，AIWorkSpace 2.0.2 已正式合并 GitHub main（不等于工作电脑已升级）
 
 - **用户授权**：用户明确回复“批准”2.0.2 GitHub 合并。ChatGPT 先核对 PR #17 HEAD 与准确 RC SHA 的提交差异、`main` 基线、`VERSION` 和 Actions 证据。执行范围仅 GitHub PR 转 Ready + 普通合并，**未授权也未执行真实 Windows 8770 / Google Drive 数据部署、删除、同步或升级**。
