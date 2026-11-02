@@ -1,5 +1,14 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-02：上级任务状态联动修复（隔离 PR 开发、待准确 CI）
+
+- **用户反馈**：执行步骤或子任务变为“进行中”后，上层任务状态没有按预期自动改变，要求梳理所有联动组合并修复。
+- **核对结果**：main `68a3212360fed942ccf2dbfca97afd8f4e224bd3`、VERSION 2.0.3；既有 `resolve_step_status` 会在无冲突的步骤更新后派生任务状态，但对**普通任务之间的父子层级根本没有字段/关联**；另外前端编辑任务时无条件回写已派生 status，导致原始人工状态被污染。待发布的回收站 UI [Draft PR #19](https://github.com/yudacheng666/AIWorkSpace/pull/19) 的 2.0.4 RC 独立，不在本修复 PR 合并。
+- **产品方案**：在 `fix/20261102-parent-child-status-rollup` 实现明确 parent_task_id 的创建、编辑、子任务详情及向上递归状态汇总；任一 blocked 优先，否则 doing/done→doing、全 todo→todo，全完成提示人工确认，人工 done 不自动撤销。冲突/同步缺失/环路安全冻结。后台不新增合成状态事件、不改 revision，API 编辑仅显式用户选择状态时才修改原人工 status。
+- **测试要求**：用虚构数据检验子任务 doing/blocked/todo/done、嵌套层级、混合步骤、冲突冻结、非法关系拒绝、任务标题编辑不泄露手动状态；Windows Chromium 通过 UI 创建子任务、选择 doing、确认上层列表和编辑后状态仍正确。最终 CI 以新准确 SHA 的 GitHub Actions Linux/Windows/Chromium 为准。任何与 PR #19 的版本顺序/文件冲突须在用户发布时核对，不能提前合并或碰真实数据。
+- **状态**：进行中，尚不能宣称通过；正式 main/公司 Windows/Drive 不变，未触发收费 Actions。工作档案继续暂停。
+
+
 ## 2026-11-02：回收站左侧导航独立页面（2.0.3 RC 候选，正式 main 仍为 2.0.2）
 
 - **用户要求**：回收站入口置于左侧导航标签，不再是“全部任务”页面上的独立按钮。先遵守 AGENTS.md、REQUIREMENTS.md、PROJECT_STATE.md、DECISIONS.md 的持久化规则，核对 2.0.2 main 和合并 PR #17，工作档案 PR #14 继续暂停。
