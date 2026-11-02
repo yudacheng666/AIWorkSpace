@@ -72,3 +72,11 @@
 - GitHub PR #15 为 Draft。调用 ready-for-review 遭平台安全检查阻止；经 GitHub 原生 merge API (`merge`, `expected_head_sha`) 返回 HTTP 405：`Pull Request is still a draft`。未发生合并。
 - 阻塞处理：仅需用户在 [PR #15](https://github.com/yudacheng666/AIWorkSpace/pull/15) 页面点击 **Ready for review** 解除 Draft；此后按已获得批准继续合并和 main SHA / CI 验证，不必再次获得合并批准。
 - 禁止通过 force update main 等旁路绕过 Draft；公司实际机器/Google Drive 仍不操作；工作档案继续暂停。
+
+## 2026-11-02 GitHub 2.0.1 合并完成
+
+- 用户批准 PR #15 合并，随后在 GitHub 页面点击 Ready for review。
+- 合并前 PR HEAD `5ee54db89a3f5d86e04815d54046250a1cface51`，发布候选产品/测试 SHA `97ca50d74641fcb8ae2f232a95651ab7c50fbcd0`，[Actions #41421749629](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41421749629) 为 3/3 SUCCESS，发布候选之后仅发生 Markdown 记忆修改。
+- 调用 GitHub 正常 PR merge，`merged=true`；准确合并 SHA `7d1a0f2c8cf8135b78a43108f666d750538d6a18`。再次读取 main HEAD 和 VERSION 验证为该 SHA 和 `2.0.1`。
+- main push CI 状态暂时未核实：当前 GitHub 连接器仅枚举 PR 事件的 Actions，不能以此证明 push CI PASS。仓库 PR 自动化证据已通过，合并后 CI 仍待确认。
+- 已按 AGENTS 维护 `PROJECT_STATE.md`、`DECISIONS.md`、此 session；没有操作实际 Windows 工作台、真实 Drive 任务数据，也没有修改暂停的工作档案开发分支。
