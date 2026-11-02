@@ -1,6 +1,20 @@
+## 2026-11-02：V2.0.0 已部署至公司 Windows 8770（当前任务人工核对通过）
+
+本节为当前真实部署状态；下方“发布到 GitHub main（部署前历史记录）”保留当时事实，不再代表当前部署状态。
+
+- **真实部署版本：PASS**。用户在公司 Windows 原 8770 工作台执行只读状态检查，`/api/update/status` 返回 `version=2.0.0`、`build_short=fa51b01`、完整 build SHA `fa51b0123aaac76ddff2064d34178e7cc6e3ab11`、`build_known=True`；该 SHA 与当前 GitHub `main` HEAD 一致。
+- **更新安装结果：PASS**。`last_update.status=installed`，消息为“更新安装成功。”；更新时间 `2026-11-02T03:59:21+00:00`。不是回滚状态。
+- **运行数据读取：PASS（当前可见数据范围）**。`/api/tasks` 正常返回，当前任务 2 条、项目 0 条。
+- **人工内容核对：PASS（当前两条任务）**。用户已人工查看当前任务，确认内容没有问题。该确认只覆盖当前可见两条任务的内容，不扩展为升级前后完整历史数据逐项一致，也不代表项目数据或 Google Drive 同步已验收。
+- **更新故障排查记录**：首次页面曾显示“无法连接 GitHub”，且用户报告随后再次点击更新仍失败；之后 Windows Python 3.15.0 对 GitHub API、RAW VERSION、ZIP 来源连通检查均成功。进一步读取本机服务 `/api/update/check` 返回 `2.0.0`、本地 `updater.check_latest_update` 返回 `2.0.0 / fa51b01`，完整 ZIP 下载通过（149,371 bytes），最终网页更新成功。**间歇失败的根因仍未确定**；没有证据支持“必须登录 GitHub”这一解释。
+- **GitHub 发布与自动化证据**：main 当前 HEAD `fa51b0123aaac76ddff2064d34178e7cc6e3ab11`；版本 `VERSION=2.0.0`。合并后 Actions [#41382882228](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41382882228) 已在准确 merge SHA 上通过：Ubuntu/Windows Python 103 + Node 58，各平台均成功；Windows Chromium E2E 3 PASS。此次不重复运行相同 SHA 的自动化。
+- **尚未验证**：升级前任务/项目的精确数量基线；当前项目为 0 是否符合用户预期；Google Drive 桌面同步是否已完成本次升级后的同步；真实环境其他页面/功能的完整人工验收。不能仅凭 API 当前可读就声称 Google Drive 同步 PASS。
+- **数据与操作边界**：本次升级及核验未由 ChatGPT 修改真实任务/项目数据；未修改产品代码。公开仓库不记录真实任务标题、任务 ID、私有 Drive 文件 ID 或本机数据路径。
+- **下一步**：继续正常使用 V2.0.0；在需要确认云端同步时单独核验 Google Drive 同步状态。无需再次点击更新，也不重复已通过的同 SHA CI。若后续出现更新间歇失败，再基于可复现日志针对性修复，不先增加 GitHub 登录/Token。
+
 # AIWorkSpace｜当前项目状态
 
-## 2026-11-02：UI V2.0.0 已发布到 GitHub main（尚未正式部署）
+## 2026-11-02：UI V2.0.0 已发布到 GitHub main（部署前历史记录）
 
 - **用户明确批准**：2026-11-02 授权将 UI V2 第一至第三阶段合并到 GitHub main。批准范围**仅限代码仓库合并**，不包含公司电脑、真实 Google Drive 或现有任务数据的更新。
 - **正式 GitHub 合并**：使用集成 [PR #12](https://github.com/yudacheng666/AIWorkSpace/pull/12) 的普通 Git merge 保留历史，merge SHA：`c279a976437bb8c1a493be3407a9de3767fa20cf`。阶段一 [PR #10](https://github.com/yudacheng666/AIWorkSpace/pull/10)、阶段二 [PR #11](https://github.com/yudacheng666/AIWorkSpace/pull/11) 随祖先提交进入 main，GitHub 自动将 #10、#11、#12 全部标为 **merged / closed**；**没有重复执行三次合并**。
