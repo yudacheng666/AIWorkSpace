@@ -90,6 +90,51 @@ class ReducerTests(unittest.TestCase):
         app.expire_trashed_tasks(self.data_dir)
         self.assertEqual(sorted((self.data_dir / "events").glob("*.json")), before)
 
+    def test_two_device_delayed_sync_cannot_resurrect_permanently_deleted_task(self):
+        """Second machine receives the tombstone after stale files, then stale files again."""
+        import shutil
+        with tempfile.TemporaryDirectory() as other_home:
+            remote = Path(other_home)
+            for folder in ("events", "step_events"):
+                source = self.data_dir / folder
+                if source.is_dir():
+                    shutil.copytree(source, remote / folder)
+            # Two devices initially see the same task and step.
+            app.append_step_event(self.data_dir, step("fake-step-001"))
+            (remote / "step_events").mkdir(exist_ok=True)
+            for old in (self.data_dir / "step_events").glob("*.json"):
+                shutil.copy2(old, remote / "step_events" / old.name)
+            original_files = {
+                folder: [(file.name, file.read_bytes())
+                         for file in (remote / folder).glob("*.json")]
+                for folder in ("events", "step_events")
+            }
+            app.append_event(self.data_dir, evt("fake-trash-001", "trash", 1,
+                                                {"trashed_at": "2026-10-01T01:00:00Z"}))
+            for trash in (self.data_dir / "events").glob("*.json"):
+                if json.loads(trash.read_text("utf-8"))["action"] == "trash":
+                    shutil.copy2(trash, remote / "events" / trash.name)
+            self.assertEqual(app.read_workspace(remote)["tasks"], [])
+            app.append_task_lifecycle(self.data_dir, self.task(), "purge")
+            for tombstone in (self.data_dir / "events").glob("*.json"):
+                self.assertEqual(json.loads(tombstone.read_text("utf-8"))["action"], "purge")
+                shutil.copy2(tombstone, remote / "events" / tombstone.name)
+            self.assertEqual(app.read_workspace(remote, include_trashed=True)["tasks"], [])
+            # Remote machine has not yet propagated old source-file deletion.
+            self.assertGreater(len(list((remote / "events").glob("*.json"))), 1)
+            app.expire_trashed_tasks(remote)
+            self.assertEqual(len(list((remote / "events").glob("*.json"))), 1)
+            self.assertEqual(len(list((remote / "step_events").glob("*.json"))), 0)
+            # A stale offline machine uploads the original files again.
+            for folder, files in original_files.items():
+                for name, payload in files:
+                    (remote / folder / name).write_bytes(payload)
+            # Even before local physical cleanup, tombstones prevent resurrection.
+            self.assertEqual(app.read_workspace(remote)["tasks"], [])
+            app.expire_trashed_tasks(remote)
+            self.assertEqual(len(list((remote / "events").glob("*.json"))), 1)
+            self.assertEqual(len(list((remote / "step_events").glob("*.json"))), 0)
+
     def test_duplicate_trash_and_restore_revision_is_frozen(self):
         app.append_event(self.data_dir, evt("fake-trash-001", "trash", 1,
                                             {"trashed_at": "2026-10-01T01:00:00Z"}))
