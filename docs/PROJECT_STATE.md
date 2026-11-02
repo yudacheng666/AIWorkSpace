@@ -1,5 +1,19 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-02：2.0.1 正式发布候选（RC）完成并通过完整免费 CI，等待用户合并批准
+
+- **授权范围**：用户批准制作 2.0.1 正式发布候选并测试；**未授权合并 `main`、公司电脑升级或真实 Google Drive 数据操作**。工作档案 M1 继续暂停，PR #14 / M1 分支没有修改。
+- **PR**：[Draft PR #15](https://github.com/yudacheng666/AIWorkSpace/pull/15)，开发分支 `feat/20261102-v2-0-1-task-ids-drawer`，`main` 仍为 `fa51b0123aaac76ddff2064d34178e7cc6e3ab11`，`main/VERSION=2.0.0`。
+- **2.0.1 发布候选的完整产品/测试 SHA**：`97ca50d74641fcb8ae2f232a95651ab7c50fbcd0`。正式发布候选 `VERSION=2.0.1`，对应 `tests/test_app.py` 的服务版本状态断言由 2.0.0 改为 2.0.1；未修改其他产品逻辑或数据事件 schema。
+- **准确 SHA 正式 CI**：[GitHub Actions run #41421749629](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41421749629) **SUCCESS / 3 of 3 jobs**（公开仓库标准免费 Ubuntu / Windows runner）：
+  - Ubuntu Python 3.12：107 total，**100 PASS / 7 SKIP / 0 FAIL**；Node 22：**60 PASS / 0 FAIL**。
+  - Windows Python 3.12：107 total，**102 PASS / 5 SKIP / 0 FAIL**；Node 22：**60 PASS / 0 FAIL**。
+  - Windows 真 `app.py` + Chromium：原有更新回滚及 UI E2E **3 PASS**，2.0.1 新增编号复制与抽屉草稿保护 E2E **2 PASS**，**0 FAIL**。
+- **去重**：此前 2.0.1 功能完整回归 [run #41420159188](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41420159188) 已通过；RC 只追加版本状态断言和 `VERSION`，没有额外重复派 Codex 验收。CI 的 Skip 为 Windows/Linux 环境选择型测试跳过，不伪装为 PASS。
+- **完成界限**：这是 GitHub 仓库内 **RC READY / CI PASS**，**不是 main 发布**，亦非正式工作台一键更新或真实 Drive 数据验证。Windows 实际电脑升级、Google Drive 实际同步、长期运行等**NOT TESTED / NOT DEPLOYED**。
+- **下一步**：保持 PR #15 Draft；由用户审阅并明确批准合并到 main 后，按既定发布流程合并并复核 main 精确 SHA。实际电脑升级另行独立授权；工作档案继续暂停。本记忆更新仅 Markdown，不影响 RC 的受测产品和测试代码 SHA。
+
+
 ## 2026-11-02：2.0.1 GitHub Actions 免费 CI 验收通过（待发布批准）
 
 - **用户测试指令**：用户指出 Actions 在公开仓库可免费运行，要求恢复执行仓库既定 D021：准确 SHA 的 GitHub Actions CI 为默认验证，Codex 不重复跑同范围。已核实仓库 Public，`.github/workflows/tests.yml` 仅使用 `ubuntu-latest` 与 `windows-latest` 标准 GitHub 托管 runner，不使用计费 larger runner。
