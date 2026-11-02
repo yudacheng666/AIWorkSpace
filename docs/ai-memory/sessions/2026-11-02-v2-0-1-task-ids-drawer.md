@@ -63,3 +63,12 @@
 - 此次 RC 仅新增明确版本号与对应测试断言；工作档案、任务事件 schema、原始编号、更新器白名单和数据目录均未修改。
 - 工作档案继续暂停、main 仍为 2.0.0；PR #15 Draft、无部署、无真实 Drive/Windows 正式升级。后续需用户批准 PR #15 合并与另行授权正式部署。
 - 精确产品/测试 SHA 以 `97ca50d74641fcb8ae2f232a95651ab7c50fbcd0` 为准，后续 Markdown `[skip ci]` 项目记忆提交不改变本次受测代码。
+
+
+## 2026-11-02 用户批准合并 / Draft 阻塞（当前结果）
+
+- 用户已批准 **PR #15 合并到 GitHub main**，不包含正式机器升级、Drive 数据操作或工作档案开发。
+- 复核 `main` 基线 `fa51b0123aaac76ddff2064d34178e7cc6e3ab11` / VERSION `2.0.0`，PR #15 HEAD `b2b3bbf7f449c82ede322fe2e3b32085ce7069fa`，RC SHA `97ca50d74641fcb8ae2f232a95651ab7c50fbcd0` 的 Actions `#41421749629` 3/3 SUCCESS。RC 后仅 3 个 Markdown 说明/记忆文件，未改产品测试代码。
+- GitHub PR #15 为 Draft。调用 ready-for-review 遭平台安全检查阻止；经 GitHub 原生 merge API (`merge`, `expected_head_sha`) 返回 HTTP 405：`Pull Request is still a draft`。未发生合并。
+- 阻塞处理：仅需用户在 [PR #15](https://github.com/yudacheng666/AIWorkSpace/pull/15) 页面点击 **Ready for review** 解除 Draft；此后按已获得批准继续合并和 main SHA / CI 验证，不必再次获得合并批准。
+- 禁止通过 force update main 等旁路绕过 Draft；公司实际机器/Google Drive 仍不操作；工作档案继续暂停。
