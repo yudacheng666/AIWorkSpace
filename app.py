@@ -18,7 +18,7 @@ from collections import defaultdict
 from datetime import date, datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 from updater import (UpdateError, check_latest_update, get_install_status,
                      launch_update_helper, prepare_update, remove_stage)
@@ -30,6 +30,8 @@ PROJECT_ID = re.compile(r"^PROJECT-[A-F0-9]{32}$")
 STEP_ID = re.compile(r"^STEP-[A-F0-9]{32}$")
 EVENT_ID = re.compile(r"^[A-Za-z0-9-]{8,80}$")
 STATUSES = {"todo", "doing", "blocked", "done"}
+TASK_LIFECYCLE_ACTIONS = {"trash", "restore", "purge"}
+MAX_DOCUMENT_LINKS = 20
 PRIORITIES = {"low", "normal", "high", "urgent"}
 DATE_FIELDS = ("due_date", "planned_date", "follow_up_date")
 TASK_MANAGEMENT_FIELDS = ("owner", "priority", *DATE_FIELDS)
@@ -62,6 +64,66 @@ def display_task_id(task_id: str, created_at: str = "") -> str:
     return f"T-{day}-{suffix}"
 
 
+
+def validate_document_links(links: object) -> list[dict]:
+    """Only save Google HTTPS references. Actual AI reading requires Drive access."""
+    if not isinstance(links, list) or len(links) > MAX_DOCUMENT_LINKS:
+        raise ValueError("document_links must be a list of up to 20 items")
+    seen = set()
+    results = []
+    for item in links:
+        if not isinstance(item, dict) or set(item) != {"title", "url"}:
+            raise ValueError("document link requires title and url")
+        title, url = item["title"], item["url"]
+        if not isinstance(title, str) or not 1 <= len(title.strip()) <= 120:
+            raise ValueError("document title length must be 1-120")
+        if not isinstance(url, str) or not 1 <= len(url) <= 2048:
+            raise ValueError("invalid document URL")
+        parsed = urlsplit(url)
+        if (parsed.scheme != "https" or parsed.hostname not in
+                {"drive.google.com", "docs.google.com"} or
+                parsed.username or parsed.password or parsed.port or parsed.fragment or
+                any(ord(char) < 32 for char in url)):
+            raise ValueError("only Google Drive HTTPS links are supported")
+        if parsed.hostname == "drive.google.com":
+            valid = (re.fullmatch(r"/file/d/[A-Za-z0-9_-]+(/view)?/?", parsed.path) or
+                     re.fullmatch(r"/drive/(u/[0-9]+/)?folders/[A-Za-z0-9_-]+/?", parsed.path) or
+                     (parsed.path == "/open" and
+                      re.fullmatch(r"[A-Za-z0-9_-]+", parse_qs(parsed.query).get("id", [""])[0])))
+        else:
+            valid = re.fullmatch(
+                r"/(document|spreadsheets|presentation)/d/[A-Za-z0-9_-]+(/.*)?",
+                parsed.path)
+        if not valid:
+            raise ValueError("unsupported Google Drive link format")
+        if url in seen:
+            raise ValueError("duplicate document link")
+        seen.add(url)
+        results.append({"title": title.strip(), "url": url})
+    return results
+
+
+def resolve_step_status(task: dict) -> None:
+    """No synthetic event: derive aggregate status from reliably synced steps."""
+    task["manual_status"] = task["status"]
+    task["status_source"] = "task"
+    task["step_completion_pending"] = False
+    steps = task.get("steps", [])
+    if (not steps or task.get("conflict") or task.get("step_order_conflict")
+            or task.get("step_order_incomplete")
+            or any(item.get("conflict") for item in steps)):
+        return
+    statuses = {item["status"] for item in steps}
+    if statuses == {"done"} and task["status"] != "done":
+        task["step_completion_pending"] = True
+    if task["status"] == "done":
+        task["status_source"] = "user_confirmed"
+        return
+    task["status"] = ("blocked" if "blocked" in statuses else
+                      "doing" if "done" in statuses or "doing" in statuses else "todo")
+    task["status_source"] = "steps"
+
+
 def validate_event(value: object) -> dict:
     """Validate both remote ChatGPT files and locally generated events."""
     if not isinstance(value, dict) or value.get("version") != 1:
@@ -70,7 +132,7 @@ def validate_event(value: object) -> dict:
         raise ValueError("invalid event_id")
     if not isinstance(value.get("task_id"), str) or not TASK_ID.fullmatch(value["task_id"]):
         raise ValueError("invalid task_id")
-    if value.get("action") not in {"create", "update"}:
+    if value.get("action") not in {"create", "update", *TASK_LIFECYCLE_ACTIONS}:
         raise ValueError("invalid action")
     if value.get("actor") not in {"chatgpt", "user"}:
         raise ValueError("invalid actor")
@@ -80,8 +142,31 @@ def validate_event(value: object) -> dict:
     changes = value.get("changes")
     if not isinstance(changes, dict) or not changes:
         raise ValueError("changes must be a nonempty object")
-    if set(changes) - {"title", "status", "project_id", "related_project_ids", *TASK_MANAGEMENT_FIELDS}:
+    if value["action"] in TASK_LIFECYCLE_ACTIONS:
+        if value["actor"] != "user" or revision < 1:
+            raise ValueError("task lifecycle must be a user action on existing task")
+        expected = {"trash": "trashed_at", "restore": "trashed_at",
+                    "purge": "purged_at"}[value["action"]]
+        if set(changes) != {expected}:
+            raise ValueError("unexpected lifecycle fields")
+        stamp = changes[expected]
+        if value["action"] == "restore":
+            if stamp is not None:
+                raise ValueError("restore must clear trashed_at")
+        elif not isinstance(stamp, str):
+            raise ValueError("lifecycle timestamp required")
+        else:
+            try:
+                if datetime.fromisoformat(stamp.replace("Z", "+00:00")).tzinfo is None:
+                    raise ValueError("timezone required")
+            except ValueError as exc:
+                raise ValueError("invalid lifecycle timestamp") from exc
+        return value
+    if set(changes) - {"title", "status", "project_id", "related_project_ids",
+                       "document_links", *TASK_MANAGEMENT_FIELDS}:
         raise ValueError("unknown fields")
+    if "document_links" in changes:
+        validate_document_links(changes["document_links"])
     if "title" in changes and (not isinstance(changes["title"], str)
                                or not 1 <= len(changes["title"].strip()) <= 200):
         raise ValueError("title must be 1–200 characters")
