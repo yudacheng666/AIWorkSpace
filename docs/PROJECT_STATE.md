@@ -1,5 +1,12 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-02：回收站左侧导航独立页面（2.0.2 后续 UI 微调，待 CI 验证）
+
+- **用户要求**：回收站入口置于左侧导航标签，不再是“全部任务”页面上的独立按钮。先遵守 AGENTS.md、REQUIREMENTS.md、PROJECT_STATE.md、DECISIONS.md 的持久化规则，核对 2.0.2 main 和合并 PR #17，工作档案 PR #14 继续暂停。
+- **隔离开发**：从正式 `main` SHA `8e299ce832a2adb143e45b13882ed1d6b2a4e928` 派生 `feat/20261102-trash-sidebar-page`；不修改 main、不操作 Windows 8770 或 Google Drive 的真实任务、不变更 VERSION（main 仍为 2.0.2）。
+- **产品变化**：左下系统导航新增“回收站”，点击进入独立工作区页面，具有导航高亮和顶部当前位置；移除任务列表原按钮及回收站弹窗，将原恢复、勾选永久删除、清空周期等控件移入页面。继续使用既有 API 和事件逻辑，沿用切换页面时的草稿保护。
+- **验证状态**：新增 Node 页面导航测试，调整 Windows 真实 Chromium 原有恢复/彻底删除测试的入口与页面切换断言。静态核对未发现重复 DOM id；**尚未取得该变更最终准确 SHA 的 CI PASS，不能借用 2.0.2 的旧 SHA 结果当成本次通过**。下一步以 Draft PR 触发 GitHub 免费标准 Runner 的 Linux/Windows/Chromium 回归，核对结果并只针对新缺口增量修复。工作档案继续暂停；不擅自合并。
+
 ## 2026-11-02：用户批准，AIWorkSpace 2.0.2 已正式合并 GitHub main（不等于工作电脑已升级）
 
 - **用户授权**：用户明确回复“批准”2.0.2 GitHub 合并。ChatGPT 先核对 PR #17 HEAD 与准确 RC SHA 的提交差异、`main` 基线、`VERSION` 和 Actions 证据。执行范围仅 GitHub PR 转 Ready + 普通合并，**未授权也未执行真实 Windows 8770 / Google Drive 数据部署、删除、同步或升级**。
