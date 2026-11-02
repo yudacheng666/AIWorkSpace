@@ -53,6 +53,8 @@ function harness(tasks = [], confirm = () => true, projects = []) {
     },
     createElement(tag) { return node(tag); }
   };
+  const copied = [];
+  const navigator = {clipboard: {writeText: async value => {copied.push(value);}}};
   const window = {confirm, addEventListener() {}};
   const fetch = async (path, options) => {
     if (options?.method === "POST") {
@@ -66,9 +68,9 @@ function harness(tasks = [], confirm = () => true, projects = []) {
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
   const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks})", {
-      document, window, fetch, Date, setInterval() {}
+      document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
-  return {api, document, writes, el: id => document.getElementById(id)};
+  return {api, document, copied, writes, el: id => document.getElementById(id)};
 }
 
 function sampleTask() {
@@ -413,4 +415,45 @@ test("stage3 shows unresolved project references read only",async()=>{
  assert.equal(card.children[0].disabled,true);
  assert.equal(x.api.projectCounts("PROJECT-NOT-SYNCED").primary,1);
  assert.equal(x.writes.length,0);
+});
+
+
+test("short display ID supports copy button, clickable ID and keyword search", async () => {
+  const task = {...sampleTask(), display_id: "T-261102-ABCDEF123456"};
+  const page = harness([task]);
+  await page.api.refresh(true);
+  page.api.setActivePage("tasks", "all");
+  const list = page.el("tasks");
+  const group = list.children[0];
+  const summary = group.children[1];
+  assert.ok(JSON.stringify(summary).includes("T-261102-ABCDEF123456"));
+  page.api.openTaskDetail(task.task_id);
+  assert.equal(page.el("task-detail-id").textContent, task.display_id);
+  await page.el("task-id-copy").handlers.get("click")[0]();
+  await page.el("task-detail-id").handlers.get("click")[0]();
+  assert.deepEqual(page.copied, [task.display_id, task.display_id]);
+  assert.equal(page.el("task-id-feedback").textContent, "已复制");
+  assert.equal(page.writes.length, 0);
+});
+
+test("clicking only drawer backdrop closes and respects unsaved edit confirmation", async () => {
+  let discard = false;
+  const page = harness([sampleTask()], () => discard);
+  await page.api.refresh(true);
+  page.api.setActivePage("tasks", "all");
+  page.api.openTaskDetail("TASK-UI-V2-001");
+  const backdrop = page.el("task-detail-drawer");
+  const click = backdrop.handlers.get("click")[0];
+  click({target: page.el("task-detail-content")});
+  assert.equal(backdrop.hidden, false);
+  const editor = page.el("task-detail-content").children[0];
+  const form = editor.children.find(child => child.className === "task-form");
+  form.children[0].children[0].value = "尚未保存的虚构草稿";
+  form.handlers.get("input")[0]();
+  click({target: backdrop});
+  assert.equal(backdrop.hidden, false);
+  discard = true;
+  click({target: backdrop});
+  assert.equal(backdrop.hidden, true);
+  assert.equal(page.writes.length, 0);
 });
