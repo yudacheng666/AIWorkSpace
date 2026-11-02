@@ -39,3 +39,17 @@
 - 执行容器没有 GitHub 外网访问，未能获取完整仓库用于运行 `unittest` 和 Node 原始测试命令；不将上述隔离结果冒充原生 CI 或 E2E。
 - 没有修改 main、工作档案分支、真实数据、部署，也没有创建会触发 Actions 的 PR。
 - 其余下一步按 `PROJECT_STATE.md`；不因当前部分 PASS 越过正式发布门槛。
+
+
+## 2026-11-02 GitHub Actions 正式测试与缺陷闭环
+
+- 用户澄清 Actions 免费及 CI 优先，核实 Public 仓库和标准 Ubuntu/Windows runner 后，创建 [Draft PR #15](https://github.com/yudacheng666/AIWorkSpace/pull/15) 触发免费的既有 CI。
+- 在现有 Windows Chromium job 中新增独立 `tests/test_task_id_drawer_windows_e2e.py`，以临时虚构数据、真 app.py + 浏览器验证短号复制、点击抽屉外遮罩关闭、用户取消放弃草稿及数据文件哈希保持不变。
+- 第一次包含新增 E2E 的产品/测试 SHA `73840f58a13195ad4daa6b4ec3bad710dd8d2229`：Ubuntu/Windows Python+Node PASS，Windows 原有 Chromium 3 PASS、新增草稿保护 PASS，但复制测试的 `page.wait_for_function` 违反页面 CSP（`unsafe-eval`），属测试方法 ERROR，未动产品安全策略。
+- 修复提交 SHA `65126022808bc0af1847d67dd999ea7f6e31dee9`：仅把测试等待改成 Playwright locator 兼容 CSP 的方式，不修改产品逻辑。
+- [Actions #41420159188](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41420159188) 最终 **SUCCESS / 3 jobs**：
+  - Ubuntu Python 107 total / 7 SKIP / 100 PASS，Node 60 PASS；
+  - Windows Python 107 total / 5 SKIP / 102 PASS，Node 60 PASS；
+  - Windows 原有 Chromium 3 PASS + 本轮 Chromium 2 PASS。
+- 测试只在 GitHub-hosted 标准免费 runner 的临时虚构数据目录运行，无真实 Drive、生产电脑/数据和 main 的写入；无 Codex 重复跑已覆盖路径。
+- 2.0.1 仍为候选；VERSION 继续 2.0.0。发布/合并需用户批准；PR #15 保持 Draft。此次记忆写入是文档-only，产品/测试实测 SHA 不变。
