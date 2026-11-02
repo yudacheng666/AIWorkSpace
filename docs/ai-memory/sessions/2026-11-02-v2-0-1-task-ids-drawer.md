@@ -53,3 +53,13 @@
   - Windows 原有 Chromium 3 PASS + 本轮 Chromium 2 PASS。
 - 测试只在 GitHub-hosted 标准免费 runner 的临时虚构数据目录运行，无真实 Drive、生产电脑/数据和 main 的写入；无 Codex 重复跑已覆盖路径。
 - 2.0.1 仍为候选；VERSION 继续 2.0.0。发布/合并需用户批准；PR #15 保持 Draft。此次记忆写入是文档-only，产品/测试实测 SHA 不变。
+
+
+## 2026-11-02：RC 2.0.1 创建及最终 CI PASS
+
+- 用户授权执行第二阶段：仅在 PR #15 创建 `2.0.1` 正式发布候选，不允许提前合并 main 或升级真实数据。
+- 原 `tests/test_app.py` 的 `test_update_status_reports_local_version_without_network` 固定断言 `2.0.0`，故先提交仅调整断言的 `a596d05fedf39f4cbc8467ec59ff3d6f3e5ee81d`（`[skip ci]`，避免中间不一致的重复 CI），然后提交 VERSION=`2.0.1`：**RC SHA `97ca50d74641fcb8ae2f232a95651ab7c50fbcd0`**。
+- [GitHub Actions #41421749629](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41421749629)：最终 **SUCCESS / 3 JOBS**；Ubuntu Python 100 PASS / 7 SKIP + Node 60 PASS；Windows Python 102 PASS / 5 SKIP + Node 60 PASS；Windows Chromium 原 E2E 3 PASS + 2.0.1 E2E 2 PASS。
+- 此次 RC 仅新增明确版本号与对应测试断言；工作档案、任务事件 schema、原始编号、更新器白名单和数据目录均未修改。
+- 工作档案继续暂停、main 仍为 2.0.0；PR #15 Draft、无部署、无真实 Drive/Windows 正式升级。后续需用户批准 PR #15 合并与另行授权正式部署。
+- 精确产品/测试 SHA 以 `97ca50d74641fcb8ae2f232a95651ab7c50fbcd0` 为准，后续 Markdown `[skip ci]` 项目记忆提交不改变本次受测代码。
