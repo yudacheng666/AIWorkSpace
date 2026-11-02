@@ -36,6 +36,14 @@ TASK_DEFAULTS = {"owner": None, "priority": "normal",
                  "due_date": None, "planned_date": None, "follow_up_date": None}
 MAX_BODY = 16_384
 MAX_STEPS_PER_TASK = 100
+WORK_RECORD_ID = re.compile(r"^RECORD-[A-F0-9]{32}$")
+WORK_INBOX_ID = re.compile(r"^INBOX-[A-F0-9]{32}$")
+WORK_CATEGORIES = {"meeting", "communication", "decision", "problem", "action",
+                   "result", "idea", "other"}
+WORK_RECORD_DEFAULTS = {
+    "occurred_at": None, "category": "other", "project_id": None,
+    "source_ids": [], "evidence_refs": [], "action_links": [],
+}
 _write_lock = threading.Lock()
 _update_lock = threading.Lock()
 
@@ -726,6 +734,384 @@ def append_project_event(data_dir: Path, event: dict) -> Path:
 def append_step_event(data_dir: Path, event: dict) -> Path:
     validate_step_event(event)
     return _append_json_event(data_dir, event, "step_events")
+
+
+
+
+def validate_optional_datetime(value: object, field: str) -> None:
+    """Accept a local calendar date or an ISO timestamp with an explicit offset."""
+    if value is None:
+        return
+    if not isinstance(value, str) or len(value) > 40:
+        raise ValueError(f"invalid {field}")
+    try:
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            date.fromisoformat(value)
+            return
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            raise ValueError("timezone offset required")
+    except ValueError as exc:
+        raise ValueError(f"invalid {field} (use YYYY-MM-DD or ISO timestamp with timezone)") from exc
+
+
+def validate_evidence_refs(value: object) -> list[dict]:
+    """Validate lightweight references; file bytes and private URLs never enter the event."""
+    if not isinstance(value, list) or len(value) > 20:
+        raise ValueError("evidence_refs must be a list of at most 20 items")
+    result = []
+    for item in value:
+        if not isinstance(item, dict) or set(item) - {"file_id", "name", "mime_type"}:
+            raise ValueError("invalid evidence reference")
+        file_id = item.get("file_id")
+        name = item.get("name")
+        mime_type = item.get("mime_type")
+        if not isinstance(file_id, str) or not 1 <= len(file_id.strip()) <= 256:
+            raise ValueError("evidence file_id must be 1–256 characters")
+        if not isinstance(name, str) or not 1 <= len(name.strip()) <= 200:
+            raise ValueError("evidence name must be 1–200 characters")
+        if mime_type is not None and (
+            not isinstance(mime_type, str) or not 1 <= len(mime_type.strip()) <= 100
+        ):
+            raise ValueError("invalid evidence mime_type")
+        reference = {"file_id": file_id.strip(), "name": name.strip()}
+        if mime_type is not None:
+            reference["mime_type"] = mime_type.strip()
+        result.append(reference)
+    return result
+
+
+def validate_action_links(value: object) -> list[dict]:
+    """Validate references from a work record to existing task/step identifiers."""
+    if not isinstance(value, list) or len(value) > 50:
+        raise ValueError("action_links must be a list of at most 50 items")
+    result = []
+    seen = set()
+    for item in value:
+        if not isinstance(item, dict) or set(item) != {"target_type", "target_id", "relation"}:
+            raise ValueError("invalid action link")
+        target_type = item["target_type"]
+        target_id = item["target_id"]
+        relation = item["relation"]
+        if target_type == "task":
+            valid_target = isinstance(target_id, str) and bool(TASK_ID.fullmatch(target_id))
+        elif target_type == "step":
+            valid_target = isinstance(target_id, str) and bool(STEP_ID.fullmatch(target_id))
+        else:
+            valid_target = False
+        if not valid_target:
+            raise ValueError("action link target must be a valid task or step ID")
+        if relation not in {"derived_action", "progress_on", "result_of"}:
+            raise ValueError("invalid action link relation")
+        signature = (target_type, target_id, relation)
+        if signature in seen:
+            raise ValueError("duplicate action link")
+        seen.add(signature)
+        result.append({"target_type": target_type, "target_id": target_id, "relation": relation})
+    return result
+
+
+def validate_work_inbox_event(value: object) -> dict:
+    """Validate immutable raw work input captured by the workbench or ChatGPT."""
+    allowed = {
+        "version", "event_id", "inbox_id", "action", "actor", "source",
+        "captured_at", "occurred_at", "content", "evidence_refs", "capture_key",
+    }
+    if not isinstance(value, dict) or value.get("version") != 1:
+        raise ValueError("work inbox version must be 1")
+    if set(value) - allowed:
+        raise ValueError("unknown work inbox fields")
+    if not isinstance(value.get("event_id"), str) or not EVENT_ID.fullmatch(value["event_id"]):
+        raise ValueError("invalid work inbox event_id")
+    if not isinstance(value.get("inbox_id"), str) or not WORK_INBOX_ID.fullmatch(value["inbox_id"]):
+        raise ValueError("invalid inbox_id")
+    if value.get("action") != "capture":
+        raise ValueError("invalid work inbox action")
+    if value.get("actor") not in {"user", "chatgpt"}:
+        raise ValueError("invalid work inbox actor")
+    if value.get("source") not in {"workbench", "chatgpt", "voice_transcript", "other"}:
+        raise ValueError("invalid work inbox source")
+    captured_at = value.get("captured_at")
+    if not isinstance(captured_at, str):
+        raise ValueError("captured_at is required")
+    validate_optional_datetime(captured_at, "captured_at")
+    if not isinstance(value.get("content"), str) or not 1 <= len(value["content"].strip()) <= 12_000:
+        raise ValueError("work inbox content must be 1–12000 characters")
+    validate_optional_datetime(value.get("occurred_at"), "occurred_at")
+    if "evidence_refs" in value:
+        validate_evidence_refs(value["evidence_refs"])
+    if "capture_key" in value and (
+        not isinstance(value["capture_key"], str) or
+        not re.fullmatch(r"[A-Za-z0-9-]{8,80}", value["capture_key"])
+    ):
+        raise ValueError("invalid capture_key")
+    return value
+
+
+def validate_work_record_event(value: object) -> dict:
+    """Validate append-only create/update events for a structured work record."""
+    allowed = {
+        "version", "event_id", "record_id", "action", "actor",
+        "timestamp", "base_revision", "changes",
+    }
+    if not isinstance(value, dict) or value.get("version") != 1:
+        raise ValueError("work record version must be 1")
+    if set(value) - allowed:
+        raise ValueError("unknown work record event fields")
+    if not isinstance(value.get("event_id"), str) or not EVENT_ID.fullmatch(value["event_id"]):
+        raise ValueError("invalid work record event_id")
+    if not isinstance(value.get("record_id"), str) or not WORK_RECORD_ID.fullmatch(value["record_id"]):
+        raise ValueError("invalid record_id")
+    if value.get("action") not in {"create", "update"}:
+        raise ValueError("invalid work record action")
+    if value.get("actor") not in {"user", "chatgpt"}:
+        raise ValueError("invalid work record actor")
+    revision = value.get("base_revision")
+    if type(revision) is not int or revision < 0:
+        raise ValueError("invalid work record revision")
+    changes = value.get("changes")
+    allowed_changes = {
+        "title", "summary", "occurred_at", "category", "project_id",
+        "source_ids", "evidence_refs", "action_links",
+    }
+    if not isinstance(changes, dict) or not changes or set(changes) - allowed_changes:
+        raise ValueError("invalid work record changes")
+    if "title" in changes and (
+        not isinstance(changes["title"], str) or not 1 <= len(changes["title"].strip()) <= 200
+    ):
+        raise ValueError("work record title must be 1–200 characters")
+    if "summary" in changes and (
+        not isinstance(changes["summary"], str) or not 1 <= len(changes["summary"].strip()) <= 12_000
+    ):
+        raise ValueError("work record summary must be 1–12000 characters")
+    if "occurred_at" in changes:
+        validate_optional_datetime(changes["occurred_at"], "occurred_at")
+    if "category" in changes and changes["category"] not in WORK_CATEGORIES:
+        raise ValueError("invalid work record category")
+    if "project_id" in changes and changes["project_id"] is not None:
+        if not isinstance(changes["project_id"], str) or not PROJECT_ID.fullmatch(changes["project_id"]):
+            raise ValueError("invalid work record project_id")
+    if "source_ids" in changes:
+        source_ids = changes["source_ids"]
+        if (not isinstance(source_ids, list) or len(source_ids) > 50
+                or any(not isinstance(item, str) or not WORK_INBOX_ID.fullmatch(item) for item in source_ids)
+                or len(set(source_ids)) != len(source_ids)):
+            raise ValueError("invalid work record source_ids")
+    if "evidence_refs" in changes:
+        validate_evidence_refs(changes["evidence_refs"])
+    if "action_links" in changes:
+        validate_action_links(changes["action_links"])
+    if value["action"] == "create":
+        if revision != 0 or not {"title", "summary"}.issubset(changes):
+            raise ValueError("work record create requires title, summary and revision 0")
+    elif revision < 1:
+        raise ValueError("work record update must refer to an existing revision")
+    return value
+
+
+def append_work_inbox_event(data_dir: Path, event: dict) -> Path:
+    validate_work_inbox_event(event)
+    return _append_json_event(data_dir, event, "work_archive/inbox")
+
+
+def append_work_record_event(data_dir: Path, event: dict) -> Path:
+    validate_work_record_event(event)
+    return _append_json_event(data_dir, event, "work_archive/record_events")
+
+
+def summarize_work_record_events(events: list[dict]) -> list[dict]:
+    ordered = sorted(events, key=lambda event: (
+        str(event.get("timestamp", "")), str(event.get("event_id", ""))
+    ))
+    return [{
+        "event_id": event["event_id"],
+        "timestamp": event.get("timestamp", ""),
+        "actor": event["actor"],
+        "changes": dict(event["changes"]),
+    } for event in ordered]
+
+
+def read_work_archive(data_dir: Path, workspace: dict | None = None) -> dict:
+    """Read the additive work archive; an absent directory is a valid empty archive."""
+    root = data_dir / "work_archive"
+    warnings: list[str] = []
+    inbox: list[dict] = []
+    records: list[dict] = []
+    if not root.exists():
+        return {"inbox": inbox, "records": records, "warnings": warnings}
+
+    inbox_dir = root / "inbox"
+    seen_inbox_events: dict[str, dict] = {}
+    seen_capture_keys: dict[str, dict] = {}
+    if inbox_dir.exists():
+        for path in sorted(inbox_dir.glob("*.json")):
+            if not path.is_file():
+                continue
+            try:
+                if path.stat().st_size > MAX_BODY:
+                    raise ValueError("file too large")
+                event = validate_work_inbox_event(json.loads(path.read_text(encoding="utf-8-sig")))
+                previous = seen_inbox_events.get(event["event_id"])
+                if previous is not None:
+                    if previous == event:
+                        warnings.append(f"{path.name}: duplicate inbox event_id (identical; ignored)")
+                    else:
+                        warnings.append(f"{path.name}: inbox event_id has conflicting content")
+                    continue
+                capture_key = event.get("capture_key")
+                if capture_key and capture_key in seen_capture_keys:
+                    previous_capture = seen_capture_keys[capture_key]
+                    if previous_capture == event:
+                        warnings.append(f"{path.name}: duplicate capture_key (identical; ignored)")
+                    else:
+                        warnings.append(f"{path.name}: capture_key has conflicting content")
+                    continue
+                seen_inbox_events[event["event_id"]] = event
+                if capture_key:
+                    seen_capture_keys[capture_key] = event
+                inbox.append({
+                    **event,
+                    "status": "pending",
+                    "linked_record_ids": [],
+                })
+            except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
+                warnings.append(f"{path.name}: {exc}")
+
+    record_dir = root / "record_events"
+    created: dict[str, list[dict]] = defaultdict(list)
+    updated: dict[str, list[dict]] = defaultdict(list)
+    seen_record_events: dict[str, dict] = {}
+    duplicate_conflicts: dict[str, list[dict]] = defaultdict(list)
+    if record_dir.exists():
+        for path in sorted(record_dir.glob("*.json")):
+            if not path.is_file():
+                continue
+            try:
+                if path.stat().st_size > MAX_BODY:
+                    raise ValueError("file too large")
+                event = validate_work_record_event(json.loads(path.read_text(encoding="utf-8-sig")))
+                previous = seen_record_events.get(event["event_id"])
+                if previous is not None:
+                    if previous == event:
+                        warnings.append(f"{path.name}: duplicate work record event_id (identical; ignored)")
+                        continue
+                    variants = duplicate_conflicts[event["event_id"]]
+                    if not variants:
+                        variants.append(previous)
+                    if event not in variants:
+                        variants.append(event)
+                    warnings.append(f"{path.name}: work record event_id has conflicting content")
+                else:
+                    seen_record_events[event["event_id"]] = event
+                destination = created if event["action"] == "create" else updated
+                destination[event["record_id"]].append(event)
+            except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
+                warnings.append(f"{path.name}: {exc}")
+
+    for record_id in sorted(set(created) | set(updated)):
+        roots = created[record_id]
+        if not roots:
+            warnings.append(f"{record_id}: waiting for work record creation event")
+            continue
+        root_event = sorted(roots, key=lambda event: (
+            str(event.get("timestamp", "")), str(event.get("event_id", ""))
+        ))[0]
+        changes = root_event["changes"]
+        record = {
+            "record_id": record_id,
+            **WORK_RECORD_DEFAULTS,
+            **changes,
+            "revision": 1,
+            "conflict": len(roots) != 1,
+            "conflict_fields": [],
+            "conflict_candidates": summarize_work_record_events(roots) if len(roots) != 1 else [],
+            "created_at": root_event.get("timestamp", ""),
+            "updated_at": root_event.get("timestamp", ""),
+        }
+        if len(roots) != 1:
+            warnings.append(f"{record_id}: multiple work record creation events; needs review")
+        else:
+            by_revision: dict[int, list[dict]] = defaultdict(list)
+            for event in updated[record_id]:
+                by_revision[event["base_revision"]].append(event)
+            while record["revision"] in by_revision:
+                candidates = by_revision.pop(record["revision"])
+                if len(candidates) != 1:
+                    record["conflict"] = True
+                    record["conflict_candidates"] = summarize_work_record_events(candidates)
+                    warnings.append(f"{record_id}: conflicting work record edits at revision {record['revision']}")
+                    break
+                accepted = candidates[0]
+                record.update(accepted["changes"])
+                record["revision"] += 1
+                record["updated_at"] = accepted.get("timestamp", record["updated_at"])
+            if by_revision:
+                remaining = [event for group in by_revision.values() for event in group]
+                record["conflict"] = True
+                record["conflict_candidates"].extend(summarize_work_record_events(remaining))
+                warnings.append(f"{record_id}: unresolved or out-of-order work record edits")
+        records.append(record)
+
+    record_by_id = {record["record_id"]: record for record in records}
+    for event_id, variants in duplicate_conflicts.items():
+        affected = {event["record_id"] for event in variants}
+        for record_id in affected:
+            record = record_by_id.get(record_id)
+            if record is None:
+                continue
+            record["conflict"] = True
+            record["conflict_fields"] = sorted(set(record["conflict_fields"]) | {"event_id"})
+            record["conflict_candidates"].extend(summarize_work_record_events(
+                [event for event in variants if event["record_id"] == record_id]
+            ))
+            warnings.append(f"{record_id}: event_id {event_id} has conflicting content; needs review")
+
+    project_map = {}
+    task_map = {}
+    step_map = {}
+    if workspace is not None:
+        project_map = {item["project_id"]: item for item in workspace.get("projects", [])}
+        task_map = {item["task_id"]: item for item in workspace.get("tasks", [])}
+        for task in workspace.get("tasks", []):
+            for step in task.get("steps", []):
+                step_map[step["step_id"]] = step
+
+    linked_inbox: dict[str, list[str]] = defaultdict(list)
+    for record in records:
+        record.setdefault("occurred_at", None)
+        record.setdefault("category", "other")
+        record.setdefault("project_id", None)
+        record.setdefault("source_ids", [])
+        record.setdefault("evidence_refs", [])
+        record.setdefault("action_links", [])
+        record["project_name"] = None
+        record["project_missing"] = False
+        record["missing_action_links"] = []
+        if record["project_id"]:
+            project = project_map.get(record["project_id"])
+            record["project_name"] = project["name"] if project and not project["conflict"] else None
+            record["project_missing"] = project is None or project["conflict"]
+            if record["project_missing"]:
+                warnings.append(f"{record['record_id']}: referenced project has not synced or needs review")
+        for source_id in record["source_ids"]:
+            if not record["conflict"]:
+                linked_inbox[source_id].append(record["record_id"])
+        for link in record["action_links"]:
+            if workspace is None:
+                continue
+            target = task_map.get(link["target_id"]) if link["target_type"] == "task" else step_map.get(link["target_id"])
+            if target is None or target.get("conflict"):
+                record["missing_action_links"].append(link)
+    for item in inbox:
+        linked = linked_inbox.get(item["inbox_id"], [])
+        item["linked_record_ids"] = sorted(set(linked))
+        item["status"] = "processed" if linked else "pending"
+
+    records.sort(key=lambda item: (
+        str(item.get("occurred_at") or item.get("created_at") or ""), item["record_id"]
+    ), reverse=True)
+    inbox.sort(key=lambda item: (str(item.get("captured_at", "")), item["inbox_id"]), reverse=True)
+    return {"inbox": inbox, "records": records, "warnings": warnings}
 
 
 def validate_project_references(workspace: dict, project_id: object,
