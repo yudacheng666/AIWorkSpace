@@ -28,3 +28,14 @@
 ## 下一步
 - 运行准确代码 SHA 的 Python/Node/定向浏览器测试（在不产生用户未批准费用的环境）。
 - 根据结果修复，审阅 UI 和数据兼容性，再由用户决定 PR、发布和合并。
+
+
+## 2026-11-02 增量隔离验证结果
+
+- 产品/测试代码 SHA：`187e097ecfd414b0c8fd1c7bf615be74daae748d`；项目记忆补充提交不修改产品/测试源码。
+- **V8 DOM 模拟逻辑 22/22 PASS**：GitHub 连接器读取本分支原网页内嵌 JavaScript 与 `tests/test_ui_shell.mjs`，在 V8 沙箱内载入真实脚本，用该测试文件的全部断言验证。适配了 Node vm 的执行外壳；首次沙箱 navigator 绑定不一致导致复制假失败，修正测试沙箱注入后 22/22 全部通过，非产品代码修复。
+- **Python 3.13.5 单函数 6/6 PASS**：把 app.py 中 `display_task_id` 原函数复制到隔离文件运行，验证 UUID / 旧 ID / 无效日期 / 含偏移时间 / 大小写 / 缺日期，未改动产品实现。
+- 完整 Python 应用测试、原生 Node 测试、实际 Chromium GUI、Windows/Drive、Actions 本轮都 **NOT TESTED**。
+- 执行容器没有 GitHub 外网访问，未能获取完整仓库用于运行 `unittest` 和 Node 原始测试命令；不将上述隔离结果冒充原生 CI 或 E2E。
+- 没有修改 main、工作档案分支、真实数据、部署，也没有创建会触发 Actions 的 PR。
+- 其余下一步按 `PROJECT_STATE.md`；不因当前部分 PASS 越过正式发布门槛。
