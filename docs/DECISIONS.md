@@ -52,3 +52,5 @@
 
 
 | D-20261102-UI-05（用户批准 2.0.1 GitHub 合并，待 Draft 解除） | 用户于 2026-11-02 明确批准将已通过 CI 的 PR #15 合入 main；不包含公司电脑或 Google Drive 部署。合并应普通 merge 保留历史，必须等待 PR 解除 Draft 并核对 HEAD。当前 Draft 转 Ready 的连接器操作被平台阻止，GitHub merge API 返回 405，故尚未合并；不会使用强制更新 main 绕过保护。 | 区分已获用户授权与 GitHub 实际执行成功，确保审批可追溯且后续无需重复询问已批准的合并，保留安全门槛。 |
+
+| D-20261102-UI-06（GitHub 2.0.1 合并） | 用户批准后 PR #15 已通过普通 Git merge 合入 main，合并 SHA 7d1a0f2c8cf8135b78a43108f666d750538d6a18，main/VERSION 为 2.0.1；合并前 RC CI 3/3 PASS，合并后 main push CI 尚未核实。 | 实际电脑和 Google Drive 升级未获授权，工作档案仍暂停；合并与部署必须区分。 |
