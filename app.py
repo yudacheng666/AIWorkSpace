@@ -739,6 +739,18 @@ def append_step_event(data_dir: Path, event: dict) -> Path:
 
 
 
+def validate_required_timestamp(value: object, field: str) -> None:
+    """Require an ISO timestamp with an explicit timezone offset."""
+    if not isinstance(value, str) or len(value) > 40:
+        raise ValueError(f"invalid {field}")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            raise ValueError("timezone offset required")
+    except ValueError as exc:
+        raise ValueError(f"invalid {field} (ISO timestamp with timezone required)") from exc
+
+
 def validate_optional_datetime(value: object, field: str) -> None:
     """Accept a local calendar date or an ISO timestamp with an explicit offset."""
     if value is None:
@@ -835,7 +847,7 @@ def validate_work_inbox_event(value: object) -> dict:
     captured_at = value.get("captured_at")
     if not isinstance(captured_at, str):
         raise ValueError("captured_at is required")
-    validate_optional_datetime(captured_at, "captured_at")
+    validate_required_timestamp(captured_at, "captured_at")
     if not isinstance(value.get("content"), str) or not 1 <= len(value["content"].strip()) <= 12_000:
         raise ValueError("work inbox content must be 1–12000 characters")
     validate_optional_datetime(value.get("occurred_at"), "occurred_at")
@@ -867,6 +879,7 @@ def validate_work_record_event(value: object) -> dict:
         raise ValueError("invalid work record action")
     if value.get("actor") not in {"user", "chatgpt"}:
         raise ValueError("invalid work record actor")
+    validate_required_timestamp(value.get("timestamp"), "timestamp")
     revision = value.get("base_revision")
     if type(revision) is not int or revision < 0:
         raise ValueError("invalid work record revision")
