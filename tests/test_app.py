@@ -1618,6 +1618,17 @@ class WorkArchiveServerTests(unittest.TestCase):
         self.assertEqual(len(archive["inbox"]), 1)
         self.assertEqual(archive["inbox"][0]["content"], body["content"])
 
+    def test_large_utf8_capture_round_trips_above_task_payload_limit(self):
+        raw = "工作档案原始输入" * 800
+        self.assertGreater(len(raw.encode("utf-8")), app_module.MAX_BODY)
+        status, created = self.post("/api/work-archive/inbox", {
+            "content": raw, "capture_key": "capture-key-long-0001",
+        })
+        self.assertEqual(status, 201)
+        status, archive = self.get_archive()
+        self.assertEqual(status, 200)
+        self.assertEqual(archive["inbox"][0]["content"], raw)
+
     def test_capture_key_reuse_with_different_content_returns_conflict(self):
         body = {"content": "第一条虚构输入。", "capture_key": "capture-key-0002"}
         self.assertEqual(self.post("/api/work-archive/inbox", body)[0], 201)
