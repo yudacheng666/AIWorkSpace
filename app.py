@@ -636,13 +636,15 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
         task["step_order_incomplete"] = bool(missing_order_ids)
         task["step_order_missing_ids"] = missing_order_ids
         task["step_order_candidates"] = order_candidates
+        resolve_step_status(task)
 
 
-def read_workspace(data_dir: Path) -> dict:
+def read_workspace(data_dir: Path, include_trashed: bool = False) -> dict:
     """Reduce independent event files; never silently choose a concurrent edit."""
     event_dir = data_dir / "events"
     created: dict[str, list[dict]] = defaultdict(list)
     updated: dict[str, list[dict]] = defaultdict(list)
+    purged_ids: set[str] = set()
     warnings: list[str] = []
     seen: dict[str, dict] = {}
     duplicate_conflicts: dict[str, list[dict]] = defaultdict(list)
@@ -675,11 +677,15 @@ def read_workspace(data_dir: Path) -> dict:
                 seen[event["event_id"]] = event
             destination = created if event["action"] == "create" else updated
             destination[event["task_id"]].append(event)
+            if event["action"] == "purge":
+                purged_ids.add(event["task_id"])
         except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
             warnings.append(f"{path.name}: {exc}")
 
     tasks: list[dict] = []
     for task_id in sorted(set(created) | set(updated)):
+        if task_id in purged_ids:
+            continue  # Irrevocable marker prevents resurrection on delayed sync.
         roots = created[task_id]
         if not roots:
             warnings.append(f"{task_id}: waiting for task creation file")
@@ -699,6 +705,7 @@ def read_workspace(data_dir: Path) -> dict:
             })
             continue
         task = {"task_id": task_id, **roots[0]["changes"],
+                "trashed_at": None,
                 "title": roots[0]["changes"]["title"].strip(),
                 "status": roots[0]["changes"].get("status", "todo"),
                 "revision": 1, "conflict": False,
@@ -782,6 +789,7 @@ def read_workspace(data_dir: Path) -> dict:
             task.setdefault(field, default)
         task.setdefault("project_id", None)
         task.setdefault("related_project_ids", [])
+        task.setdefault("document_links", [])
         primary = project_map.get(task["project_id"]) if task["project_id"] else None
         task["project_name"] = primary["name"] if primary and not primary["conflict"] else None
         task["project_missing"] = bool(task["project_id"] and (primary is None or primary["conflict"]))
@@ -797,6 +805,8 @@ def read_workspace(data_dir: Path) -> dict:
             warnings.append(f"{task['task_id']}: referenced project has not synced or is unavailable")
     read_steps(data_dir, tasks, warnings)
     warnings.extend(project_state["warnings"])
+    if not include_trashed:
+        tasks = [task for task in tasks if not task.get("trashed_at")]
     return {"tasks": tasks, "projects": project_state["projects"], "warnings": warnings}
 
 
