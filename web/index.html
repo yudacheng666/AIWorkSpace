@@ -1388,7 +1388,13 @@
           message.textContent = `保存失败：${error.message}。请刷新后重试。`;
         } finally { isSaving = false; button.disabled = false; }
       });
-      card.append(top, form, stepPanel(task));
+      if (task.status_source === "steps") {
+        form.append(element("p", "hint", "任务状态根据执行步骤联动；全部完成时仍须亲自确认任务完成。"));
+      }
+      if (task.step_completion_pending) {
+        form.append(element("p", "step-message", "全部执行步骤已完成，请人工确认是否将任务标记为完成。"));
+      }
+      card.append(top, form, stepPanel(task), documentPanel(task), lifecyclePanel(task));
       if (task.conflict) {
         const details = [];
         const valuesFor = field => [...new Set(candidates
@@ -1420,6 +1426,104 @@
     }
 
 
+
+
+    async function updateDocumentLinks(task, links, feedback, ownForm = null) {
+      if (isSaving || task.conflict) return false;
+      if (ownForm) unsavedTaskEditors.delete(ownForm);
+      if (!confirmDiscardUnsaved()) return false;
+      isSaving = true;
+      feedback.textContent = "正在保存关联文档…";
+      try {
+        const response = await fetch("/api/tasks/" + encodeURIComponent(task.task_id) + "/documents", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({revision: task.revision, links: links})
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "关联文档保存失败");
+        feedback.textContent = "关联文档已保存";
+        await refresh(true, true);
+        return true;
+      } catch (error) {
+        feedback.textContent = "关联文档保存失败：" + error.message + "。请刷新检查是否出现并发变更。";
+        return false;
+      } finally { isSaving = false; }
+    }
+
+    function documentPanel(task) {
+      const panel = element("section", "doc-panel");
+      panel.append(element("h3", "", "关联文档 · Google Drive"));
+      const message = element("p", "message");
+      const links = Array.isArray(task.document_links) ? task.document_links : [];
+      if (!links.length) panel.append(element("p", "hint", "未关联文档。这里只存储云端链接，不会复制文件。"));
+      for (const item of links) {
+        const row = element("div", "doc-row");
+        const anchor = element("a", "", item.title);
+        anchor.href = item.url; anchor.target = "_blank"; anchor.rel = "noopener noreferrer";
+        anchor.title = item.url;
+        row.append(anchor);
+        const remove = element("button", "", "取消关联");
+        remove.type = "button"; remove.disabled = task.conflict;
+        remove.addEventListener("click", () => {
+          if (!window.confirm("确认取消关联「" + item.title + "」？不会删除 Google Drive 原文档。")) return;
+          updateDocumentLinks(task, links.filter(link => link.url !== item.url), message);
+        });
+        row.append(remove); panel.append(row);
+      }
+      const form = element("form", "doc-add-form");
+      const nameLabel = element("label", "", "文档名称");
+      const title = element("input"); title.type = "text"; title.maxLength = 120; title.required = true;
+      title.placeholder = "例如：项目计划";
+      nameLabel.append(title);
+      const urlLabel = element("label", "", "Google Drive 链接");
+      const url = element("input"); url.type = "url"; url.maxLength = 2048; url.required = true;
+      url.placeholder = "https://drive.google.com/…";
+      urlLabel.append(url);
+      const save = element("button", "save", "添加链接");
+      save.type = "submit"; save.disabled = task.conflict || links.length >= 20;
+      form.append(nameLabel, urlLabel, save);
+      watchUnsavedEditor(form, () => JSON.stringify([title.value, url.value]));
+      form.addEventListener("submit", async event => {
+        event.preventDefault();
+        const next = {title: title.value.trim(), url: url.value.trim()};
+        if (!next.title || !next.url || links.some(item => item.url === next.url)) {
+          message.textContent = "文档名称或链接无效，或链接已存在。";
+          return;
+        }
+        const success = await updateDocumentLinks(task, [...links, next], message, form);
+        if (success) { title.value = ""; url.value = ""; unsavedTaskEditors.delete(form); }
+      });
+      panel.append(form, message);
+      panel.append(element("p", "hint", "文档权限保持原样。AI 能否读取取决于已连接 Google Drive 的文件访问权限。"));
+      return panel;
+    }
+
+    function lifecyclePanel(task) {
+      const panel = element("div", "task-lifecycle-controls");
+      const remove = element("button", "", "删除任务");
+      remove.type = "button"; remove.disabled = task.conflict;
+      remove.addEventListener("click", async () => {
+        if (isSaving || !confirmDiscardUnsaved()) return;
+        if (!window.confirm("确认将此任务移入回收站？关联步骤将暂时隐藏，可在回收站恢复。")) return;
+        isSaving = true; remove.disabled = true;
+        try {
+          const response = await fetch("/api/tasks/" + encodeURIComponent(task.task_id) + "/trash", {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({revision: task.revision})
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "删除失败");
+          activeDetailTaskId = "";
+          $("task-detail-drawer").hidden = true;
+          $("task-detail-content").replaceChildren();
+          await refresh(true, true);
+        } catch (error) {
+          window.alert("移入回收站失败：" + error.message);
+        } finally { isSaving = false; remove.disabled = task.conflict; }
+      });
+      panel.append(remove);
+      return panel;
+    }
 
     function taskSummaryRow(task) {
       const card = element("article", "task-summary");
