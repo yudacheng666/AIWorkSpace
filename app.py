@@ -899,7 +899,7 @@ def purge_local_task_history(data_dir: Path, task_id: str) -> int:
     removed = 0
     for folder in ("events", "step_events"):
         directory = data_dir / folder
-        if not directory.is_dir():
+        if not directory.is_dir() or directory.is_symlink():
             continue
         for path in directory.glob("*.json"):
             if not path.is_file() or path.is_symlink():
@@ -934,6 +934,22 @@ def append_task_lifecycle(data_dir: Path, task: dict, action: str) -> dict:
 
 def expire_trashed_tasks(data_dir: Path) -> None:
     """Sweep on next workspace access, not when computer is off."""
+    # A permanent marker is synchronized independently. Old event files may
+    # arrive later from another computer; erase local replicas on every read
+    # while retaining the marker so they never become active again.
+    directory = data_dir / "events"
+    if directory.is_dir() and not directory.is_symlink():
+        for path in directory.glob("*.json"):
+            if not path.is_file() or path.is_symlink():
+                continue
+            try:
+                if path.stat().st_size <= MAX_BODY:
+                    candidate = json.loads(path.read_text(encoding="utf-8-sig"))
+                    if candidate.get("action") == "purge":
+                        validate_event(candidate)
+                        purge_local_task_history(data_dir, candidate["task_id"])
+            except (OSError, ValueError, TypeError, UnicodeError):
+                continue
     days, warnings = read_trash_retention(data_dir)
     if not days or warnings:
         return
