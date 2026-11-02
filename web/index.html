@@ -2131,6 +2131,8 @@
         ? "证据文件：" + evidenceRefs.map(item => item.name).join("、") : "证据文件：无"));
       links.append(element("p", "", actionLinks.length
         ? "关联行动：" + actionLinks.map(item => item.target_id).join("、") : "关联行动：无"));
+      if (record?.missing_source_ids?.length)
+        links.append(element("p", "", "部分原始输入尚未同步，来源暂待核查。"));
       if (record?.missing_action_links?.length)
         links.append(element("p", "", "部分任务/步骤尚未同步，关联暂待核查。"));
       const message = element("p", "message", record?.conflict ? "记录存在版本冲突，当前只读。" : "");
