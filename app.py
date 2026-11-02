@@ -943,7 +943,7 @@ def read_work_archive(data_dir: Path, workspace: dict | None = None) -> dict:
     inbox_dir = root / "inbox"
     seen_inbox_events: dict[str, dict] = {}
     seen_capture_keys: dict[str, dict] = {}
-    if inbox_dir.exists():
+    if inbox_dir.is_dir():
         for path in sorted(inbox_dir.glob("*.json")):
             if not path.is_file():
                 continue
@@ -961,7 +961,11 @@ def read_work_archive(data_dir: Path, workspace: dict | None = None) -> dict:
                 capture_key = event.get("capture_key")
                 if capture_key and capture_key in seen_capture_keys:
                     previous_capture = seen_capture_keys[capture_key]
-                    if previous_capture == event:
+                    same_capture = all(
+                        previous_capture.get(field) == event.get(field)
+                        for field in ("content", "occurred_at", "source", "evidence_refs")
+                    )
+                    if same_capture:
                         warnings.append(f"{path.name}: duplicate capture_key (identical; ignored)")
                     else:
                         warnings.append(f"{path.name}: capture_key has conflicting content")
@@ -982,7 +986,7 @@ def read_work_archive(data_dir: Path, workspace: dict | None = None) -> dict:
     updated: dict[str, list[dict]] = defaultdict(list)
     seen_record_events: dict[str, dict] = {}
     duplicate_conflicts: dict[str, list[dict]] = defaultdict(list)
-    if record_dir.exists():
+    if record_dir.is_dir():
         for path in sorted(record_dir.glob("*.json")):
             if not path.is_file():
                 continue
@@ -1029,6 +1033,9 @@ def read_work_archive(data_dir: Path, workspace: dict | None = None) -> dict:
             "updated_at": root_event.get("timestamp", ""),
         }
         if len(roots) != 1:
+            record["conflict_fields"] = sorted({
+                field for event in roots for field in event["changes"]
+            })
             warnings.append(f"{record_id}: multiple work record creation events; needs review")
         else:
             by_revision: dict[int, list[dict]] = defaultdict(list)
@@ -1038,6 +1045,9 @@ def read_work_archive(data_dir: Path, workspace: dict | None = None) -> dict:
                 candidates = by_revision.pop(record["revision"])
                 if len(candidates) != 1:
                     record["conflict"] = True
+                    record["conflict_fields"] = sorted({
+                        field for event in candidates for field in event["changes"]
+                    })
                     record["conflict_candidates"] = summarize_work_record_events(candidates)
                     warnings.append(f"{record_id}: conflicting work record edits at revision {record['revision']}")
                     break
@@ -1048,6 +1058,10 @@ def read_work_archive(data_dir: Path, workspace: dict | None = None) -> dict:
             if by_revision:
                 remaining = [event for group in by_revision.values() for event in group]
                 record["conflict"] = True
+                record["conflict_fields"] = sorted(
+                    set(record["conflict_fields"]) |
+                    {field for event in remaining for field in event["changes"]}
+                )
                 record["conflict_candidates"].extend(summarize_work_record_events(remaining))
                 warnings.append(f"{record_id}: unresolved or out-of-order work record edits")
         records.append(record)
@@ -1093,7 +1107,11 @@ def read_work_archive(data_dir: Path, workspace: dict | None = None) -> dict:
             record["project_missing"] = project is None or project["conflict"]
             if record["project_missing"]:
                 warnings.append(f"{record['record_id']}: referenced project has not synced or needs review")
+        record["missing_source_ids"] = []
         for source_id in record["source_ids"]:
+            if source_id not in {item["inbox_id"] for item in inbox}:
+                record["missing_source_ids"].append(source_id)
+                warnings.append(f"{record['record_id']}: source input {source_id} has not synced")
             if not record["conflict"]:
                 linked_inbox[source_id].append(record["record_id"])
         for link in record["action_links"]:
