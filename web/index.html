@@ -2079,7 +2079,7 @@
     }
 
     function renderArchiveRecordDrawer() {
-      const record = currentArchive.records.find(item => item.record_id === activeArchiveRecordId);
+      let record = currentArchive.records.find(item => item.record_id === activeArchiveRecordId);
       const inbox = currentArchive.inbox.find(item => item.inbox_id === activeArchiveInboxId);
       if (activeArchiveRecordId && !record) return false;
       if (!record && !inbox) return false;
@@ -2179,7 +2179,17 @@
           if (!response.ok) throw new Error(result.error || \`HTTP \${response.status}\`);
           const untouched = JSON.stringify(snapshot()) === JSON.stringify(draft);
           draftWatch.markClean(draft);
-          if (!record) activeArchiveRecordId = result.record_id;
+          if (!record) {
+            record = {
+              record_id: result.record_id, revision: result.revision || 1,
+              ...draft, source_ids: sourceIds, evidence_refs: evidenceRefs,
+              action_links: actionLinks, conflict: false,
+            };
+            activeArchiveRecordId = result.record_id;
+          } else {
+            Object.assign(record, draft);
+            record.revision = result.revision || (record.revision + 1);
+          }
           activeArchiveInboxId = "";
           if (untouched) {
             message.textContent = "工作记录已保存。";
