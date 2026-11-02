@@ -15,7 +15,7 @@ import tempfile
 import threading
 import uuid
 from collections import defaultdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
@@ -856,6 +856,100 @@ def append_project_event(data_dir: Path, event: dict) -> Path:
 def append_step_event(data_dir: Path, event: dict) -> Path:
     validate_step_event(event)
     return _append_json_event(data_dir, event, "step_events")
+
+
+
+def read_trash_retention(data_dir: Path) -> tuple[int, list[str]]:
+    """Append-only shared settings; ambiguous same-second edits disable auto-purge."""
+    directory = data_dir / "settings_events"
+    items = []
+    warnings = []
+    for path in sorted(directory.glob("*.json")) if directory.is_dir() else []:
+        if not path.is_file() or path.is_symlink():
+            continue
+        try:
+            if path.stat().st_size > MAX_BODY:
+                raise ValueError("settings file too large")
+            event = json.loads(path.read_text(encoding="utf-8-sig"))
+            if (not isinstance(event, dict) or event.get("version") != 1 or
+                    not isinstance(event.get("event_id"), str) or
+                    not EVENT_ID.fullmatch(event["event_id"]) or
+                    event.get("key") != "trash_retention_days" or
+                    type(event.get("days")) is not int or
+                    event["days"] not in {0, 7, 30, 90}):
+                raise ValueError("invalid shared trash retention setting")
+            stamp = datetime.fromisoformat(event["timestamp"].replace("Z", "+00:00"))
+            if stamp.tzinfo is None:
+                raise ValueError("timezone required")
+            items.append((stamp, event["days"], event["event_id"]))
+        except (OSError, ValueError, TypeError, KeyError, UnicodeError) as exc:
+            warnings.append(f"{path.name}: {exc}")
+    if not items:
+        return 30, warnings
+    last = max(item[0] for item in items)
+    values = {days for stamp, days, _ in items if stamp == last}
+    if len(values) != 1:
+        warnings.append("concurrent retention settings conflict; auto-purge disabled")
+        return 0, warnings
+    return next(iter(values)), warnings
+
+
+def purge_local_task_history(data_dir: Path, task_id: str) -> int:
+    """Best-effort local erase AFTER durable tombstone; other synced copies can return."""
+    removed = 0
+    for folder in ("events", "step_events"):
+        directory = data_dir / folder
+        if not directory.is_dir():
+            continue
+        for path in directory.glob("*.json"):
+            if not path.is_file() or path.is_symlink():
+                continue
+            try:
+                if path.stat().st_size > MAX_BODY:
+                    continue
+                entry = json.loads(path.read_text(encoding="utf-8-sig"))
+                if (entry.get("task_id") != task_id or
+                        (folder == "events" and entry.get("action") == "purge")):
+                    continue
+                path.unlink()
+                removed += 1
+            except (OSError, ValueError, TypeError, UnicodeError):
+                continue
+    return removed
+
+
+def append_task_lifecycle(data_dir: Path, task: dict, action: str) -> dict:
+    timestamp = utc_now()
+    field = "purged_at" if action == "purge" else "trashed_at"
+    value = None if action == "restore" else timestamp
+    event = {"version": 1, "event_id": str(uuid.uuid4()),
+             "task_id": task["task_id"], "action": action, "actor": "user",
+             "timestamp": timestamp, "base_revision": task["revision"],
+             "changes": {field: value}}
+    append_event(data_dir, event)
+    if action == "purge":
+        purge_local_task_history(data_dir, task["task_id"])
+    return event
+
+
+def expire_trashed_tasks(data_dir: Path) -> None:
+    """Sweep on next workspace access, not when computer is off."""
+    days, warnings = read_trash_retention(data_dir)
+    if not days or warnings:
+        return
+    workspace = read_workspace(data_dir, include_trashed=True)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    for task in workspace["tasks"]:
+        if not task.get("trashed_at") or task.get("conflict"):
+            continue
+        if task.get("step_order_conflict") or task.get("step_order_incomplete"):
+            continue
+        try:
+            stamp = datetime.fromisoformat(task["trashed_at"].replace("Z", "+00:00"))
+            if stamp.tzinfo is not None and stamp <= cutoff:
+                append_task_lifecycle(data_dir, task, "purge")
+        except (ValueError, OSError):
+            continue
 
 
 def validate_project_references(workspace: dict, project_id: object,
