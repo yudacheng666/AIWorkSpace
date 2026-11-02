@@ -57,6 +57,34 @@ def step_order_event(event_id="step-order-001", task_id="TASK-DEMO-001",
 
 
 class DataTests(unittest.TestCase):
+    def test_display_id_preserves_legacy_storage_and_uuid(self):
+        original = "TASK-" + "A" * 32
+        append_event(self.data_dir, event(
+            "short-id-create-001", task_id=original,
+            changes={"title": "虚构编号检查任务"}))
+        state = read_workspace(self.data_dir)
+        task = state["tasks"][0]
+        self.assertEqual(task["task_id"], original)
+        self.assertEqual(task["display_id"], "T-261027-" + "A" * 12)
+        self.assertEqual(task["created_at"], "2026-10-27T00:00:00Z")
+        self.assertEqual(len(list((self.data_dir / "events").glob("*.json"))), 1)
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["display_id"],
+                         task["display_id"])
+
+    def test_display_id_legacy_non_uuid_and_collision(self):
+        from app import display_task_id
+        stable = display_task_id("TASK-LEGACY-DEMO", "bad-time")
+        self.assertRegex(stable, r"^T-000000-[0-9A-F]{12}$")
+        self.assertEqual(stable, display_task_id("TASK-LEGACY-DEMO", "bad-time"))
+        left = "TASK-" + "B" * 12 + "0" * 20
+        right = "TASK-" + "B" * 12 + "1" * 20
+        append_event(self.data_dir, event("collision-create-one", task_id=left))
+        append_event(self.data_dir, event("collision-create-two", task_id=right))
+        state = read_workspace(self.data_dir)
+        self.assertEqual({task["display_id"] for task in state["tasks"]}, {left, right})
+        self.assertTrue(any("display identifier collision" in warn
+                            for warn in state["warnings"]))
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.data_dir = Path(self.temp.name)
