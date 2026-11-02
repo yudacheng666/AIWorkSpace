@@ -1021,7 +1021,20 @@ def handler_factory(data_dir: Path):
                 return self.json_response(403, {"error": "local requests only"})
             path = urlsplit(self.path).path
             if path == "/api/tasks":
-                return self.json_response(200, read_workspace(data_dir))
+                with _write_lock:
+                    expire_trashed_tasks(data_dir)
+                    workspace = read_workspace(data_dir)
+                return self.json_response(200, workspace)
+            if path == "/api/trash":
+                with _write_lock:
+                    expire_trashed_tasks(data_dir)
+                    state = read_workspace(data_dir, include_trashed=True)
+                    days, policy_warnings = read_trash_retention(data_dir)
+                    trashed = [item for item in state["tasks"] if item.get("trashed_at")]
+                return self.json_response(200, {
+                    "tasks": trashed, "retention_days": days,
+                    "warnings": state["warnings"] + policy_warnings
+                })
             if path == "/api/update/status":
                 return self.json_response(200, get_install_status(ROOT))
             if path == "/api/update/check":
@@ -1037,6 +1050,9 @@ def handler_factory(data_dir: Path):
         def do_POST(self):
             path = unquote(urlsplit(self.path).path)
             task_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/update", path)
+            documents_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/documents", path)
+            lifecycle_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/(trash|restore|purge)", path)
+            changing_retention = path == "/api/trash/settings"
             project_match = re.fullmatch(r"/api/projects/(PROJECT-[A-F0-9]{32})/update", path)
             step_create_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps", path)
             step_update_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/update", path)
@@ -1045,7 +1061,8 @@ def handler_factory(data_dir: Path):
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
             if not (creating_task or creating_project or task_match or project_match or
-                    step_create_match or step_update_match or step_reorder_match or applying_update):
+                    step_create_match or step_update_match or step_reorder_match or applying_update or
+                    documents_match or lifecycle_match or changing_retention):
                 return self.json_response(404, {"error": "not found"})
             if not self.local_request_allowed():
                 return self.json_response(403, {"error": "local requests only"})
@@ -1093,6 +1110,66 @@ def handler_factory(data_dir: Path):
 
             try:
                 payload = self.read_payload()
+                if changing_retention:
+                    if set(payload) != {"retention_days"} or type(payload["retention_days"]) is not int or payload["retention_days"] not in {0, 7, 30, 90}:
+                        raise ValueError("retention_days must be 0, 7, 30 or 90")
+                    with _write_lock:
+                        record = {"version": 1, "event_id": str(uuid.uuid4()),
+                                  "key": "trash_retention_days",
+                                  "days": payload["retention_days"], "timestamp": utc_now()}
+                        _append_json_event(data_dir, record, "settings_events")
+                    return self.json_response(200, {"saved": True, "retention_days": payload["retention_days"]})
+
+                if lifecycle_match:
+                    action = lifecycle_match.group(2)
+                    if set(payload) - {"revision", "confirmed_purge"} or "revision" not in payload:
+                        raise ValueError("task lifecycle requires revision")
+                    if type(payload["revision"]) is not int or payload["revision"] < 1:
+                        raise ValueError("invalid task revision")
+                    if action == "purge":
+                        if payload.get("confirmed_purge") is not True:
+                            raise ValueError("permanent deletion requires explicit confirmation")
+                    elif "confirmed_purge" in payload:
+                        raise ValueError("unexpected purge confirmation")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir, include_trashed=True)
+                        task = next((item for item in workspace["tasks"]
+                                     if item["task_id"] == lifecycle_match.group(1)), None)
+                        if task is None:
+                            return self.json_response(404, {"error": "task not found"})
+                        if task["conflict"] or task["revision"] != payload["revision"]:
+                            return self.json_response(409, {"error": "task changed or has a conflict; refresh"})
+                        if action == "trash" and task.get("trashed_at"):
+                            return self.json_response(409, {"error": "task already in trash"})
+                        if action != "trash" and not task.get("trashed_at"):
+                            return self.json_response(409, {"error": "task must be in trash first"})
+                        append_task_lifecycle(data_dir, task, action)
+                    return self.json_response(200, {"saved": True, "action": action})
+
+                if documents_match:
+                    if set(payload) != {"revision", "links"}:
+                        raise ValueError("document update requires revision and links")
+                    if type(payload["revision"]) is not int or payload["revision"] < 1:
+                        raise ValueError("invalid revision")
+                    links = validate_document_links(payload["links"])
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        task = next((item for item in workspace["tasks"]
+                                     if item["task_id"] == documents_match.group(1)), None)
+                        if not task:
+                            return self.json_response(404, {"error": "task not found"})
+                        if task["conflict"] or task["revision"] != payload["revision"]:
+                            return self.json_response(409, {"error": "task changed or has a conflict; refresh"})
+                        if task["document_links"] == links:
+                            return self.json_response(200, {"saved": False, "revision": task["revision"]})
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "task_id": task["task_id"], "action": "update",
+                                 "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": task["revision"],
+                                 "changes": {"document_links": links}}
+                        append_event(data_dir, event)
+                    return self.json_response(200, {"saved": True, "revision": task["revision"] + 1})
+
                 if step_create_match:
                     if set(payload) != {"title"}:
                         raise ValueError("step create accepts only title")
