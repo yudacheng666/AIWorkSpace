@@ -844,6 +844,12 @@
     let updateBusy = false;
     let current = [];
     let currentProjects = [];
+    let currentArchive = {inbox: [], records: [], warnings: []};
+    let activeArchiveRecordId = "";
+    let activeArchiveInboxId = "";
+    let archiveQuery = {keyword: "", category: ""};
+    let quickCaptureKey = "";
+    let quickCaptureDraftRevision = 0;
     let createDraftRevision = 0;
     let overviewView = "all";
     let selectedSelfOwner = "";
@@ -857,6 +863,7 @@
     const unsavedTaskEditors = new Set();
     const unsavedPersistentEditors = new Set();
     const unsavedProjectEditors = new Set();
+    const unsavedArchiveEditors = new Set();
     let projectKeyword = "";
     let selectedProjectId = "";
     let appliedQuery = {keyword: "", project: "", status: "", owner: "",
@@ -897,18 +904,19 @@
     // confirmations. Never prompt when all task/step drafts are clean.
     window.addEventListener("beforeunload", event => {
       if (!unsavedTaskEditors.size && !unsavedPersistentEditors.size &&
-          !unsavedProjectEditors.size) return;
+          !unsavedProjectEditors.size && !unsavedArchiveEditors.size) return;
       event.preventDefault();
       event.returnValue = "";
     });
 
     function confirmDiscardUnsaved() {
-      if (!unsavedTaskEditors.size) return true;
-      if (!window.confirm("存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？")) {
-        $("query-message").textContent = "已取消切换，未保存的任务或步骤草稿保持不变。";
+      if (!unsavedTaskEditors.size && !unsavedArchiveEditors.size) return true;
+      if (!window.confirm("存在尚未保存的任务、步骤或工作记录修改。继续操作将放弃这些草稿，确定继续？")) {
+        $("query-message").textContent = "已取消操作，未保存的草稿保持不变。";
         return false;
       }
       unsavedTaskEditors.clear();
+      unsavedArchiveEditors.clear();
       return true;
     }
 
@@ -1961,6 +1969,7 @@
       overview: {title: "工作总览", nav: "nav-overview"},
       tasks: {title: "全部任务", nav: "nav-tasks"},
       projects: {title: "项目管理", nav: "nav-projects"},
+      archive: {title: "工作档案", nav: "nav-archive"},
       settings: {title: "系统设置", nav: "nav-settings"}
     };
 
