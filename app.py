@@ -933,23 +933,12 @@ def append_task_lifecycle(data_dir: Path, task: dict, action: str) -> dict:
 
 
 def expire_trashed_tasks(data_dir: Path) -> None:
-    """Sweep on next workspace access, not when computer is off."""
-    # A permanent marker is synchronized independently. Old event files may
-    # arrive later from another computer; erase local replicas on every read
-    # while retaining the marker so they never become active again.
-    directory = data_dir / "events"
-    if directory.is_dir() and not directory.is_symlink():
-        for path in directory.glob("*.json"):
-            if not path.is_file() or path.is_symlink():
-                continue
-            try:
-                if path.stat().st_size <= MAX_BODY:
-                    candidate = json.loads(path.read_text(encoding="utf-8-sig"))
-                    if candidate.get("action") == "purge":
-                        validate_event(candidate)
-                        purge_local_task_history(data_dir, candidate["task_id"])
-            except (OSError, ValueError, TypeError, UnicodeError):
-                continue
+    """Sweep locally expired trashed tasks on workspace access, not while offline.
+
+    A tombstone imported from another device hides the task, but MUST NOT
+    independently erase local history. Only a local user's purge API or this
+    local retention sweep may remove physical event files.
+    """
     days, warnings = read_trash_retention(data_dir)
     if not days or warnings:
         return
