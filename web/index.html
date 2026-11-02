@@ -2107,8 +2107,8 @@
       category.value = record?.category || "other";
       const occurred = element("input");
       occurred.type = "date";
-      const occurredValue = record?.occurred_at || inbox?.occurred_at || "";
-      occurred.value = occurredValue ? String(occurredValue).slice(0, 10) : "";
+      const originalOccurredAt = record?.occurred_at || inbox?.occurred_at || null;
+      occurred.value = originalOccurredAt ? String(originalOccurredAt).slice(0, 10) : "";
       const project = element("select");
       projectOptions(project, record?.project_id || null);
       const titleLabel = element("label", "", "记录标题");
@@ -2147,7 +2147,10 @@
       }
       const snapshot = () => ({
         title: title.value, summary: summary.value, category: category.value,
-        occurred_at: occurred.value || null, project_id: project.value || null,
+        occurred_at: !occurred.value ? null :
+          (originalOccurredAt && String(originalOccurredAt).slice(0, 10) === occurred.value
+            ? originalOccurredAt : occurred.value),
+        project_id: project.value || null,
       });
       const draftWatch = watchUnsavedEditor(form, snapshot, unsavedArchiveEditors);
       form.addEventListener("submit", async event => {
