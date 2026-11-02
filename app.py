@@ -1311,6 +1311,35 @@ def handler_factory(data_dir: Path):
                         "saved": True, "inbox_id": event["inbox_id"],
                     })
 
+                if creating_work_record:
+                    allowed = {
+                        "title", "summary", "occurred_at", "category", "project_id",
+                        "source_ids", "evidence_refs", "action_links",
+                    }
+                    if set(payload) - allowed:
+                        raise ValueError("unknown work record fields")
+                    record_id = f"RECORD-{uuid.uuid4().hex.upper()}"
+                    changes = {
+                        "title": payload.get("title"),
+                        "summary": payload.get("summary"),
+                        "occurred_at": payload.get("occurred_at") or None,
+                        "category": payload.get("category", "other"),
+                        "project_id": payload.get("project_id") or None,
+                        "source_ids": payload.get("source_ids", []),
+                        "evidence_refs": payload.get("evidence_refs", []),
+                        "action_links": payload.get("action_links", []),
+                    }
+                    event = {
+                        "version": 1, "event_id": str(uuid.uuid4()),
+                        "record_id": record_id, "action": "create", "actor": "user",
+                        "timestamp": utc_now(), "base_revision": 0, "changes": changes,
+                    }
+                    with _write_lock:
+                        append_work_record_event(data_dir, event)
+                    return self.json_response(201, {
+                        "saved": True, "record_id": record_id, "revision": 1,
+                    })
+
                 if step_create_match:
                     if set(payload) != {"title"}:
                         raise ValueError("step create accepts only title")
