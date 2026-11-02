@@ -1977,16 +1977,17 @@
       if (!pageMeta[page]) return false;
       if ((view === "mine" || view === "followup") && !selectedSelfOwner) return false;
       if (activeDetailTaskId && !closeTaskDetail()) return false;
+      if (activeArchiveRecordId && page !== "archive" && !closeArchiveRecord()) return false;
       if (unsavedTaskEditors.size && !confirmDiscardUnsaved()) return false;
       if (activePage==="projects" && page!=="projects" && !confirmProjectDrafts()) return false;
       activePage = page;
       if (page === "tasks") taskViewMode = taskViewModes.includes(mode) ? mode : "list";
-      for (const id of ["overview", "tasks", "projects", "settings"]) {
+      for (const id of ["overview", "tasks", "projects", "archive", "settings"]) {
         $("page-" + id).hidden = id !== page;
         $("page-" + id).className = "workspace-page" + (id === page ? " is-active" : "");
       }
       for (const id of ["nav-overview", "nav-tasks", "nav-board", "nav-calendar", "nav-gantt",
-                        "nav-projects", "nav-settings", "nav-today", "nav-followup", "nav-due", "nav-risk"]) {
+                        "nav-projects", "nav-archive", "nav-settings", "nav-today", "nav-followup", "nav-due", "nav-risk"]) {
         const button = $(id);
         button.className = "nav-item";
       }
@@ -2003,6 +2004,7 @@
       $("topbar-context").textContent = pageMeta[page].title;
       refreshOverviewControls();
       renderTaskList();
+      if (page === "archive") loadWorkArchive();
       return true;
     }
 
