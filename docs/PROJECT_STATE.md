@@ -1,5 +1,16 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-02：2.0.1 真实 GitHub 发布源 / 旧版→新版 Windows 隔离验证 PASS
+
+- **正式发布版本仍是 2.0.1**：[PR #15](https://github.com/yudacheng666/AIWorkSpace/pull/15) 已合并，正式 merge SHA `7d1a0f2c8cf8135b78a43108f666d750538d6a18`；本轮真实源测试读取到 GitHub `main` **`31963c3c48c9d9cd95663c971a55cb3bb9b108f6`**，公开 raw VERSION **`2.0.1`**。
+- **定向 Windows 验收**：[QA-only PR #16](https://github.com/yudacheng666/AIWorkSpace/pull/16) / [Actions #41425066853](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41425066853)，准确 QA HEAD **`749beb40f3748617356861a6919c2f75dd9f4167`**；GitHub-hosted 标准 Windows Runner 单项 **SUCCESS / 1 PASS / 0 FAIL**，未重复之前已通过的全套 CI。
+- **新增实际验证范围**：直接从 GitHub 官方发布仓库下载 2.0.0 旧 main SHA `fa51b0123aaac76ddff2064d34178e7cc6e3ab11` 的真实四个程序文件；通过公开 GitHub main API/raw VERSION/zipball 检查和安装 2.0.1；在临时 Windows 程序目录备份旧版、校验新包、执行安装、随机 loopback 端口启动 app 并验证版本与 build SHA、核对虚构 events/project_events/step_events 的 SHA-256 不变；随后从实际备份恢复旧版 2.0.0，并核验程序 SHA-256、无已登记 build 及数据 SHA-256 完全不变。
+- **独立风险互补**：既有发布候选 [Actions #41421749629](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41421749629) 在真实 Windows Chromium + 固定 GitHub mock 环境对网页一键更新成功、失败时自动回滚、原端口和 data-dir 不变已有 PASS。本轮只补真实官方 GitHub 下载/真实旧版安装与备份恢复；**真实官方源 + 浏览器一键更新 + 失败注入的端到端组合路径并未作为一个合并场景同时运行**，不能越界推定。
+- **QA 证据**：artifact `qa-v201-real-public-source`（ID `13130903143`），[PR #16 评论记录](https://github.com/yudacheng666/AIWorkSpace/pull/16#issuecomment-6574287190)。PR #16 已 **CLOSED / NOT MERGED**；专用 QA 分支不影响 main 2.0.1 产品代码。
+- **仍未核实**：合并 SHA `7d1a0f2c8cf8135b78a43108f666d750538d6a18` 对应 `main` 的 push CI 最终状态，因现有 GitHub 连接器 `fetch_commit_workflow_runs` 仅查询 PR 关联运行；不能写成 push CI PASS 或 FAIL。实际公司 Windows 设备、Google Drive 双向同步、正式程序升级和长时间运行均 **NOT TESTED / NOT DEPLOYED**。
+- **授权边界与下一步**：用户只授权继续隔离验证；未授权正式公司电脑操作。工作档案 M1 继续暂停；下一步如要升级真实工作台，先确认本机运行版本、安装/数据目录与备份，再取得单独部署批准。继续遵守准确 SHA 和不重复 Codex/CI 规则。
+
+
 ## 2026-11-02：AIWorkSpace 2.0.1 已由用户批准并合并 GitHub main（正式部署仍未授权）
 
 - **用户批准范围**：2026-11-02 用户已明确批准把通过 CI 的 PR #15 合并到 `main`；用户随后在 GitHub 将 PR 从 Draft 转为 Ready for review。批准范围仅 GitHub 代码合并，不包含公司 Windows 正式机器或真实 Google Drive 数据的升级/更改。
