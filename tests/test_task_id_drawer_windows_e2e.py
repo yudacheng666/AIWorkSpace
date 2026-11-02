@@ -16,7 +16,7 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 try:
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import expect, sync_playwright
 except ImportError:
     sync_playwright = None
 
@@ -160,7 +160,8 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.locator(".step-row").wait_for(state="visible")
         page.locator(".step-edit-form select").first.select_option("blocked")
         page.locator(".step-edit-form button.save").first.click()
-        page.get_by_text("任务状态根据执行步骤联动", exact=False).wait_for(state="visible")
+        expect(page.locator("#task-detail-content .task-form select").first).to_have_value("blocked", timeout=10000)
+        page.locator("#task-detail-content .step-status-note").wait_for(state="visible")
         self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["status"], "blocked")
         self.assertEqual(page.locator(".task-form select").first.input_value(), "blocked")
 
