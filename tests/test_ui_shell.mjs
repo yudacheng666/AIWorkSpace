@@ -139,7 +139,7 @@ test("trash uses a real sidebar page rather than a task-list button or modal", a
 test("trash controls inherit workspace styling and safely reflect selection", async () => {
   assert.match(html, /class="trash-action trash-action--primary" id="trash-save-retention"/);
   assert.match(html, /class="trash-action trash-action--danger" id="trash-purge-selected" disabled/);
-  assert.match(html, /class="trash-action trash-action--restore"/);
+  assert.match(html, /element\("button", "trash-action trash-action--restore", "恢复"\)/);
   assert.match(html, /\.trash-row:has\(\.trash-pick:checked\)/);
   const item = {...sampleTask(), trashed_at: "2026-11-02T09:00:00Z"};
   const conflict = {...sampleTask(), task_id: "TASK-UI-V2-CONFLICT", conflict: true};
