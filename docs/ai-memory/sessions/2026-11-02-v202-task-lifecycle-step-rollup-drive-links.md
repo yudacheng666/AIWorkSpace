@@ -17,7 +17,7 @@
 - 新增真实 Windows Chromium 两条定向 E2E：Drive URL、trash/restore/purge、步骤状态变化、全部 done 提示、人工任务 done。中间三次失败分别为说明误用隐藏 .hint CSS、异步保存后状态断言过早、任务完成保存断言过早。修复了显示样式和 Playwright 状态等待（不动 CSP、保留业务断言）。
 - 受测产品/测试 SHA `6a1bf873790aa4786729c538d0cfd095c3d0304b`，[Actions #41429636009](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41429636009) **3/3 SUCCESS**：Ubuntu Python 113 PASS/9 SKIP + Node60，Windows Python 115 PASS/7 SKIP + Node60，Windows Chromium 原3+新增4 PASS。
 - 数据安全加固 SHA `9d25552e9899f27150899a12ab3be48e22b158c1`，[Actions #41430035182](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41430035182) **3/3 SUCCESS**：Ubuntu Python 114 PASS/9 SKIP、Node 60，Windows Python 116 PASS/7 SKIP、Node 60；Windows Chromium 原有更新/回滚 3 + 任务 UI 4 PASS。
-- 后续同时补入另一条真实两设备文件复制/延迟同步模拟测试 `e52531964c31ca1b547bc750852e9879eb42db1f`，但原断言错误地要求到达第二设备的同步墓碑自动清除当地文件；已纠正至安全决策 D-20261102-UI-08，最新产品/测试 SHA `5e995c7d2ef67bc4039cc91bba65e3e6d0bceba2`，其 CI **须单独核实，不能直接继承 9d255 PASS**。
+- 后续同时补入另一条真实两设备文件复制/延迟同步模拟测试 `e52531964c31ca1b547bc750852e9879eb42db1f`，但原断言错误地要求到达第二设备的同步墓碑自动清除当地文件；已纠正至安全决策 D-20261102-UI-08，最新产品/测试 SHA `5e995c7d2ef67bc4039cc91bba65e3e6d0bceba2`，该 SHA [Actions #41430588371](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41430588371) **3/3 SUCCESS**：Ubuntu Python 124 total / 9 SKIP / 115 PASS、Node 60 PASS；Windows Python 124 total / 7 SKIP / 117 PASS、Node 60 PASS；Windows Chromium 原 3 + 任务操作 4 PASS，新增两设备延迟同步模拟通过。文件仅含虚构任务事件，真实多设备 Drive 仍 NOT TESTED。
 - GitHub Actions 标准免费 runners CI 优先；不得无理由派 Codex 重复同范围。公司真实 Drive、第二台电脑实际同步、真实工作数据/文档权限、长期稳定性均 NOT TESTED。
 
 ## 下一步
