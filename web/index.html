@@ -305,6 +305,11 @@
     .drawer-head { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 19px 22px; border-bottom: 1px solid var(--line); background: #fff; }
     .drawer-head h2 { max-width: 490px; overflow: hidden; color: #243957; font-size: 16px; font-weight: 720; text-overflow: ellipsis; white-space: nowrap; }
     .drawer-head p { margin: 5px 0 0; color: #a0a9b6; font-size: 10px; }
+    .drawer-id-controls { display: flex; align-items: center; gap: 7px; margin-top: 5px; flex-wrap: wrap; }
+    .drawer-id-controls button { border: 0; background: transparent; padding: 2px 4px; color: #65758d; font-size: 11px; cursor: pointer; }
+    .drawer-id-controls button:hover, .drawer-id-controls button:focus-visible { color: #1759a5; text-decoration: underline; }
+    .drawer-id-copy-feedback { font-size: 11px; color: #24754f; }
+    .drawer-id-controls button:focus-visible { outline: 2px solid #1759a5; outline-offset: 2px; border-radius: 4px; }
     .task-detail-content { min-height: 0; overflow: auto; padding: 15px 20px 35px; }
     .task-detail-content .task { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
     .task-detail-content .task-form { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 11px; }
@@ -724,7 +729,13 @@
   <div class="drawer-backdrop" id="task-detail-drawer" hidden>
     <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="task-detail-title">
       <div class="drawer-head">
-        <div><h2 id="task-detail-title">任务详情</h2><p id="task-detail-id"></p></div>
+        <div><h2 id="task-detail-title">任务详情</h2>
+          <div class="drawer-id-controls">
+            <button type="button" id="task-detail-id" title="点击复制任务编号">任务编号</button>
+            <button type="button" id="task-id-copy" aria-label="复制任务编号" title="复制任务编号">⧉</button>
+            <span id="task-id-feedback" class="drawer-id-copy-feedback" role="status" aria-live="polite"></span>
+          </div>
+        </div>
         <button type="button" class="icon-button" id="task-detail-close" aria-label="关闭任务详情">×</button>
       </div>
       <div class="task-detail-content" id="task-detail-content"></div>
@@ -735,6 +746,7 @@
   <script>
     "use strict";
     const $ = id => document.getElementById(id);
+    const taskDisplayId = task => task.display_id || task.task_id;
     const labels = {todo: "待处理", doing: "进行中", blocked: "受阻", done: "已完成"};
     const priorities = {normal: "普通", low: "低", high: "高", urgent: "紧急"};
     const metadataFields = ["owner", "priority", "due_date", "planned_date", "follow_up_date"];
@@ -873,7 +885,7 @@
         section.append(element("h4","",label+"（"+rows.length+"）"));
         if(!rows.length)section.append(element("p","project-help","暂无任务"));
         else for(const task of rows) {
-          const b=element("button","",task.title+" · "+task.task_id);
+          const b=element("button","",task.title+" · "+taskDisplayId(task));
           b.type="button";b.addEventListener("click",()=>openTaskDetail(task.task_id));section.append(b);
         }
         blocks.push(section);
@@ -1225,7 +1237,7 @@
       const card = element("article", "task");
       const top = element("div", "task-top");
       const projectLabel = task.project_name || (task.project_id ? "项目未同步/需核查" : "未归类 / 收件箱");
-      top.append(element("span", "task-id", task.task_id),
+      top.append(element("span", "task-id", taskDisplayId(task)),
                  element("span", "task-badge" + (task.conflict ? " conflict" : ""),
                          task.conflict ? "需要人工核查" : `${projectLabel} · 修订 ${task.revision}`));
       const form = element("form", "task-form");
@@ -1367,7 +1379,7 @@
       const main = element("div", "task-summary-main");
       main.append(
         element("strong", "task-summary-title", task.title || "未命名任务"),
-        element("small", "task-summary-id", task.task_id)
+        element("small", "task-summary-id", taskDisplayId(task))
       );
       const projectName = task.project_name || (task.project_id ? "项目未同步／需核查" : "未归类／收件箱");
       const ownerName = task.owner || "未指派";
@@ -1402,7 +1414,8 @@
         return false;
       }
       $("task-detail-title").textContent = task.title || "任务详情";
-      $("task-detail-id").textContent = task.task_id;
+      $("task-detail-id").textContent = taskDisplayId(task);
+      $("task-id-feedback").textContent = "";
       $("task-detail-content").replaceChildren(row(task));
       $("task-detail-drawer").hidden = false;
       return true;
@@ -1414,6 +1427,19 @@
       if (activeDetailTaskId === taskId) return true;
       activeDetailTaskId = taskId;
       return renderTaskDetail(taskId);
+    }
+
+    async function copyTaskDisplayId() {
+      const task = current.find(item => item.task_id === activeDetailTaskId);
+      if (!task) return;
+      try {
+        const clipboard = globalThis.navigator?.clipboard;
+        if (!clipboard?.writeText) throw new Error("clipboard unavailable");
+        await clipboard.writeText(taskDisplayId(task));
+        $("task-id-feedback").textContent = "已复制";
+      } catch (_) {
+        $("task-id-feedback").textContent = "复制失败，请手动选择编号";
+      }
     }
 
     function closeTaskDetail() {
@@ -1471,7 +1497,7 @@
       if (query.dateFrom && (!dateValue || dateValue < query.dateFrom)) return false;
       if (query.dateTo && (!dateValue || dateValue > query.dateTo)) return false;
       if (query.keyword) {
-        const fields = [task.task_id, task.title, task.project_name,
+        const fields = [task.task_id, taskDisplayId(task), task.title, task.project_name,
           ...(task.related_project_names || [])];
         for (const step of task.steps || []) fields.push(step.step_id, step.title);
         if (!fields.some(value => String(value || "").toLocaleLowerCase()
@@ -1560,7 +1586,7 @@
     function detailOpenButton(task, className, title) {
       const button = element("button", className, title === undefined ? (task.title || "未命名任务") : title);
       button.type = "button";
-      button.title = task.task_id + " · 点击查看详情";
+      button.title = taskDisplayId(task) + " · 点击查看详情";
       button.addEventListener("click", () => openTaskDetail(task.task_id));
       return button;
     }
@@ -1580,7 +1606,7 @@
           const card = detailOpenButton(task, "board-task", "");
           card.append(
             element("strong", "board-task-title", task.title || "未命名任务"),
-            element("small", "board-task-id", task.task_id),
+            element("small", "board-task-id", taskDisplayId(task)),
             element("span", "board-task-meta",
               (task.owner || "未指派") + " · " + (task.due_date ? "截止 " + task.due_date : "未设置截止日期"))
           );
@@ -1599,7 +1625,7 @@
       const inner = element("div", "view-extra-list");
       if (!tasks.length) inner.append(element("span", "board-empty", "无"));
       else for (const task of tasks)
-        inner.append(detailOpenButton(task, "", (task.title || "未命名任务") + " · " + task.task_id));
+        inner.append(detailOpenButton(task, "", (task.title || "未命名任务") + " · " + taskDisplayId(task)));
       box.append(inner);
       return box;
     }
@@ -1633,7 +1659,7 @@
         for (const task of items) {
           const button = detailOpenButton(task,
             "calendar-task" + (task.conflict || task.status === "blocked" ? " is-risk" : ""), task.title);
-          button.title = task.task_id + " · " + dateFields[field] + " " + iso;
+          button.title = taskDisplayId(task) + " · " + dateFields[field] + " " + iso;
           cell.append(button);
         }
         grid.append(cell);
@@ -1675,7 +1701,7 @@
         const meta = element("div", "gantt-task-info");
         meta.append(
           detailOpenButton(task, "", task.title),
-          element("small", "", task.task_id + (planned ? " · 计划 " + planned : "") +
+          element("small", "", taskDisplayId(task) + (planned ? " · 计划 " + planned : "") +
             (due ? " · 截止 " + due : ""))
         );
         const cells = element("div", "gantt-days");
@@ -2067,7 +2093,7 @@
           createTaskDraftWatch.markClean();
           // Keep project selection for quickly creating several tasks in one project.
         }
-        message.textContent = `创建成功：${result.task_id}（待处理）` +
+        message.textContent = `创建成功：${result.display_id || result.task_id}（待处理）` +
           (draftUntouched ? "" : "；正在输入的下一条任务草稿已保留，尚未保存");
         await refresh(true);
         if (draftUntouched) {
@@ -2273,6 +2299,11 @@
       $("create-modal").hidden = true;
     });
     $("task-detail-close").addEventListener("click", closeTaskDetail);
+    $("task-detail-id").addEventListener("click", copyTaskDisplayId);
+    $("task-id-copy").addEventListener("click", copyTaskDisplayId);
+    $("task-detail-drawer").addEventListener("click", event => {
+      if (event.target === $("task-detail-drawer")) closeTaskDetail();
+    });
     $("check-update").addEventListener("click", checkForUpdates);
     $("apply-update").addEventListener("click", applyUpdate);
     setActivePage("overview");
