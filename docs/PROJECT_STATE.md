@@ -1,5 +1,15 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-02：统一版本 2.0.2 正式发布候选（RC）已准备，GitHub CI 3/3 PASS，等待用户批准合并
+
+- **状态**：[PR #17](https://github.com/yudacheng666/AIWorkSpace/pull/17) 已完成 RC 版本与说明，分支 `VERSION=2.0.2`，仍 **Draft / OPEN / 未合并 / 未部署**；正式 `main/VERSION=2.0.1`，用户已反馈实际 Windows 工作台升级 2.0.1 成功（非本机独立验证）。工作档案 PR #14 继续暂停。
+- **准确 RC 产品/测试 SHA**：`faa092d2d9359171f53a01d3f7145197e6412a28`；[GitHub Actions #41443451302](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41443451302) **3/3 SUCCESS**。Ubuntu Python 124 total / 115 PASS / 9 SKIP，Node 60 PASS；Windows Python 124 total / 117 PASS / 7 SKIP，Node 60 PASS；Windows app.py + 真 Chromium 更新/回滚 E2E 3 PASS、任务界面 E2E 4 PASS。0 FAIL。
+- **RC 首次失败与修复**：旧测试 `tests/test_app.py::test_update_status_reports_local_version_without_network` 曾把版本值硬编码 `2.0.1`，`VERSION` 从 2.0.1 升为 2.0.2 后，[Actions #41443192582](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41443192582) 的 Linux/Windows 各 1 FAIL。修复为从仓库 `VERSION` 文件读取预期值，确保语义版本后续再更新无需修改测试魔数；准确 SHA `faa092d` 完整三组 CI 已通过。该轮未修改三项功能的产品逻辑。
+- **已实现需求**：任务回收站（删除、恢复、选中彻底删除、0/7/30/90 天周期）及永久删除墓碑；步骤聚合任务有效状态（全部完成后仅提示用户亲自确认）；任务保存最多 20 个 Google Drive/Docs/Sheets/Slides 链接、跨设备打开、AI 使用现有连接器访问取决于权限。跨设备**虚构数据模拟**已在前序 SHA `5e995c7d2ef67bc4039cc91bba65e3e6d0bceba2` 的 [Actions #41430588371](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41430588371) PASS，RC 正常回归也通过。
+- **仍为 NOT TESTED**：两台真实电脑经 Google Drive 服务的掉线/重连和历史版本、真正 Drive 文档权限、公司生产数据及长时间运行。同步来的墓碑只逻辑隐藏，不因此物理删除另一电脑现存文件；本机可确认永久删除或到期清理，但不保证跨副本物理抹除。
+- **执行流程**：保留 ChatGPT 开发/自测 + GitHub Actions 准确 SHA 测试；不默认 Codex 复跑已有 PASS 范围。当前无新增需重复 CI 的代码改动。下一步：用户确认 RC 功能范围及未测风险后**明确批准 GitHub 合并**；PR 解除 Draft 后可使用普通 merge 将已通过的 2.0.2 合并 main，核查合并 SHA/main VERSION。实际电脑更新依旧是用户在工作台手动触发，ChatGPT 不操作实际 Windows/Drive 数据。
+
+
 ## 2026-11-02：2.0.2 回收站／步骤状态／Drive 引用已实现，准确 SHA CI PASS（未发布）
 
 - **需求来源**：用户确认实际 Windows 工作台 2.0.1 网页一键升级成功，并明确要求下一版实现任务删除与回收站、执行步骤与任务状态联动、Google Drive 文档关联。实际升级成功是用户反馈，非本轮独立设备核验。
