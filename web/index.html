@@ -2606,6 +2606,86 @@
     }
 
 
+    const quickCaptureForm = $("quick-capture-form");
+    const quickCaptureDraftWatch = watchUnsavedEditor(
+      quickCaptureForm, quickCaptureSnapshot, unsavedPersistentEditors
+    );
+    $("quick-capture-content").addEventListener("input", () => {
+      quickCaptureDraftRevision += 1;
+      quickCaptureKey = "";
+    });
+    $("quick-capture-date").addEventListener("change", () => {
+      quickCaptureDraftRevision += 1;
+      quickCaptureKey = "";
+    });
+    quickCaptureForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      const draft = quickCaptureSnapshot();
+      if (isSaving) return;
+      if (!draft.content.trim()) {
+        $("quick-capture-message").className = "message error";
+        $("quick-capture-message").textContent = "请输入要保存的工作内容。";
+        return;
+      }
+      if (!quickCaptureKey) {
+        quickCaptureKey = \`CAP-\${Date.now()}-\${Math.random().toString(16).slice(2, 10)}\`;
+      }
+      const keyAtSubmit = quickCaptureKey;
+      const revisionAtSubmit = quickCaptureDraftRevision;
+      const body = {
+        content: draft.content, source: "workbench", capture_key: keyAtSubmit,
+      };
+      if (draft.occurred_at) body.occurred_at = draft.occurred_at;
+      isSaving = true;
+      $("quick-capture-submit").disabled = true;
+      $("quick-capture-message").className = "message";
+      $("quick-capture-message").textContent = "正在保存原始输入…";
+      try {
+        const response = await fetch("/api/work-archive/inbox", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(body),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || \`HTTP \${response.status}\`);
+        const untouched = quickCaptureDraftRevision === revisionAtSubmit &&
+          JSON.stringify(quickCaptureSnapshot()) === JSON.stringify(draft);
+        if (untouched) {
+          $("quick-capture-content").value = "";
+          $("quick-capture-date").value = "";
+          quickCaptureKey = "";
+          quickCaptureDraftWatch.markClean(quickCaptureSnapshot());
+          $("quick-capture-modal").hidden = true;
+          $("quick-capture-message").textContent = \`原始输入已保存：\${result.inbox_id}\`;
+        } else {
+          $("quick-capture-message").textContent =
+            \`原始输入已保存：\${result.inbox_id}；之后输入的新草稿已保留。\`;
+        }
+        if (activePage === "archive") await loadWorkArchive();
+      } catch (error) {
+        $("quick-capture-message").className = "message error";
+        $("quick-capture-message").textContent =
+          \`保存结果未确认：\${error.message}。请先刷新原始输入列表核对；相同内容重试会使用幂等编号。\`;
+      } finally {
+        isSaving = false;
+        $("quick-capture-submit").disabled = false;
+      }
+    });
+
+    $("archive-filter").addEventListener("submit", event => {
+      event.preventDefault();
+      archiveQuery = {
+        keyword: $("archive-search").value.trim().toLocaleLowerCase(),
+        category: $("archive-category").value || "",
+      };
+      renderArchive();
+    });
+    $("archive-reset").addEventListener("click", () => {
+      $("archive-search").value = "";
+      $("archive-category").value = "";
+      archiveQuery = {keyword: "", category: ""};
+      renderArchive();
+    });
+
     const navBindings = [
       ["nav-overview", "overview", null],
       ["nav-tasks", "tasks", "all", "list"],
@@ -2617,6 +2697,7 @@
       ["nav-due", "tasks", "due"],
       ["nav-risk", "tasks", "risk"],
       ["nav-projects", "projects", null],
+      ["nav-archive", "archive", null],
       ["nav-settings", "settings", null]
     ];
     for (const [id, page, view, mode] of navBindings) {
@@ -2639,6 +2720,10 @@
       $("query-keyword").value = $("global-search").value;
       if (setActivePage("tasks", "all")) applyTaskQuery();
     });
+    $("open-quick-capture").addEventListener("click", openQuickCapture);
+    $("open-archive-capture").addEventListener("click", openQuickCapture);
+    $("quick-capture-close").addEventListener("click", closeQuickCapture);
+    $("archive-record-close").addEventListener("click", closeArchiveRecord);
     $("open-create-task").addEventListener("click", () => {
       if (activeDetailTaskId && !closeTaskDetail()) return;
       $("create-modal").hidden = false;
