@@ -71,6 +71,13 @@ class UpdaterTests(unittest.TestCase):
         self.data_file = self.data_dir / "events" / "evt-fictional.json"
         self.data_file.write_text('{"fictional": "must remain byte-identical"}\n', encoding="utf-8")
         self.original_data = self.data_file.read_bytes()
+        archive_inbox = self.data_dir / "work_archive" / "inbox"
+        archive_inbox.mkdir(parents=True)
+        self.archive_file = archive_inbox / "evt-fictional-inbox.json"
+        self.archive_file.write_text(
+            '{"fictional":"archive input must remain byte-identical"}\n', encoding="utf-8"
+        )
+        self.original_archive = self.archive_file.read_bytes()
         for relative, value in OLD_FILES.items():
             target = self.root / relative
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -92,6 +99,11 @@ class UpdaterTests(unittest.TestCase):
         self.assertEqual(self.data_file.read_bytes(), self.original_data)
         self.assertEqual(sorted(p.name for p in (self.data_dir / "events").iterdir()),
                          ["evt-fictional.json"])
+        self.assertEqual(self.archive_file.read_bytes(), self.original_archive)
+        self.assertEqual(
+            sorted(p.name for p in (self.data_dir / "work_archive" / "inbox").iterdir()),
+            ["evt-fictional-inbox.json"],
+        )
 
     def test_archive_stages_only_allowlisted_application_files(self):
         stage = updater.validate_archive_and_stage(
