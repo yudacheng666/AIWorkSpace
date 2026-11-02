@@ -467,13 +467,14 @@ test("M1 quick capture saves the original text to the inbox, not to tasks", asyn
   page.el("open-quick-capture").handlers.get("click")[0]();
   assert.equal(page.el("quick-capture-modal").hidden, false);
   const input = page.el("quick-capture-content");
-  input.value = "今天完成一次虚构供应商沟通，等待资料回传。";
+  const raw = "今天完成一次虚构供应商沟通，等待资料回传。";
+  input.value = raw;
   input.handlers.get("input")[0]();
   const form = page.el("quick-capture-form");
   await form.handlers.get("submit")[0]({preventDefault() {}});
   assert.equal(page.writes.length, 1);
   assert.equal(page.writes[0].path, "/api/work-archive/inbox");
-  assert.equal(page.writes[0].body.content, input.value === "" ? "今天完成一次虚构供应商沟通，等待资料回传。" : input.value);
+  assert.equal(page.writes[0].body.content, raw);
   assert.equal(page.writes[0].body.source, "workbench");
   assert.ok(page.writes[0].body.capture_key);
   assert.equal(page.el("quick-capture-modal").hidden, true);
@@ -496,7 +497,7 @@ test("M1 work record detail edits with its current revision", async () => {
   form.handlers.get("input")[0]();
   await form.handlers.get("submit")[0]({preventDefault() {}});
   assert.equal(page.writes.length, 1);
-  assert.match(page.writes[0].path, /\\/api\\/work-archive\\/records\\/RECORD-/);
+  assert.match(page.writes[0].path, /\/api\/work-archive\/records\/RECORD-/);
   assert.equal(page.writes[0].body.revision, 1);
   assert.equal(page.writes[0].body.summary, "补充后的虚构会议结论。");
 });
