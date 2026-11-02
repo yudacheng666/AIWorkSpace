@@ -1567,6 +1567,12 @@ class WorkArchiveDataTests(unittest.TestCase):
         self.assertEqual(archive["inbox"][0]["status"], "processed")
         self.assertEqual(archive["inbox"][0]["linked_record_ids"], ["RECORD-" + "A" * 32])
 
+    def test_record_event_requires_timezone_aware_timestamp(self):
+        invalid = work_record_event()
+        invalid["timestamp"] = "2026-11-02T10:00:00"
+        with self.assertRaises(ValueError):
+            validate_work_record_event(invalid)
+
     def test_inbox_rejects_bad_occurrence_time_and_invalid_source(self):
         invalid = work_inbox_event(occurred_at="2026-11-02T10:00:00")
         with self.assertRaises(ValueError):
