@@ -34,3 +34,12 @@
   - Windows `app.py` + 真实 Chromium：原更新/回滚 + UI E2E 3 PASS，任务短编号、抽屉、Drive 链接、回收站、草稿保留、步骤联动及人工完成确认 4 PASS。
 - 两个临时数据目录仿真：先任务事件、再永久删除墓碑、再迟到旧事件；结果任务不复活，且不自动物理清理仅收到标记的另一设备文件。是真实本地文件读写的仿真，不等于 Google Drive 云同步端到端验收。
 - 发布边界：本 SHA 后只追加 `[skip ci]` Markdown 状态/验收记录，产品与测试代码保持上面准确 SHA。仍为 Draft PR #17，`main/VERSION=2.0.1` 未升级；工作档案继续暂停，真实 Drive/公司电脑/账户权限/长时使用 NOT TESTED。高风险独立验收待按覆盖缺口定向安排，绝不将已测 CI 匹配范围交 Codex 重跑。
+
+
+## 发布候选 RC（2026-11-02，当次“继续”实际执行）
+
+- 在保留工作档案暂停、PR #17 Draft/禁止自动合并的前提下，完成 GitHub 2.0.2 发布候选准备，`VERSION` 在独立分支改为 `2.0.2`，README 顶部更新当前发布说明；正式 main 仍 `2.0.1`。
+- RC 首次 SHA `c655088ed1a23fb9ec7ef589a0774d9544c342fb` 的 [Actions #41443192582](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41443192582) 在 Linux/Windows Python 同一旧测试失败：`test_update_status_reports_local_version_without_network` 写死 `2.0.1`。修复为以仓库 `VERSION` 的值断言，避免以后小版本变更误报；未修改任何任务/步骤/Drive 产品逻辑或数据迁移。
+- **正式 RC 产品/测试 SHA** `faa092d2d9359171f53a01d3f7145197e6412a28`， [Actions #41443451302](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41443451302) **SUCCESS 3/3**：Ubuntu Python 124 total / 115 PASS / 9 SKIP；Node 60 PASS；Windows Python 124 total / 117 PASS / 7 SKIP；Node 60 PASS；Windows 真 Chromium 更新器 3 PASS、任务/回收站/Drive 链接/步骤联动 4 PASS。0 FAIL。
+- 这些结果是在 GitHub 标准 Runner 虚构数据环境完成，不代表真实两台电脑的 Google Drive 服务/实际文件权限/公司任务数据已验证。暂不执行额外 Codex 回归，不合并 PR、不改真实工作台，等待用户明确批准发布。
+- 回写位置：PR #17 正文与评论、`docs/PROJECT_STATE.md`、`docs/DECISIONS.md`、本 session，确保跨对话从准确 SHA 接续开发。此后仅 docs Markdown 变化可复用上面的代码/测试 SHA 证据。
