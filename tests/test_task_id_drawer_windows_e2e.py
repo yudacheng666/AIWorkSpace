@@ -177,8 +177,12 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.locator(".task-form select").first.select_option("done")
         page.once("dialog", lambda dialog: dialog.accept())
         page.locator(".task-form button.save").first.click()
-        page.get_by_text("已保存独立修改记录", exact=False).wait_for(state="hidden")
-        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["status"], "done")
+        # A "hidden" locator may be true before the asynchronous POST even
+        # starts. Wait for the save-success event written after refresh instead.
+        expect(page.locator("#sync")).to_contain_text("保存成功", timeout=10000)
+        state = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual(state["manual_status"], "done")
+        self.assertEqual(state["status"], "done")
 
     def test_unsaved_draft_cannot_be_silently_discarded(self):
         page = self._open_browser()
