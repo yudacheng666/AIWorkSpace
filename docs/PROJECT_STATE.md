@@ -1,5 +1,20 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-02：个人工作档案 M1 基础功能开发（隔离分支）
+
+- **M0 设计基线**：个人工作档案内置于 AIWorkSpace，不独立发布；当前统一版本 2.0.0 保持不变，完整功能建议随统一 2.1.0 发布。M0 设计 PR #14 保持 Draft/未合并；M1 分支基于 main，并携带设计文档副本，不依赖 PR #14 合并。
+- **正式基线**：GitHub main 起点 SHA fa51b0123aaac76ddff2064d34178e7cc6e3ab11；VERSION=2.0.0。M1 当前开发分支 feat/20261102-m1-work-archive，尚未合入 main 或部署。
+- **已实现数据层**：app.py 增加工作档案事件校验、追加写入、读取 reducer；原始输入 work_archive/inbox/；标准记录 work_archive/record_events/；支持 RECORD/INBOX ID、event_id、base_revision、capture_key 幂等、重复事件冲突保护。
+- **已实现 API**：GET /api/work-archive；POST /api/work-archive/inbox；POST /api/work-archive/records；POST /api/work-archive/records/{record_id}/update。新增路由继续使用本机 Host/Origin allowlist 和写入锁。
+- **已实现 UI**：web/index.html 增加工作档案独立导航、全局快速记录弹窗、原始输入列表、工作记录时间线/分类筛选/关键词搜索、工作记录详情编辑抽屉。
+- **已增加测试**：tests/test_app.py 覆盖无档案目录兼容、原文持久化、记录追加更新、重复事件冲突、证据/行动关联校验、来源标记和 HTTP 幂等/409/Host 保护；tests/test_ui_shell.mjs 覆盖导航、快速记录、时间线搜索和 revision 编辑；tests/test_updater.py 扩展验证更新/回滚期间 work_archive 文件字节不变。
+- **数据备份边界**：work_archive/ 位于 --data-dir，程序更新器不操作该目录；updater 备份只包含程序白名单，不包含用户数据。当前产品没有完整 data-dir 备份/恢复功能，README 已明确说明。不得把 Drive 同步或程序更新备份说成完整数据备份。
+- **费用和 AI 边界**：没有使用 OpenAI API 或其他模型 API；工作台本地只保存和展示，ChatGPT 产品负责语义整理。既有 Google Drive 双向通道不重新论证；新增档案数据类型的增量连接器烟测尚未执行。
+- **当前测试状态**：代码和测试已写入隔离分支；尚未获得该分支准确 SHA 的 GitHub Actions 结果。待 Draft PR 创建后由 CI 自动执行，不重复旧 SHA 的既有测试。
+- **本轮保护**：未修改 main、VERSION、真实 --data-dir 或真实 Google Drive；未合并、未部署。M0 PR #14 不合并。
+- **下一步**：完成代码审查和测试静态检查，创建 Draft PR，按准确 SHA 检查 Linux/Windows Python、Node UI 和 Windows updater E2E；CI 通过后，仅做新增 work_archive 数据类型的 Google Drive 增量适配验证。
+
+
 ## 2026-11-02：UI V2.0.0 已发布到 GitHub main（尚未正式部署）
 
 - **用户明确批准**：2026-11-02 授权将 UI V2 第一至第三阶段合并到 GitHub main。批准范围**仅限代码仓库合并**，不包含公司电脑、真实 Google Drive 或现有任务数据的更新。
