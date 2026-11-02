@@ -123,8 +123,10 @@ class ReducerTests(unittest.TestCase):
             # Remote machine has not yet propagated old source-file deletion.
             self.assertGreater(len(list((remote / "events").glob("*.json"))), 1)
             app.expire_trashed_tasks(remote)
-            self.assertEqual(len(list((remote / "events").glob("*.json"))), 1)
-            self.assertEqual(len(list((remote / "step_events").glob("*.json"))), 0)
+            # Imported tombstones hide tasks, but may not silently erase the
+            # second device's local files without local authorization.
+            self.assertGreater(len(list((remote / "events").glob("*.json"))), 1)
+            self.assertGreater(len(list((remote / "step_events").glob("*.json"))), 0)
             # A stale offline machine uploads the original files again.
             for folder, files in original_files.items():
                 for name, payload in files:
@@ -132,8 +134,9 @@ class ReducerTests(unittest.TestCase):
             # Even before local physical cleanup, tombstones prevent resurrection.
             self.assertEqual(app.read_workspace(remote)["tasks"], [])
             app.expire_trashed_tasks(remote)
-            self.assertEqual(len(list((remote / "events").glob("*.json"))), 1)
-            self.assertEqual(len(list((remote / "step_events").glob("*.json"))), 0)
+            self.assertGreater(len(list((remote / "events").glob("*.json"))), 1)
+            self.assertGreater(len(list((remote / "step_events").glob("*.json"))), 0)
+            self.assertEqual(app.read_workspace(remote, include_trashed=True)["tasks"], [])
 
     def test_duplicate_trash_and_restore_revision_is_frozen(self):
         app.append_event(self.data_dir, evt("fake-trash-001", "trash", 1,
