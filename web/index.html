@@ -741,6 +741,9 @@
         <label for="new-task-related">关联项目（可多选）
           <select id="new-task-related" multiple size="3"></select>
         </label>
+        <label for="new-task-parent" title="仅明确指定上级任务才建立子任务联动关系。">上级任务（可选）
+          <select id="new-task-parent"><option value="">无上级任务</option></select>
+        </label>
         <button class="save" id="create-submit" type="submit">创建任务</button>
         <div class="task-meta create-meta" aria-label="任务管理字段">
           <label for="new-task-owner">负责人
@@ -893,6 +896,24 @@
         option.value = projectId;
         option.selected = true;
         select.append(option);
+      }
+    }
+
+    function parentTaskOptions(select, selectedId, editingTaskId = "") {
+      select.replaceChildren();
+      const empty = element("option", "", "无上级任务");
+      empty.value = ""; empty.selected = !selectedId;
+      select.append(empty);
+      for (const task of current) {
+        if (task.task_id === editingTaskId || task.conflict || task.trashed_at) continue;
+        const option = element("option", "", task.title + " · " + taskDisplayId(task));
+        option.value = task.task_id; option.selected = selectedId === task.task_id;
+        select.append(option);
+      }
+      if (selectedId && !current.some(task => task.task_id === selectedId && !task.conflict)) {
+        const missing = element("option", "", "上级任务未同步 / 需核查");
+        missing.value = selectedId; missing.selected = true;
+        select.append(missing);
       }
     }
 
@@ -1291,7 +1312,7 @@
       title.value = hasTitleConflict ? "任务名称存在冲突（未裁决）" : task.title;
       title.required = true; title.disabled = task.conflict;
       titleLabel.append(title);
-      const statusLabel = element("label", "", "状态");
+      const statusLabel = element("label", "", "状态（实际显示可由下级联动）");
       const status = element("select");
       if (hasStatusConflict) {
         const option = element("option", "", "状态存在冲突（未裁决）");
@@ -1306,6 +1327,11 @@
       }
       status.disabled = task.conflict;
       statusLabel.append(status);
+      const parentLabel = element("label", "", "上级任务（可选）");
+      const parentSelect = element("select");
+      parentTaskOptions(parentSelect, task.parent_task_id || "", task.task_id);
+      parentSelect.disabled = task.conflict;
+      parentLabel.append(parentSelect);
       const projectLabelInput = element("label", "", "主要所属项目");
       const project = element("select");
       projectOptions(project, task.project_id || "");
@@ -1322,10 +1348,10 @@
       const message = element("p", "message", task.conflict
         ? "检测到冲突，系统已停止写入。请先核查；冲突候选不是最终结论。"
         : "");
-      form.append(titleLabel, statusLabel, projectLabelInput, relatedLabel, button);
+      form.append(titleLabel, statusLabel, parentLabel, projectLabelInput, relatedLabel, button);
       const metadataControls = addTaskMetadata(form, task);
       const taskDraftSnapshot = () => JSON.stringify({
-        title: title.value, status: status.value,
+        title: title.value, status: status.value, parent: parentSelect.value,
         project: project.value, related: selectedValues(related),
         metadata: readTaskMetadata(metadataControls)
       });
@@ -1341,11 +1367,13 @@
           nextMetadata[field] !== (task[field] ?? (field === "priority" ? "normal" : null)));
         const completedNow = nextStatus === "done" && task.status !== "done";
         if (completedNow && !window.confirm("确认亲自将此任务标记为完成？")) return;
+        const parentChanged = (parentSelect.value || null) !== (task.parent_task_id || null);
+        const statusChanged = nextStatus !== task.status;
         const primaryChanged = nextProject !== (task.project_id || null);
         const originalRelated = task.related_project_ids || [];
         const relatedChanged = nextRelated.length !== originalRelated.length ||
           nextRelated.some(id => !originalRelated.includes(id));
-        if (title.value.trim() === task.title && nextStatus === task.status &&
+        if (title.value.trim() === task.title && !statusChanged && !parentChanged &&
             !primaryChanged && !relatedChanged && !metaChanged) {
           message.textContent = "内容没有变化";
           return;
@@ -1353,8 +1381,13 @@
         const draftAtSubmit = taskDraftSnapshot();
         isSaving = true; button.disabled = true; message.textContent = "正在保存…";
         try {
-          const changes = {title: title.value.trim(), status: nextStatus,
-                           revision: task.revision, confirmed_done: nextStatus === "done"};
+          const changes = {title: title.value.trim(), revision: task.revision};
+          // Status is an effective read-only rollup unless the user explicitly changes the selector.
+          if (statusChanged) {
+            changes.status = nextStatus;
+            if (nextStatus === "done") changes.confirmed_done = true;
+          }
+          if (parentChanged) changes.parent_task_id = parentSelect.value || null;
           // Send project references only when a user explicitly changes their selection.
           // A title-only edit must not clear IDs whose project file is still syncing.
           if (primaryChanged) changes.project_id = nextProject;
@@ -1385,13 +1418,39 @@
           message.textContent = `保存失败：${error.message}。请刷新后重试。`;
         } finally { isSaving = false; button.disabled = false; }
       });
-      if (task.status_source === "steps") {
-        form.append(element("p", "step-status-note", "任务状态根据执行步骤联动；全部完成时仍须亲自确认任务完成。"));
+      if (["steps", "children", "steps_and_children"].includes(task.status_source)) {
+        form.append(element("p", "step-status-note",
+          "当前状态：" + (labels[task.status] || task.status) + "（由" +
+          (task.status_source === "steps" ? "执行步骤" :
+           task.status_source === "children" ? "子任务" : "步骤及子任务") +
+          "自动联动；原人工状态：" + (labels[task.manual_status] || task.manual_status) +
+          "）。全部完成仍须人工确认上级任务。"));
+      }
+      if (task.status_rollup_incomplete || task.parent_missing) {
+        form.append(element("p", "step-order-warning",
+          "父子关系或同步信息不完整，已暂停不可靠的状态联动；请先核查。"));
       }
       if (task.step_completion_pending) {
         form.append(element("p", "step-message", "全部执行步骤已完成，请人工确认是否将任务标记为完成。"));
       }
-      card.append(top, form, stepPanel(task), documentPanel(task), lifecyclePanel(task));
+      const children = current.filter(item => item.parent_task_id === task.task_id);
+      const childPanel = element("section", "steps-panel");
+      const childHead = element("div", "steps-head");
+      childHead.append(element("strong", "", "子任务"),
+                       element("span", "", children.length + " 项 · 根据明确指定的上级任务关联"));
+      childPanel.append(childHead);
+      const childList = element("div", "step-list");
+      for (const child of children) {
+        const jump = element("button", "board-task", child.title + " · " +
+                             (labels[child.status] || child.status));
+        jump.type = "button";
+        jump.addEventListener("click", () => openTaskDetail(child.task_id));
+        childList.append(jump);
+      }
+      if (!children.length) childList.append(element("p", "step-empty",
+        "暂无子任务。可在其他任务的详情中指定本任务为上级。"));
+      childPanel.append(childList);
+      card.append(top, form, stepPanel(task), childPanel, documentPanel(task), lifecyclePanel(task));
       if (task.conflict) {
         const details = [];
         const valuesFor = field => [...new Set(candidates
@@ -1539,7 +1598,7 @@
       const card = element("article", "task-summary");
       const main = element("div", "task-summary-main");
       main.append(
-        element("strong", "task-summary-title", task.title || "未命名任务"),
+        element("strong", "task-summary-title", (task.parent_task_id ? "↳ " : "") + (task.title || "未命名任务")),
         element("small", "task-summary-id", taskDisplayId(task))
       );
       const projectName = task.project_name || (task.project_id ? "项目未同步／需核查" : "未归类／收件箱");
@@ -2123,10 +2182,13 @@
         $("finished").textContent = current.filter(t => !t.conflict && t.status === "done").length;
         const createProjectSelect = $("new-task-project");
         const createRelatedSelect = $("new-task-related");
+        const createParentSelect = $("new-task-parent");
+        const priorParent = createParentSelect.value;
         const priorProject = createProjectSelect.value;
         const priorRelated = selectedValues(createRelatedSelect);
         projectOptions(createProjectSelect, priorProject);
         projectOptions(createRelatedSelect, priorRelated, true);
+        parentTaskOptions(createParentSelect, priorParent);
         renderProjects();
         refreshOverviewControls();
         renderTaskList();
@@ -2200,6 +2262,7 @@
         title: $("new-task-title").value,
         project_id: $("new-task-project").value || null,
         related_project_ids: selectedValues($("new-task-related")),
+        parent_task_id: $("new-task-parent").value,
         owner: $("new-task-owner").value,
         priority: $("new-task-priority").value || "normal",
         due_date: $("new-task-due").value,
@@ -2287,6 +2350,7 @@
         const body = {title};
         if (projectId) body.project_id = projectId;
         if (relatedIds.length) body.related_project_ids = relatedIds;
+        if (draft.parent_task_id) body.parent_task_id = draft.parent_task_id;
         if (draft.owner.trim()) body.owner = draft.owner.trim();
         if (draft.priority !== "normal") body.priority = draft.priority;
         if (draft.due_date) body.due_date = draft.due_date;
