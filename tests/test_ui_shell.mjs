@@ -8,14 +8,15 @@ const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8")
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(scriptMatch, "the production page must contain its inline script");
 
-function harness(tasks = [], confirm = () => true, projects = []) {
+function harness(tasks = [], confirm = () => true, projects = [], trashTasks = []) {
   const elements = new Map();
   const writes = [];
   function node(tag = "div") {
     const handlers = new Map();
     const item = {
       tag, handlers, children: [], textContent: "", className: "",
-      disabled: false, hidden: false, multiple: false, selected: false,
+      disabled: false, hidden: false, multiple: false, selected: false, checked: false,
+      setAttribute(name, value) { this[name] = value; },
       _value: "", append(...children) { this.children.push(...children); },
       replaceChildren(...children) { this.children = children; },
       addEventListener(type, handler) {
@@ -51,7 +52,16 @@ function harness(tasks = [], confirm = () => true, projects = []) {
       }
       return elements.get(id);
     },
-    createElement(tag) { return node(tag); }
+    createElement(tag) { return node(tag); },
+    querySelectorAll(selector) {
+      if (!selector.startsWith(".trash-pick")) return [];
+      const picks = (elements.get("trash-list")?.children || [])
+        .filter(row => row.className === "trash-row")
+        .map(row => row.children[0]);
+      if (selector.includes(":not(:disabled)")) return picks.filter(pick => !pick.disabled);
+      if (selector.includes(":checked")) return picks.filter(pick => pick.checked);
+      return picks;
+    }
   };
   const copied = [];
   const navigator = {clipboard: {writeText: async value => {copied.push(value);}}};
@@ -64,11 +74,11 @@ function harness(tasks = [], confirm = () => true, projects = []) {
     if (path === "/api/update/status") {
       return {ok: true, json: async () => ({version: "1.0.0", build_short: "abcdef0"})};
     }
-    if (path === "/api/trash") return {ok: true, json: async () => ({tasks: [], retention_days: 30, warnings: []})};
+    if (path === "/api/trash") return {ok: true, json: async () => ({tasks: trashTasks, retention_days: 30, warnings: []})};
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, loadTrash})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes, el: id => document.getElementById(id)};
@@ -124,6 +134,43 @@ test("trash uses a real sidebar page rather than a task-list button or modal", a
   assert.equal(page.el("page-trash").hidden, true);
   assert.equal(page.el("page-tasks").hidden, false);
   assert.equal(page.writes.length, 0, "navigation must not change task data");
+});
+
+test("trash controls inherit workspace styling and safely reflect selection", async () => {
+  assert.match(html, /class="trash-action trash-action--primary" id="trash-save-retention"/);
+  assert.match(html, /class="trash-action trash-action--danger" id="trash-purge-selected" disabled/);
+  assert.match(html, /class="trash-action trash-action--restore"/);
+  assert.match(html, /\.trash-row:has\(\.trash-pick:checked\)/);
+  const item = {...sampleTask(), trashed_at: "2026-11-02T09:00:00Z"};
+  const conflict = {...sampleTask(), task_id: "TASK-UI-V2-CONFLICT", conflict: true};
+  const page = harness([], () => true, [], [item, conflict]);
+  await page.api.loadTrash();
+  const rows = page.el("trash-list").children;
+  assert.equal(rows.length, 2);
+  assert.equal(page.el("trash-count").textContent, "2 项");
+  assert.equal(page.el("trash-selection-count").textContent, "已选 0 项");
+  assert.equal(page.el("trash-purge-selected").disabled, true);
+  assert.equal(rows[1].children[0].disabled, true);
+  assert.equal(rows[1].children[2].disabled, true);
+  page.el("trash-select-all").handlers.get("click")[0]();
+  assert.equal(rows[0].children[0].checked, true);
+  assert.equal(rows[1].children[0].checked, false);
+  assert.equal(page.el("trash-select-all").textContent, "取消全选");
+  assert.equal(page.el("trash-selection-count").textContent, "已选 1 项");
+  assert.equal(page.el("trash-purge-selected").disabled, false);
+  page.el("trash-select-all").handlers.get("click")[0]();
+  assert.equal(page.el("trash-selection-count").textContent, "已选 0 项");
+  assert.equal(page.el("trash-purge-selected").disabled, true);
+  rows[0].children[0].checked = true;
+  rows[0].children[0].handlers.get("change")[0]();
+  assert.equal(page.el("trash-selection-count").textContent, "已选 1 项");
+  assert.equal(page.writes.length, 0, "styling and selection must not write task data");
+
+  const emptyPage = harness();
+  await emptyPage.api.loadTrash();
+  assert.equal(emptyPage.el("trash-list").children[0].className, "trash-empty");
+  assert.equal(emptyPage.el("trash-select-all").disabled, true);
+  assert.equal(emptyPage.el("trash-purge-selected").disabled, true);
 });
 
 test("task summary opens the existing revision-protected editor in a detail drawer", async () => {

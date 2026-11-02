@@ -143,6 +143,8 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         row = page.locator(".trash-row").first
         row.wait_for(state="visible")
         self.assertIn("虚构任务", row.inner_text())
+        self.assertIn("trash-action--restore", row.get_by_role("button", name="恢复").get_attribute("class"))
+        self.assertTrue(page.locator("#trash-purge-selected").is_disabled())
         page.once("dialog", lambda dialog: dialog.accept())
         row.get_by_role("button", name="恢复").click()
         page.locator(".trash-row").wait_for(state="hidden")
@@ -158,6 +160,8 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         row = page.locator(".trash-row").first
         row.wait_for(state="visible")
         row.locator("input[type='checkbox']").check()
+        self.assertFalse(page.locator("#trash-purge-selected").is_disabled())
+        self.assertEqual(page.locator("#trash-selection-count").inner_text(), "已选 1 项")
         page.once("dialog", lambda dialog: dialog.accept())
         page.locator("#trash-purge-selected").click()
         page.locator(".trash-row").wait_for(state="hidden")

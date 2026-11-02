@@ -469,13 +469,54 @@
 
 
     /* V2.0.2 lifecycle and linked references: reuse restrained workspace visual language. */
-    .trash-panel {width:100%;max-width:960px;background:var(--surface,#fff);color:var(--text,#1f2937);border:1px solid var(--line);border-radius:12px;padding:22px;box-shadow:0 2px 10px rgba(12,20,38,.04);}
-    .trash-head,.trash-toolbar {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-    .trash-warning {display:block;font-size:13px;line-height:1.5;color:#9a3412;margin:8px 0;}
-    .trash-list {display:grid;gap:8px;margin:14px 0;}
-    .trash-row {display:flex;align-items:center;gap:12px;padding:10px;border:1px solid #dce1e9;border-radius:8px;}
-    .trash-row-label {flex:1;min-width:0;overflow-wrap:anywhere;}
-    .trash-row small {display:block;opacity:.72;}
+    /* Recycle bin adopts the same compact typography, slate/blue actions and panels as the workspace. */
+    .trash-panel {width:100%;max-width:1040px;background:var(--panel);border:1px solid var(--line);border-radius:11px;overflow:hidden;}
+    .trash-section {padding:21px 23px;}
+    .trash-section + .trash-section {border-top:1px solid #edf0f5;}
+    .trash-section-heading {display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+    .trash-section-heading h2 {margin:0;color:#34445c;font-size:14px;font-weight:720;}
+    .trash-section-caption {margin:6px 0 0;color:#8895a5;font-size:11px;line-height:1.5;}
+    .trash-retention-actions {display:flex;align-items:flex-end;gap:9px;flex-wrap:wrap;}
+    .trash-retention-actions label {display:grid;gap:5px;color:#738198;font-size:11px;font-weight:600;}
+    .trash-retention-actions select {width:156px;min-width:0;height:35px;border-radius:7px;font-size:12px;}
+    .trash-action {display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:35px;padding:0 13px;border:1px solid #dde5ef;border-radius:7px;background:#fff;color:#526780;font-size:12px;font-weight:650;line-height:1.3;white-space:nowrap;transition:background .15s,border-color .15s,color .15s;}
+    .trash-action:hover:not(:disabled) {border-color:#adc4e8;background:#f3f7ff;color:#2259b6;}
+    .trash-action:disabled {opacity:.45;cursor:not-allowed;}
+    .trash-action--primary {background:var(--blue);border-color:var(--blue);color:#fff;}
+    .trash-action--primary:hover:not(:disabled) {background:#2057bf;border-color:#2057bf;color:#fff;}
+    .trash-action--danger {border-color:#e6c6c6;background:#fff;color:#aa4545;}
+    .trash-action--danger:hover:not(:disabled) {border-color:#d99c9c;background:#fff3f2;color:#a42d2d;}
+    .trash-action--restore {min-height:31px;padding:0 12px;color:#2863bc;border-color:#d4e3f7;background:#f6f9ff;}
+    .trash-warning {display:flex;align-items:flex-start;gap:10px;margin:17px 0 0;padding:11px 13px;border:1px solid #f0e5ce;border-radius:8px;background:#fffbf4;color:#8a7349;font-size:11px;line-height:1.6;}
+    .trash-warning-icon {flex:0 0 auto;font-size:14px;color:#b48b43;line-height:1.2;}
+    .trash-count {display:inline-flex;align-items:center;min-height:23px;margin-left:8px;padding:0 8px;border-radius:6px;background:#eef3fa;color:#65809f;font-size:11px;font-weight:650;vertical-align:middle;}
+    .trash-list {display:grid;gap:8px;margin:15px 0 0;}
+    .trash-row {display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;gap:13px;min-width:0;padding:14px 16px;border:1px solid #e6ebf2;border-radius:9px;background:#fff;transition:border-color .15s,background .15s,box-shadow .15s;}
+    .trash-row:hover {border-color:#bfd0e8;background:#fcfdff;box-shadow:0 3px 10px #1c345708;}
+    .trash-row:has(.trash-pick:checked) {border-color:#adc7ed;background:#f7faff;}
+    .trash-pick {width:16px;height:16px;margin:0;padding:0;accent-color:var(--blue);cursor:pointer;}
+    .trash-pick:disabled {cursor:not-allowed;opacity:.45;}
+    .trash-row-label {display:grid;gap:5px;min-width:0;overflow-wrap:anywhere;}
+    .trash-row-label strong {color:#2d405c;font-size:12px;font-weight:680;line-height:1.5;}
+    .trash-row-label small {display:block;color:#91a0b1;font-size:10px;line-height:1.5;}
+    .trash-empty {display:grid;justify-items:center;gap:8px;padding:37px 16px;border:1px dashed #dbe4ef;border-radius:9px;background:#fbfcff;text-align:center;}
+    .trash-empty-icon {width:37px;height:37px;display:grid;place-items:center;border-radius:11px;background:#eff5ff;color:#5182ce;font-size:21px;}
+    .trash-empty strong {color:#465b77;font-size:13px;font-weight:680;}
+    .trash-empty span:last-child {color:#929fb0;font-size:11px;}
+    .trash-footer-actions {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid #edf1f5;}
+    .trash-selection {display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    .trash-selection-count {color:#8290a1;font-size:11px;font-variant-numeric:tabular-nums;}
+    .trash-status {margin-top:13px;}
+    @media(max-width:640px) {
+      .trash-section {padding:17px 15px;}
+      .trash-retention-actions {width:100%;}
+      .trash-retention-actions label {flex:1;min-width:0;}
+      .trash-retention-actions select {width:100%;}
+      .trash-row {grid-template-columns:18px minmax(0,1fr);gap:10px;padding:12px;}
+      .trash-row .trash-action--restore {grid-column:2;justify-self:start;}
+      .trash-footer-actions {align-items:stretch;}
+      .trash-footer-actions > .trash-action--danger {width:100%;}
+    }
     .doc-panel {border-top:1px solid #dfe4eb;margin-top:18px;padding-top:12px;}
     .doc-panel h3 {font-size:15px;margin:0 0 8px;}
     .doc-row {display:flex;align-items:center;gap:10px;margin:8px 0;flex-wrap:wrap;overflow-wrap:anywhere;}
@@ -551,26 +592,39 @@
     </section>
     </section>
     <section id="page-trash" class="workspace-page" hidden>
-      <div class="page-heading"><div><h1 id="trash-title">回收站</h1><p class="subtitle">管理已删除的任务及自动清理设置。</p></div></div>
+      <div class="page-heading"><div><h1 id="trash-title">回收站</h1><p class="subtitle">恢复已删除任务或管理自动清理。</p></div></div>
       <section class="trash-panel" aria-labelledby="trash-title">
-      <div class="trash-toolbar">
-        <label for="trash-retention">自动清空周期
-          <select id="trash-retention">
-            <option value="0">关闭自动清空</option>
-            <option value="7">7 天</option>
-            <option value="30">30 天</option>
-            <option value="90">90 天</option>
-          </select>
-        </label>
-        <button type="button" id="trash-save-retention">保存周期</button>
-      </div>
-      <p class="trash-warning">到期后将在下次访问工作台时清理。本机彻底删除无法保证清除其他设备、云端版本历史或备份中的副本。</p>
-      <div class="trash-list" id="trash-list" aria-label="已删除任务"></div>
-      <div class="trash-toolbar">
-        <button type="button" id="trash-select-all">全选</button>
-        <button type="button" id="trash-purge-selected">将选中任务彻底删除</button>
-      </div>
-      <p id="trash-message" class="message" role="status"></p>
+        <div class="trash-section">
+          <div class="trash-section-heading">
+            <div><h2>自动清理</h2><p class="trash-section-caption">设置已删除任务的保留期限。</p></div>
+            <div class="trash-retention-actions">
+              <label for="trash-retention">保留期限
+                <select id="trash-retention">
+                  <option value="0">关闭自动清空</option>
+                  <option value="7">7 天</option>
+                  <option value="30">30 天</option>
+                  <option value="90">90 天</option>
+                </select>
+              </label>
+              <button type="button" class="trash-action trash-action--primary" id="trash-save-retention">保存设置</button>
+            </div>
+          </div>
+          <p class="trash-warning"><span class="trash-warning-icon" aria-hidden="true">ⓘ</span><span>到期任务将在下次访问时清理。彻底删除无法保证清除其他设备、云端历史版本或备份中的副本。</span></p>
+        </div>
+        <div class="trash-section">
+          <div class="trash-section-heading">
+            <h2>已删除任务 <span class="trash-count" id="trash-count">0 项</span></h2>
+          </div>
+          <div class="trash-list" id="trash-list" aria-label="已删除任务"></div>
+          <div class="trash-footer-actions">
+            <div class="trash-selection">
+              <button type="button" class="trash-action" id="trash-select-all" disabled>全选</button>
+              <span class="trash-selection-count" id="trash-selection-count" aria-live="polite">已选 0 项</span>
+            </div>
+            <button type="button" class="trash-action trash-action--danger" id="trash-purge-selected" disabled>彻底删除选中项</button>
+          </div>
+          <p id="trash-message" class="message trash-status" role="status"></p>
+        </div>
       </section>
     </section>
     <section id="page-overview" class="workspace-page is-active">
@@ -2141,6 +2195,18 @@
 
 
     let trashItems = [];
+    function syncTrashSelection() {
+      const available = [...document.querySelectorAll(".trash-pick:not(:disabled)")];
+      const selected = available.filter(item => item.checked).length;
+      const allSelected = available.length > 0 && selected === available.length;
+      const selectAll = $("trash-select-all");
+      selectAll.disabled = !available.length;
+      selectAll.textContent = allSelected ? "取消全选" : "全选";
+      $("trash-selection-count").textContent = "已选 " + selected + " 项";
+      $("trash-purge-selected").disabled = !selected || isSaving;
+      $("trash-count").textContent = trashItems.length + " 项";
+    }
+
     async function loadTrash() {
       const message = $("trash-message");
       message.textContent = "正在读取回收站…";
@@ -2152,7 +2218,13 @@
         $("trash-retention").value = String(payload.retention_days);
         const list = $("trash-list");
         list.replaceChildren();
-        if (!trashItems.length) list.append(element("p", "hint", "回收站为空。"));
+        if (!trashItems.length) {
+          const empty = element("div", "trash-empty");
+          empty.append(element("span", "trash-empty-icon", "✓"),
+                       element("strong", "", "回收站为空"),
+                       element("span", "", "删除的任务将在这里保留，供你恢复。"));
+          list.append(empty);
+        }
         for (const item of trashItems) {
           const row = element("div", "trash-row");
           const pick = element("input");
@@ -2160,10 +2232,11 @@
           pick.value = item.task_id;
           pick.disabled = item.conflict;
           pick.setAttribute("aria-label", "选择彻底删除：" + taskDisplayId(item));
+          pick.addEventListener("change", syncTrashSelection);
           const label = element("div", "trash-row-label");
           label.append(element("strong", "", item.title || "任务状态冲突"),
-                       element("small", "", taskDisplayId(item) + " · 删除时间 " + (item.trashed_at || "未知")));
-          const restore = element("button", "", "恢复");
+                       element("small", "", taskDisplayId(item) + " · 删除时间 " + (item.trashed_at || "未知") + (item.conflict ? " · 存在冲突，暂不可操作" : "")));
+          const restore = element("button", "trash-action trash-action--restore", "恢复");
           restore.type = "button"; restore.disabled = item.conflict;
           restore.addEventListener("click", async () => {
             if (!window.confirm("恢复任务「" + item.title + "」及其执行步骤？")) return;
@@ -2172,6 +2245,7 @@
           row.append(pick, label, restore);
           list.append(row);
         }
+        syncTrashSelection();
         message.textContent = (payload.warnings || []).length
           ? "部分同步数据需核查：" + payload.warnings.slice(0, 2).join("；")
           : "共 " + trashItems.length + " 项。到期清理会在下次访问时执行。";
@@ -2520,6 +2594,7 @@
       const items = [...document.querySelectorAll(".trash-pick:not(:disabled)")];
       const select = items.some(item => !item.checked);
       for (const item of items) item.checked = select;
+      syncTrashSelection();
     });
     $("trash-save-retention").addEventListener("click", async () => {
       if (isSaving) return;
@@ -2549,6 +2624,7 @@
       if (!window.confirm("不可撤销：彻底删除选中的 " + items.length +
                           " 项任务？本机删除不能保证清除其他设备和云端历史备份。")) return;
       isSaving = true;
+      syncTrashSelection();
       const failures = [];
       try {
         for (const item of items) {

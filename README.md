@@ -1,6 +1,6 @@
 # AIWorkSpace
 
-> **当前正式版本 / 下一版候选（2026-11-02）**：`main/VERSION=2.0.2`，经用户批准 [PR #17](https://github.com/yudacheng666/AIWorkSpace/pull/17) 已合并；回收站、步骤状态联动和 Google Drive 文档引用已经进入 GitHub 正式代码。用户要求将回收站改为左侧导航独立页面，改动已在 [Draft PR #18](https://github.com/yudacheng666/AIWorkSpace/pull/18) 完成，原功能保留。该 PR 准备为 **统一版本 2.0.3 发布候选**（仅分支 `VERSION=2.0.3`，正式 main 不变）。此前 UI 变更准确 SHA `1245bbbe6c2d1a56cbf66d18044a9ed8248509ed` 对应 [Actions #41450315589](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41450315589) **3/3 PASS**；2.0.3 RC 须以新准确 SHA 单独完成 CI 后才可评价。**仍是 Draft、未合并、未部署，须用户明确批准才可发布；个人工作档案继续暂停。**
+> **当前正式版本（2026-11-02）**：`main/VERSION=2.0.3`，[PR #18](https://github.com/yudacheng666/AIWorkSpace/pull/18) 经用户批准并正式合并，main merge SHA `68a3212360fed942ccf2dbfca97afd8f4e224bd3`；合并后的 [Actions #41451769129](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41451769129) **3/3 PASS**。回收站已是左侧导航独立页面。当前依据用户反馈，仅在隔离开发分支改善回收站内部按钮、列表和选中反馈，**正式版本未改变、未部署真实 Windows/Google Drive 数据**。工作档案继续暂停。
 >
 > **安全与权限边界**：彻底删除先写防复活墓碑再清除本机事件；通过同步接收到墓碑会隐藏任务，但不会自动物理擦除另一台设备的历史文件。Google Drive 链接只保存 URL，不会自动授予 AI 文件权限或复制原文档。实际双电脑 Google Drive 服务同步仍未独立验收。
 >

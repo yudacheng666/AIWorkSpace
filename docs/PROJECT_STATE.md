@@ -1,5 +1,14 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-02：回收站按钮及列表统一 UI V2（开发中，独立候选）
+
+- **需求**：用户确认左侧回收站导航满意，但页面内部按钮/列表仍过于原始，要求视觉与工作台整体一致。
+- **基线**：main `68a3212360fed942ccf2dbfca97afd8f4e224bd3`，正式 VERSION=2.0.3；用户批准的 PR #18 已合并；main push [Actions #41451769129](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41451769129) 3/3 SUCCESS。工作档案 PR #14 暂停。
+- **隔离变更**：分支 `feat/20261102-trash-polish`，只调整回收站的 UI V2 样式、结构、选择反馈及对应测试；保持后端事件/API/永久删除安全行为不变，正式 main/VERSION 不变，不触及真实 Windows/Drive 数据。
+- **验收门槛**：Node 仿真检验空状态、全选/取消、冲突项禁用、未选择禁用危险按钮；Windows 真实 Chromium 恢复和彻底删除 E2E 增加样式/选择反馈断言。最终准确 SHA 的 GitHub CI 证据需在 Draft PR 获取；用户审批前不合并或部署。无新缺口不重复 Codex 测试。
+
+
+
 ## 2026-11-02：回收站左侧导航独立页面（2.0.3 RC 候选，正式 main 仍为 2.0.2）
 
 - **用户要求**：回收站入口置于左侧导航标签，不再是“全部任务”页面上的独立按钮。先遵守 AGENTS.md、REQUIREMENTS.md、PROJECT_STATE.md、DECISIONS.md 的持久化规则，核对 2.0.2 main 和合并 PR #17，工作档案 PR #14 继续暂停。
