@@ -1984,8 +1984,8 @@
         return [record.record_id, record.title, record.summary, record.project_name]
           .some(value => String(value || "").toLocaleLowerCase().includes(keyword));
       });
-      $("archive-record-count").textContent = \`（\${visible.length}/\${records.length}）\`;
-      $("archive-inbox-count").textContent = \`（\${(currentArchive.inbox || []).length}）\`;
+      $("archive-record-count").textContent = `（${visible.length}/${records.length}）`;
+      $("archive-inbox-count").textContent = `（${(currentArchive.inbox || []).length}）`;
       const recordList = $("archive-record-list");
       if (!visible.length) {
         const empty = element("div", "archive-empty",
@@ -2003,9 +2003,9 @@
           meta.append(element("span", "", archiveDateText(record)));
           meta.append(element("span", "", record.project_name || (record.project_id ? "项目未同步" : "未关联项目")));
           if ((record.action_links || []).length)
-            meta.append(element("span", "", \`\${record.action_links.length} 项任务/步骤关联\`));
+            meta.append(element("span", "", `${record.action_links.length} 项任务/步骤关联`));
           if ((record.evidence_refs || []).length)
-            meta.append(element("span", "", \`\${record.evidence_refs.length} 份证据\`));
+            meta.append(element("span", "", `${record.evidence_refs.length} 份证据`));
           const open = element("button", "archive-card-action", "查看记录");
           open.type = "button";
           open.addEventListener("click", () => openArchiveRecord(record.record_id));
@@ -2046,14 +2046,14 @@
       if (unsavedArchiveEditors.size) return;
       try {
         const response = await fetch("/api/work-archive", {cache: "no-store"});
-        if (!response.ok) throw new Error(\`HTTP \${response.status}\`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         currentArchive = await response.json();
         renderArchive();
         $("archive-message").textContent = currentArchive.warnings?.length
-          ? \`有 \${currentArchive.warnings.length} 项档案数据需要核查。\`
-          : \`已读取 \${currentArchive.records?.length || 0} 条工作记录和 \${currentArchive.inbox?.length || 0} 条原始输入。\`;
+          ? `有 ${currentArchive.warnings.length} 项档案数据需要核查。`
+          : `已读取 ${currentArchive.records?.length || 0} 条工作记录和 ${currentArchive.inbox?.length || 0} 条原始输入。`;
       } catch (error) {
-        $("archive-message").textContent = \`工作档案读取失败：\${error.message}\`;
+        $("archive-message").textContent = `工作档案读取失败：${error.message}`;
       }
     }
 
@@ -2163,7 +2163,7 @@
           action_links: actionLinks,
         };
         const path = record
-          ? \`/api/work-archive/records/\${encodeURIComponent(record.record_id)}/update\`
+          ? `/api/work-archive/records/${encodeURIComponent(record.record_id)}/update`
           : "/api/work-archive/records";
         if (record) body.revision = revision;
         isSaving = true;
@@ -2176,7 +2176,7 @@
             body: JSON.stringify(body),
           });
           const result = await response.json();
-          if (!response.ok) throw new Error(result.error || \`HTTP \${response.status}\`);
+          if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
           const untouched = JSON.stringify(snapshot()) === JSON.stringify(draft);
           draftWatch.markClean(draft);
           if (!record) {
@@ -2199,7 +2199,7 @@
           }
         } catch (error) {
           message.className = "message error";
-          message.textContent = \`保存结果未确认：\${error.message}。请刷新核对，避免重复创建。\`;
+          message.textContent = `保存结果未确认：${error.message}。请刷新核对，避免重复创建。`;
         } finally {
           isSaving = false;
           save.disabled = !!record?.conflict;
@@ -2638,7 +2638,7 @@
         return;
       }
       if (!quickCaptureKey) {
-        quickCaptureKey = \`CAP-\${Date.now()}-\${Math.random().toString(16).slice(2, 10)}\`;
+        quickCaptureKey = `CAP-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
       }
       const keyAtSubmit = quickCaptureKey;
       const revisionAtSubmit = quickCaptureDraftRevision;
@@ -2656,7 +2656,7 @@
           body: JSON.stringify(body),
         });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.error || \`HTTP \${response.status}\`);
+        if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
         const untouched = quickCaptureDraftRevision === revisionAtSubmit &&
           JSON.stringify(quickCaptureSnapshot()) === JSON.stringify(draft);
         if (untouched) {
@@ -2665,16 +2665,16 @@
           quickCaptureKey = "";
           quickCaptureDraftWatch.markClean(quickCaptureSnapshot());
           $("quick-capture-modal").hidden = true;
-          $("quick-capture-message").textContent = \`原始输入已保存：\${result.inbox_id}\`;
+          $("quick-capture-message").textContent = `原始输入已保存：${result.inbox_id}`;
         } else {
           $("quick-capture-message").textContent =
-            \`原始输入已保存：\${result.inbox_id}；之后输入的新草稿已保留。\`;
+            `原始输入已保存：${result.inbox_id}；之后输入的新草稿已保留。`;
         }
         if (activePage === "archive") await loadWorkArchive();
       } catch (error) {
         $("quick-capture-message").className = "message error";
         $("quick-capture-message").textContent =
-          \`保存结果未确认：\${error.message}。请先刷新原始输入列表核对；相同内容重试会使用幂等编号。\`;
+          `保存结果未确认：${error.message}。请先刷新原始输入列表核对；相同内容重试会使用幂等编号。`;
       } finally {
         isSaving = false;
         $("quick-capture-submit").disabled = false;
