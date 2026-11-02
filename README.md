@@ -4,7 +4,16 @@
 
 个人 AI 工作台，先验证 **ChatGPT → Google Drive → 本地网页 → Google Drive → ChatGPT** 的任务闭环。不需要额外的 Google Cloud 项目、付费 API 或第三方 Python 库。
 
-**当前阶段：** M1/M2/M3.1/M3.2/M3.3/M3.4 及内置软件更新中心均已合入 `main`。软件更新中心 [PR #7](https://github.com/yudacheng666/AIWorkSpace/pull/7) 于 2026-10-30 获用户批准并 Squash 合并（`ecac63dd1c03d1aa3ba02433bdcafb3d1139b7d2`）；[Actions #41074274048](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41074274048) Linux/Windows 全部成功，276 PASS / 0 FAIL / 6 个设计性 SKIP；Codex Linux 独立验收 PASS（已测范围），Windows 真实 app.py + Chromium 更新成功及失败回滚 E2E 2 PASS。正式 GitHub main 的 API/raw VERSION、真实 ZIP 下载及 Windows 隔离安装和程序启动已 PASS（[QA PR #8](https://github.com/yudacheng666/AIWorkSpace/pull/8)，[Actions #41077145985](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41077145985)）；公司 Windows 8770 和真实 Drive 尚未测试或部署。**代码合并不代表本机部署。**
+**当前阶段（2026-11-02）：** UI V2.0.0 第一至第三阶段已合入 `main`（合并 SHA `c279a976437bb8c1a493be3407a9de3767fa20cf`）；工作台框架、看板、日历、日期甘特、项目管理及软件更新中心已在 GitHub 正式代码中。软件更新中心 [PR #7](https://github.com/yudacheng666/AIWorkSpace/pull/7) 于 2026-10-30 获用户批准并 Squash 合并（`ecac63dd1c03d1aa3ba02433bdcafb3d1139b7d2`）；[Actions #41074274048](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41074274048) Linux/Windows 全部成功，276 PASS / 0 FAIL / 6 个设计性 SKIP；Codex Linux 独立验收 PASS（已测范围），Windows 真实 app.py + Chromium 更新成功及失败回滚 E2E 2 PASS。正式 GitHub main 的 API/raw VERSION、真实 ZIP 下载及 Windows 隔离安装和程序启动已 PASS（[QA PR #8](https://github.com/yudacheng666/AIWorkSpace/pull/8)，[Actions #41077145985](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41077145985)）；公司 Windows 8770 和真实 Drive 尚未测试或部署。**代码合并不代表本机部署。**
+
+## UI V2.0.0 发布状态（2026-11-02）
+
+- [集成 PR #12](https://github.com/yudacheng666/AIWorkSpace/pull/12) 已合并，阶段 PR #10/#11 一同作为祖先进入 main，GitHub 均显示 merged；`VERSION` 为 `2.0.0`。
+- [合并后 main Actions #41382882228](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41382882228)：Linux/Windows Python 103 PASS + Node 58 PASS（每端），Windows Chromium E2E 3 PASS。
+- 用户已在独立隔离版本中勾选 8/8 项人工体验。真实公司电脑、真实 Drive 数据及正式一键更新 **NOT TESTED / NOT DEPLOYED**。
+- **不要把“合并到 main”理解为公司电脑自动更新。** 正式部署须另行确认，并先验证程序备份、事件数据目录隔离和失败回滚。现有 one-click update 仍从 main 的受检 ZIP/固定文件白名单安装，是否允许在真实电脑执行不由本次 GitHub 合并授权。
+- 新会话先读取 `AGENTS.md`、`docs/PROJECT_STATE.md`、`docs/DECISIONS.md` 与相关 session；以 GitHub 当前 SHA 和 PR/Actions 证据为准。
+
 
 ## 软件更新中心（PR #7 已合并，尚未部署）
 

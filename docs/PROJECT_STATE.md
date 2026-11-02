@@ -1,5 +1,16 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-02：UI V2.0.0 已发布到 GitHub main（尚未正式部署）
+
+- **用户明确批准**：2026-11-02 授权将 UI V2 第一至第三阶段合并到 GitHub main。批准范围**仅限代码仓库合并**，不包含公司电脑、真实 Google Drive 或现有任务数据的更新。
+- **正式 GitHub 合并**：使用集成 [PR #12](https://github.com/yudacheng666/AIWorkSpace/pull/12) 的普通 Git merge 保留历史，merge SHA：`c279a976437bb8c1a493be3407a9de3767fa20cf`。阶段一 [PR #10](https://github.com/yudacheng666/AIWorkSpace/pull/10)、阶段二 [PR #11](https://github.com/yudacheng666/AIWorkSpace/pull/11) 随祖先提交进入 main，GitHub 自动将 #10、#11、#12 全部标为 **merged / closed**；**没有重复执行三次合并**。
+- **版本号**：main `VERSION=2.0.0`。正式发布候选 `19d17282de5448190420bdea4d60119f0d6b9b05` 在 [PR CI #41382727885](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41382727885) 已三组 PASS。
+- **合并后验收**：准确 merge SHA `c279a976437bb8c1a493be3407a9de3767fa20cf` 的 [GitHub Actions #41382882228](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41382882228) 全部 SUCCESS：Ubuntu Python 103 PASS + Node 58 PASS；Windows Python 103 PASS + Node 58 PASS；Windows 真实 app.py + Chromium 更新/回滚及 UI E2E 3 PASS。
+- **人工体验**：用户在随机 `127.0.0.1` 端口启动独立隔离体验版，对界面、项目、任务、详情、看板/日历、甘特、关联筛选、草稿保护 8/8 项标记为检查完成。见 [PR #12 原始记录](https://github.com/yudacheng666/AIWorkSpace/pull/12#issuecomment-6568183016)。未报告具体缺陷；不推断真实生产环境同样验证。
+- **变更边界**：UI V2 正式代码不改变 `app.py`、`updater.py`、事件 JSON schema 和 API；新增项目管理、四任务视图、统一界面与独立测试启动包。实际公司 Windows `8770`、Google Drive 数据目录、生产安装和一键更新**均未操作或验收**。
+- **下一步**：按已有发布/安全门槛安排一次公司电脑外的 Windows 非生产升级预演，验证旧程序备份、版本/构建显示、data-dir 完整性、失败回滚和本机启动；取得真实环境升级授权前，不在公司电脑点击“立即更新”，不删除正式目录和数据。后续新版差异继续使用 GitHub + AGENTS/PROJECT_STATE/DECISIONS/session 记忆机制。
+
+
 更新日期：2026-10-30（北京时间）  
 当前阶段：**M1/M2/M3.1/M3.2/M3.3/M3.4 及内置软件更新中心均已合入 `main`。M3.4 PR #6 合并 `5916744898ac3de1b82c4edf27c339ec9a0173c1`；软件更新中心 [PR #7](https://github.com/yudacheng666/AIWorkSpace/pull/7) 于 2026-10-30 用户批准后 Squash 合并 `ecac63dd1c03d1aa3ba02433bdcafb3d1139b7d2`。固定原产品验收 SHA `42573a34c3190b46c28c1573e98fbca202924a9c`，最新 Windows E2E/测试及工作流 SHA `1ed0d97b8252317425e6b24fd6b1d238d1f9f715`；[Actions #41074274048](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41074274048) 276 PASS / 0 FAIL / 6 设计性 SKIP，Codex Linux 独立验收 PASS（已测范围），Windows 实际 app.py+Chromium 隔离更新/回滚两项 PASS。正式 main 的 API/raw VERSION/真实 ZIP 下载、白名单校验、Windows 隔离安装及真实 app.py 启动已 PASS（[QA PR #8](https://github.com/yudacheng666/AIWorkSpace/pull/8)，[Actions #41077145985](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41077145985)）。公司 Windows 8770 与真实 Drive 仍 NOT TESTED。公司 Windows 8770 未升级、真实 Drive 未访问，**GitHub 合并不等于部署**。**
 
