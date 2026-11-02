@@ -1340,6 +1340,58 @@ def handler_factory(data_dir: Path):
                         "saved": True, "record_id": record_id, "revision": 1,
                     })
 
+                if work_record_update_match:
+                    allowed = {
+                        "revision", "title", "summary", "occurred_at", "category",
+                        "project_id", "source_ids", "evidence_refs", "action_links",
+                    }
+                    if set(payload) - allowed or "revision" not in payload:
+                        raise ValueError("work record update requires revision")
+                    revision = payload["revision"]
+                    if type(revision) is not int or revision < 1:
+                        raise ValueError("invalid work record revision")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        archive = read_work_archive(data_dir, workspace)
+                        current = next((item for item in archive["records"]
+                                        if item["record_id"] == work_record_update_match.group(1)), None)
+                        if current is None:
+                            return self.json_response(404, {"error": "work record not found"})
+                        if current["conflict"] or current["revision"] != revision:
+                            return self.json_response(409, {
+                                "error": "work record changed or has a conflict; refresh",
+                            })
+                        changes = {}
+                        for field in (
+                            "title", "summary", "occurred_at", "category", "project_id",
+                            "source_ids", "evidence_refs", "action_links",
+                        ):
+                            if field not in payload:
+                                continue
+                            value = payload[field]
+                            if field in {"occurred_at", "project_id"} and value == "":
+                                value = None
+                            if field in {"title", "summary"} and isinstance(value, str):
+                                value = value.strip()
+                            if value != current.get(field, WORK_RECORD_DEFAULTS.get(field)):
+                                changes[field] = value
+                        if not changes:
+                            return self.json_response(200, {
+                                "saved": False, "record_id": current["record_id"],
+                                "revision": current["revision"],
+                            })
+                        event = {
+                            "version": 1, "event_id": str(uuid.uuid4()),
+                            "record_id": current["record_id"], "action": "update",
+                            "actor": "user", "timestamp": utc_now(),
+                            "base_revision": revision, "changes": changes,
+                        }
+                        append_work_record_event(data_dir, event)
+                    return self.json_response(200, {
+                        "saved": True, "record_id": current["record_id"],
+                        "revision": revision + 1,
+                    })
+
                 if step_create_match:
                     if set(payload) != {"title"}:
                         raise ValueError("step create accepts only title")
