@@ -8,7 +8,7 @@ const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8")
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(scriptMatch, "the production page must contain its inline script");
 
-function harness(tasks = [], confirm = () => true, projects = []) {
+function harness(tasks = [], confirm = () => true, projects = [], archive = {inbox: [], records: [], warnings: []}) {
   const elements = new Map();
   const writes = [];
   function node(tag = "div") {
@@ -57,15 +57,22 @@ function harness(tasks = [], confirm = () => true, projects = []) {
   const fetch = async (path, options) => {
     if (options?.method === "POST") {
       writes.push({path, body: JSON.parse(options.body)});
+      if (path === "/api/work-archive/inbox")
+        return {ok: true, json: async () => ({saved: true, inbox_id: "INBOX-MOCK"})};
+      if (path.includes("/api/work-archive/records"))
+        return {ok: true, json: async () => ({saved: true, record_id: "RECORD-MOCK", revision: 2})};
       return {ok: true, json: async () => ({saved: true, task_id: "TASK-MOCK"})};
     }
     if (path === "/api/update/status") {
-      return {ok: true, json: async () => ({version: "1.0.0", build_short: "abcdef0"})};
+      return {ok: true, json: async () => ({version: "2.0.0", build_short: "abcdef0"})};
+    }
+    if (path === "/api/work-archive") {
+      return {ok: true, json: async () => archive};
     }
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, loadWorkArchive, renderArchive, openArchiveRecord, closeArchiveRecord, openQuickCapture, closeQuickCapture})", {
       document, window, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, writes, el: id => document.getElementById(id)};
