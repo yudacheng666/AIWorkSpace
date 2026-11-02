@@ -23,3 +23,14 @@
 ## 下一步
 - 核实最新准确 SHA CI；仅修复新增失败并重新验证受影响范围。
 - 根据删除高风险和真实 Drive 访问测试缺口判断是否安排一次独立探索性验收。PR #17 保持 Draft，未经用户明确发布/合并批准，不改 VERSION/main/公司电脑。
+
+
+## 2026-11-02 最终准确 SHA 自动化 CI（留证，不等于实际设备验收）
+
+- 因跨设备仿真新增错误断言，首次 SHA `e52531964c31ca1b547bc750852e9879eb42db1f` 的 [Actions #41430342353](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41430342353) Ubuntu FAILED：测试错误地要求仅接收到远程墓碑的第二台电脑自动物理删除本地源事件。正确安全规则 D-20261102-UI-08 是 **同步墓碑防复活，但仅本机亲自授权或本机已设置的到期规则可物理清理**。未修改这一安全产品行为，仅修正测试。
+- **最终准确产品/测试 SHA** `5e995c7d2ef67bc4039cc91bba65e3e6d0bceba2`， [GitHub Actions #41430588371](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41430588371) **SUCCESS（3/3 Jobs）**：
+  - Ubuntu Python 3.12：124 tests，115 PASS / 9 SKIP / 0 FAIL；Node 22：60 PASS。
+  - Windows Python 3.12：124 tests，117 PASS / 7 SKIP / 0 FAIL；Node 22：60 PASS。
+  - Windows `app.py` + 真实 Chromium：原更新/回滚 + UI E2E 3 PASS，任务短编号、抽屉、Drive 链接、回收站、草稿保留、步骤联动及人工完成确认 4 PASS。
+- 两个临时数据目录仿真：先任务事件、再永久删除墓碑、再迟到旧事件；结果任务不复活，且不自动物理清理仅收到标记的另一设备文件。是真实本地文件读写的仿真，不等于 Google Drive 云同步端到端验收。
+- 发布边界：本 SHA 后只追加 `[skip ci]` Markdown 状态/验收记录，产品与测试代码保持上面准确 SHA。仍为 Draft PR #17，`main/VERSION=2.0.1` 未升级；工作档案继续暂停，真实 Drive/公司电脑/账户权限/长时使用 NOT TESTED。高风险独立验收待按覆盖缺口定向安排，绝不将已测 CI 匹配范围交 Codex 重跑。
