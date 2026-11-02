@@ -1406,7 +1406,7 @@ class ServerTests(unittest.TestCase):
     def test_update_status_reports_local_version_without_network(self):
         with urlopen(self.base + "/api/update/status", timeout=3) as response:
             status = json.load(response)
-        self.assertEqual(status["version"], "2.0.0")
+        self.assertEqual(status["version"], "2.0.1")
         self.assertFalse(status["build_known"])
         self.assertIsNone(status["build_commit"])
 
