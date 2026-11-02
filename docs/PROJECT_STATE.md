@@ -248,3 +248,12 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - Node 新增四组项目专项，尚需准确 SHA 的 GitHub CI 与 Windows Chromium 真实浏览器测试。未合并、未部署，不触碰真实 Google Drive。
 
 - **2026-10-31 测试包构建方案**：第三阶段第一轮固定 SHA `6c6b5b85f43469a143640b4e5b1a02be9eaeea7b`，GitHub Actions #41203032835 三组 SUCCESS；为用户交付可实操的 V2 测试版本，在同分支添加无外部依赖的隔离启动脚本 `preview/launch_isolated.py` 和 Windows 双击启动器。测试时由系统临时目录复制应用白名单文件、使用随机 `127.0.0.1` 端口和全新临时 data-dir；按 Enter 终止并清理，不访问真实 Drive/8770。Windows CI 通过后上传 `AIWorkSpace-UI-V2-isolated-preview` Artifact ZIP，供用户下载实操；首次构建需按新 SHA 复验，不提前宣告 PASS。
+
+
+## 2026-11-02：UI V2 用户人工体验进展（第三阶段）
+
+- **反馈来源**：用户实际启动 UI V2 独立隔离体验包后，逐项回传 8 项勾选：①整体界面、②创建项目、③创建任务、④任务详情、⑤看板与日历、⑥甘特图、⑦项目关联和筛选、⑧未保存保护。
+- **结论口径**：八项均已被用户标记为**检查完成（8/8）**，尚未提供具体缺陷描述；不能把没有缺陷报告自动等同于正式发布批准或真实生产环境兼容验收。没有再次执行自动测试。
+- **验收依据**：[PR #12 人工体验原始记录](https://github.com/yudacheng666/AIWorkSpace/pull/12#issuecomment-6568183016)；此前已完成的准确产品 SHA `2760425ecc9b9f8f23b477a5b69f719632fe6554` 和 [Actions #41203324785](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41203324785) 仍为代码与 CI 权威证据（Linux/Windows Python 103 PASS、Node 58 PASS；Windows 真实 Chromium 3 PASS）。
+- **发布边界**：用户体验采用随机 `127.0.0.1` 端口、临时数据目录；不等于在公司 8770/真实 Google Drive 上已验证安装与升级。#10、#11、#12 均仍 Draft/未合并；main 仍为 `654d14b33f859d2b85e762e95154d0495ade116c`，没有正式升级 1.0。
+- **下一步**：待用户明确反馈是否仍有需要修改的操作/视觉问题；如明确批准合并，先核对三阶段分支依赖与重复差异并按用户批准的方案合并。正式升级前补足非生产真实 Windows 安装、备份/回滚、真实数据隔离边界检查；未经用户明确授权不执行合并或部署。
