@@ -87,9 +87,10 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(page.locator("#task-detail-id").inner_text(), self.short_id)
 
         page.locator("#task-id-copy").click()
-        page.wait_for_function(
-            "document.querySelector('#task-id-feedback').textContent === '已复制'"
-        )
+        # Locator waiting works under the app's strict CSP, unlike
+        # page.wait_for_function(), which uses unsafe-eval.
+        page.locator("#task-id-feedback").wait_for(state="visible")
+        self.assertEqual(page.locator("#task-id-feedback").inner_text(), "已复制")
         self.assertEqual(page.evaluate("navigator.clipboard.readText()"), self.short_id)
         page.locator("#task-detail-id").click()
         self.assertEqual(page.evaluate("navigator.clipboard.readText()"), self.short_id)
