@@ -2200,6 +2200,32 @@
       return true;
     }
 
+    function quickCaptureSnapshot() {
+      return {
+        content: $("quick-capture-content").value,
+        occurred_at: $("quick-capture-date").value || "",
+      };
+    }
+
+    function openQuickCapture() {
+      if (activeDetailTaskId && !closeTaskDetail()) return false;
+      if (archiveDrawerOpen && !closeArchiveRecord()) return false;
+      $("quick-capture-modal").hidden = false;
+      return true;
+    }
+
+    function closeQuickCapture() {
+      const draft = quickCaptureSnapshot();
+      if ((draft.content.trim() || draft.occurred_at) &&
+          !window.confirm("快速记录尚未保存。关闭将放弃当前输入，确定继续？")) return false;
+      $("quick-capture-content").value = "";
+      $("quick-capture-date").value = "";
+      quickCaptureKey = "";
+      quickCaptureDraftWatch.markClean(quickCaptureSnapshot());
+      $("quick-capture-modal").hidden = true;
+      return true;
+    }
+
     const pageMeta = {
       overview: {title: "工作总览", nav: "nav-overview"},
       tasks: {title: "全部任务", nav: "nav-tasks"},
@@ -2212,7 +2238,7 @@
       if (!pageMeta[page]) return false;
       if ((view === "mine" || view === "followup") && !selectedSelfOwner) return false;
       if (activeDetailTaskId && !closeTaskDetail()) return false;
-      if (activeArchiveRecordId && page !== "archive" && !closeArchiveRecord()) return false;
+      if (archiveDrawerOpen && page !== "archive" && !closeArchiveRecord()) return false;
       if (unsavedTaskEditors.size && !confirmDiscardUnsaved()) return false;
       if (activePage==="projects" && page!=="projects" && !confirmProjectDrafts()) return false;
       activePage = page;
@@ -2288,6 +2314,7 @@
         renderProjects();
         refreshOverviewControls();
         renderTaskList();
+        if (activePage === "archive") await loadWorkArchive();
         const warnings = $("warnings");
         warnings.hidden = !data.warnings.length;
         warnings.textContent = data.warnings.length ? `有 ${data.warnings.length} 项需要核查：${data.warnings.slice(0, 3).join("；")}` : "";
