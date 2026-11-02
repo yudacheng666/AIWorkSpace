@@ -232,7 +232,9 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         title = page.locator("#task-detail-content .task-form input[type='text']").first
         title.fill("只修改上层任务名称")
         page.locator("#task-detail-content .task-form button.save").first.click()
-        expect(page.locator("#sync")).to_contain_text("保存成功", timeout=10000)
+        # Do not reuse the stale "save success" from the previous child edit.
+        expect(page.locator(".task-summary").filter(has_text="只修改上层任务名称")).to_have_count(
+            1, timeout=10000)
         parent = next(t for t in read_workspace(self.data_dir)["tasks"] if t["task_id"] == self.task_id)
         self.assertEqual(parent["status"], "doing")
         self.assertEqual(parent["manual_status"], "todo",

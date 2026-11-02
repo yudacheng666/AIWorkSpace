@@ -325,6 +325,8 @@ test("explicit parent link edit is submitted without incidental status change", 
     manual_status: "todo", revision: 1, conflict: false,
     project_id: null, related_project_ids: []
   });
+  // The mock select requires a concrete option before a value can be selected.
+  page.parent.append({value: "TASK-EXPLICIT-PARENT", selected: false});
   page.parent.value = "TASK-EXPLICIT-PARENT";
   await page.save();
   assert.equal(page.posted[0].parent_task_id, "TASK-EXPLICIT-PARENT");
