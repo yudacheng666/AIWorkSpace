@@ -43,3 +43,14 @@
 - **正式 RC 产品/测试 SHA** `faa092d2d9359171f53a01d3f7145197e6412a28`， [Actions #41443451302](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41443451302) **SUCCESS 3/3**：Ubuntu Python 124 total / 115 PASS / 9 SKIP；Node 60 PASS；Windows Python 124 total / 117 PASS / 7 SKIP；Node 60 PASS；Windows 真 Chromium 更新器 3 PASS、任务/回收站/Drive 链接/步骤联动 4 PASS。0 FAIL。
 - 这些结果是在 GitHub 标准 Runner 虚构数据环境完成，不代表真实两台电脑的 Google Drive 服务/实际文件权限/公司任务数据已验证。暂不执行额外 Codex 回归，不合并 PR、不改真实工作台，等待用户明确批准发布。
 - 回写位置：PR #17 正文与评论、`docs/PROJECT_STATE.md`、`docs/DECISIONS.md`、本 session，确保跨对话从准确 SHA 接续开发。此后仅 docs Markdown 变化可复用上面的代码/测试 SHA 证据。
+
+
+## 2026-11-02：用户批准 2.0.2 RC 合并，GitHub 正式 main 发布成功
+
+- 用户在 CI 3/3 PASS、PR #17 RC 验证和发布说明之后明确回复“批准”。
+- 合并前核对：PR #17 HEAD `ba6ce308992ecea157a92c5fe146034e9bbc9dd9`，准确 RC 产品/测试 SHA `faa092d2d9359171f53a01d3f7145197e6412a28`，后续仅 3 份 docs Markdown 改动；正式 `main/VERSION=2.0.1`，RC 分支 `VERSION=2.0.2`， [Actions #41443451302](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41443451302) **3/3 SUCCESS**。
+- 正常 GitHub 操作：`mark_pull_request_ready_for_review` **成功**，再通过 `merge_pull_request(merge_method=merge, expected_head_sha=ba6ce308...)` **成功**。GitHub 返回 `merged=true`，合并 SHA **`bfb741bbb9da943f1d63241a9f8b85df008e0b4a`**；PR #17 CLOSED / MERGED。
+- 合并后立即验证：`main` HEAD 为合并 SHA，与合并 SHA 比较无差异；正式 `main/VERSION=2.0.2`。随后仅为项目记忆向 main 添加 `[skip ci]` Markdown docs 记录，产品/测试文件保持 RC 代码。
+- GitHub main push Actions 对合并 SHA 的执行状态尚未通过当前 `fetch_commit_workflow_runs` 接口验证，因为该接口只返回 PR 事件关联结果；不能将空结果说成“无运行”，也不能冒充已经完成 post-merge CI。
+- 用户的真实公司电脑 8770、Google Drive 数据、实际云端文件权限和多设备云同步均没有在这轮发布操作中改动或独立验证；GitHub 合并授权不包含在本机自动执行更新。用户之后可以在真实工作台**自主检查并手动确认一键升级**，完成后核对原数据、草稿保护、任务回收站/恢复/彻底删除、步骤联动以及文档链接。
+- 工作档案 PR #14 继续暂停；遵守 ChatGPT + Actions CI 优先、不默认重复 Codex 和 GitHub 记忆持久化机制。
