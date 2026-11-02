@@ -75,6 +75,7 @@
     .step-actions button:disabled { opacity: .4; cursor: not-allowed; }
     .step-add-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; margin-top: 12px; }
     .step-add-form input { min-width: 0; }
+    .child-tasks-panel { margin-top: 17px; padding-top: 15px; border-top: 1px solid #edf1f6; }
     .step-empty, .step-order-warning, .step-conflict { color: #8593a5; font-size: 12px; margin: 10px 0 0; }
     .step-order-warning, .step-conflict { color: #976211; }
     .step-message { margin: 8px 0 0; font-size: 12px; }
@@ -1431,10 +1432,13 @@
           "父子关系或同步信息不完整，已暂停不可靠的状态联动；请先核查。"));
       }
       if (task.step_completion_pending) {
-        form.append(element("p", "step-message", "全部执行步骤已完成，请人工确认是否将任务标记为完成。"));
+        form.append(element("p", "step-message",
+          task.child_task_ids?.length
+            ? "全部执行步骤和子任务已完成，请人工确认是否将上级任务标记为完成。"
+            : "全部执行步骤已完成，请人工确认是否将任务标记为完成。"));
       }
       const children = current.filter(item => item.parent_task_id === task.task_id);
-      const childPanel = element("section", "steps-panel");
+      const childPanel = element("section", "child-tasks-panel");
       const childHead = element("div", "steps-head");
       childHead.append(element("strong", "", "子任务"),
                        element("span", "", children.length + " 项 · 根据明确指定的上级任务关联"));

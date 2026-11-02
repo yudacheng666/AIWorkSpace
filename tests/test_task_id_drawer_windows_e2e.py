@@ -171,6 +171,11 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.locator(".step-add-form input").fill("虚构第一步")
         page.locator(".step-add-form button").click()
         page.locator(".step-row").wait_for(state="visible")
+        page.locator(".step-edit-form select").first.select_option("doing")
+        page.locator(".step-edit-form button.save").first.click()
+        expect(page.locator("#task-detail-content .task-form select").first).to_have_value("doing", timeout=10000)
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["status"], "doing")
+
         page.locator(".step-edit-form select").first.select_option("blocked")
         page.locator(".step-edit-form button.save").first.click()
         expect(page.locator("#task-detail-content .task-form select").first).to_have_value("blocked", timeout=10000)

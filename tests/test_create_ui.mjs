@@ -283,7 +283,8 @@ function taskEditHarness(task) {
                     step_order_candidates: task.step_order_candidates || []});
   const form = card.children.find(item => item.className === "task-form");
   assert.ok(form, "task edit form must exist");
-  const [titleLabel, statusLabel, primaryLabel, relatedLabel] = form.children;
+  const [titleLabel, statusLabel, parentLabel, primaryLabel, relatedLabel] = form.children;
+  const parent = parentLabel.children[0];
   const title = titleLabel.children[0];
   const status = statusLabel.children[0];
   const primary = primaryLabel.children[0];
@@ -294,7 +295,7 @@ function taskEditHarness(task) {
     metadata.children.map(label => label.children[0]);
   const save = () => form.handlers.get("submit")({preventDefault() {}});
   const stepPanel = card.children.find(item => item.className === "steps-panel");
-  return {title, status, primary, related, owner, priority, due, planned, follow,
+  return {title, status, parent, primary, related, owner, priority, due, planned, follow,
           save, posted, card, stepPanel, stepCreated, stepUpdated, stepReordered,
           setConfirm(value) { confirmValue = value; },
           setDelayStepCreate(value) { delayStepCreate = value; },
@@ -303,6 +304,32 @@ function taskEditHarness(task) {
           },
           beforeUnload: () => browser.fireBeforeUnload()};
 }
+
+test("step-derived effective status must not be silently saved as manual status", async () => {
+  const page = taskEditHarness({
+    task_id: "TASK-TEST-DERIVED", title: "虚构上层任务", status: "doing",
+    manual_status: "todo", status_source: "steps", revision: 2,
+    conflict: false, project_id: null, related_project_ids: []
+  });
+  page.title.value = "只改标题，不改原人工状态";
+  await page.save();
+  assert.equal(page.posted.length, 1);
+  assert.equal(page.posted[0].title, "只改标题，不改原人工状态");
+  assert.equal(Object.hasOwn(page.posted[0], "status"), false,
+               "derived doing must not become historical manual doing");
+});
+
+test("explicit parent link edit is submitted without incidental status change", async () => {
+  const page = taskEditHarness({
+    task_id: "TASK-TEST-CHILD", title: "虚构子任务", status: "todo",
+    manual_status: "todo", revision: 1, conflict: false,
+    project_id: null, related_project_ids: []
+  });
+  page.parent.value = "TASK-EXPLICIT-PARENT";
+  await page.save();
+  assert.equal(page.posted[0].parent_task_id, "TASK-EXPLICIT-PARENT");
+  assert.equal(Object.hasOwn(page.posted[0], "status"), false);
+});
 
 test("P2: changing title preserves unsynced primary and related project IDs", async () => {
   const primary = "PROJECT-" + "A".repeat(32);
