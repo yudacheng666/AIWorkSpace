@@ -1,0 +1,36 @@
+name: QA - published 2.0.1 Windows source and rollback
+
+on:
+  push:
+    branches:
+      - test/20261102-v201-public-source-windows
+    paths:
+      - 'qa/test_public_main_source.py'
+      - '.github/workflows/qa-v201-public-source.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  published-main-upgrade:
+    name: Real GitHub 2.0.0 to 2.0.1 on isolated Windows
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out QA branch based on published 2.0.1 main
+        uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test real public GitHub zipballs, version upgrade, backup and rollback
+        env:
+          AIWORKSPACE_RUN_LIVE_MAIN_SOURCE: "1"
+        run: python qa/test_public_main_source.py
+      - name: Save isolated, anonymized QA results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-v201-real-public-source
+          path: ${{ runner.temp }}/aiworkspace-main-source-smoke/
+          if-no-files-found: warn
