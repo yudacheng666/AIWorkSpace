@@ -15,9 +15,11 @@ from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import app as app_module  # noqa: E402
-from app import (append_event, append_project_event, append_step_event, handler_factory,
-                 read_workspace, validate_event, validate_project_event,
-                 validate_step_event)  # noqa: E402
+from app import (append_event, append_project_event, append_step_event,
+                 append_work_inbox_event, append_work_record_event, handler_factory,
+                 read_work_archive, read_workspace, validate_event, validate_project_event,
+                 validate_step_event, validate_work_inbox_event,
+                 validate_work_record_event)  # noqa: E402
 
 
 def event(event_id="demo-event-001", task_id="TASK-DEMO-001", action="create",
@@ -1427,6 +1429,242 @@ class ServerTests(unittest.TestCase):
             self.server.shutdown = shutdown
             if app_module._update_lock.locked():
                 app_module._update_lock.release()
+
+
+
+
+def work_inbox_event(event_id="inbox-event-001", inbox_id="INBOX-" + "A" * 32,
+                     content="虚构工作记录原文", **other):
+    return {
+        "version": 1, "event_id": event_id, "inbox_id": inbox_id,
+        "action": "capture", "actor": "user", "source": "workbench",
+        "captured_at": "2026-11-02T10:00:00Z", "content": content,
+        "evidence_refs": [], **other,
+    }
+
+
+def work_record_event(event_id="record-event-001", record_id="RECORD-" + "A" * 32,
+                      action="create", revision=0, changes=None, actor="chatgpt"):
+    if changes is None:
+        changes = {
+            "title": "虚构工作记录",
+            "summary": "已完成一次虚构业务沟通。",
+            "category": "communication",
+            "occurred_at": "2026-11-02",
+            "project_id": None,
+            "source_ids": [],
+            "evidence_refs": [],
+            "action_links": [],
+        }
+    return {
+        "version": 1, "event_id": event_id, "record_id": record_id,
+        "action": action, "actor": actor,
+        "timestamp": "2026-11-02T10:05:00Z",
+        "base_revision": revision, "changes": changes,
+    }
+
+
+class WorkArchiveDataTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.data_dir = Path(self.temp.name)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_absent_archive_is_empty_and_legacy_task_files_are_unchanged(self):
+        append_event(self.data_dir, event())
+        original = next((self.data_dir / "events").glob("*.json")).read_bytes()
+        self.assertEqual(read_work_archive(self.data_dir), {
+            "inbox": [], "records": [], "warnings": [],
+        })
+        self.assertEqual(next((self.data_dir / "events").glob("*.json")).read_bytes(), original)
+        self.assertFalse((self.data_dir / "work_archive").exists())
+
+    def test_raw_inbox_text_is_persisted_without_rewriting(self):
+        raw = "  今天和生产部门沟通接口调整；保留原始输入格式。  "
+        path = append_work_inbox_event(self.data_dir, work_inbox_event(content=raw))
+        original = path.read_bytes()
+        archive = read_work_archive(self.data_dir)
+        self.assertEqual(len(archive["inbox"]), 1)
+        self.assertEqual(archive["inbox"][0]["content"], raw)
+        self.assertEqual(archive["inbox"][0]["status"], "pending")
+        self.assertEqual(path.read_bytes(), original)
+
+    def test_work_record_create_and_update_are_append_only(self):
+        root = append_work_record_event(self.data_dir, work_record_event())
+        root_bytes = root.read_bytes()
+        append_work_record_event(self.data_dir, work_record_event(
+            event_id="record-event-002", action="update", revision=1,
+            changes={"summary": "补充了沟通结论。"},
+        ))
+        archive = read_work_archive(self.data_dir)
+        self.assertEqual(len(archive["records"]), 1)
+        record = archive["records"][0]
+        self.assertEqual(record["revision"], 2)
+        self.assertEqual(record["summary"], "补充了沟通结论。")
+        self.assertFalse(record["conflict"])
+        self.assertEqual(root.read_bytes(), root_bytes)
+        self.assertEqual(len(list((self.data_dir / "work_archive" / "record_events").glob("*.json"))), 2)
+
+    def test_conflicting_duplicate_record_event_id_freezes_record(self):
+        append_work_record_event(self.data_dir, work_record_event())
+        conflicting = work_record_event(changes={
+            "title": "被篡改的标题", "summary": "不同内容。",
+        })
+        folder = self.data_dir / "work_archive" / "record_events"
+        (folder / "z_conflicting.json").write_text(
+            json.dumps(conflicting, ensure_ascii=False), encoding="utf-8"
+        )
+        record = read_work_archive(self.data_dir)["records"][0]
+        self.assertTrue(record["conflict"])
+        self.assertIn("event_id", record["conflict_fields"])
+
+    def test_invalid_evidence_and_action_links_are_rejected(self):
+        invalid_evidence = work_record_event(changes={
+            "title": "虚构记录", "summary": "摘要",
+            "evidence_refs": [{"file_id": "", "name": "缺少文件编号"}],
+        })
+        with self.assertRaises(ValueError):
+            validate_work_record_event(invalid_evidence)
+        invalid_link = work_record_event(changes={
+            "title": "虚构记录", "summary": "摘要",
+            "action_links": [{
+                "target_type": "task", "target_id": "NOT-A-TASK",
+                "relation": "derived_action",
+            }],
+        })
+        with self.assertRaises(ValueError):
+            validate_work_record_event(invalid_link)
+
+    def test_record_source_marks_raw_inbox_as_processed(self):
+        inbox_id = "INBOX-" + "B" * 32
+        append_work_inbox_event(self.data_dir, work_inbox_event(
+            event_id="inbox-event-002", inbox_id=inbox_id,
+        ))
+        append_work_record_event(self.data_dir, work_record_event(changes={
+            "title": "整理后的记录", "summary": "来自原始输入的工作记录。",
+            "source_ids": [inbox_id],
+        }))
+        archive = read_work_archive(self.data_dir)
+        self.assertEqual(archive["inbox"][0]["status"], "processed")
+        self.assertEqual(archive["inbox"][0]["linked_record_ids"], ["RECORD-" + "A" * 32])
+
+    def test_inbox_rejects_bad_occurrence_time_and_invalid_source(self):
+        invalid = work_inbox_event(occurred_at="2026-11-02T10:00:00")
+        with self.assertRaises(ValueError):
+            validate_work_inbox_event(invalid)
+        invalid = work_inbox_event(source="untrusted-source")
+        with self.assertRaises(ValueError):
+            validate_work_inbox_event(invalid)
+
+
+class WorkArchiveServerTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.data_dir = Path(self.temp.name)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), handler_factory(self.data_dir))
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base = f"http://127.0.0.1:{self.server.server_port}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=2)
+        self.temp.cleanup()
+
+    def post(self, path, body, extra_headers=None):
+        headers = {"Content-Type": "application/json"}
+        headers.update(extra_headers or {})
+        request = Request(self.base + path,
+                          data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
+                          method="POST", headers=headers)
+        try:
+            with urlopen(request, timeout=3) as reply:
+                return reply.status, json.load(reply)
+        except HTTPError as error:
+            return error.code, json.load(error)
+
+    def get_archive(self, extra_headers=None):
+        request = Request(self.base + "/api/work-archive", headers=extra_headers or {})
+        try:
+            with urlopen(request, timeout=3) as reply:
+                return reply.status, json.load(reply)
+        except HTTPError as error:
+            return error.code, json.load(error)
+
+    def test_archive_get_is_empty_without_creating_a_directory(self):
+        status, archive = self.get_archive()
+        self.assertEqual(status, 200)
+        self.assertEqual(archive, {"inbox": [], "records": [], "warnings": []})
+        self.assertFalse((self.data_dir / "work_archive").exists())
+
+    def test_capture_is_persisted_and_same_capture_key_is_idempotent(self):
+        body = {
+            "content": "今天完成一次虚构沟通。",
+            "source": "workbench",
+            "occurred_at": "2026-11-02",
+            "capture_key": "capture-key-0001",
+        }
+        status, first = self.post("/api/work-archive/inbox", body)
+        self.assertEqual(status, 201)
+        status, duplicate = self.post("/api/work-archive/inbox", body)
+        self.assertEqual(status, 200)
+        self.assertTrue(duplicate["duplicate"])
+        self.assertEqual(first["inbox_id"], duplicate["inbox_id"])
+        status, archive = self.get_archive()
+        self.assertEqual(status, 200)
+        self.assertEqual(len(archive["inbox"]), 1)
+        self.assertEqual(archive["inbox"][0]["content"], body["content"])
+
+    def test_capture_key_reuse_with_different_content_returns_conflict(self):
+        body = {"content": "第一条虚构输入。", "capture_key": "capture-key-0002"}
+        self.assertEqual(self.post("/api/work-archive/inbox", body)[0], 201)
+        status, result = self.post("/api/work-archive/inbox", {
+            **body, "content": "不同的输入内容。",
+        })
+        self.assertEqual(status, 409)
+        self.assertIn("different content", result["error"])
+
+    def test_record_create_and_revision_protected_update(self):
+        body = {
+            "title": "虚构工作记录", "summary": "完成了虚构业务沟通。",
+            "category": "communication", "occurred_at": "2026-11-02",
+            "evidence_refs": [{"file_id": "synthetic-file-001", "name": "虚构会议纪要.pdf"}],
+        }
+        status, created = self.post("/api/work-archive/records", body)
+        self.assertEqual(status, 201)
+        record_id = created["record_id"]
+        status, updated = self.post(
+            f"/api/work-archive/records/{record_id}/update",
+            {"revision": 1, "summary": "补充后的虚构沟通结论。"},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(updated["revision"], 2)
+        status, stale = self.post(
+            f"/api/work-archive/records/{record_id}/update",
+            {"revision": 1, "summary": "过期修改不得覆盖。"},
+        )
+        self.assertEqual(status, 409)
+        status, archive = self.get_archive()
+        self.assertEqual(status, 200)
+        self.assertEqual(archive["records"][0]["summary"], "补充后的虚构沟通结论。")
+        self.assertEqual(archive["records"][0]["revision"], 2)
+
+    def test_invalid_evidence_reference_is_rejected_without_writing(self):
+        status, result = self.post("/api/work-archive/records", {
+            "title": "虚构记录", "summary": "测试无效证据。",
+            "evidence_refs": [{"file_id": "", "name": "无效文件"}],
+        })
+        self.assertEqual(status, 400)
+        self.assertIn("evidence file_id", result["error"])
+        self.assertFalse((self.data_dir / "work_archive").exists())
+
+    def test_archive_api_keeps_host_allowlist(self):
+        status, result = self.get_archive({"Host": "attacker.example"})
+        self.assertEqual(status, 403)
+        self.assertIn("local requests only", result["error"])
 
 
 if __name__ == "__main__":
