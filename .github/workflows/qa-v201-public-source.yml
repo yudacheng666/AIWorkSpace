@@ -8,6 +8,12 @@ on:
       - 'qa/test_public_main_source.py'
       - '.github/workflows/qa-v201-public-source.yml'
 
+  pull_request:
+    branches:
+      - test/20261102-v201-public-source-windows
+    paths:
+      - 'docs/qa/v201-run-request.md'
+
 permissions:
   contents: read
 
