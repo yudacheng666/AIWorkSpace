@@ -103,6 +103,82 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertTrue(page.locator("#task-detail-drawer").evaluate("(e) => e.hidden"))
         self.assertEqual(self._file_hashes(), self.before)
 
+
+    def test_v202_document_link_and_safe_trash_restore_purge(self):
+        """Real UI exercises all three storage transitions on fictional data."""
+        page = self._open_browser()
+        document = page.locator("#task-detail-content .doc-add-form")
+        document.locator("input[type='text']").fill("虚构云端计划")
+        document.locator("input[type='url']").fill(
+            "https://drive.google.com/file/d/SYNTHETIC_DOC_TEST/view")
+        document.get_by_role("button", name="添加链接").click()
+        link = page.locator("#task-detail-content .doc-row a").first
+        link.wait_for(state="visible")
+        self.assertEqual(link.inner_text(), "虚构云端计划")
+        self.assertEqual(
+            link.get_attribute("href"),
+            "https://drive.google.com/file/d/SYNTHETIC_DOC_TEST/view")
+        self.assertEqual(link.get_attribute("target"), "_blank")
+        self.assertEqual(link.get_attribute("rel"), "noopener noreferrer")
+        self.assertEqual(len(read_workspace(self.data_dir)["tasks"][0]["document_links"]), 1)
+
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator(".task-lifecycle-controls button").click()
+        page.locator("#task-detail-drawer").wait_for(state="hidden")
+        self.assertEqual(read_workspace(self.data_dir)["tasks"], [])
+
+        page.locator("#open-trash").click()
+        row = page.locator(".trash-row").first
+        row.wait_for(state="visible")
+        self.assertIn("虚构任务", row.inner_text())
+        page.once("dialog", lambda dialog: dialog.accept())
+        row.get_by_role("button", name="恢复").click()
+        page.locator(".trash-row").wait_for(state="hidden")
+        self.assertEqual(len(read_workspace(self.data_dir)["tasks"]), 1)
+        page.locator("#trash-close").click()
+
+        page.locator(".task-summary .task-open").first.click()
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator(".task-lifecycle-controls button").click()
+        page.locator("#task-detail-drawer").wait_for(state="hidden")
+        page.locator("#open-trash").click()
+        row = page.locator(".trash-row").first
+        row.wait_for(state="visible")
+        row.locator("input[type='checkbox']").check()
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator("#trash-purge-selected").click()
+        page.locator(".trash-row").wait_for(state="hidden")
+        self.assertEqual(read_workspace(self.data_dir, include_trashed=True)["tasks"], [])
+        remaining = list((self.data_dir / "events").glob("*.json"))
+        self.assertEqual(len(remaining), 1)
+        self.assertEqual(json.loads(remaining[0].read_text("utf-8"))["action"], "purge")
+
+    def test_v202_step_status_updates_task_without_automatic_done(self):
+        page = self._open_browser()
+        page.locator(".step-add-form input").fill("虚构第一步")
+        page.locator(".step-add-form button").click()
+        page.locator(".step-row").wait_for(state="visible")
+        page.locator(".step-edit-form select").first.select_option("blocked")
+        page.locator(".step-edit-form button.save").first.click()
+        page.get_by_text("任务状态根据执行步骤联动", exact=False).wait_for(state="visible")
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["status"], "blocked")
+        self.assertEqual(page.locator(".task-form select").first.input_value(), "blocked")
+
+        page.locator(".step-edit-form select").first.select_option("done")
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator(".step-edit-form button.save").first.click()
+        page.get_by_text("全部执行步骤已完成", exact=False).wait_for(state="visible")
+        state = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual(state["status"], "doing")
+        self.assertTrue(state["step_completion_pending"])
+        self.assertEqual(state["manual_status"], "todo")
+
+        page.locator(".task-form select").first.select_option("done")
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator(".task-form button.save").first.click()
+        page.get_by_text("已保存独立修改记录", exact=False).wait_for(state="hidden")
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["status"], "done")
+
     def test_unsaved_draft_cannot_be_silently_discarded(self):
         page = self._open_browser()
         title = page.locator("#task-detail-content .task-form input[type='text']").first
