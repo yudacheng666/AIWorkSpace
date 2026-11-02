@@ -57,11 +57,11 @@
 
 4. 浏览器打开 `http://127.0.0.1:8770/`。初次没有事件文件时显示空任务列表，这是正常情况。
 
-本地服务只监听 \`127.0.0.1\`，不提供公网访问。关闭运行窗口会停止网页服务；数据文件不会随之删除。
+本地服务只监听 `127.0.0.1`，不提供公网访问。关闭运行窗口会停止网页服务；数据文件不会随之删除。
 
 ## M1：个人工作档案（开发中，尚未合入 main）
 
-个人工作档案是 AIWorkSpace 的内置模块，不是独立软件。它与任务系统使用同一个 \`VERSION\`、更新器和 \`--data-dir\`；当前正式版本仍为 \`2.0.0\`，本分支功能尚未包含在正式版中。
+个人工作档案是 AIWorkSpace 的内置模块，不是独立软件。它与任务系统使用同一个 `VERSION`、更新器和 `--data-dir`；当前正式版本仍为 `2.0.0`，本分支功能尚未包含在正式版中。
 
 ### 工作记录与任务的边界
 
@@ -73,14 +73,14 @@
 
 ### 本分支数据目录
 
-新增内容只写入用户指定的 \`--data-dir\`，不进入 GitHub 仓库：
+新增内容只写入用户指定的 `--data-dir`，不进入 GitHub 仓库：
 
 | 目录 | 用途 |
 |---|---|
-| \`work_archive/inbox/\` | 不可变的原始输入，等待整理 |
-| \`work_archive/record_events/\` | 标准工作记录的创建/修订事件 |
+| `work_archive/inbox/` | 不可变的原始输入，等待整理 |
+| `work_archive/record_events/` | 标准工作记录的创建/修订事件 |
 
-读取接口为 \`GET /api/work-archive\`；本机快速记录使用 \`POST /api/work-archive/inbox\`；标准记录创建/修订使用 \`POST /api/work-archive/records\` 和 \`POST /api/work-archive/records/{record_id}/update\`。
+读取接口为 `GET /api/work-archive`；本机快速记录使用 `POST /api/work-archive/inbox`；标准记录创建/修订使用 `POST /api/work-archive/records` 和 `POST /api/work-archive/records/{record_id}/update`。
 
 工作台快速记录先保存原文。它不会在本机调用模型，也不会声称已经完成 AI 整理。记录详情支持标题、内容、分类、发生日期和项目；证据文件、来源输入及任务/步骤关联以引用方式保存。
 
@@ -90,16 +90,16 @@
 
 处理步骤：
 
-1. 读取 \`work_archive/inbox/\` 中的原始输入，先核对是否已经有记录引用该 \`inbox_id\`。
-2. 读取现有 \`work_archive/record_events/\`，并查询 \`events/\`、\`project_events/\`、\`step_events/\` 中的项目、任务和步骤。
+1. 读取 `work_archive/inbox/` 中的原始输入，先核对是否已经有记录引用该 `inbox_id`。
+2. 读取现有 `work_archive/record_events/`，并查询 `events/`、`project_events/`、`step_events/` 中的项目、任务和步骤。
 3. 将已发生事实整理为工作记录；将未来行动判断为更新现有任务、增加步骤、创建独立任务或暂不创建。
-4. 每条工作记录使用新的 \`record_id\` 和 \`event_id\`，写入 \`work_archive/record_events/evt_<event_id>.json\`。不要覆盖旧事件。
-5. 在 \`source_ids\` 中保留来源 \`inbox_id\`；在 \`action_links\` 中关联实际存在的任务/步骤 ID。
+4. 每条工作记录使用新的 `record_id` 和 `event_id`，写入 `work_archive/record_events/evt_<event_id>.json`。不要覆盖旧事件。
+5. 在 `source_ids` 中保留来源 `inbox_id`；在 `action_links` 中关联实际存在的任务/步骤 ID。
 6. 等待 Google Drive 同步，再刷新工作台检查记录与关联结果。
 
 原始输入事件示例（全部为虚构数据）：
 
-\`\`\`json
+```json
 {
   "version": 1,
   "event_id": "inbox-20261102-0001",
@@ -111,11 +111,11 @@
   "content": "今天与生产部门沟通了接口字段调整。",
   "evidence_refs": []
 }
-\`\`\`
+```
 
 标准工作记录创建事件示例（全部为虚构数据）：
 
-\`\`\`json
+```json
 {
   "version": 1,
   "event_id": "record-20261102-0001",
@@ -141,14 +141,14 @@
     ]
   }
 }
-\`\`\`
+```
 
-修订事件使用相同 \`record_id\`，\`action=update\`，\`base_revision\` 填当前 revision，\`changes\` 只包含本次修改字段。允许的分类：\`meeting\`、\`communication\`、\`decision\`、\`problem\`、\`action\`、\`result\`、\`idea\`、\`other\`。证据引用只保存 \`file_id\`、\`name\` 和可选 \`mime_type\`，不复制文件内容或写入私有 URL。
+修订事件使用相同 `record_id`，`action=update`，`base_revision` 填当前 revision，`changes` 只包含本次修改字段。允许的分类：`meeting`、`communication`、`decision`、`problem`、`action`、`result`、`idea`、`other`。证据引用只保存 `file_id`、`name` 和可选 `mime_type`，不复制文件内容或写入私有 URL。
 
 ### 数据保护边界
 
-- 旧版不存在 \`work_archive/\` 时，读取接口返回空档案；不会迁移、重编号或改写旧的 \`events/\`、\`project_events/\`、\`step_events/\`。
-- 现有更新器只备份/替换程序白名单文件，不备份 \`--data-dir\`。工作档案放在 \`--data-dir\` 内，不受程序更新操作影响。
+- 旧版不存在 `work_archive/` 时，读取接口返回空档案；不会迁移、重编号或改写旧的 `events/`、`project_events/`、`step_events/`。
+- 现有更新器只备份/替换程序白名单文件，不备份 `--data-dir`。工作档案放在 `--data-dir` 内，不受程序更新操作影响。
 - 当前产品没有内置的完整数据备份/恢复功能。Google Drive 同步不应被误认为独立备份；正式使用前应保留数据目录的独立备份。M1 不声称已经实现数据备份/恢复。
 - 所有示例和测试数据均为虚构数据；不得将真实工作档案、人员资料或私有 Drive 文件 ID 提交到公开仓库。
 
