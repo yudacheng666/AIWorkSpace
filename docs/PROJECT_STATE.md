@@ -1,5 +1,16 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-02：用户批准，AIWorkSpace 2.0.2 已正式合并 GitHub main（不等于工作电脑已升级）
+
+- **用户授权**：用户明确回复“批准”2.0.2 GitHub 合并。ChatGPT 先核对 PR #17 HEAD 与准确 RC SHA 的提交差异、`main` 基线、`VERSION` 和 Actions 证据。执行范围仅 GitHub PR 转 Ready + 普通合并，**未授权也未执行真实 Windows 8770 / Google Drive 数据部署、删除、同步或升级**。
+- **成功合并**：[PR #17](https://github.com/yudacheng666/AIWorkSpace/pull/17) 从 Draft 转 Ready for review 后以 `merge_method=merge` 正常合并，GitHub 返回 `merged=true`，准确合并 SHA **`bfb741bbb9da943f1d63241a9f8b85df008e0b4a`**；合并前 HEAD **`ba6ce308992ecea157a92c5fe146034e9bbc9dd9`**。重复读取 `main` HEAD 为合并 SHA，`compare(merge,main)` 无额外差异，PR 为 CLOSED / MERGED。
+- **正式仓库语义版本**：`main/VERSION=2.0.2`。三个功能是任务回收站（恢复、到期清理配置、手动彻底删除）、执行步骤状态联动任务有效状态（全部完成时仍须人工确认任务完成）、关联多个 Google Drive 文档链接（不复制文件，AI 读取取决于原文档和连接器权限）。工作档案功能仍暂停，不操作 PR #14。
+- **准确 RC 测试证据**：产品和测试代码 RC SHA **`faa092d2d9359171f53a01d3f7145197e6412a28`**，[Actions #41443451302](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41443451302) **3/3 SUCCESS**：Ubuntu Python 115 PASS/9 SKIP + Node 60 PASS；Windows Python 117 PASS/7 SKIP + Node 60 PASS；Windows 真 app.py + Chromium 更新器 3 PASS、任务 UI 4 PASS。RC 测试 SHA 之后只更新三份 docs Markdown，产品/测试代码无改动。
+- **合并后主干 push CI 状态**：`main` 合并 SHA **`bfb741bbb9da943f1d63241a9f8b85df008e0b4a`** 对应的 `push` 工作流 **NOT VERIFIED**。现有 GitHub 连接器 `fetch_commit_workflow_runs` 仅返回 `pull_request` 关联的运行，不能以该接口结果空列表认定无 CI 或认定 CI PASS。已通过的 RC 测试与合并后 push 测试必须严格区分。
+- **尚未测试**：真实两台电脑 Google Drive 云端同步、私人文档实际访问权限、真实任务数据长期运行与正式升级均未独立验证；不可把虚构同步 PASS 当作真实服务验收。同步来的永久删除墓碑会逻辑隐藏任务但不得擅自物理清空另一电脑的文件；云端历史版本、备份不能承诺物理擦除。
+- **下一步**：用户可在工作电脑网页中先检查更新并自主选择 2.0.2 一键升级；升级前保留真实数据备份并确认草稿已保存，升级后核对任务总数、原数据、回收站、步骤状态和 Drive 链接。用户还没宣布真实电脑完成升级，不能宣称已部署。测试继续 ChatGPT + GitHub Actions 优先，不默认重复 Codex。
+
+
 ## 2026-11-02：统一版本 2.0.2 正式发布候选（RC）已准备，GitHub CI 3/3 PASS，等待用户批准合并
 
 - **状态**：[PR #17](https://github.com/yudacheng666/AIWorkSpace/pull/17) 已完成 RC 版本与说明，分支 `VERSION=2.0.2`，仍 **Draft / OPEN / 未合并 / 未部署**；正式 `main/VERSION=2.0.1`，用户已反馈实际 Windows 工作台升级 2.0.1 成功（非本机独立验证）。工作档案 PR #14 继续暂停。
