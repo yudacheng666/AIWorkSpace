@@ -1264,6 +1264,53 @@ def handler_factory(data_dir: Path):
 
             try:
                 payload = self.read_payload()
+                if creating_work_inbox:
+                    allowed = {"content", "occurred_at", "source", "evidence_refs", "capture_key"}
+                    if set(payload) - allowed:
+                        raise ValueError("unknown work inbox fields")
+                    event_content = payload.get("content")
+                    if not isinstance(event_content, str) or not 1 <= len(event_content.strip()) <= 12_000:
+                        raise ValueError("work inbox content must be 1–12000 characters")
+                    capture_key = payload.get("capture_key")
+                    source = payload.get("source", "workbench")
+                    occurred_at = payload.get("occurred_at") or None
+                    evidence_refs = payload.get("evidence_refs", [])
+                    with _write_lock:
+                        archive = read_work_archive(data_dir)
+                        if capture_key:
+                            existing = next((item for item in archive["inbox"]
+                                             if item.get("capture_key") == capture_key), None)
+                            if existing:
+                                same_capture = (
+                                    existing["content"] == event_content and
+                                    existing.get("occurred_at") == occurred_at and
+                                    existing["source"] == source and
+                                    existing.get("evidence_refs", []) == evidence_refs
+                                )
+                                if same_capture:
+                                    return self.json_response(200, {
+                                        "saved": True, "duplicate": True,
+                                        "inbox_id": existing["inbox_id"],
+                                    })
+                                return self.json_response(409, {
+                                    "error": "capture_key already exists with different content",
+                                })
+                        event = {
+                            "version": 1, "event_id": str(uuid.uuid4()),
+                            "inbox_id": f"INBOX-{uuid.uuid4().hex.upper()}",
+                            "action": "capture", "actor": "user", "source": source,
+                            "captured_at": utc_now(), "content": event_content,
+                            "evidence_refs": evidence_refs,
+                        }
+                        if occurred_at is not None:
+                            event["occurred_at"] = occurred_at
+                        if capture_key:
+                            event["capture_key"] = capture_key
+                        append_work_inbox_event(data_dir, event)
+                    return self.json_response(201, {
+                        "saved": True, "inbox_id": event["inbox_id"],
+                    })
+
                 if step_create_match:
                     if set(payload) != {"title"}:
                         raise ValueError("step create accepts only title")
