@@ -481,8 +481,10 @@ test("M1 quick capture saves the original text to the inbox, not to tasks", asyn
 });
 
 test("M1 work record detail edits with its current revision", async () => {
+  const record = sampleArchiveRecord();
+  record.occurred_at = "2026-11-02T11:30:00+08:00";
   const archive = {
-    records: [sampleArchiveRecord()], inbox: [], warnings: [],
+    records: [record], inbox: [], warnings: [],
   };
   const page = harness([sampleTask()], () => true, [], archive);
   await page.api.refresh(true);
@@ -500,6 +502,7 @@ test("M1 work record detail edits with its current revision", async () => {
   assert.match(page.writes[0].path, /\/api\/work-archive\/records\/RECORD-/);
   assert.equal(page.writes[0].body.revision, 1);
   assert.equal(page.writes[0].body.summary, "补充后的虚构会议结论。");
+  assert.equal(page.writes[0].body.occurred_at, "2026-11-02T11:30:00+08:00");
 });
 
 test("M1 archive search filters the record timeline without writing task events", async () => {
