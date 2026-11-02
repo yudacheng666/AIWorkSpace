@@ -67,7 +67,7 @@ function harness(tasks = [], confirm = () => true, projects = []) {
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes, el: id => document.getElementById(id)};
@@ -433,6 +433,7 @@ test("short display ID supports copy button, clickable ID and keyword search", a
   await page.el("task-detail-id").handlers.get("click")[0]();
   assert.deepEqual(page.copied, [task.display_id, task.display_id]);
   assert.equal(page.el("task-id-feedback").textContent, "已复制");
+  assert.equal(page.api.matchesQuery(task, {keyword: "t-261102-abcdef123456"}), true);
   assert.equal(page.writes.length, 0);
 });
 
