@@ -1,5 +1,16 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-02：AIWorkSpace 2.0.1 已由用户批准并合并 GitHub main（正式部署仍未授权）
+
+- **用户批准范围**：2026-11-02 用户已明确批准把通过 CI 的 PR #15 合并到 `main`；用户随后在 GitHub 将 PR 从 Draft 转为 Ready for review。批准范围仅 GitHub 代码合并，不包含公司 Windows 正式机器或真实 Google Drive 数据的升级/更改。
+- **实际 GitHub 合并**：[PR #15](https://github.com/yudacheng666/AIWorkSpace/pull/15) 已 **MERGED / CLOSED**，通过 GitHub 原生普通 `merge` 保留 PR 分支提交历史；准确合并 SHA **`7d1a0f2c8cf8135b78a43108f666d750538d6a18`**。合并前 PR HEAD `5ee54db89a3f5d86e04815d54046250a1cface51`。再次读取 `main` HEAD 与 `compare(7d1a0f2,main)` 均一致，差异 0。
+- **正式 GitHub 代码版本**：`main/VERSION=2.0.1`，`app.py`、`web/index.html` 和测试来自通过验收的 2.0.1 RC；内部 task_id 和原 JSON 事件 schema 不变。用户可在 GitHub main 获取 2.0.1，但不等于工作电脑已经安装 2.0.1。
+- **合并前 CI 证据**：准确 RC 产品/测试代码 SHA `97ca50d74641fcb8ae2f232a95651ab7c50fbcd0` 的 [Actions #41421749629](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41421749629) **3/3 SUCCESS**：Ubuntu Python 100 PASS / 7 SKIP + Node 60 PASS；Windows Python 102 PASS / 5 SKIP + Node 60 PASS；Windows 真 app.py/Chromium 既有更新回滚和 UI E2E 3 PASS、新增 2 PASS。该 SHA 后至被合并 PR HEAD 仅修改 `README.md`、`docs/DECISIONS.md`、`docs/PROJECT_STATE.md`、本 session（Markdown），产品/测试代码未改。
+- **合并后 CI 状态**：`main` push 对应准确合并 SHA `7d1a0f2c8cf8135b78a43108f666d750538d6a18` 的 Actions 完成状态 **NOT VERIFIED**。当前 GitHub 连接器 `fetch_commit_workflow_runs` 只枚举 `pull_request` 事件，不返回 `push` 运行；不能把该接口空列表写作“没有运行”，也不能冒用合并前 PASS 作为 post-merge PASS。应通过 [GitHub Actions 工作流页面](https://github.com/yudacheng666/AIWorkSpace/actions/workflows/tests.yml) 核对该 SHA 的 push CI 并补记。
+- **项目隔离**：工作档案 M1 开发仍暂停，工作档案 PR #14 及独立分支保留，不操作；没有部署 8770、没有读写真实公司 Drive 任务数据、没有触发真实电脑更新。CI 继续遵循 D021：GitHub Actions 优先，Codex 不重复已在准确 SHA/范围通过的测试。
+- **下一步**：核实合并 SHA 的 `main` push CI 证据；随后在公司电脑外安排一次 Windows 隔离部署/从旧版升级预演（安全备份、回滚、端口与 data-dir 保护），获用户真实环境部署授权后再操作真实工作台。工作档案待用户重新安排。
+
+
 ## 2026-11-02：用户已批准 2.0.1 合并，但 GitHub Draft 状态尚未解除（BLOCKED）
 
 - **用户审批**：2026-11-02 用户在 RC 验收结果及下一步“合并 PR #15 到 main”的上下文中回复“批准”，明确授权 **仅合并 PR #15**；并未授权公司电脑实际升级、Google Drive 数据操作或工作档案恢复开发。
