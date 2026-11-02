@@ -483,6 +483,7 @@
     .doc-add-form {display:flex;align-items:end;gap:8px;flex-wrap:wrap;margin-top:12px;}
     .doc-add-form label {flex:1;min-width:130px;}
     .doc-add-form input {width:100%;max-width:100%;}
+    .step-status-note {grid-column:1 / -1;display:block;margin:3px 0;color:var(--text,#334155);font-size:13px;line-height:1.5;}
     .task-lifecycle-controls {display:flex;align-items:center;justify-content:flex-end;margin-top:10px;}
     .task-lifecycle-controls button {border:1px solid #b45353;color:#a33434;background:transparent;border-radius:6px;padding:8px 12px;}
 
@@ -1389,7 +1390,7 @@
         } finally { isSaving = false; button.disabled = false; }
       });
       if (task.status_source === "steps") {
-        form.append(element("p", "hint", "任务状态根据执行步骤联动；全部完成时仍须亲自确认任务完成。"));
+        form.append(element("p", "step-status-note", "任务状态根据执行步骤联动；全部完成时仍须亲自确认任务完成。"));
       }
       if (task.step_completion_pending) {
         form.append(element("p", "step-message", "全部执行步骤已完成，请人工确认是否将任务标记为完成。"));
