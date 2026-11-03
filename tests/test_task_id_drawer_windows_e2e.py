@@ -289,3 +289,44 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.mouse.click(140, 400)
         self.assertTrue(page.locator("#task-detail-drawer").evaluate("(e) => e.hidden"))
         self.assertEqual(self._file_hashes(), self.before)
+
+
+    def test_data_governance_detect_authorize_apply_and_track_in_real_browser(self):
+        source = self.data_dir / "events" / "evt_invalid_lifecycle_review.json"
+        invalid = {
+            "version": 1,
+            "event_id": "bad-lifecycle-chromium-001",
+            "task_id": self.task_id,
+            "action": "trash",
+            "actor": "chatgpt",
+            "timestamp": "2026-11-03T04:10:00Z",
+            "base_revision": 0,
+            "changes": {"trashed_at": "2026-11-03T04:10:00Z"},
+        }
+        source.write_text(json.dumps(invalid, ensure_ascii=False, indent=2), encoding="utf-8")
+        original = source.read_bytes()
+        page = self._open_browser()
+        page.locator("#nav-reviews").click()
+        expect(page.locator("#review-list .review-list-item")).to_have_count(1)
+        page.locator("#review-list .review-list-item").click()
+        expect(page.locator("#review-detail .review-status.pending")).to_be_visible()
+        expect(page.locator("#review-detail .review-code")).to_contain_text("chatgpt")
+
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.get_by_role("button", name="确认核查并授权修复").click()
+        expect(page.locator("#review-detail .review-status.authorized")).to_be_visible()
+        self.assertIsNone(read_workspace(self.data_dir, include_trashed=True)["tasks"][0]["trashed_at"])
+
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.get_by_role("button", name="执行已授权修复").click()
+        expect(page.locator("#review-detail .review-status.applied")).to_be_visible()
+        task = read_workspace(self.data_dir, include_trashed=True)["tasks"][0]
+        self.assertTrue(task["trashed_at"])
+        self.assertEqual(source.read_bytes(), original)
+        self.assertEqual(len(list((self.data_dir / "review_events").glob("*.json"))), 2)
+        valid = [json.loads(path.read_text("utf-8"))
+                 for path in (self.data_dir / "events").glob("*.json")]
+        repaired = [event for event in valid if event.get("actor") == "user"
+                    and event.get("action") == "trash"]
+        self.assertEqual(len(repaired), 1)
+        self.assertEqual(repaired[0]["base_revision"], 1)
