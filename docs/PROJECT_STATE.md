@@ -1,6 +1,15 @@
 # AIWorkSpace｜当前项目状态
 
 
+## 2026-11-03：数据核查修复顺序保护（2.0.6 候选，独立修复 PR）
+
+- 2.0.5 正式版本已由 PR #23 合并进入 main，merge SHA `f137fd6cd400b23c7878b4cd514ff27b94d88c92`；合并后 [Actions #41595962365](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41595962365) 3/3 SUCCESS。当前候选分支从该 main 派生，VERSION 提升为 2.0.6。
+- 对 2.0.5 的核查建议流程做只读数据场景复核时，发现同一目标存在连续非法事件（base_revision 2、3）时，若先处理后一个，可能把较早标题覆盖到较新状态；旧 lifecycle trash 若基于旧任务 revision，也不应重放到更新后的任务。
+- 修复策略：高于当前目标 revision 的异常不提供授权，提示先处理前序异常；同一目标异常按 task/step 与 base_revision 升序展示；任务 trash 源 revision 与当前 revision 不一致时禁止自动重放，须从当前任务的正常操作入口重新发起；对低于当前 revision 且允许人工重审的候选，预览明确说明按当前 revision 重建。
+- 新增合成测试：连续步骤异常必须按 revision 顺序授权/执行，后一个事件在前一个完成前不可授权；过期 task trash 只能人工核查不写入。原始异常文件保持不变。
+- 该修复只保护后续授权/执行，不会扫描、修改或自动处理真实 Drive 数据。2.0.5 main 未改变；2.0.6 候选仍需准确 SHA CI 与用户审批后才能合并。
+- 真实 Windows 8770 尚未升级；真实异常仍只读检查，任何写入仍需逐项人工确认。
+
 ## 2026-11-03：异常发现 → 人工核查 → 明确授权 → 合法写入 → 结果追踪（PR #23 / 2.0.5 发布候选）
 
 - 用户要求补齐完整数据治理闭环，起因是首页仅提示“6 项需要核查”，没有可进入的核查页面。此前示例包含：任务 lifecycle 缺少用户 actor/有效 revision、step update 使用 revision 0 或非法 position、step completion 缺少显式确认。

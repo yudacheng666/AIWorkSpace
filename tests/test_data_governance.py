@@ -105,7 +105,7 @@ class DataGovernanceApiTests(unittest.TestCase):
 
     def test_detection_is_read_only_and_exposes_all_three_known_categories(self):
         lifecycle, lifecycle_raw = self.invalid_source("events", "evt_bad_lifecycle.json", {
-            **task_event("bad-lifecycle-001", "trash", 0,
+            **task_event("bad-lifecycle-001", "trash", 1,
                          {"trashed_at": "2026-11-03T04:10:00Z"}, actor="chatgpt")
         })
         step_position, step_position_raw = self.invalid_source(
@@ -131,7 +131,7 @@ class DataGovernanceApiTests(unittest.TestCase):
 
     def test_lifecycle_repair_requires_authorization_then_writes_valid_event_and_receipt(self):
         source, original = self.invalid_source("events", "evt_lifecycle_needs_review.json", {
-            **task_event("bad-lifecycle-002", "trash", 0,
+            **task_event("bad-lifecycle-002", "trash", 1,
                          {"trashed_at": "2026-11-03T04:10:00Z"}, actor="chatgpt")
         })
         item = self.item("task_lifecycle_requires_user")
@@ -229,7 +229,7 @@ class DataGovernanceApiTests(unittest.TestCase):
 
     def test_source_change_after_authorization_invalidates_it_without_writing(self):
         source, _ = self.invalid_source("events", "evt_lifecycle_tamper.json", {
-            **task_event("bad-lifecycle-003", "trash", 0,
+            **task_event("bad-lifecycle-003", "trash", 1,
                          {"trashed_at": "2026-11-03T04:10:00Z"}, actor="chatgpt")
         })
         item = self.item("task_lifecycle_requires_user")
@@ -244,7 +244,7 @@ class DataGovernanceApiTests(unittest.TestCase):
 
     def test_target_revision_change_after_authorization_invalidates_it(self):
         self.invalid_source("events", "evt_lifecycle_revision.json", {
-            **task_event("bad-lifecycle-004", "trash", 0,
+            **task_event("bad-lifecycle-004", "trash", 1,
                          {"trashed_at": "2026-11-03T04:10:00Z"}, actor="chatgpt")
         })
         item = self.item("task_lifecycle_requires_user")
@@ -261,7 +261,7 @@ class DataGovernanceApiTests(unittest.TestCase):
 
     def test_authorized_review_synced_to_another_device_does_not_auto_apply(self):
         self.invalid_source("events", "evt_lifecycle_remote.json", {
-            **task_event("bad-lifecycle-005", "trash", 0,
+            **task_event("bad-lifecycle-005", "trash", 1,
                          {"trashed_at": "2026-11-03T04:10:00Z"}, actor="chatgpt")
         })
         item = self.item("task_lifecycle_requires_user")
@@ -285,7 +285,7 @@ class DataGovernanceApiTests(unittest.TestCase):
 
     def test_conflicting_review_authorizations_freeze_the_review_stream(self):
         self.invalid_source("events", "evt_lifecycle_review_conflict.json", {
-            **task_event("bad-lifecycle-006", "trash", 0,
+            **task_event("bad-lifecycle-006", "trash", 1,
                          {"trashed_at": "2026-11-03T04:10:00Z"}, actor="chatgpt")
         })
         item = self.item("task_lifecycle_requires_user")
@@ -306,7 +306,7 @@ class DataGovernanceApiTests(unittest.TestCase):
 
     def test_invalid_review_payloads_cannot_authorize_or_apply(self):
         self.invalid_source("events", "evt_lifecycle_invalid_payload.json", {
-            **task_event("bad-lifecycle-007", "trash", 0,
+            **task_event("bad-lifecycle-007", "trash", 1,
                          {"trashed_at": "2026-11-03T04:10:00Z"}, actor="chatgpt")
         })
         item = self.item("task_lifecycle_requires_user")
@@ -365,7 +365,7 @@ class DataGovernanceApiTests(unittest.TestCase):
 
     def test_missing_applied_event_is_detected_and_requires_reauthorization(self):
         self.invalid_source("events", "evt_lifecycle_missing_receipt.json", {
-            **task_event("bad-lifecycle-missing-001", "trash", 0,
+            **task_event("bad-lifecycle-missing-001", "trash", 1,
                          {"trashed_at": "2026-11-03T04:10:00Z"}, actor="chatgpt")
         })
         item = self.item("task_lifecycle_requires_user")
@@ -388,7 +388,7 @@ class DataGovernanceApiTests(unittest.TestCase):
 
     def test_changed_applied_event_receipt_is_a_conflict_and_never_overwritten(self):
         self.invalid_source("events", "evt_lifecycle_changed_receipt.json", {
-            **task_event("bad-lifecycle-receipt-001", "trash", 0,
+            **task_event("bad-lifecycle-receipt-001", "trash", 1,
                          {"trashed_at": "2026-11-03T04:10:00Z"}, actor="chatgpt")
         })
         item = self.item("task_lifecycle_requires_user")
@@ -428,6 +428,73 @@ class DataGovernanceApiTests(unittest.TestCase):
                         (self.data_dir / "events").glob("*.json")
                         if json.loads(path.read_text("utf-8"))["event_id"] == applied["target_event_id"])
         self.assertTrue(repaired["confirmed_done"])
+
+    def test_future_step_revision_waits_for_prior_anomaly_and_applies_in_order(self):
+        app.append_step_event(self.data_dir, step_event(
+            "governance-step-first-valid-update", "update", 1,
+            {"title": "用户已确认的初始步骤标题"}))
+        earlier_source, earlier_raw = self.invalid_source(
+            "step_events", "evt_step_done_revision_2.json",
+            step_event("bad-step-done-rev-2", "update", 2,
+                       {"title": "较早版本的完成标题", "status": "done"},
+                       actor="chatgpt", confirmed_done=True))
+        later_source, later_raw = self.invalid_source(
+            "step_events", "evt_step_done_revision_3.json",
+            step_event("bad-step-done-rev-3", "update", 3,
+                       {"title": "较新版本的完成标题", "status": "done"},
+                       actor="chatgpt", confirmed_done=True))
+
+        items = self.reviews()["items"]
+        earlier = next(item for item in items if item["event_id"] == "bad-step-done-rev-2")
+        later = next(item for item in items if item["event_id"] == "bad-step-done-rev-3")
+        self.assertEqual(earlier["proposal"]["event"]["base_revision"], 2)
+        self.assertIsNone(later["proposal"])
+        self.assertIn("前序", later["proposal_block_reason"])
+        self.assertFalse(later["can_authorize"])
+        self.assertTrue(later["can_dismiss"])
+
+        code, auth = self.authorize(earlier, confirm_completion=True)
+        self.assertEqual(code, 200, auth)
+        code, applied = self.apply(earlier, auth["authorization_event_id"])
+        self.assertEqual(code, 200, applied)
+
+        refreshed = self.reviews()["items"]
+        later = next(item for item in refreshed if item["event_id"] == "bad-step-done-rev-3")
+        self.assertIsNotNone(later["proposal"])
+        self.assertEqual(later["proposal"]["event"]["base_revision"], 3)
+        code, auth = self.authorize(later, confirm_completion=True)
+        self.assertEqual(code, 200, auth)
+        code, applied = self.apply(later, auth["authorization_event_id"])
+        self.assertEqual(code, 200, applied)
+
+        task = app.read_workspace(self.data_dir)["tasks"][0]
+        step = next(item for item in task["steps"] if item["step_id"] == STEP_ID)
+        self.assertEqual(step["title"], "较新版本的完成标题")
+        self.assertEqual(step["revision"], 4)
+        self.assertEqual(earlier_source.read_bytes(), earlier_raw)
+        self.assertEqual(later_source.read_bytes(), later_raw)
+
+    def test_stale_task_trash_is_not_rebased_onto_a_newer_active_task(self):
+        app.append_event(self.data_dir, task_event(
+            "governance-task-newer-valid-update", "update", 1,
+            {"title": "更新后的有效任务标题"}))
+        source, original = self.invalid_source("events", "evt_stale_trash.json", {
+            **task_event("bad-stale-trash-001", "trash", 1,
+                         {"trashed_at": "2026-11-03T04:10:00Z"}, actor="chatgpt")
+        })
+        item = self.item("task_lifecycle_requires_user")
+        self.assertIsNone(item["proposal"])
+        self.assertIn("避免误将后续更新的任务移入回收站", item["proposal_block_reason"])
+        self.assertFalse(item["can_authorize"])
+        self.assertTrue(item["can_dismiss"])
+        code, result = self.request(f"/api/reviews/{item['anomaly_id']}/dismiss", {
+            "source_sha256": item["source"]["sha256"], "confirmed": True,
+            "note": "该任务在原始 AI 回收站事件之后已有更新，保留当前任务，不执行过期回收站操作。"})
+        self.assertEqual(code, 200, result)
+        task = app.read_workspace(self.data_dir, include_trashed=True)["tasks"][0]
+        self.assertIsNone(task["trashed_at"])
+        self.assertEqual(task["title"], "更新后的有效任务标题")
+        self.assertEqual(source.read_bytes(), original)
 
 
 if __name__ == "__main__":

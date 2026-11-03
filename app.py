@@ -1196,6 +1196,43 @@ def _workspace_warning_anomalies(workspace: dict, known_filenames: set[str]) -> 
     return results
 
 
+def _review_proposal_block_reason(anomaly: dict, workspace: dict) -> str | None:
+    """Explain why an event cannot be safely replayed against the current target revision."""
+    source_event = anomaly.get("source_event")
+    folder = anomaly.get("source", {}).get("folder")
+    if not isinstance(source_event, dict) or folder not in {"events", "step_events"}:
+        return None
+    task_id = source_event.get("task_id")
+    if not isinstance(task_id, str):
+        return None
+    task = next((item for item in workspace.get("tasks", [])
+                 if item.get("task_id") == task_id), None)
+    if not task or task.get("conflict"):
+        return None
+    source_revision = source_event.get("base_revision")
+    if type(source_revision) is not int:
+        return None
+    target_revision = task.get("revision", 0)
+    target_label = "任务"
+    if folder == "step_events":
+        step_id = source_event.get("step_id")
+        step = next((item for item in task.get("steps", [])
+                     if item.get("step_id") == step_id), None)
+        if not step or step.get("conflict"):
+            return None
+        target_revision = step.get("revision", 0)
+        target_label = "步骤"
+    if source_revision > target_revision:
+        return (f"该异常基于{target_label}修订号 {source_revision}，当前目标修订号为 "
+                f"{target_revision}。请先核查并处理同一目标更早的异常，刷新后再查看此项；"
+                "在前序修订完成前不提供自动授权。")
+    if folder == "events" and source_event.get("action") == "trash" and source_revision != target_revision:
+        return (f"这是移入回收站操作，但原始事件基于任务修订号 {source_revision}，"
+                f"当前任务已到修订号 {target_revision}。为避免误将后续更新的任务移入回收站，"
+                "不提供自动重放；如确需移入回收站，请从任务当前版本的正常操作入口重新发起。")
+    return None
+
+
 def _build_review_proposal(data_dir: Path, anomaly: dict, workspace: dict) -> dict | None:
     """Build a preview only; it never writes. Unsupported/destructive fixes stay manual."""
     source_event = anomaly.get("source_event")
@@ -1213,6 +1250,15 @@ def _build_review_proposal(data_dir: Path, anomaly: dict, workspace: dict) -> di
                          action == "restore")
     if (not task or task.get("conflict") or
             (task.get("trashed_at") and not restore_lifecycle)):
+        return None
+    source_revision = source_event.get("base_revision")
+    if type(source_revision) is not int:
+        return None
+    current_task_revision = task.get("revision", 0)
+    if source_revision > current_task_revision:
+        return None
+    # A stale AI-generated trash event must never be rebased onto a newer active task.
+    if folder == "events" and action == "trash" and source_revision != current_task_revision:
         return None
     event_fields = None
     requires_completion_confirmation = False
@@ -1254,6 +1300,8 @@ def _build_review_proposal(data_dir: Path, anomaly: dict, workspace: dict) -> di
                      if item.get("step_id") == step_id), None)
         if not step or step.get("conflict") or step.get("revision", 0) < 1:
             return None
+        if source_revision > step.get("revision", 0):
+            return None
         if action != "update":
             return None
         allowed = {"title", "status"}
@@ -1275,6 +1323,8 @@ def _build_review_proposal(data_dir: Path, anomaly: dict, workspace: dict) -> di
             "由用户明确确认该步骤完成后，重新生成带 confirmed_done 的合法事件。"
         )
     elif folder == "events" and anomaly["category"] == "completion_confirmation_missing":
+        if source_revision > task.get("revision", 0):
+            return None
         if action != "update" or changes.get("status") != "done" or task["revision"] < 1:
             return None
         allowed = {"title", "status", "project_id", "related_project_ids",
@@ -1290,6 +1340,10 @@ def _build_review_proposal(data_dir: Path, anomaly: dict, workspace: dict) -> di
     else:
         return None
 
+    target_revision = event_fields["base_revision"]
+    if source_revision < target_revision:
+        explanation += (f" 原始事件基于修订号 {source_revision}，当前目标为 {target_revision}；"
+                        "本预览按当前版本重新生成，请核对当前状态与变更。")
     event_fields["event_id"] = "repair-" + _canonical_hash({
         "anomaly_id": anomaly["anomaly_id"], "folder": folder,
         "event": event_fields
@@ -1371,6 +1425,8 @@ def list_data_reviews(data_dir: Path, workspace: dict | None = None) -> dict:
         if state and state["status"] == "applied":
             status = _applied_receipt_status(data_dir, state)
         proposal = _build_review_proposal(data_dir, anomaly, workspace)
+        proposal_block_reason = (_review_proposal_block_reason(anomaly, workspace)
+                                 if proposal is None else None)
         latest = state["latest"] if state else None
         if state and state["status"] == "authorized":
             approved = latest["changes"]["approved_event"]
@@ -1386,6 +1442,7 @@ def list_data_reviews(data_dir: Path, workspace: dict | None = None) -> dict:
         item = dict(anomaly)
         item.update({
             "status": status, "review_revision": state["revision"] if state else 0,
+            "proposal_block_reason": proposal_block_reason,
             "timeline": [{
                 "action": event["action"], "timestamp": event["timestamp"],
                 "note": event["changes"].get("note", event["changes"].get("reason", "")),
@@ -1421,6 +1478,7 @@ def list_data_reviews(data_dir: Path, workspace: dict | None = None) -> dict:
             "event_id": snapshot.get("event_id"), "task_id": snapshot.get("task_id"),
             "step_id": snapshot.get("step_id"), "action": snapshot.get("action"),
             "status": status, "review_revision": state["revision"],
+            "proposal_block_reason": None,
             "timeline": [{
                 "action": event["action"], "timestamp": event["timestamp"],
                 "note": event["changes"].get("note", event["changes"].get("reason", "")),
@@ -1431,8 +1489,12 @@ def list_data_reviews(data_dir: Path, workspace: dict | None = None) -> dict:
         })
     order = {"pending": 0, "authorized": 1, "failed": 2, "stale": 3,
              "conflict": 4, "dismissed": 5, "applied": 6}
-    items.sort(key=lambda item: (order.get(item["status"], 9), item["source"]["folder"],
-                                 item["source"]["filename"], item["anomaly_id"]))
+    items.sort(key=lambda item: (
+        order.get(item["status"], 9), item["source"]["folder"],
+        item.get("task_id") or "", item.get("step_id") or "",
+        ((item.get("source_event") or {}).get("base_revision")
+         if type((item.get("source_event") or {}).get("base_revision")) is int else -1),
+        item["source"]["filename"], item["anomaly_id"]))
     counts = {key: sum(item["status"] == key for item in items)
               for key in ("pending", "authorized", "applied", "dismissed", "stale", "failed", "conflict")}
     counts["total"] = len(items)

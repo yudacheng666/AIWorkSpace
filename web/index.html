@@ -2659,7 +2659,7 @@
         host.append(preview);
       } else if (item.status === "pending" || item.status === "failed" || item.status === "stale") {
         host.append(element("p", "review-reason",
-          "此异常暂不支持自动修复。可以核查原始资料并记录处理结论；该操作不会写入任务、步骤或项目数据。"));
+          item.proposal_block_reason || "此异常暂不支持自动修复。可以核查原始资料并记录处理结论；该操作不会写入任务、步骤或项目数据。"));
       }
       if (item.timeline && item.timeline.length) {
         host.append(element("h3", "", "处理轨迹"));
