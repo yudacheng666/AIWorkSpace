@@ -68,7 +68,7 @@ function harness(tasks = [], confirm = () => true, projects = []) {
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, documentPanel, legacyDocumentPanel})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes, el: id => document.getElementById(id)};
@@ -282,6 +282,51 @@ test("column filters are list-only; board unchanged; rejected draft discard bloc
   const before = columnMenu(page,"title").header.children[0].children[1].textContent;
   click(columnMenu(page,"title").actions.children[0]);
   assert.equal(columnMenu(page,"title").header.children[0].children[1].textContent,before);
+  assert.equal(page.writes.length,0);
+});
+
+
+test("step delete is individually confirmed and posts the step revision, not the task revision", async () => {
+  const task = {...sampleTask(), revision: 17, steps: []};
+  const step = {step_id: "STEP-" + "A".repeat(32), task_id: task.task_id,
+                title: "虚构可删除步骤", status: "doing", revision: 3, document_links: []};
+  task.steps = [step];
+  let accept = false;
+  const page = harness([task], () => accept);
+  const line = page.api.stepRow(task, step, 0, page.el("step-message"));
+  assert.equal(line.className, "step-row");
+  const actions = line.children[2];
+  const del = actions.children[2];
+  assert.equal(del.className, "step-delete");
+  assert.equal(del.textContent, "删除");
+  await del.handlers.get("click")[0]();
+  assert.equal(page.writes.length, 0, "cancelled confirmation must not write any event");
+  accept = true;
+  await del.handlers.get("click")[0]();
+  assert.equal(page.writes.length, 1);
+  assert.equal(page.writes[0].path, "/api/tasks/" + task.task_id + "/steps/" + step.step_id + "/delete");
+  assert.equal(page.writes[0].body.revision, 3);
+  assert.equal(page.writes[0].body.confirmed_delete, true);
+});
+
+test("document attachments render per step; legacy task links remain read-only", () => {
+  const task = {...sampleTask(), revision: 8, document_links: [
+    {title:"历史文档",url:"https://docs.google.com/document/d/SYNTHETIC/edit"}
+  ]};
+  const step = {step_id:"STEP-"+"B".repeat(32),revision:2,document_links: [
+    {title:"步骤附件",url:"https://drive.google.com/file/d/SYNTHETIC_DOC/view"}
+  ]};
+  const page = harness([task]);
+  const panel = page.api.documentPanel(task,step);
+  assert.equal(panel.className,"doc-panel");
+  assert.ok(JSON.stringify(panel).includes("步骤附件"));
+  assert.equal(panel.children.filter(x=>x.className==="doc-add-form").length,1);
+  const legacy = page.api.legacyDocumentPanel(task);
+  assert.equal(legacy.className,"doc-panel legacy-doc-panel");
+  assert.ok(JSON.stringify(legacy).includes("历史文档"));
+  assert.equal(legacy.children.filter(x=>x.className==="doc-add-form").length,0);
+  assert.match(html,/function legacyDocumentPanel\(task\)/);
+  assert.doesNotMatch(html,/card\.append\(top, form, stepPanel\(task\), documentPanel\(task\)/);
   assert.equal(page.writes.length,0);
 });
 

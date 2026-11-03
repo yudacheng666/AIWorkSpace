@@ -73,6 +73,10 @@
     .step-actions { display: flex; gap: 5px; padding-top: 2px; }
     .step-actions button { border: 1px solid #dce4ee; color: #50677f; background: #fff; padding: 6px 9px; font-size: 12px; }
     .step-actions button:disabled { opacity: .4; cursor: not-allowed; }
+    .step-actions .step-delete { border-color: #efd4d4; color: #b34949; }
+    .step-actions .step-delete:hover:not(:disabled) { background: #fff2f2; border-color: #dfa2a2; }
+    .step-content > .doc-panel { margin-top: 8px; padding: 12px; border: 1px solid #e6edf5; border-radius: 8px; background: #fff; }
+    .step-content > .doc-panel h3 { margin: 0 0 10px; color: #57708c; font-size: 12px; }
     .step-add-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; margin-top: 12px; }
     .step-add-form input { min-width: 0; }
     .step-empty, .step-order-warning, .step-conflict { color: #8593a5; font-size: 12px; margin: 10px 0 0; }
@@ -528,6 +532,45 @@
     .task-lifecycle-controls {display:flex;align-items:center;justify-content:flex-end;margin-top:10px;}
     .task-lifecycle-controls button {border:1px solid #b45353;color:#a33434;background:transparent;border-radius:6px;padding:8px 12px;}
 
+
+    .nav-count { margin-left:auto; min-width:20px; padding:2px 6px; border-radius:20px; background:#fff0e8; color:#a94b32; font-size:10px; font-weight:700; text-align:center; }
+    .review-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:18px 0; }
+    .review-stat { padding:15px 17px; border:1px solid #e2e9f1; border-radius:11px; background:#fff; }
+    .review-stat strong { display:block; color:#263b58; font-size:22px; line-height:1.2; }
+    .review-stat span { display:block; margin-top:5px; color:#8290a2; font-size:11px; }
+    .review-layout { display:grid; grid-template-columns:minmax(260px,330px) minmax(0,1fr); align-items:start; gap:16px; }
+    .review-list-panel,.review-detail { min-width:0; border:1px solid #e2e9f1; border-radius:12px; background:#fff; padding:15px; }
+    .review-list-panel h2,.review-detail h2 { margin:0 0 12px; color:#2a405f; font-size:14px; }
+    .review-list { display:grid; gap:8px; max-height:690px; overflow:auto; }
+    .review-list-item { width:100%; min-width:0; display:grid; gap:6px; text-align:left; padding:11px 12px; border:1px solid #e7edf4; border-radius:9px; background:#fbfcfe; color:#405670; }
+    .review-list-item:hover,.review-list-item.is-active { border-color:#a9c4e8; background:#f3f7fd; }
+    .review-list-item strong { font-size:12px; line-height:1.5; }
+    .review-list-item small { color:#8a97a7; font-size:10px; overflow-wrap:anywhere; }
+    .review-status { display:inline-flex; width:max-content; padding:3px 7px; border-radius:20px; background:#edf1f5; color:#62748a; font-size:10px; }
+    .review-status.pending,.review-status.failed,.review-status.stale,.review-status.conflict { background:#fff0e8; color:#a64d31; }
+    .review-status.authorized { background:#edf4ff; color:#285e9d; }
+    .review-status.applied { background:#eaf6ef; color:#26734b; }
+    .review-status.dismissed { background:#f1f2f4; color:#6f7a88; }
+    .review-detail-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+    .review-detail-meta { color:#7d8ca0; font-size:11px; line-height:1.7; white-space:pre-line; overflow-wrap:anywhere; }
+    .review-reason { margin:12px 0; padding:11px 13px; border-left:3px solid #d69a58; border-radius:6px; background:#fff9f2; color:#6d563c; font-size:12px; line-height:1.65; }
+    .review-code { max-height:220px; overflow:auto; padding:11px; border:1px solid #e8edf3; border-radius:8px; background:#f8fafc; color:#42536b; font:11px/1.55 Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .review-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:13px; }
+    .review-actions button { min-height:34px; padding:7px 12px; border:1px solid #dbe4ee; border-radius:7px; background:#fff; color:#49627e; font-size:11px; }
+    .review-actions button.save { border-color:var(--blue); background:var(--blue); color:#fff; }
+    .review-actions button.review-danger { border-color:#ecd4d0; color:#a64d43; }
+    .review-actions button:disabled { opacity:.45; cursor:not-allowed; }
+    .review-note { display:grid; gap:5px; margin-top:12px; color:#687a91; font-size:11px; }
+    .review-note textarea { min-height:64px; padding:9px; border:1px solid #dce5ef; border-radius:7px; resize:vertical; font:inherit; font-size:12px; line-height:1.5; }
+    .review-timeline { display:grid; gap:7px; margin:12px 0; padding-left:16px; color:#77869a; font-size:10px; }
+    .review-empty { padding:26px 12px; color:#8996a7; font-size:12px; text-align:center; }
+    .review-message { min-height:18px; margin-top:10px; color:#72839a; font-size:11px; }
+    .review-message.error { color:#a94b37; }
+    @media(max-width:900px) {
+      .review-layout { grid-template-columns:minmax(0,1fr); }
+      .review-list { max-height:280px; }
+      .review-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
   </style>
 </head>
 <body>
@@ -549,6 +592,7 @@
       <button type="button" class="nav-item" id="nav-followup"><span class="nav-icon">↗</span><span>跟进他人</span></button>
       <button type="button" class="nav-item" id="nav-due"><span class="nav-icon">▣</span><span>7 天内到期</span></button>
       <button type="button" class="nav-item" id="nav-risk"><span class="nav-icon">△</span><span>风险事项</span></button>
+      <button type="button" class="nav-item" id="nav-reviews"><span class="nav-icon">⌕</span><span>数据核查</span><span id="review-nav-count" class="nav-count" hidden>0</span></button>
     </nav>
     <div class="sidebar-divider"></div>
     <div class="sidebar-section-label">项目</div>
@@ -614,6 +658,21 @@
       </div>
       <p id="trash-message" class="message" role="status"></p>
       </section>
+    </section>
+    <section id="page-reviews" class="workspace-page" hidden>
+      <div class="page-heading"><div><h1>数据核查</h1><p class="subtitle">查看异常来源、人工核查、明确授权、执行合法修复并追踪结果。</p></div>
+        <button type="button" id="review-refresh">重新扫描</button></div>
+      <div id="review-summary" class="review-summary" aria-label="数据核查统计"></div>
+      <div class="review-layout">
+        <section class="review-list-panel" aria-labelledby="review-list-heading">
+          <h2 id="review-list-heading">异常与核查记录</h2>
+          <div id="review-list" class="review-list"></div>
+        </section>
+        <section id="review-detail" class="review-detail" aria-label="异常详情与处理">
+          <div class="review-empty">选择一条异常，查看原始事件、校验原因和可执行的修复方案。</div>
+        </section>
+      </div>
+      <p id="review-message" class="review-message" role="status" aria-live="polite"></p>
     </section>
     <section id="page-overview" class="workspace-page is-active">
     <div class="page-heading">
@@ -848,6 +907,9 @@
     let selectedSelfOwner = "";
     let activeDetailTaskId = "";
     let activePage = "overview";
+    let reviewItems = [];
+    let selectedReviewId = "";
+    let reviewBusy = false;
     let taskViewMode = "list";
     let taskMonthCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     let taskTimelineCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -1224,7 +1286,7 @@
           status.disabled = task.conflict || step.conflict;
         }
       });
-      content.append(form);
+      content.append(form, documentPanel(task, step));
       row.append(content);
       const actions = element("div", "step-actions");
       const up = element("button", "", "上移");
@@ -1237,7 +1299,39 @@
       down.disabled = task.conflict || task.step_order_conflict ||
         task.step_order_incomplete || index === task.steps.length - 1;
       down.addEventListener("click", () => saveStepOrder(task, index, index + 1, message));
-      actions.append(up, down);
+      const removeStep = element("button", "step-delete", "删除");
+      removeStep.type = "button";
+      removeStep.disabled = task.conflict || step.conflict ||
+        task.step_order_conflict || task.step_order_incomplete;
+      removeStep.addEventListener("click", async () => {
+        if (isSaving || removeStep.disabled) return;
+        if (!confirmDiscardUnsaved()) return;
+        if (!window.confirm("确认删除步骤「" + step.title +
+                            "」？该步骤及其文档链接将不再显示，但历史事件保留；Google Drive 原文档不会被删除。")) return;
+        isSaving = true; removeStep.disabled = true;
+        message.className = "step-message";
+        message.textContent = "正在删除步骤…";
+        try {
+          const response = await fetch(
+            "/api/tasks/" + encodeURIComponent(task.task_id) +
+            "/steps/" + encodeURIComponent(step.step_id) + "/delete", {
+              method: "POST", headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({revision: step.revision, confirmed_delete: true})
+            });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "步骤删除失败");
+          unsavedTaskEditors.clear(); // Only after a confirmed successful discard/delete.
+          await refresh(true);
+        } catch (error) {
+          message.className = "step-message error";
+          message.textContent = "步骤删除失败：" + error.message + "。未修改草稿，请刷新核查。";
+        } finally {
+          isSaving = false;
+          removeStep.disabled = task.conflict || step.conflict ||
+            task.step_order_conflict || task.step_order_incomplete;
+        }
+      });
+      actions.append(up, down, removeStep);
       row.append(actions);
       if (step.conflict) {
         const candidates = (step.conflict_candidates || []).map(candidate => {
@@ -1446,7 +1540,11 @@
       if (task.step_completion_pending) {
         form.append(element("p", "step-message", "全部执行步骤已完成，请人工确认是否将任务标记为完成。"));
       }
-      card.append(top, form, stepPanel(task), documentPanel(task), lifecyclePanel(task));
+      card.append(top, form, stepPanel(task));
+      if (Array.isArray(task.document_links) && task.document_links.length) {
+        card.append(legacyDocumentPanel(task));
+      }
+      card.append(lifecyclePanel(task));
       if (task.conflict) {
         const details = [];
         const valuesFor = field => [...new Set(candidates
@@ -1480,8 +1578,8 @@
 
 
 
-    async function updateDocumentLinks(task, links, feedback, ownForm = null) {
-      if (isSaving || task.conflict) return false;
+    async function updateDocumentLinks(task, step, links, feedback, ownForm = null) {
+      if (isSaving || task.conflict || step.conflict) return false;
       // Never silently drop another editor's draft just to add/remove a link.
       if ([...unsavedTaskEditors].some(editor => editor !== ownForm)) {
         feedback.textContent = "其他任务或步骤有未保存的草稿，请先保存或放弃再修改文档关联。";
@@ -1492,10 +1590,12 @@
       isSaving = true;
       feedback.textContent = "正在保存关联文档…";
       try {
-        const response = await fetch("/api/tasks/" + encodeURIComponent(task.task_id) + "/documents", {
-          method: "POST", headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({revision: task.revision, links: links})
-        });
+        const response = await fetch(
+          "/api/tasks/" + encodeURIComponent(task.task_id) +
+          "/steps/" + encodeURIComponent(step.step_id) + "/documents", {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({revision: step.revision, links})
+          });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "关联文档保存失败");
         // Do not discard typing that happened while the request was in flight.
@@ -1515,11 +1615,11 @@
       } finally { isSaving = false; }
     }
 
-    function documentPanel(task) {
+    function documentPanel(task, step) {
       const panel = element("section", "doc-panel");
-      panel.append(element("h3", "", "关联文档 · Google Drive"));
+      panel.append(element("h3", "", "步骤关联文档 · Google Drive"));
       const message = element("p", "message");
-      const links = Array.isArray(task.document_links) ? task.document_links : [];
+      const links = Array.isArray(step.document_links) ? step.document_links : [];
       if (!links.length) panel.append(element("p", "hint", "未关联文档。这里只存储云端链接，不会复制文件。"));
       for (const item of links) {
         const row = element("div", "doc-row");
@@ -1528,10 +1628,10 @@
         anchor.title = item.url;
         row.append(anchor);
         const remove = element("button", "", "取消关联");
-        remove.type = "button"; remove.disabled = task.conflict;
+        remove.type = "button"; remove.disabled = task.conflict || step.conflict;
         remove.addEventListener("click", () => {
           if (!window.confirm("确认取消关联「" + item.title + "」？不会删除 Google Drive 原文档。")) return;
-          updateDocumentLinks(task, links.filter(link => link.url !== item.url), message);
+          updateDocumentLinks(task, step, links.filter(link => link.url !== item.url), message);
         });
         row.append(remove); panel.append(row);
       }
@@ -1545,7 +1645,7 @@
       url.placeholder = "https://drive.google.com/…";
       urlLabel.append(url);
       const save = element("button", "save", "添加链接");
-      save.type = "submit"; save.disabled = task.conflict || links.length >= 20;
+      save.type = "submit"; save.disabled = task.conflict || step.conflict || links.length >= 20;
       form.append(nameLabel, urlLabel, save);
       watchUnsavedEditor(form, () => JSON.stringify([title.value, url.value]));
       form.addEventListener("submit", async event => {
@@ -1555,11 +1655,29 @@
           message.textContent = "文档名称或链接无效，或链接已存在。";
           return;
         }
-        const success = await updateDocumentLinks(task, [...links, next], message, form);
+        const success = await updateDocumentLinks(task, step, [...links, next], message, form);
         if (!success) return; // Draft preservation and safe refresh are handled above.
       });
       panel.append(form, message);
       panel.append(element("p", "hint", "文档权限保持原样。AI 能否读取取决于已连接 Google Drive 的文件访问权限。"));
+      return panel;
+    }
+
+    function legacyDocumentPanel(task) {
+      // Never erase or guess ownership of legacy task-scoped links on upgrade.
+      // They stay accessible here until a user manually re-associates each link.
+      const panel = element("section", "doc-panel legacy-doc-panel");
+      panel.append(element("h3", "", "历史任务级文档（只读）"),
+        element("p", "step-empty",
+          "旧版本关联链接已保留，请在对应执行步骤中重新关联。不会自动删除或转移 Google Drive 文件。"));
+      for (const item of task.document_links || []) {
+        const row = element("div", "doc-row");
+        const anchor = element("a", "", item.title);
+        anchor.href = item.url; anchor.target = "_blank"; anchor.rel = "noopener noreferrer";
+        anchor.title = item.url;
+        row.append(anchor);
+        panel.append(row);
+      }
       return panel;
     }
 
@@ -2333,6 +2451,7 @@
       tasks: {title: "全部任务", nav: "nav-tasks"},
       projects: {title: "项目管理", nav: "nav-projects"},
       trash: {title: "回收站", nav: "nav-trash"},
+      reviews: {title: "数据核查", nav: "nav-reviews"},
       settings: {title: "系统设置", nav: "nav-settings"}
     };
 
@@ -2344,12 +2463,12 @@
       if (activePage==="projects" && page!=="projects" && !confirmProjectDrafts()) return false;
       activePage = page;
       if (page === "tasks") taskViewMode = taskViewModes.includes(mode) ? mode : "list";
-      for (const id of ["overview", "tasks", "projects", "trash", "settings"]) {
+      for (const id of ["overview", "tasks", "projects", "trash", "reviews", "settings"]) {
         $("page-" + id).hidden = id !== page;
         $("page-" + id).className = "workspace-page" + (id === page ? " is-active" : "");
       }
       for (const id of ["nav-overview", "nav-tasks", "nav-board", "nav-calendar", "nav-gantt",
-                        "nav-projects", "nav-trash", "nav-settings", "nav-today", "nav-followup", "nav-due", "nav-risk"]) {
+                        "nav-projects", "nav-trash", "nav-reviews", "nav-settings", "nav-today", "nav-followup", "nav-due", "nav-risk"]) {
         const button = $(id);
         button.className = "nav-item";
       }
@@ -2367,6 +2486,7 @@
       refreshOverviewControls();
       renderTaskList();
       if (page === "trash") loadTrash();
+      if (page === "reviews") loadReviews();
       return true;
     }
 
@@ -2415,15 +2535,261 @@
         renderProjects();
         refreshOverviewControls();
         renderTaskList();
+        const reviewSummary = data.review_summary || {};
+        updateReviewNav(reviewSummary.open_count || 0);
         const warnings = $("warnings");
-        warnings.hidden = !data.warnings.length;
-        warnings.textContent = data.warnings.length ? `有 ${data.warnings.length} 项需要核查：${data.warnings.slice(0, 3).join("；")}` : "";
+        const hasReviewRegister = Object.prototype.hasOwnProperty.call(data, "review_summary");
+        warnings.hidden = hasReviewRegister ? !(reviewSummary.open_count) : !data.warnings.length;
+        warnings.replaceChildren();
+        if (reviewSummary.open_count) {
+          warnings.append(element("span", "", `发现 ${reviewSummary.open_count} 项数据异常待核查；原始事件尚未自动修复。`));
+          const openReview = element("button", "warning-open", "打开数据核查");
+          openReview.type = "button";
+          openReview.addEventListener("click", () => setActivePage("reviews"));
+          warnings.append(openReview);
+        } else if (!hasReviewRegister && data.warnings.length) {
+          warnings.append(element("span", "", "存在数据提示，打开数据核查查看记录。"));
+          const openReview = element("button", "warning-open", "查看核查记录");
+          openReview.type = "button";
+          openReview.addEventListener("click", () => setActivePage("reviews"));
+          warnings.append(openReview);
+        }
         $("sync").textContent = `上次刷新 ${new Date().toLocaleTimeString()}`;
+        if (activePage === "reviews") loadReviews();
       } catch (error) {
         $("sync").textContent = `读取失败：${error.message}`;
       }
     }
 
+
+
+    function updateReviewNav(count) {
+      const badge = $("review-nav-count");
+      badge.textContent = count > 99 ? "99+" : String(count);
+      badge.hidden = !count;
+      $("nav-reviews").title = count ? count + " 项数据异常待核查" : "数据核查与修复追踪";
+    }
+
+    const reviewStatusLabels = {
+      pending: "待人工核查", authorized: "已授权·待执行", applied: "已写入并验证",
+      dismissed: "已核查·不写入", stale: "来源或版本已变化", failed: "写入/验证失败",
+      conflict: "核查记录冲突"
+    };
+
+    function renderReviewSummary(summary) {
+      const host = $("review-summary");
+      const stats = [
+        ["open_count", "待处理 / 待执行"], ["authorized", "已授权待执行"],
+        ["applied", "已写入并验证"], ["dismissed", "已核查不写入"]
+      ];
+      host.replaceChildren(...stats.map(([key, label]) => {
+        const card = element("div", "review-stat");
+        card.append(element("strong", "", summary[key] || 0), element("span", "", label));
+        return card;
+      }));
+    }
+
+    function renderReviewList() {
+      const host = $("review-list");
+      host.replaceChildren();
+      if (!reviewItems.length) {
+        host.append(element("p", "review-empty", "当前没有异常或历史核查记录。"));
+        return;
+      }
+      for (const item of reviewItems) {
+        const button = element("button", "review-list-item" +
+          (item.anomaly_id === selectedReviewId ? " is-active" : ""));
+        button.type = "button";
+        button.append(
+          element("span", "review-status " + item.status, reviewStatusLabels[item.status] || item.status),
+          element("strong", "", item.title),
+          element("small", "", (item.task_id || item.step_id || item.source.filename || "工作区") +
+            " · " + item.reason)
+        );
+        button.addEventListener("click", () => {
+          selectedReviewId = item.anomaly_id;
+          renderReviewList();
+          renderReviewDetail(item);
+        });
+        host.append(button);
+      }
+    }
+
+    function renderReviewDetail(item) {
+      const host = $("review-detail");
+      host.replaceChildren();
+      const heading = element("div", "review-detail-head");
+      const title = element("div");
+      title.append(element("h2", "", item.title),
+        element("span", "review-status " + item.status,
+          reviewStatusLabels[item.status] || item.status));
+      heading.append(title);
+      host.append(heading);
+      const meta = element("div", "review-detail-meta");
+      meta.textContent = [
+        "异常编号：" + item.anomaly_id,
+        "来源：" + (item.source.folder + (item.source.filename ? "/" + item.source.filename : "")),
+        "原始事件 ID：" + (item.event_id || "无法解析"),
+        "任务：" + (item.task_id || "未识别"),
+        "步骤：" + (item.step_id || "未识别"),
+        "原始文件 SHA-256：" + item.source.sha256,
+        item.source_present ? "原始文件：仍在，未修改" : "原始文件：已不存在，历史记录保留"
+      ].join("\n");
+      host.append(meta, element("p", "review-reason", item.reason));
+      if (item.source_event) {
+        host.append(element("h3", "", "原始事件（只读）"));
+        const raw = element("pre", "review-code");
+        raw.textContent = JSON.stringify(item.source_event, null, 2);
+        host.append(raw);
+      } else if (item.raw_excerpt) {
+        const raw = element("pre", "review-code");
+        raw.textContent = item.raw_excerpt;
+        host.append(raw);
+      }
+      if (item.proposal) {
+        host.append(element("h3", "", "系统建议的合法修复（预览，不会自动写入）"));
+        const preview = element("pre", "review-code");
+        preview.textContent = JSON.stringify({
+          target: item.proposal.target,
+          target_folder: item.proposal.target_folder,
+          event: item.proposal.event,
+          explanation: item.proposal.explanation,
+          proposal_sha256: item.proposal.proposal_sha256
+        }, null, 2);
+        host.append(preview);
+      } else if (item.status === "pending" || item.status === "failed" || item.status === "stale") {
+        host.append(element("p", "review-reason",
+          "此异常暂不支持自动修复。可以核查原始资料并记录处理结论；该操作不会写入任务、步骤或项目数据。"));
+      }
+      if (item.timeline && item.timeline.length) {
+        host.append(element("h3", "", "处理轨迹"));
+        const timeline = element("ol", "review-timeline");
+        for (const entry of item.timeline) {
+          const label = entry.action === "dismissed" ? "已核查不写入" :
+            entry.action === "authorize" ? "已授权" :
+            entry.action === "applied" ? "已写入并验证" : entry.action;
+          timeline.append(element("li", "", entry.timestamp + " · " + label +
+            (entry.note ? " · " + entry.note : "")));
+        }
+        host.append(timeline);
+      }
+      if (!item.source_present || item.status === "applied" || item.status === "dismissed" ||
+          item.status === "conflict") return;
+      const noteLabel = element("label", "review-note", "核查说明 / 不写入原因");
+      const note = element("textarea");
+      note.maxLength = 500;
+      note.placeholder = item.can_dismiss ? "标记不修复时请说明核查结论（必填）" : "可记录本次核查依据";
+      noteLabel.append(note);
+      host.append(noteLabel);
+      const actions = element("div", "review-actions");
+      if (item.can_authorize) {
+        const authorize = element("button", "save",
+          item.status === "stale" ? "重新核查并授权" : "确认核查并授权修复");
+        authorize.type = "button";
+        authorize.addEventListener("click", async () => {
+          if (reviewBusy) return;
+          if (!window.confirm("请确认已核对原始事件和修复预览。授权只记录你的决定，不会立即写入任务数据。是否授权？")) return;
+          if (item.proposal.requires_completion_confirmation &&
+              !window.confirm("该修复会将任务/步骤标记为已完成。请再次明确确认：确实要完成吗？")) return;
+          await submitReviewAction(item, "authorize", {
+            source_sha256: item.source.sha256,
+            proposal_sha256: item.proposal.proposal_sha256,
+            confirmed: true,
+            confirm_completion: item.proposal.requires_completion_confirmation,
+            note: note.value.trim()
+          }, $("review-message"));
+        });
+        actions.append(authorize);
+      }
+      if (item.can_apply) {
+        const apply = element("button", "save", "执行已授权修复");
+        apply.type = "button";
+        apply.addEventListener("click", async () => {
+          if (reviewBusy) return;
+          if (!window.confirm("将按已授权预览写入一条新的、经过校验的事件。原始异常文件不会修改或删除。确认执行？")) return;
+          await submitReviewAction(item, "apply", {
+            source_sha256: item.source.sha256,
+            authorization_event_id: item.authorization_event_id,
+            confirmed: true
+          }, $("review-message"));
+        });
+        actions.append(apply);
+      }
+      if (item.can_dismiss) {
+        const dismiss = element("button", "review-danger", "标记已核查·不写入");
+        dismiss.type = "button";
+        dismiss.addEventListener("click", async () => {
+          if (reviewBusy) return;
+          if (note.value.trim().length < 1) {
+            $("review-message").className = "review-message error";
+            $("review-message").textContent = "请先填写核查结论或不修复原因。";
+            return;
+          }
+          if (!window.confirm("仅记录“已核查、不授权写入”，不会修复或删除任何原始数据。确认？")) return;
+          await submitReviewAction(item, "dismiss", {
+            source_sha256: item.source.sha256, confirmed: true, note: note.value.trim()
+          }, $("review-message"));
+        });
+        actions.append(dismiss);
+      }
+      if (actions.children.length) host.append(actions);
+    }
+
+    async function submitReviewAction(item, action, payload, message) {
+      reviewBusy = true;
+      message.className = "review-message";
+      message.textContent = action === "authorize" ? "正在保存授权记录…" :
+        action === "apply" ? "正在执行已授权修复并核验结果…" : "正在保存人工核查结论…";
+      try {
+        const response = await fetch("/api/reviews/" + encodeURIComponent(item.anomaly_id) +
+          "/" + action, {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(payload)
+          });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "核查操作失败");
+        message.textContent = action === "authorize" ? "授权已记录；尚未写入，下一步需要单独执行。" :
+          action === "apply" ? "合法事件已写入，结果校验与追踪回执已保存。" :
+          "已记录人工核查结论；未修改业务数据。";
+        await loadReviews();
+        await refresh(true);
+      } catch (error) {
+        message.className = "review-message error";
+        message.textContent = "操作未完成：" + error.message + "。请刷新核对状态，不要重复创建其他事件。";
+        await loadReviews();
+      } finally {
+        reviewBusy = false;
+      }
+    }
+
+    async function loadReviews() {
+      const message = $("review-message");
+      try {
+        const response = await fetch("/api/reviews", {cache: "no-store"});
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "无法读取数据核查记录");
+        reviewItems = data.items || [];
+        renderReviewSummary(data.summary || {});
+        updateReviewNav((data.summary || {}).open_count || 0);
+        if (!reviewItems.some(item => item.anomaly_id === selectedReviewId)) {
+          selectedReviewId = reviewItems[0]?.anomaly_id || "";
+        }
+        renderReviewList();
+        const selected = reviewItems.find(item => item.anomaly_id === selectedReviewId);
+        if (selected) renderReviewDetail(selected);
+        else $("review-detail").replaceChildren(element("div", "review-empty",
+          "当前没有异常或历史核查记录。"));
+        if (data.warnings?.length) {
+          message.textContent = "核查记录自身存在 " + data.warnings.length +
+            " 项读取提示；请勿执行未显示为可授权的修复。";
+        }
+      } catch (error) {
+        message.className = "review-message error";
+        message.textContent = "数据核查读取失败：" + error.message;
+      }
+    }
+
+    $("review-refresh").addEventListener("click", () => loadReviews());
 
     let trashItems = [];
     async function loadTrash() {
@@ -2772,6 +3138,7 @@
       ["nav-risk", "tasks", "risk"],
       ["nav-projects", "projects", null],
       ["nav-trash", "trash", null],
+      ["nav-reviews", "reviews", null],
       ["nav-settings", "settings", null]
     ];
     for (const [id, page, view, mode] of navBindings) {

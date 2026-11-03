@@ -264,7 +264,7 @@ def validate_step_event(value: object) -> dict:
         raise ValueError("invalid event_id")
     if not isinstance(value.get("task_id"), str) or not TASK_ID.fullmatch(value["task_id"]):
         raise ValueError("invalid task_id")
-    if value.get("action") not in {"create", "update", "reorder"}:
+    if value.get("action") not in {"create", "update", "reorder", "delete"}:
         raise ValueError("invalid step action")
     if value.get("actor") not in {"chatgpt", "user"}:
         raise ValueError("invalid actor")
@@ -287,12 +287,33 @@ def validate_step_event(value: object) -> dict:
             raise ValueError("invalid step_ids")
         return value
     if set(value) - {"version", "event_id", "task_id", "step_id", "action", "actor",
-                     "timestamp", "base_revision", "changes", "confirmed_done"}:
+                     "timestamp", "base_revision", "changes", "confirmed_done",
+                     "confirmed_delete"}:
         raise ValueError("unknown step event fields")
     if not isinstance(value.get("step_id"), str) or not STEP_ID.fullmatch(value["step_id"]):
         raise ValueError("invalid step_id")
-    if set(changes) - {"title", "status", "position"}:
+    if value["action"] == "delete":
+        if (value["actor"] != "user" or revision < 1 or
+                value.get("confirmed_delete") is not True or
+                set(changes) != {"deleted_at"}):
+            raise ValueError("step deletion requires explicit user confirmation and revision")
+        stamp = changes["deleted_at"]
+        if not isinstance(stamp, str):
+            raise ValueError("step deletion timestamp required")
+        try:
+            if datetime.fromisoformat(stamp.replace("Z", "+00:00")).tzinfo is None:
+                raise ValueError("timezone required")
+        except ValueError as exc:
+            raise ValueError("invalid step deletion timestamp") from exc
+        if "confirmed_done" in value:
+            raise ValueError("unexpected step completion confirmation")
+        return value
+    if "confirmed_delete" in value:
+        raise ValueError("unexpected step deletion confirmation")
+    if set(changes) - {"title", "status", "position", "document_links"}:
         raise ValueError("unknown step fields")
+    if "document_links" in changes:
+        validate_document_links(changes["document_links"])
     if "title" in changes and (not isinstance(changes["title"], str)
                                or not 1 <= len(changes["title"].strip()) <= 200):
         raise ValueError("step title must be 1–200 characters")
@@ -484,6 +505,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
                     "conflict_candidates": summarize_conflict_events(roots),
                     "created_at": task_root.get("timestamp", ""),
                     "created_position": task_root["changes"].get("position"),
+                    "document_links": [], "deleted_at": None,
                 }
                 steps_by_task[task_id].append(placeholder)
                 steps_by_id.setdefault(step_id, placeholder)
@@ -497,6 +519,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
                 "conflict_fields": [], "conflict_candidates": [],
                 "created_at": root.get("timestamp", ""),
                 "created_position": root["changes"].get("position"),
+                "document_links": [], "deleted_at": None,
             }
             if len(task_ids) != 1:
                 step["conflict"] = True
@@ -505,7 +528,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
                 warnings.append(f"{step_id}: events reference different parent tasks")
             updates: dict[int, list[dict]] = defaultdict(list)
             for event in events:
-                if event["action"] == "update":
+                if event["action"] in {"update", "delete"}:
                     updates[event["base_revision"]].append(event)
             while step["revision"] in updates:
                 candidates = updates.pop(step["revision"])
@@ -518,7 +541,15 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
                     step["conflict_candidates"].extend(summarize_conflict_events(candidates))
                     warnings.append(f"{step_id}: conflicting edits at revision {step['revision']}")
                     break
-                step.update(candidates[0]["changes"])
+                selected = candidates[0]
+                # A delete tombstone cannot be undone by a late edit.
+                if step.get("deleted_at"):
+                    step["conflict"] = True
+                    step["conflict_fields"] = sorted(set(step["conflict_fields"]) | {"deleted_at"})
+                    step["conflict_candidates"].extend(summarize_conflict_events(candidates))
+                    warnings.append(f"{step_id}: events after step deletion need review")
+                    break
+                step.update(selected["changes"])
                 if "title" in step:
                     step["title"] = step["title"].strip()
                 step["revision"] += 1
@@ -628,9 +659,12 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
         ordered = [known[step_id] for step_id in order_ids if step_id in known]
         ordered_ids = {step["step_id"] for step in ordered}
         ordered.extend(step for step in defaults if step["step_id"] not in ordered_ids)
-        for index, step in enumerate(ordered, start=1):
+        # Old reorder events can mention an already deleted step. This is not a
+        # sync gap: only missing creation events cause order_incomplete.
+        live_steps = [step for step in ordered if not step.get("deleted_at")]
+        for index, step in enumerate(live_steps, start=1):
             step["position"] = index
-        task["steps"] = ordered
+        task["steps"] = live_steps
         task["step_order_revision"] = order_revision
         task["step_order_conflict"] = order_conflict
         task["step_order_incomplete"] = bool(missing_order_ids)
@@ -859,6 +893,797 @@ def append_step_event(data_dir: Path, event: dict) -> Path:
 
 
 
+
+def validate_setting_event(value: object) -> dict:
+    """Validate the shared retention settings event schema for review discovery."""
+    if (not isinstance(value, dict) or value.get("version") != 1 or
+            not isinstance(value.get("event_id"), str) or
+            not EVENT_ID.fullmatch(value["event_id"]) or
+            value.get("key") != "trash_retention_days" or
+            type(value.get("days")) is not int or value["days"] not in {0, 7, 30, 90}):
+        raise ValueError("invalid shared trash retention setting")
+    stamp = value.get("timestamp")
+    if not isinstance(stamp, str):
+        raise ValueError("settings timestamp required")
+    try:
+        if datetime.fromisoformat(stamp.replace("Z", "+00:00")).tzinfo is None:
+            raise ValueError("timezone required")
+    except ValueError as exc:
+        raise ValueError("invalid settings timestamp") from exc
+    return value
+
+
+REVIEW_ID = re.compile(r"^ANOM-[A-F0-9]{32}$")
+REVIEW_HASH = re.compile(r"^[a-f0-9]{64}$")
+REVIEW_FOLDERS = {"events", "project_events", "step_events", "settings_events"}
+REVIEW_ACTIONS = {"authorize", "applied", "dismissed", "stale", "failed"}
+
+
+def _canonical_hash(value: object) -> str:
+    payload = json.dumps(value, ensure_ascii=False, sort_keys=True,
+                         separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _review_snapshot(anomaly: dict) -> dict:
+    return {key: anomaly.get(key) for key in
+            ("category", "title", "reason", "event_id", "task_id", "step_id", "action")}
+
+
+def validate_review_event(value: object) -> dict:
+    """Validate an append-only human review/authorization/result record."""
+    required = {"version", "event_id", "anomaly_id", "action", "actor", "timestamp",
+                "base_revision", "source", "snapshot", "changes"}
+    if not isinstance(value, dict) or set(value) != required or value.get("version") != 1:
+        raise ValueError("invalid review event shape")
+    if not isinstance(value["event_id"], str) or not EVENT_ID.fullmatch(value["event_id"]):
+        raise ValueError("invalid review event_id")
+    if not isinstance(value["anomaly_id"], str) or not REVIEW_ID.fullmatch(value["anomaly_id"]):
+        raise ValueError("invalid anomaly_id")
+    if value["action"] not in REVIEW_ACTIONS or value["actor"] != "user":
+        raise ValueError("review action must be an explicit user decision")
+    revision = value["base_revision"]
+    if type(revision) is not int or revision < 0:
+        raise ValueError("invalid review revision")
+    stamp = value["timestamp"]
+    if not isinstance(stamp, str):
+        raise ValueError("review timestamp required")
+    try:
+        if datetime.fromisoformat(stamp.replace("Z", "+00:00")).tzinfo is None:
+            raise ValueError("timezone required")
+    except ValueError as exc:
+        raise ValueError("invalid review timestamp") from exc
+    source = value["source"]
+    if (not isinstance(source, dict) or set(source) != {"folder", "filename", "sha256"}
+            or source["folder"] not in REVIEW_FOLDERS | {"workspace"}
+            or not isinstance(source["filename"], str)
+            or not isinstance(source["sha256"], str)
+            or not REVIEW_HASH.fullmatch(source["sha256"])):
+        raise ValueError("invalid review source")
+    if source["folder"] == "workspace":
+        if source["filename"]:
+            raise ValueError("workspace review source cannot name a file")
+    elif (not re.fullmatch(r"[A-Za-z0-9_.-]{1,120}\.json", source["filename"])
+          or source["filename"] in {".", ".."}):
+        raise ValueError("invalid review source filename")
+    snapshot = value["snapshot"]
+    snapshot_fields = {"category", "title", "reason", "event_id", "task_id", "step_id", "action"}
+    if not isinstance(snapshot, dict) or set(snapshot) != snapshot_fields:
+        raise ValueError("invalid review snapshot")
+    for field in ("category", "title", "reason"):
+        if not isinstance(snapshot[field], str) or len(snapshot[field]) > 2000:
+            raise ValueError("invalid review snapshot text")
+    for field in ("event_id", "task_id", "step_id", "action"):
+        if snapshot[field] is not None and (
+            not isinstance(snapshot[field], str) or len(snapshot[field]) > 200
+        ):
+            raise ValueError("invalid review snapshot reference")
+    changes = value["changes"]
+    if not isinstance(changes, dict):
+        raise ValueError("review changes must be an object")
+    if value["action"] == "authorize":
+        if set(changes) != {"approved_event", "proposal_sha256", "note"}:
+            raise ValueError("authorization requires approved event and proposal hash")
+        if (not isinstance(changes["proposal_sha256"], str)
+                or not REVIEW_HASH.fullmatch(changes["proposal_sha256"])
+                or not isinstance(changes["note"], str) or len(changes["note"]) > 500):
+            raise ValueError("invalid authorization details")
+        approved = changes["approved_event"]
+        if source["folder"] == "events":
+            validate_event(approved)
+        elif source["folder"] == "step_events":
+            validate_step_event(approved)
+        elif source["folder"] == "project_events":
+            validate_project_event(approved)
+        elif source["folder"] == "settings_events":
+            validate_setting_event(approved)
+        else:
+            raise ValueError("workspace warnings cannot authorize event writes")
+        if approved.get("actor") != "user":
+            raise ValueError("approved event must be a user action")
+    elif value["action"] == "applied":
+        if set(changes) != {"target_event_id", "target_folder", "target_filename",
+                            "target_sha256", "verified_revision"}:
+            raise ValueError("invalid applied receipt")
+        if (not isinstance(changes["target_event_id"], str)
+                or not EVENT_ID.fullmatch(changes["target_event_id"])
+                or changes["target_folder"] not in REVIEW_FOLDERS
+                or changes["target_filename"] != f"evt_{changes['target_event_id']}.json"
+                or not isinstance(changes["target_sha256"], str)
+                or not REVIEW_HASH.fullmatch(changes["target_sha256"])
+                or type(changes["verified_revision"]) is not int
+                or changes["verified_revision"] < 1):
+            raise ValueError("invalid applied receipt fields")
+    elif value["action"] == "dismissed":
+        if set(changes) != {"note"} or not isinstance(changes["note"], str) or not 1 <= len(changes["note"].strip()) <= 500:
+            raise ValueError("a 1–500 character review reason is required")
+    else:
+        if set(changes) != {"reason"} or not isinstance(changes["reason"], str) or not 1 <= len(changes["reason"].strip()) <= 500:
+            raise ValueError("a 1–500 character result reason is required")
+    return value
+
+
+def append_review_event(data_dir: Path, event: dict) -> Path:
+    validate_review_event(event)
+    return _append_json_event(data_dir, event, "review_events")
+
+
+def read_review_states(data_dir: Path) -> tuple[dict, list[str]]:
+    """Reduce immutable review records; same-revision decisions become conflicts."""
+    directory = data_dir / "review_events"
+    groups: dict[str, list[dict]] = defaultdict(list)
+    seen: dict[str, dict] = {}
+    duplicate_ids: set[str] = set()
+    warnings: list[str] = []
+    if not directory.is_dir() or directory.is_symlink():
+        return {}, warnings
+    for path in sorted(directory.glob("*.json")):
+        if path.is_symlink() or not path.is_file():
+            continue
+        try:
+            if path.stat().st_size > MAX_BODY * 2:
+                raise ValueError("review event file too large")
+            event = validate_review_event(json.loads(path.read_text(encoding="utf-8-sig")))
+            previous = seen.get(event["event_id"])
+            if previous is not None:
+                if previous == event:
+                    continue
+                duplicate_ids.add(previous["anomaly_id"])
+                duplicate_ids.add(event["anomaly_id"])
+                groups[event["anomaly_id"]].append(event)
+                warnings.append(f"{path.name}: duplicate review event_id with conflicting content")
+                continue
+            seen[event["event_id"]] = event
+            groups[event["anomaly_id"]].append(event)
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
+            warnings.append(f"{path.name}: review record needs inspection ({exc})")
+    states = {}
+    for anomaly_id, events in groups.items():
+        events.sort(key=lambda item: (item["base_revision"], item["timestamp"], item["event_id"]))
+        expected = 0
+        latest = None
+        timeline = []
+        conflict = anomaly_id in duplicate_ids
+        source = events[0]["source"] if events else None
+        for revision, candidates_iter in __import__("itertools").groupby(
+                events, key=lambda item: item["base_revision"]):
+            candidates = list(candidates_iter)
+            if revision != expected or len(candidates) != 1:
+                conflict = True
+                break
+            candidate = candidates[0]
+            if source is not None and candidate["source"] != source:
+                conflict = True
+                break
+            source = candidate["source"]
+            latest = candidate
+            timeline.append(candidate)
+            expected += 1
+        status = "conflict" if conflict else (
+            {"authorize": "authorized", "applied": "applied", "dismissed": "dismissed",
+             "stale": "stale", "failed": "failed"}.get(latest["action"], "pending")
+            if latest else "pending")
+        states[anomaly_id] = {
+            "status": status, "revision": expected, "latest": latest,
+            "timeline": timeline, "snapshot": latest["snapshot"] if latest else {},
+            "source": source,
+        }
+    return states, warnings
+
+
+def _classify_invalid_event(folder: str, event: object, reason: str) -> tuple[str, str]:
+    if folder == "events" and isinstance(event, dict) and event.get("action") in TASK_LIFECYCLE_ACTIONS:
+        return "task_lifecycle_requires_user", "任务生命周期事件缺少有效的用户操作授权或版本"
+    if (folder == "step_events" and isinstance(event, dict)
+            and event.get("action") == "update" and "cannot set position" in reason):
+        return "step_update_position", "执行步骤更新包含不允许的 position 字段"
+    if ("explicit user confirmation" in reason or "completion needs" in reason or
+            "explicitly confirmed user action can complete a task" in reason):
+        return "completion_confirmation_missing", "完成状态缺少用户明确确认"
+    if any(token in reason.lower() for token in
+           ("expecting", "delimiter", "property name", "extra data", "utf-8", "encoding")):
+        return "malformed_event", "事件文件格式或编码异常"
+    return "invalid_event", "事件未通过数据结构与业务规则校验"
+
+
+def _hash_file(path: Path) -> tuple[str, bytes, int]:
+    """Hash a source file in bounded memory and retain only a small diagnostic excerpt."""
+    digest = hashlib.sha256()
+    prefix = bytearray()
+    size = 0
+    with path.open("rb") as stream:
+        while True:
+            chunk = stream.read(64 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+            size += len(chunk)
+            if len(prefix) < MAX_BODY:
+                prefix.extend(chunk[:MAX_BODY - len(prefix)])
+    return digest.hexdigest(), bytes(prefix), size
+
+
+def scan_invalid_event_files(data_dir: Path) -> tuple[list[dict], list[str]]:
+    """Discover invalid immutable source files without changing or quarantining them."""
+    validators = {"events": validate_event, "project_events": validate_project_event,
+                  "step_events": validate_step_event, "settings_events": validate_setting_event}
+    anomalies: list[dict] = []
+    warnings: list[str] = []
+    for folder, validator in validators.items():
+        directory = data_dir / folder
+        if not directory.is_dir() or directory.is_symlink():
+            continue
+        for path in sorted(directory.glob("*.json")):
+            if path.is_symlink() or not path.is_file():
+                continue
+            event = None
+            try:
+                source_hash, prefix, size = _hash_file(path)
+                if size > MAX_BODY:
+                    reason = "file too large"
+                else:
+                    try:
+                        event = json.loads(prefix.decode("utf-8-sig"))
+                        validator(event)
+                        continue
+                    except (UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
+                        reason = str(exc)
+            except OSError as exc:
+                warnings.append(f"{path.name}: unable to inspect source ({exc})")
+                continue
+            category, title = _classify_invalid_event(folder, event, reason)
+            anomaly_id = "ANOM-" + hashlib.sha256(
+                f"{folder}/{path.name}:{source_hash}".encode("utf-8")
+            ).hexdigest()[:32].upper()
+            anomalies.append({
+                "anomaly_id": anomaly_id, "category": category, "title": title,
+                "reason": reason, "source": {"folder": folder, "filename": path.name,
+                                             "sha256": source_hash},
+                "source_present": True, "source_event": event if isinstance(event, dict) else None,
+                "raw_excerpt": prefix[:2400].decode("utf-8", errors="replace") if not isinstance(event, dict) else None,
+                "event_id": event.get("event_id") if isinstance(event, dict) else None,
+                "task_id": event.get("task_id") if isinstance(event, dict) else None,
+                "step_id": event.get("step_id") if isinstance(event, dict) else None,
+                "action": event.get("action") if isinstance(event, dict) else None,
+            })
+    return anomalies, warnings
+
+
+def _workspace_warning_anomalies(workspace: dict, known_filenames: set[str]) -> list[dict]:
+    results = []
+    ignored = ("identical event; ignored", "identical; ignored",
+               "display identifier collision")
+    for warning in workspace.get("warnings", []):
+        if any(token in warning for token in ignored):
+            continue
+        if any(warning.startswith(filename + ":") for filename in known_filenames):
+            continue
+        category = ("sync_pending" if any(token in warning for token in
+                     ("waiting for", "not synced", "has not synced", "尚未同步"))
+                    else "semantic_conflict")
+        source_hash = hashlib.sha256(warning.encode("utf-8")).hexdigest()
+        anomaly_id = "ANOM-" + hashlib.sha256(
+            ("workspace:" + source_hash).encode("utf-8")
+        ).hexdigest()[:32].upper()
+        results.append({
+            "anomaly_id": anomaly_id, "category": category,
+            "title": "数据正在等待同步" if category == "sync_pending" else "数据引用或版本存在冲突",
+            "reason": warning,
+            "source": {"folder": "workspace", "filename": "", "sha256": source_hash},
+            "source_present": True, "source_event": None, "raw_excerpt": None,
+            "event_id": None, "task_id": None, "step_id": None, "action": None,
+        })
+    return results
+
+
+def _build_review_proposal(data_dir: Path, anomaly: dict, workspace: dict) -> dict | None:
+    """Build a preview only; it never writes. Unsupported/destructive fixes stay manual."""
+    source_event = anomaly.get("source_event")
+    folder = anomaly["source"]["folder"]
+    if not isinstance(source_event, dict):
+        return None
+    task_id = source_event.get("task_id")
+    if not isinstance(task_id, str) or not TASK_ID.fullmatch(task_id):
+        return None
+    task = next((item for item in workspace.get("tasks", [])
+                 if item.get("task_id") == task_id), None)
+    action = source_event.get("action")
+    restore_lifecycle = (folder == "events" and
+                         anomaly["category"] == "task_lifecycle_requires_user" and
+                         action == "restore")
+    if (not task or task.get("conflict") or
+            (task.get("trashed_at") and not restore_lifecycle)):
+        return None
+    event_fields = None
+    requires_completion_confirmation = False
+    explanation = ""
+    changes = source_event.get("changes")
+    if not isinstance(changes, dict):
+        return None
+
+    if folder == "events" and anomaly["category"] == "task_lifecycle_requires_user":
+        # Purge remains a separate destructive workflow; never repair it from this queue.
+        if action not in {"trash", "restore"} or task.get("revision", 0) < 1:
+            return None
+        if action == "trash":
+            if task.get("trashed_at"):
+                return None
+            stamp = changes.get("trashed_at") or source_event.get("timestamp")
+            if not isinstance(stamp, str):
+                return None
+            try:
+                if datetime.fromisoformat(stamp.replace("Z", "+00:00")).tzinfo is None:
+                    return None
+            except ValueError:
+                return None
+            next_changes = {"trashed_at": stamp}
+        else:
+            if not task.get("trashed_at") or changes.get("trashed_at", None) is not None:
+                return None
+            next_changes = {"trashed_at": None}
+        event_fields = {"version": 1, "task_id": task_id, "action": action,
+                        "actor": "user", "base_revision": task["revision"],
+                        "changes": next_changes}
+        explanation = "以当前任务修订号重新生成合法的用户生命周期事件；原始异常事件保持不变。"
+    elif folder == "step_events" and anomaly["category"] in {
+            "step_update_position", "completion_confirmation_missing"}:
+        step_id = source_event.get("step_id")
+        if not isinstance(step_id, str) or not STEP_ID.fullmatch(step_id):
+            return None
+        step = next((item for item in task.get("steps", [])
+                     if item.get("step_id") == step_id), None)
+        if not step or step.get("conflict") or step.get("revision", 0) < 1:
+            return None
+        if action != "update":
+            return None
+        allowed = {"title", "status"}
+        if set(changes) - (allowed | ({"position"} if anomaly["category"] == "step_update_position" else set())):
+            return None
+        next_changes = {key: value for key, value in changes.items() if key in allowed}
+        if not next_changes:
+            return None
+        if next_changes.get("status") == "done":
+            requires_completion_confirmation = True
+        event_fields = {"version": 1, "task_id": task_id, "step_id": step_id,
+                        "action": "update", "actor": "user",
+                        "base_revision": step["revision"], "changes": next_changes}
+        if requires_completion_confirmation:
+            event_fields["confirmed_done"] = True
+        explanation = (
+            "按当前步骤修订号重新生成合法更新；舍弃原事件中非法的 position 字段。"
+            if anomaly["category"] == "step_update_position" else
+            "由用户明确确认该步骤完成后，重新生成带 confirmed_done 的合法事件。"
+        )
+    elif folder == "events" and anomaly["category"] == "completion_confirmation_missing":
+        if action != "update" or changes.get("status") != "done" or task["revision"] < 1:
+            return None
+        allowed = {"title", "status", "project_id", "related_project_ids",
+                   "document_links", *TASK_MANAGEMENT_FIELDS}
+        if set(changes) - allowed:
+            return None
+        next_changes = dict(changes)
+        event_fields = {"version": 1, "task_id": task_id, "action": "update",
+                        "actor": "user", "base_revision": task["revision"],
+                        "changes": next_changes, "confirmed_done": True}
+        requires_completion_confirmation = True
+        explanation = "用户明确确认任务完成后，按当前任务修订号重新生成合法事件。"
+    else:
+        return None
+
+    event_fields["event_id"] = "repair-" + _canonical_hash({
+        "anomaly_id": anomaly["anomaly_id"], "folder": folder,
+        "event": event_fields
+    })[:32]
+    validator = {"events": validate_event, "step_events": validate_step_event}.get(folder)
+    if not validator:
+        return None
+    try:
+        validator(event_fields)
+    except (ValueError, TypeError):
+        return None
+    proposal_hash = _canonical_hash({"folder": folder, "event": event_fields})
+    target = {"task_id": task_id}
+    if "step_id" in event_fields:
+        target["step_id"] = event_fields["step_id"]
+        target["step_title"] = next((item["title"] for item in task["steps"]
+                                     if item["step_id"] == event_fields["step_id"]), "")
+    else:
+        target["task_title"] = task.get("title", "")
+    return {
+        "target_folder": folder, "target": target, "event": event_fields,
+        "proposal_sha256": proposal_hash,
+        "requires_completion_confirmation": requires_completion_confirmation,
+        "explanation": explanation,
+    }
+
+
+
+def _applied_receipt_status(data_dir: Path, state: dict) -> str:
+    """Re-check the exact approved result file whenever a receipt is displayed."""
+    latest = state.get("latest")
+    if not latest or latest.get("action") != "applied":
+        return state["status"]
+    receipt = latest["changes"]
+    folder, filename = receipt["target_folder"], receipt["target_filename"]
+    if folder not in REVIEW_FOLDERS or not re.fullmatch(
+            r"evt_[A-Za-z0-9-]{8,80}\.json", filename):
+        return "conflict"
+    path = data_dir / folder / filename
+    if path.is_symlink() or not path.is_file():
+        return "failed"
+    try:
+        digest, prefix, size = _hash_file(path)
+        if size > MAX_BODY or digest != receipt["target_sha256"]:
+            return "conflict"
+        actual = json.loads(prefix.decode("utf-8-sig"))
+        validator = {"events": validate_event, "project_events": validate_project_event,
+                     "step_events": validate_step_event, "settings_events": validate_setting_event}[folder]
+        validator(actual)
+        authorization = next((event for event in reversed(state["timeline"])
+                              if event["action"] == "authorize"), None)
+        if not authorization or actual != authorization["changes"]["approved_event"]:
+            return "conflict"
+        if actual.get("event_id") != receipt["target_event_id"]:
+            return "conflict"
+        return "applied"
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError):
+        return "conflict"
+
+
+def list_data_reviews(data_dir: Path, workspace: dict | None = None) -> dict:
+    """Return all current anomalies plus immutable review history and summary."""
+    workspace = workspace if workspace is not None else read_workspace(data_dir, include_trashed=True)
+    anomalies, scan_warnings = scan_invalid_event_files(data_dir)
+    _, policy_warnings = read_trash_retention(data_dir)
+    workspace_with_policy = {
+        **workspace, "warnings": list(workspace.get("warnings", [])) + policy_warnings
+    }
+    known_filenames = {item["source"]["filename"] for item in anomalies}
+    anomalies.extend(_workspace_warning_anomalies(workspace_with_policy, known_filenames))
+    states, review_warnings = read_review_states(data_dir)
+    current_ids = set()
+    items = []
+    for anomaly in anomalies:
+        anomaly_id = anomaly["anomaly_id"]
+        current_ids.add(anomaly_id)
+        state = states.get(anomaly_id)
+        status = state["status"] if state else "pending"
+        if state and state["status"] == "applied":
+            status = _applied_receipt_status(data_dir, state)
+        proposal = _build_review_proposal(data_dir, anomaly, workspace)
+        latest = state["latest"] if state else None
+        if state and state["status"] == "authorized":
+            approved = latest["changes"]["approved_event"]
+            if (not anomaly["source_present"] or
+                    _canonical_hash({"folder": anomaly["source"]["folder"],
+                                     "event": {key: value for key, value in approved.items()
+                                               if key != "timestamp"}}) !=
+                    latest["changes"]["proposal_sha256"]):
+                # The next action must re-check and re-authorize; do not auto-write.
+                status = "stale"
+            elif proposal is None or proposal["proposal_sha256"] != latest["changes"]["proposal_sha256"]:
+                status = "stale"
+        item = dict(anomaly)
+        item.update({
+            "status": status, "review_revision": state["revision"] if state else 0,
+            "timeline": [{
+                "action": event["action"], "timestamp": event["timestamp"],
+                "note": event["changes"].get("note", event["changes"].get("reason", "")),
+                "event_id": event["event_id"],
+            } for event in (state["timeline"] if state else [])],
+            "authorization_event_id": latest["event_id"] if latest and latest["action"] == "authorize" else None,
+            "proposal": proposal,
+            "can_authorize": bool(proposal and status in {"pending", "failed", "stale"}
+                                  and anomaly["source_present"] and not (state and state["status"] == "conflict")),
+            "can_apply": bool(status == "authorized" and proposal and anomaly["source_present"]
+                              and latest and latest["action"] == "authorize"),
+            "can_dismiss": bool(status in {"pending", "authorized", "failed", "stale"}
+                                and anomaly["source_present"] and not (state and state["status"] == "conflict")),
+        })
+        items.append(item)
+    # Keep an audit trail visible even if a synced source file later disappears.
+    for anomaly_id, state in states.items():
+        if anomaly_id in current_ids:
+            continue
+        latest = state["latest"]
+        snapshot = state["snapshot"] or {}
+        status = state["status"]
+        if status == "applied":
+            status = _applied_receipt_status(data_dir, state)
+        if status == "authorized":
+            status = "stale"
+        items.append({
+            "anomaly_id": anomaly_id, "category": snapshot.get("category", "historical"),
+            "title": snapshot.get("title", "历史核查记录"),
+            "reason": snapshot.get("reason", "原始异常文件已不存在；保留核查历史。"),
+            "source": state["source"], "source_present": False,
+            "source_event": None, "raw_excerpt": None,
+            "event_id": snapshot.get("event_id"), "task_id": snapshot.get("task_id"),
+            "step_id": snapshot.get("step_id"), "action": snapshot.get("action"),
+            "status": status, "review_revision": state["revision"],
+            "timeline": [{
+                "action": event["action"], "timestamp": event["timestamp"],
+                "note": event["changes"].get("note", event["changes"].get("reason", "")),
+                "event_id": event["event_id"],
+            } for event in state["timeline"]],
+            "authorization_event_id": None, "proposal": None,
+            "can_authorize": False, "can_apply": False, "can_dismiss": False,
+        })
+    order = {"pending": 0, "authorized": 1, "failed": 2, "stale": 3,
+             "conflict": 4, "dismissed": 5, "applied": 6}
+    items.sort(key=lambda item: (order.get(item["status"], 9), item["source"]["folder"],
+                                 item["source"]["filename"], item["anomaly_id"]))
+    counts = {key: sum(item["status"] == key for item in items)
+              for key in ("pending", "authorized", "applied", "dismissed", "stale", "failed", "conflict")}
+    counts["total"] = len(items)
+    counts["open_count"] = (counts["pending"] + counts["authorized"] + counts["stale"]
+                            + counts["failed"] + counts["conflict"])
+    counts["reviewable_count"] = sum(
+        bool(item["can_authorize"] or item["can_dismiss"]) for item in items
+    )
+    return {"items": items, "summary": counts,
+            "warnings": scan_warnings + review_warnings}
+
+
+def _load_current_anomaly(data_dir: Path, anomaly: dict) -> tuple[dict | None, str | None]:
+    source = anomaly["source"]
+    if source["folder"] == "workspace":
+        workspace = read_workspace(data_dir, include_trashed=True)
+        _, policy_warnings = read_trash_retention(data_dir)
+        workspace = {**workspace, "warnings": list(workspace.get("warnings", [])) + policy_warnings}
+        current = next((item for item in _workspace_warning_anomalies(workspace, set())
+                       if item["anomaly_id"] == anomaly["anomaly_id"]), None)
+        return current, None if current else "workspace warning has cleared"
+    if source["folder"] not in REVIEW_FOLDERS:
+        return None, "unsupported source folder"
+    filename = source["filename"]
+    if (not isinstance(filename, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,120}\.json", filename)
+            or filename in {".", ".."}):
+        return None, "invalid source filename"
+    path = data_dir / source["folder"] / filename
+    if path.is_symlink() or not path.is_file():
+        return None, "original source file is missing or unsafe"
+    try:
+        digest, prefix, size = _hash_file(path)
+    except OSError as exc:
+        return None, f"unable to read original source: {exc}"
+    if digest != source["sha256"]:
+        return None, "original source changed after review"
+    if size > MAX_BODY:
+        reason = "file too large"
+        event = None
+    else:
+        try:
+            event = json.loads(prefix.decode("utf-8-sig"))
+            validator = {"events": validate_event, "project_events": validate_project_event,
+                         "step_events": validate_step_event,
+                         "settings_events": validate_setting_event}[source["folder"]]
+            validator(event)
+            return None, "source event is now valid; review is stale"
+        except (UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
+            reason = str(exc)
+    category, title = _classify_invalid_event(source["folder"], event, reason)
+    current = {
+        "anomaly_id": anomaly["anomaly_id"], "category": category, "title": title,
+        "reason": reason, "source": source, "source_present": True,
+        "source_event": event if isinstance(event, dict) else None,
+        "raw_excerpt": prefix[:2400].decode("utf-8", errors="replace") if not isinstance(event, dict) else None,
+        "event_id": event.get("event_id") if isinstance(event, dict) else None,
+        "task_id": event.get("task_id") if isinstance(event, dict) else None,
+        "step_id": event.get("step_id") if isinstance(event, dict) else None,
+        "action": event.get("action") if isinstance(event, dict) else None,
+    }
+    return current, None
+
+
+def _new_review_record(anomaly: dict, action: str, revision: int, changes: dict) -> dict:
+    return {
+        "version": 1, "event_id": str(uuid.uuid4()),
+        "anomaly_id": anomaly["anomaly_id"], "action": action, "actor": "user",
+        "timestamp": utc_now(), "base_revision": revision,
+        "source": dict(anomaly["source"]), "snapshot": _review_snapshot(anomaly),
+        "changes": changes,
+    }
+
+
+def _append_review_transition(data_dir: Path, anomaly: dict, state: dict | None,
+                              action: str, changes: dict) -> dict:
+    if state and state["status"] == "conflict":
+        raise ValueError("review history has a conflict; stop and inspect the review records")
+    event = _new_review_record(anomaly, action, state["revision"] if state else 0, changes)
+    append_review_event(data_dir, event)
+    return event
+
+
+def perform_review_action(data_dir: Path, anomaly_id: str, action: str,
+                          payload: dict) -> tuple[int, dict]:
+    """Separate review, explicit authorization, validated append, and receipt."""
+    if not REVIEW_ID.fullmatch(anomaly_id):
+        return 400, {"error": "invalid anomaly_id"}
+    workspace = read_workspace(data_dir, include_trashed=True)
+    register = list_data_reviews(data_dir, workspace)
+    item = next((entry for entry in register["items"] if entry["anomaly_id"] == anomaly_id), None)
+    if item is None:
+        return 404, {"error": "anomaly not found"}
+    states, state_warnings = read_review_states(data_dir)
+    state = states.get(anomaly_id)
+    if state and state["status"] == "conflict":
+        return 409, {"error": "review history conflict; no write is allowed"}
+    if item["source"]["sha256"] != payload.get("source_sha256"):
+        return 409, {"error": "source hash changed; refresh and review again"}
+
+    if action == "dismiss":
+        if set(payload) != {"source_sha256", "confirmed", "note"} or payload.get("confirmed") is not True:
+            return 400, {"error": "explicit confirmation and review reason are required"}
+        note = payload.get("note")
+        if not isinstance(note, str) or not 1 <= len(note.strip()) <= 500:
+            return 400, {"error": "please enter a 1–500 character review reason"}
+        if not item["source_present"] or item["status"] not in {"pending", "authorized", "failed", "stale"}:
+            return 409, {"error": "this anomaly cannot be dismissed in its current state"}
+        try:
+            event = _append_review_transition(data_dir, item, state, "dismissed",
+                                              {"note": note.strip()})
+        except (OSError, ValueError, FileExistsError) as exc:
+            return 409, {"error": f"review decision was not saved: {exc}"}
+        return 200, {"saved": True, "status": "dismissed", "review_event_id": event["event_id"]}
+
+    if action == "authorize":
+        if set(payload) - {"source_sha256", "proposal_sha256", "confirmed",
+                           "confirm_completion", "note"} or not {
+                "source_sha256", "proposal_sha256", "confirmed"} <= set(payload):
+            return 400, {"error": "authorization requires source hash, proposal hash and confirmation"}
+        if payload.get("confirmed") is not True:
+            return 400, {"error": "explicit user authorization is required"}
+        if item["status"] not in {"pending", "failed", "stale"} or not item["source_present"]:
+            return 409, {"error": "anomaly is not awaiting authorization"}
+        proposal = item.get("proposal")
+        if not proposal or proposal["proposal_sha256"] != payload.get("proposal_sha256"):
+            return 409, {"error": "repair proposal changed or is unsupported; refresh and inspect"}
+        if (proposal["requires_completion_confirmation"]
+                and payload.get("confirm_completion") is not True):
+            return 400, {"error": "completion needs separate explicit user confirmation"}
+        note = payload.get("note", "")
+        if not isinstance(note, str) or len(note) > 500:
+            return 400, {"error": "review note must be at most 500 characters"}
+        current, stale_reason = _load_current_anomaly(data_dir, item)
+        if current is None or current["source"]["sha256"] != item["source"]["sha256"]:
+            return 409, {"error": stale_reason or "original event changed; refresh"}
+        fresh_proposal = _build_review_proposal(data_dir, current, workspace)
+        if not fresh_proposal or fresh_proposal["proposal_sha256"] != proposal["proposal_sha256"]:
+            return 409, {"error": "target revision changed; refresh and review the new proposal"}
+        approved = dict(proposal["event"])
+        approved["timestamp"] = utc_now()
+        try:
+            if item["source"]["folder"] == "events":
+                validate_event(approved)
+            else:
+                validate_step_event(approved)
+            event = _append_review_transition(data_dir, item, state, "authorize", {
+                "approved_event": approved, "proposal_sha256": proposal["proposal_sha256"],
+                "note": note.strip(),
+            })
+        except (OSError, ValueError, FileExistsError) as exc:
+            return 409, {"error": f"authorization was not saved: {exc}"}
+        return 200, {"saved": True, "status": "authorized",
+                     "review_event_id": event["event_id"],
+                     "authorization_event_id": event["event_id"]}
+
+    if action == "apply":
+        if set(payload) != {"source_sha256", "authorization_event_id", "confirmed"}:
+            return 400, {"error": "apply requires source hash, authorization event and confirmation"}
+        if payload.get("confirmed") is not True:
+            return 400, {"error": "explicit confirmation to execute the authorized write is required"}
+        latest = state["latest"] if state else None
+        if item["status"] == "applied":
+            return 200, {"saved": False, "status": "applied",
+                         "message": "the approved event has already been written and verified"}
+        if item["status"] != "authorized" or not latest or latest["action"] != "authorize":
+            return 409, {"error": "there is no current authorization to execute"}
+        if latest["event_id"] != payload.get("authorization_event_id"):
+            return 409, {"error": "authorization event changed; refresh before execution"}
+        approved = latest["changes"]["approved_event"]
+        current, stale_reason = _load_current_anomaly(data_dir, item)
+        if current is None or current["source"]["sha256"] != item["source"]["sha256"]:
+            try:
+                _append_review_transition(data_dir, item, state, "stale",
+                                          {"reason": stale_reason or "original source changed"})
+            except (OSError, ValueError, FileExistsError):
+                pass
+            return 409, {"error": stale_reason or "original source changed; authorization is stale"}
+        fresh_proposal = _build_review_proposal(data_dir, current, workspace)
+        if (not fresh_proposal or
+                fresh_proposal["proposal_sha256"] != latest["changes"]["proposal_sha256"]):
+            try:
+                _append_review_transition(data_dir, item, state, "stale",
+                                          {"reason": "target revision or legal repair proposal changed"})
+            except (OSError, ValueError, FileExistsError):
+                pass
+            return 409, {"error": "target revision changed; authorization is stale and must be reviewed again"}
+        folder = item["source"]["folder"]
+        validator = {"events": validate_event, "step_events": validate_step_event}.get(folder)
+        if not validator:
+            return 409, {"error": "this anomaly type cannot write automatically"}
+        try:
+            validator(approved)
+            target_path = data_dir / folder / f"evt_{approved['event_id']}.json"
+            if target_path.exists():
+                existing = json.loads(target_path.read_text(encoding="utf-8-sig"))
+                if existing != approved:
+                    return 409, {"error": "target event ID already exists with different content"}
+            else:
+                _append_json_event(data_dir, approved, folder)
+            written = json.loads(target_path.read_text(encoding="utf-8-sig"))
+            if written != approved:
+                raise ValueError("written event differs from the approved event")
+            target_hash = hashlib.sha256(target_path.read_bytes()).hexdigest()
+            verified_workspace = read_workspace(data_dir, include_trashed=True)
+            verified_task = next((task for task in verified_workspace["tasks"]
+                                  if task["task_id"] == approved["task_id"]), None)
+            if not verified_task or verified_task.get("conflict"):
+                raise ValueError("written event did not reduce to a conflict-free task")
+            if folder == "step_events":
+                verified_step = next((step for step in verified_task.get("steps", [])
+                                      if step["step_id"] == approved["step_id"]), None)
+                if not verified_step or verified_step.get("conflict"):
+                    raise ValueError("written step event did not reduce to a conflict-free step")
+                verified_revision = verified_step["revision"]
+            else:
+                verified_revision = verified_task["revision"]
+            if verified_revision < approved["base_revision"] + 1:
+                raise ValueError("result revision did not advance")
+            result_event = _append_review_transition(data_dir, item, state, "applied", {
+                "target_event_id": approved["event_id"], "target_folder": folder,
+                "target_filename": target_path.name, "target_sha256": target_hash,
+                "verified_revision": verified_revision,
+            })
+            return 200, {"saved": True, "status": "applied",
+                         "target_event_id": approved["event_id"],
+                         "verified_revision": verified_revision,
+                         "review_event_id": result_event["event_id"]}
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            # If the target event was already written, leave it in place. A retry
+            # reuses the same deterministic event ID and completes the receipt.
+            already_written = False
+            try:
+                if "target_path" in locals() and target_path.is_file():
+                    already_written = json.loads(target_path.read_text(encoding="utf-8-sig")) == approved
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                already_written = False
+            if not already_written:
+                try:
+                    _append_review_transition(data_dir, item, state, "failed",
+                                              {"reason": str(exc)[:500]})
+                except (OSError, ValueError, FileExistsError):
+                    pass
+            return 500, {"error": (
+                f"approved event is already written but its result receipt is incomplete: {exc}; "
+                "refresh and retry the same apply action"
+                if already_written else
+                f"write/result verification failed: {exc}; original source remains untouched"
+            )}
+    return 404, {"error": "unknown review action"}
+
+
 def read_trash_retention(data_dir: Path) -> tuple[int, list[str]]:
     """Append-only shared settings; ambiguous same-second edits disable auto-purge."""
     directory = data_dir / "settings_events"
@@ -1029,7 +1854,16 @@ def handler_factory(data_dir: Path):
                 with _write_lock:
                     expire_trashed_tasks(data_dir)
                     workspace = read_workspace(data_dir)
+                review_workspace = read_workspace(data_dir, include_trashed=True)
+                review_register = list_data_reviews(data_dir, review_workspace)
+                workspace["review_summary"] = review_register["summary"]
+                workspace["review_warnings"] = review_register["warnings"]
                 return self.json_response(200, workspace)
+            if path == "/api/reviews":
+                with _write_lock:
+                    workspace = read_workspace(data_dir, include_trashed=True)
+                    register = list_data_reviews(data_dir, workspace)
+                return self.json_response(200, register)
             if path == "/api/trash":
                 with _write_lock:
                     expire_trashed_tasks(data_dir)
@@ -1056,8 +1890,14 @@ def handler_factory(data_dir: Path):
             path = unquote(urlsplit(self.path).path)
             task_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/update", path)
             documents_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/documents", path)
+            step_documents_match = re.fullmatch(
+                r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/documents", path)
+            step_delete_match = re.fullmatch(
+                r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/delete", path)
             lifecycle_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/(trash|restore|purge)", path)
             changing_retention = path == "/api/trash/settings"
+            review_match = re.fullmatch(
+                r"/api/reviews/(ANOM-[A-F0-9]{32})/(authorize|apply|dismiss)", path)
             project_match = re.fullmatch(r"/api/projects/(PROJECT-[A-F0-9]{32})/update", path)
             step_create_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps", path)
             step_update_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/update", path)
@@ -1066,8 +1906,9 @@ def handler_factory(data_dir: Path):
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
             if not (creating_task or creating_project or task_match or project_match or
-                    step_create_match or step_update_match or step_reorder_match or applying_update or
-                    documents_match or lifecycle_match or changing_retention):
+                    step_create_match or step_update_match or step_reorder_match or
+                    step_documents_match or step_delete_match or applying_update or
+                    documents_match or lifecycle_match or changing_retention or review_match):
                 return self.json_response(404, {"error": "not found"})
             if not self.local_request_allowed():
                 return self.json_response(403, {"error": "local requests only"})
@@ -1115,6 +1956,12 @@ def handler_factory(data_dir: Path):
 
             try:
                 payload = self.read_payload()
+                if review_match:
+                    with _write_lock:
+                        code, result = perform_review_action(
+                            data_dir, review_match.group(1), review_match.group(2), payload)
+                    return self.json_response(code, result)
+
                 if changing_retention:
                     if set(payload) != {"retention_days"} or type(payload["retention_days"]) is not int or payload["retention_days"] not in {0, 7, 30, 90}:
                         raise ValueError("retention_days must be 0, 7, 30 or 90")
@@ -1152,28 +1999,71 @@ def handler_factory(data_dir: Path):
                     return self.json_response(200, {"saved": True, "action": action})
 
                 if documents_match:
+                    # Older task-scoped events remain readable so upgrades never lose
+                    # references. New writes must target a concrete execution step.
+                    return self.json_response(410, {
+                        "error": "task-level document links are read-only legacy data; attach links to a step"
+                    })
+
+                if step_documents_match:
                     if set(payload) != {"revision", "links"}:
-                        raise ValueError("document update requires revision and links")
-                    if type(payload["revision"]) is not int or payload["revision"] < 1:
-                        raise ValueError("invalid revision")
+                        raise ValueError("step documents require revision and links")
+                    revision = payload["revision"]
+                    if type(revision) is not int or revision < 1:
+                        raise ValueError("invalid step revision")
                     links = validate_document_links(payload["links"])
                     with _write_lock:
                         workspace = read_workspace(data_dir)
                         task = next((item for item in workspace["tasks"]
-                                     if item["task_id"] == documents_match.group(1)), None)
-                        if not task:
+                                     if item["task_id"] == step_documents_match.group(1)), None)
+                        if task is None:
                             return self.json_response(404, {"error": "task not found"})
-                        if task["conflict"] or task["revision"] != payload["revision"]:
-                            return self.json_response(409, {"error": "task changed or has a conflict; refresh"})
-                        if task["document_links"] == links:
-                            return self.json_response(200, {"saved": False, "revision": task["revision"]})
+                        if task["conflict"]:
+                            return self.json_response(409, {"error": "task has a conflict; refresh"})
+                        step = next((item for item in task.get("steps", [])
+                                     if item["step_id"] == step_documents_match.group(2)), None)
+                        if step is None:
+                            return self.json_response(404, {"error": "step not found or deleted"})
+                        if step["conflict"] or step["revision"] != revision:
+                            return self.json_response(409, {"error": "step changed or has a conflict; refresh"})
+                        if step.get("document_links", []) == links:
+                            return self.json_response(200, {"saved": False, "revision": revision})
                         event = {"version": 1, "event_id": str(uuid.uuid4()),
-                                 "task_id": task["task_id"], "action": "update",
-                                 "actor": "user", "timestamp": utc_now(),
-                                 "base_revision": task["revision"],
+                                 "task_id": task["task_id"], "step_id": step["step_id"],
+                                 "action": "update", "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": revision,
                                  "changes": {"document_links": links}}
-                        append_event(data_dir, event)
-                    return self.json_response(200, {"saved": True, "revision": task["revision"] + 1})
+                        append_step_event(data_dir, event)
+                    return self.json_response(200, {"saved": True, "revision": revision + 1})
+
+                if step_delete_match:
+                    if set(payload) != {"revision", "confirmed_delete"} or payload["confirmed_delete"] is not True:
+                        raise ValueError("step deletion requires revision and explicit confirmation")
+                    revision = payload["revision"]
+                    if type(revision) is not int or revision < 1:
+                        raise ValueError("invalid step revision")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        task = next((item for item in workspace["tasks"]
+                                     if item["task_id"] == step_delete_match.group(1)), None)
+                        if task is None:
+                            return self.json_response(404, {"error": "task not found"})
+                        if task["conflict"] or task.get("step_order_conflict") or task.get("step_order_incomplete"):
+                            return self.json_response(409, {"error": "task or step order needs conflict review"})
+                        step = next((item for item in task.get("steps", [])
+                                     if item["step_id"] == step_delete_match.group(2)), None)
+                        if step is None:
+                            return self.json_response(404, {"error": "step not found or already deleted"})
+                        if step["conflict"] or step["revision"] != revision:
+                            return self.json_response(409, {"error": "step changed or has a conflict; refresh"})
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "task_id": task["task_id"], "step_id": step["step_id"],
+                                 "action": "delete", "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": revision, "confirmed_delete": True,
+                                 "changes": {"deleted_at": utc_now()}}
+                        append_step_event(data_dir, event)
+                    return self.json_response(200, {"saved": True, "step_id": step["step_id"],
+                                                    "deleted": True})
 
                 if step_create_match:
                     if set(payload) != {"title"}:
