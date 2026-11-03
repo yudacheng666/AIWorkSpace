@@ -2762,7 +2762,6 @@
     }
 
     async function loadReviews() {
-      if (reviewBusy) return;
       const message = $("review-message");
       try {
         const response = await fetch("/api/reviews", {cache: "no-store"});
@@ -2782,8 +2781,6 @@
         if (data.warnings?.length) {
           message.textContent = "核查记录自身存在 " + data.warnings.length +
             " 项读取提示；请勿执行未显示为可授权的修复。";
-        } else {
-          message.textContent = "";
         }
       } catch (error) {
         message.className = "review-message error";
