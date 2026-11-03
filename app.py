@@ -264,7 +264,7 @@ def validate_step_event(value: object) -> dict:
         raise ValueError("invalid event_id")
     if not isinstance(value.get("task_id"), str) or not TASK_ID.fullmatch(value["task_id"]):
         raise ValueError("invalid task_id")
-    if value.get("action") not in {"create", "update", "reorder"}:
+    if value.get("action") not in {"create", "update", "reorder", "delete"}:
         raise ValueError("invalid step action")
     if value.get("actor") not in {"chatgpt", "user"}:
         raise ValueError("invalid actor")
@@ -287,12 +287,33 @@ def validate_step_event(value: object) -> dict:
             raise ValueError("invalid step_ids")
         return value
     if set(value) - {"version", "event_id", "task_id", "step_id", "action", "actor",
-                     "timestamp", "base_revision", "changes", "confirmed_done"}:
+                     "timestamp", "base_revision", "changes", "confirmed_done",
+                     "confirmed_delete"}:
         raise ValueError("unknown step event fields")
     if not isinstance(value.get("step_id"), str) or not STEP_ID.fullmatch(value["step_id"]):
         raise ValueError("invalid step_id")
-    if set(changes) - {"title", "status", "position"}:
+    if value["action"] == "delete":
+        if (value["actor"] != "user" or revision < 1 or
+                value.get("confirmed_delete") is not True or
+                set(changes) != {"deleted_at"}):
+            raise ValueError("step deletion requires explicit user confirmation and revision")
+        stamp = changes["deleted_at"]
+        if not isinstance(stamp, str):
+            raise ValueError("step deletion timestamp required")
+        try:
+            if datetime.fromisoformat(stamp.replace("Z", "+00:00")).tzinfo is None:
+                raise ValueError("timezone required")
+        except ValueError as exc:
+            raise ValueError("invalid step deletion timestamp") from exc
+        if "confirmed_done" in value:
+            raise ValueError("unexpected step completion confirmation")
+        return value
+    if "confirmed_delete" in value:
+        raise ValueError("unexpected step deletion confirmation")
+    if set(changes) - {"title", "status", "position", "document_links"}:
         raise ValueError("unknown step fields")
+    if "document_links" in changes:
+        validate_document_links(changes["document_links"])
     if "title" in changes and (not isinstance(changes["title"], str)
                                or not 1 <= len(changes["title"].strip()) <= 200):
         raise ValueError("step title must be 1–200 characters")
@@ -484,6 +505,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
                     "conflict_candidates": summarize_conflict_events(roots),
                     "created_at": task_root.get("timestamp", ""),
                     "created_position": task_root["changes"].get("position"),
+                    "document_links": [], "deleted_at": None,
                 }
                 steps_by_task[task_id].append(placeholder)
                 steps_by_id.setdefault(step_id, placeholder)
@@ -497,6 +519,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
                 "conflict_fields": [], "conflict_candidates": [],
                 "created_at": root.get("timestamp", ""),
                 "created_position": root["changes"].get("position"),
+                "document_links": [], "deleted_at": None,
             }
             if len(task_ids) != 1:
                 step["conflict"] = True
@@ -505,7 +528,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
                 warnings.append(f"{step_id}: events reference different parent tasks")
             updates: dict[int, list[dict]] = defaultdict(list)
             for event in events:
-                if event["action"] == "update":
+                if event["action"] in {"update", "delete"}:
                     updates[event["base_revision"]].append(event)
             while step["revision"] in updates:
                 candidates = updates.pop(step["revision"])
@@ -518,7 +541,15 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
                     step["conflict_candidates"].extend(summarize_conflict_events(candidates))
                     warnings.append(f"{step_id}: conflicting edits at revision {step['revision']}")
                     break
-                step.update(candidates[0]["changes"])
+                selected = candidates[0]
+                # A delete tombstone cannot be undone by a late edit.
+                if step.get("deleted_at"):
+                    step["conflict"] = True
+                    step["conflict_fields"] = sorted(set(step["conflict_fields"]) | {"deleted_at"})
+                    step["conflict_candidates"].extend(summarize_conflict_events(candidates))
+                    warnings.append(f"{step_id}: events after step deletion need review")
+                    break
+                step.update(selected["changes"])
                 if "title" in step:
                     step["title"] = step["title"].strip()
                 step["revision"] += 1
@@ -628,9 +659,12 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
         ordered = [known[step_id] for step_id in order_ids if step_id in known]
         ordered_ids = {step["step_id"] for step in ordered}
         ordered.extend(step for step in defaults if step["step_id"] not in ordered_ids)
-        for index, step in enumerate(ordered, start=1):
+        # Old reorder events can mention an already deleted step. This is not a
+        # sync gap: only missing creation events cause order_incomplete.
+        live_steps = [step for step in ordered if not step.get("deleted_at")]
+        for index, step in enumerate(live_steps, start=1):
             step["position"] = index
-        task["steps"] = ordered
+        task["steps"] = live_steps
         task["step_order_revision"] = order_revision
         task["step_order_conflict"] = order_conflict
         task["step_order_incomplete"] = bool(missing_order_ids)
@@ -1056,6 +1090,10 @@ def handler_factory(data_dir: Path):
             path = unquote(urlsplit(self.path).path)
             task_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/update", path)
             documents_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/documents", path)
+            step_documents_match = re.fullmatch(
+                r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/documents", path)
+            step_delete_match = re.fullmatch(
+                r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/delete", path)
             lifecycle_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/(trash|restore|purge)", path)
             changing_retention = path == "/api/trash/settings"
             project_match = re.fullmatch(r"/api/projects/(PROJECT-[A-F0-9]{32})/update", path)
@@ -1066,7 +1104,8 @@ def handler_factory(data_dir: Path):
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
             if not (creating_task or creating_project or task_match or project_match or
-                    step_create_match or step_update_match or step_reorder_match or applying_update or
+                    step_create_match or step_update_match or step_reorder_match or
+                    step_documents_match or step_delete_match or applying_update or
                     documents_match or lifecycle_match or changing_retention):
                 return self.json_response(404, {"error": "not found"})
             if not self.local_request_allowed():
@@ -1152,28 +1191,71 @@ def handler_factory(data_dir: Path):
                     return self.json_response(200, {"saved": True, "action": action})
 
                 if documents_match:
+                    # Older task-scoped events remain readable so upgrades never lose
+                    # references. New writes must target a concrete execution step.
+                    return self.json_response(410, {
+                        "error": "task-level document links are read-only legacy data; attach links to a step"
+                    })
+
+                if step_documents_match:
                     if set(payload) != {"revision", "links"}:
-                        raise ValueError("document update requires revision and links")
-                    if type(payload["revision"]) is not int or payload["revision"] < 1:
-                        raise ValueError("invalid revision")
+                        raise ValueError("step documents require revision and links")
+                    revision = payload["revision"]
+                    if type(revision) is not int or revision < 1:
+                        raise ValueError("invalid step revision")
                     links = validate_document_links(payload["links"])
                     with _write_lock:
                         workspace = read_workspace(data_dir)
                         task = next((item for item in workspace["tasks"]
-                                     if item["task_id"] == documents_match.group(1)), None)
-                        if not task:
+                                     if item["task_id"] == step_documents_match.group(1)), None)
+                        if task is None:
                             return self.json_response(404, {"error": "task not found"})
-                        if task["conflict"] or task["revision"] != payload["revision"]:
-                            return self.json_response(409, {"error": "task changed or has a conflict; refresh"})
-                        if task["document_links"] == links:
-                            return self.json_response(200, {"saved": False, "revision": task["revision"]})
+                        if task["conflict"]:
+                            return self.json_response(409, {"error": "task has a conflict; refresh"})
+                        step = next((item for item in task.get("steps", [])
+                                     if item["step_id"] == step_documents_match.group(2)), None)
+                        if step is None:
+                            return self.json_response(404, {"error": "step not found or deleted"})
+                        if step["conflict"] or step["revision"] != revision:
+                            return self.json_response(409, {"error": "step changed or has a conflict; refresh"})
+                        if step.get("document_links", []) == links:
+                            return self.json_response(200, {"saved": False, "revision": revision})
                         event = {"version": 1, "event_id": str(uuid.uuid4()),
-                                 "task_id": task["task_id"], "action": "update",
-                                 "actor": "user", "timestamp": utc_now(),
-                                 "base_revision": task["revision"],
+                                 "task_id": task["task_id"], "step_id": step["step_id"],
+                                 "action": "update", "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": revision,
                                  "changes": {"document_links": links}}
-                        append_event(data_dir, event)
-                    return self.json_response(200, {"saved": True, "revision": task["revision"] + 1})
+                        append_step_event(data_dir, event)
+                    return self.json_response(200, {"saved": True, "revision": revision + 1})
+
+                if step_delete_match:
+                    if set(payload) != {"revision", "confirmed_delete"} or payload["confirmed_delete"] is not True:
+                        raise ValueError("step deletion requires revision and explicit confirmation")
+                    revision = payload["revision"]
+                    if type(revision) is not int or revision < 1:
+                        raise ValueError("invalid step revision")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        task = next((item for item in workspace["tasks"]
+                                     if item["task_id"] == step_delete_match.group(1)), None)
+                        if task is None:
+                            return self.json_response(404, {"error": "task not found"})
+                        if task["conflict"] or task.get("step_order_conflict") or task.get("step_order_incomplete"):
+                            return self.json_response(409, {"error": "task or step order needs conflict review"})
+                        step = next((item for item in task.get("steps", [])
+                                     if item["step_id"] == step_delete_match.group(2)), None)
+                        if step is None:
+                            return self.json_response(404, {"error": "step not found or already deleted"})
+                        if step["conflict"] or step["revision"] != revision:
+                            return self.json_response(409, {"error": "step changed or has a conflict; refresh"})
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "task_id": task["task_id"], "step_id": step["step_id"],
+                                 "action": "delete", "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": revision, "confirmed_delete": True,
+                                 "changes": {"deleted_at": utc_now()}}
+                        append_step_event(data_dir, event)
+                    return self.json_response(200, {"saved": True, "step_id": step["step_id"],
+                                                    "deleted": True})
 
                 if step_create_match:
                     if set(payload) != {"title"}:
