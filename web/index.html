@@ -2071,8 +2071,10 @@
           rule.field === "status" ? columnValueLabel("status",columnValue(b,"status")) :
           columnValue(b,rule.field);
         // Empty values always go last, regardless of ascending or descending.
-        const emptyLeft = left == null || left === "" || left === columnBlank;
-        const emptyRight = right == null || right === "" || right === columnBlank;
+        const emptyLeft = !columnValue(a,rule.field) ||
+          columnValue(a,rule.field) === columnBlank;
+        const emptyRight = !columnValue(b,rule.field) ||
+          columnValue(b,rule.field) === columnBlank;
         if (emptyLeft !== emptyRight) return emptyLeft ? 1 : -1;
         const cmp = typeof left === "number" && typeof right === "number"
           ? left-right : String(left).localeCompare(String(right),"zh-CN",{numeric:true});
@@ -2090,8 +2092,10 @@
 
     function updateColumnSort(field,dir) {
       if (isSaving || !confirmDiscardUnsaved()) return;
-      columnSorts = columnSorts.filter(rule => rule.field !== field)
-        .concat(dir ? [{field,dir}] : []);
+      const existing = columnSorts.findIndex(rule => rule.field === field);
+      if (!dir) columnSorts = columnSorts.filter(rule => rule.field !== field);
+      else if (existing >= 0) columnSorts[existing] = {field,dir};
+      else columnSorts.push({field,dir});
       renderTaskList();
     }
 
@@ -2125,7 +2129,8 @@
         const details = element("details","task-column-head" +
           (columnHasFilter(field) ? " is-filtered" : "") +
           (columnSorts.some(rule => rule.field === field) ? " is-sorted" : ""));
-        details.dataset.field = field;
+        if (details.dataset) details.dataset.field = field;
+        else details.columnField = field;
         const summary = element("summary");
         const position = columnSorts.findIndex(rule => rule.field === field);
         summary.title = label + "：展开列筛选与排序";
