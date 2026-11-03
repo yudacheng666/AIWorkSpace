@@ -1,5 +1,21 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-03：PR #21 用户批准、准备 2.0.4 正式发布（待最终准确 SHA CI）
+
+- **批准范围**：用户明确“批准”上一轮任务列表列筛选/多字段排序 PR #21 的发布；仅批准此 PR 正常合并到 GitHub main，不包含 [PR #19](https://github.com/yudacheng666/AIWorkSpace/pull/19) 回收站 UI 和 [PR #20](https://github.com/yudacheng666/AIWorkSpace/pull/20) 父子任务状态联动，也不授权任何本地 Windows 8770 / Google Drive 实际升级。
+- **发布版本**：原 main `68a3212360fed942ccf2dbfca97afd8f4e224bd3` 的 `VERSION=2.0.3`，PR #21 原 UI/测试 SHA `1c446820c53e4f6c5c892fb3a1c4f52e1368dec8` 的 [Actions #41566900915](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41566900915) 3/3 PASS。因网页更新依赖统一版本号，本独立批准的 PR #21 候选升级为 `VERSION=2.0.4`，并更正 README 项目状态及追加本决策。最终 2.0.4 RC 必须以**新准确 SHA** 的 GitHub CI 为准，不使用旧 SHA 冒充。
+- **未合并分支协调**：PR #19 预占了 2.0.4 RC 但尚未批准，保留 Draft；PR #21 先发布 2.0.4 后 PR #19 必须重新基于新的 main 定版为后续版本并回归，PR #20 同理，不强行互相覆盖。
+- **当前状态**：PR #21 待最终 RC CI 和正常 merge；禁止提前写合并成功。项目其它功能/代码和真实设备不变。
+
+
+## 2026-11-03：任务列表字段标题与联合筛选/多字段排序（隔离开发候选）
+
+- **需求定稿**：用户明确要求“Excel 式筛选排序”，**绝不改成 Excel 风格表格**。保持现有任务卡片、状态徽标、整体 UI 不变；顶部新增字段标题行，列内下拉菜单可做多选筛选、关键字、截止日期区间、升降序与多字段排序优先级，提供各列/全部清理。
+- **开发基线**：正式 main `68a3212360fed942ccf2dbfca97afd8f4e224bd3`、VERSION 2.0.3；[PR #19](https://github.com/yudacheng666/AIWorkSpace/pull/19) 回收站视觉 2.0.4 RC 和 [PR #20](https://github.com/yudacheng666/AIWorkSpace/pull/20) 父子任务联动仍是独立 Draft、未合并；本轮不更改它们及 main。先从正式 main 派生独立分支，稍后合并按顺序核对冲突。
+- **实现边界**：仅展示层过滤/排序，不写数据事件、不变更任务 API、revision、项目关联或草稿；与原先全局筛选 AND 组合，列表视图之外不适用列条件。项目分组仅在全局多键排序时临时展平以保证跨项目排序，原任务卡片完全保留。
+- **验收门槛**：新增 Node 定向测试覆盖多列 AND、同列多值 OR、日期范围/空白、空值排序稳定性、排序优先级与清除、其他视图隔离、无 POST，以及 Chromium 真实界面交互（条件选择、排序、详情可打开）；准确 SHA 的 GitHub Actions CI 才能证明通过。用户批准前不合并、不发布、不操作真实 Windows/Drive；工作档案继续暂停。
+
+
 ## 2026-11-02：回收站左侧导航独立页面（2.0.3 RC 候选，正式 main 仍为 2.0.2）
 
 - **用户要求**：回收站入口置于左侧导航标签，不再是“全部任务”页面上的独立按钮。先遵守 AGENTS.md、REQUIREMENTS.md、PROJECT_STATE.md、DECISIONS.md 的持久化规则，核对 2.0.2 main 和合并 PR #17，工作档案 PR #14 继续暂停。

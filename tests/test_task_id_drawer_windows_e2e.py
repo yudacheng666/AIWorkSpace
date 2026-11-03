@@ -197,6 +197,50 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(state["manual_status"], "done")
         self.assertEqual(state["status"], "done")
 
+
+    def test_column_headings_multi_filter_sort_preserve_original_cards(self):
+        # Additional fictional tasks allow verifying global filters and sort.
+        for suffix, title, owner, due, priority in [
+            ("B", "虚构采购任务", "虚构甲", "2026-11-07", "high"),
+            ("C", "虚构生产任务", "虚构乙", "2026-11-04", "urgent")]:
+            append_event(self.data_dir, {
+                "version": 1, "event_id": "column-create-" + suffix,
+                "task_id": "TASK-" + suffix * 32, "action": "create",
+                "actor": "user", "timestamp": "2026-11-02T09:00:00Z",
+                "base_revision": 0,
+                "changes": {"title": title, "status": "todo", "owner": owner,
+                            "due_date": due, "priority": priority}
+            })
+        page = self._open_browser()
+        page.locator("#task-detail-close").click()
+        expect(page.locator("#task-list-columns .task-column-head")).to_have_count(6)
+        self.assertEqual(page.locator("#tasks .task-summary").count(), 3)
+        page.locator("#task-list-columns details[data-field='owner'] summary").click()
+        owner_menu = page.locator("#task-list-columns details[data-field='owner']")
+        for checkbox in owner_menu.locator(".task-column-choice input").all():
+            checkbox.uncheck()
+        owner_menu.locator(".task-column-choice").filter(has_text="虚构甲").locator("input").check()
+        owner_menu.get_by_role("button", name="应用筛选").click()
+        expect(page.locator("#tasks .task-summary")).to_have_count(1)
+        expect(page.locator("#tasks .task-summary-title")).to_have_text("虚构采购任务")
+        page.locator("#task-columns-clear").click()
+        expect(page.locator("#tasks .task-summary")).to_have_count(3)
+        page.locator("#task-list-columns details[data-field='due'] summary").click()
+        page.locator("#task-list-columns details[data-field='due']").get_by_role(
+            "button", name="升序").click()
+        page.locator("#task-list-columns details[data-field='priority'] summary").click()
+        page.locator("#task-list-columns details[data-field='priority']").get_by_role(
+            "button", name="降序").click()
+        expect(page.locator("#tasks .task-summary")).to_have_count(3)
+        self.assertTrue(all("task-summary" in name for name in
+                            page.locator("#tasks > article").evaluate_all(
+                                "(nodes) => nodes.map(n => n.className)")))
+        self.assertEqual(page.locator("#task-list-columns details[data-field='due'] .task-column-indicator").inner_text().strip(),
+                         "↑1 ▾")
+        self.assertEqual(page.locator("#task-list-columns details[data-field='priority'] .task-column-indicator").inner_text().strip(),
+                         "↓2 ▾")
+        self.assertEqual(len(read_workspace(self.data_dir)["tasks"]), 3)
+
     def test_unsaved_draft_cannot_be_silently_discarded(self):
         page = self._open_browser()
         title = page.locator("#task-detail-content .task-form input[type='text']").first

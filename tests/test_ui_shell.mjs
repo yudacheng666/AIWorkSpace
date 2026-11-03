@@ -126,6 +126,165 @@ test("trash uses a real sidebar page rather than a task-list button or modal", a
   assert.equal(page.writes.length, 0, "navigation must not change task data");
 });
 
+
+function taskRows(page) {
+  const host = page.el("tasks");
+  return host.children.flatMap(item => item.className === "task-summary" ? [item] :
+    item.className === "project-group" ? item.children.slice(1).filter(x => x.className === "task-summary") : []);
+}
+function taskTitles(page) {
+  return taskRows(page).map(row => row.children[0].children[0].textContent);
+}
+function columnMenu(page, field) {
+  const header = page.el("task-list-columns").children.find(item => item.columnField === field);
+  assert.ok(header, "column header exists: " + field);
+  const menu = header.children[1];
+  return {
+    header, menu,
+    actions: menu.children.find(item => item.className === "task-column-menu-actions"),
+    values: menu.children.find(item => item.className === "task-column-choice-list"),
+    date: menu.children.find(item => item.className === "task-column-date"),
+    footer: menu.children.filter(item => item.className === "task-column-menu-actions").at(-1)
+  };
+}
+function click(node) { node.handlers.get("click")[0](); }
+function pickValues(column, values) {
+  for (const item of column.values.children) {
+    item.children[0].checked = values.includes(item.children[1].textContent);
+  }
+  click(column.footer.children[0]);
+}
+
+test("list headings align with existing seven task-card fields without changing cards", async () => {
+  const page = harness([sampleTask()]);
+  await page.api.refresh(true);
+  assert.match(html,/id="task-list-columns"/);
+  assert.match(html,/class="task-list-columns"/);
+  assert.match(html,/id="task-columns-clear"/);
+  assert.equal(page.el("task-list-columns").children.length, 7);
+  assert.deepEqual(page.el("task-list-columns").children.slice(0,6).map(c => c.children[0].children[0].textContent),
+    ["任务／编号","项目","负责人","状态","优先级","截止日期"]);
+  assert.equal(page.el("task-list-columns").children[6].textContent,"操作");
+  assert.equal(taskRows(page).length,1);
+  assert.equal(taskRows(page)[0].className,"task-summary");
+  assert.equal(page.el("task-sort").tag,"select");
+  assert.equal(page.el("task-legacy-sort-control").hidden,true);
+  assert.equal(page.writes.length,0);
+});
+
+test("multi-column AND filters, multi-value OR, empty owner and case-insensitive title search", async () => {
+  const tasks = [
+    {...sampleTask(),task_id:"TASK-AAA",title:"甲方资料",owner:"张甲",status:"doing",priority:"high"},
+    {...sampleTask(),task_id:"TASK-BBB",title:"乙方资料",owner:"张甲",status:"blocked",priority:"normal"},
+    {...sampleTask(),task_id:"TASK-CCC",title:"丙方资料",owner:"李乙",status:"doing",priority:"high"},
+    {...sampleTask(),task_id:"TASK-DDD",title:"无负责人",owner:null,status:"done",priority:"low"}
+  ];
+  const page = harness(tasks);
+  await page.api.refresh(true);
+  assert.equal(taskRows(page).length,4);
+  pickValues(columnMenu(page,"owner"),["张甲"]);
+  assert.equal(taskRows(page).length,2);
+  pickValues(columnMenu(page,"status"),["进行中","受阻"]);
+  assert.equal(taskRows(page).length,2,"same-column choices use OR");
+  pickValues(columnMenu(page,"priority"),["高"]);
+  assert.equal(taskRows(page).length,1,"columns combine via AND");
+  assert.deepEqual(taskTitles(page),["甲方资料"]);
+  const title = columnMenu(page,"title");
+  const input = title.menu.children.find(item => item.tag==="input");
+  input.value = "TASK-AAA";
+  click(title.footer.children[0]);
+  assert.deepEqual(taskTitles(page),["甲方资料"],"ID is searchable");
+  assert.equal(page.el("query-result-count").textContent,"（1 / 4）");
+  click(page.el("task-columns-clear"));
+  assert.equal(taskRows(page).length,4);
+  assert.equal(page.el("task-columns-clear").disabled,true);
+  pickValues(columnMenu(page,"owner"),["未设置"]);
+  assert.deepEqual(taskTitles(page),["无负责人"]);
+  assert.equal(page.writes.length,0);
+});
+
+test("date range and blank-only filters work independently and reject reversed ranges", async () => {
+  const tasks = [
+    {...sampleTask(),task_id:"TASK-D1",title:"早期任务",due_date:"2026-11-02"},
+    {...sampleTask(),task_id:"TASK-D2",title:"近期任务",due_date:"2026-11-09"},
+    {...sampleTask(),task_id:"TASK-D3",title:"未排期任务",due_date:null}
+  ];
+  const page = harness(tasks); await page.api.refresh(true);
+  let menu = columnMenu(page,"due");
+  menu.date.children[0].children[0].value = "2026-11-05";
+  menu.date.children[1].children[0].value = "2026-11-10";
+  click(menu.footer.children[0]);
+  assert.deepEqual(taskTitles(page),["近期任务"]);
+  menu = columnMenu(page,"due");
+  menu.date.children[0].children[0].value = "2026-11-20";
+  menu.date.children[1].children[0].value = "2026-11-01";
+  click(menu.footer.children[0]);
+  assert.match(menu.menu.children.at(-1).textContent,/日期结束值不能早于起始值/);
+  assert.deepEqual(taskTitles(page),["近期任务"],"invalid range retains prior valid filter");
+  menu = columnMenu(page,"due");
+  const blank = menu.menu.children.find(item=>item.className==="task-column-choice");
+  blank.children[0].checked = true;
+  click(menu.footer.children[0]);
+  assert.deepEqual(taskTitles(page),["未排期任务"]);
+  click(columnMenu(page,"due").footer.children[1]);
+  assert.equal(taskRows(page).length,3);
+  assert.equal(page.writes.length,0);
+});
+
+test("global multi-key sorting honors priority, direction, empty-last and deterministic ties", async () => {
+  const tasks = [
+    {...sampleTask(),task_id:"TASK-S1",title:"早期普通",due_date:"2026-11-01",priority:"normal"},
+    {...sampleTask(),task_id:"TASK-S2",title:"晚期高",due_date:"2026-11-09",priority:"high"},
+    {...sampleTask(),task_id:"TASK-S3",title:"晚期紧急",due_date:"2026-11-09",priority:"urgent"},
+    {...sampleTask(),task_id:"TASK-S4",title:"无日期",due_date:null,priority:"urgent"}
+  ];
+  const page = harness(tasks); await page.api.refresh(true);
+  click(columnMenu(page,"due").actions.children[0]);
+  click(columnMenu(page,"priority").actions.children[1]);
+  assert.deepEqual(taskTitles(page),["早期普通","晚期紧急","晚期高","无日期"]);
+  assert.equal(page.el("tasks").children[0].className,"task-summary",
+    "multi sort is global but preserves original task cards");
+  assert.match(columnMenu(page,"due").header.children[0].children[1].textContent,/↑1/);
+  assert.match(columnMenu(page,"priority").header.children[0].children[1].textContent,/↓2/);
+  click(columnMenu(page,"priority").actions.children[3]);
+  assert.deepEqual(taskTitles(page),["晚期紧急","无日期","晚期高","早期普通"]);
+  assert.match(columnMenu(page,"priority").header.children[0].children[1].textContent,/↓1/);
+  // Modifying the direction of an existing column must not change its precedence.
+  click(columnMenu(page,"priority").actions.children[0]);
+  assert.match(columnMenu(page,"priority").header.children[0].children[1].textContent,/↑1/);
+  click(columnMenu(page,"priority").actions.children[2]);
+  assert.equal(page.el("tasks").children[0].className,"task-summary");
+  click(page.el("task-columns-clear"));
+  assert.equal(page.el("tasks").children[0].className,"project-group",
+    "original project sections return after clearing multi sort");
+  assert.equal(page.writes.length,0);
+});
+
+test("column filters are list-only; board unchanged; rejected draft discard blocks sort", async () => {
+  let approved = false;
+  const tasks = [
+    {...sampleTask(),task_id:"TASK-L1",status:"doing"},
+    {...sampleTask(),task_id:"TASK-L2",status:"done",title:"已完成其他任务"}
+  ];
+  const page = harness(tasks,()=>approved); await page.api.refresh(true);
+  pickValues(columnMenu(page,"status"),["进行中"]);
+  assert.equal(taskRows(page).length,1);
+  assert.equal(page.api.setTaskView("board"),true);
+  assert.equal(page.el("task-list-columns").hidden,true);
+  assert.equal(page.el("task-columns-clear").hidden,true);
+  assert.equal(page.el("query-result-count").textContent,"（2 / 2）");
+  assert.equal(page.api.setTaskView("list"),true);
+  assert.equal(taskRows(page).length,1);
+  page.api.openTaskDetail("TASK-L1");
+  const form = page.el("task-detail-content").children[0].children.find(c=>c.className==="task-form");
+  form.children[0].children[0].value = "尚未保存草稿";
+  form.handlers.get("input")[0]();
+  const before = columnMenu(page,"title").header.children[0].children[1].textContent;
+  click(columnMenu(page,"title").actions.children[0]);
+  assert.equal(columnMenu(page,"title").header.children[0].children[1].textContent,before);
+  assert.equal(page.writes.length,0);
+});
+
 test("task summary opens the existing revision-protected editor in a detail drawer", async () => {
   const page = harness([sampleTask()]);
   await page.api.refresh(true);
