@@ -1062,7 +1062,7 @@ def read_review_states(data_dir: Path) -> tuple[dict, list[str]]:
         latest = None
         timeline = []
         conflict = anomaly_id in duplicate_ids
-        source = None
+        source = events[0]["source"] if events else None
         for revision, candidates_iter in __import__("itertools").groupby(
                 events, key=lambda item: item["base_revision"]):
             candidates = list(candidates_iter)
@@ -1204,12 +1204,16 @@ def _build_review_proposal(data_dir: Path, anomaly: dict, workspace: dict) -> di
         return None
     task = next((item for item in workspace.get("tasks", [])
                  if item.get("task_id") == task_id), None)
-    if not task or task.get("conflict") or task.get("trashed_at"):
+    action = source_event.get("action")
+    restore_lifecycle = (folder == "events" and
+                         anomaly["category"] == "task_lifecycle_requires_user" and
+                         action == "restore")
+    if (not task or task.get("conflict") or
+            (task.get("trashed_at") and not restore_lifecycle)):
         return None
     event_fields = None
     requires_completion_confirmation = False
     explanation = ""
-    action = source_event.get("action")
     changes = source_event.get("changes")
     if not isinstance(changes, dict):
         return None
@@ -1810,7 +1814,8 @@ def handler_factory(data_dir: Path):
                 with _write_lock:
                     expire_trashed_tasks(data_dir)
                     workspace = read_workspace(data_dir)
-                review_register = list_data_reviews(data_dir, workspace)
+                review_workspace = read_workspace(data_dir, include_trashed=True)
+                review_register = list_data_reviews(data_dir, review_workspace)
                 workspace["review_summary"] = review_register["summary"]
                 workspace["review_warnings"] = review_register["warnings"]
                 return self.json_response(200, workspace)
