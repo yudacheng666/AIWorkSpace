@@ -1310,7 +1310,14 @@ def _build_review_proposal(data_dir: Path, anomaly: dict, workspace: dict) -> di
         next_changes = {key: value for key, value in changes.items() if key in allowed}
         if not next_changes:
             return None
-        if next_changes.get("status") == "done":
+        already_user_done = next_changes.get("status") == "done" and step.get("status") == "done"
+        if already_user_done:
+            # A valid user event already confirmed completion. Preserve that state and
+            # treat this anomaly as a title/metadata correction, not a second completion.
+            next_changes.pop("status")
+            if not next_changes:
+                return None
+        elif next_changes.get("status") == "done":
             requires_completion_confirmation = True
         event_fields = {"version": 1, "task_id": task_id, "step_id": step_id,
                         "action": "update", "actor": "user",
@@ -1320,6 +1327,8 @@ def _build_review_proposal(data_dir: Path, anomaly: dict, workspace: dict) -> di
         explanation = (
             "按当前步骤修订号重新生成合法更新；舍弃原事件中非法的 position 字段。"
             if anomaly["category"] == "step_update_position" else
+            "步骤已由此前的有效用户事件确认完成；本次只修正其他字段并保留已确认完成状态。"
+            if already_user_done else
             "由用户明确确认该步骤完成后，重新生成带 confirmed_done 的合法事件。"
         )
     elif folder == "events" and anomaly["category"] == "completion_confirmation_missing":

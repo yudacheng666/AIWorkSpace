@@ -462,7 +462,10 @@ class DataGovernanceApiTests(unittest.TestCase):
         later = next(item for item in refreshed if item["event_id"] == "bad-step-done-rev-3")
         self.assertIsNotNone(later["proposal"])
         self.assertEqual(later["proposal"]["event"]["base_revision"], 3)
-        code, auth = self.authorize(later, confirm_completion=True)
+        self.assertEqual(later["proposal"]["event"]["changes"], {"title": "较新版本的完成标题"})
+        self.assertFalse(later["proposal"]["requires_completion_confirmation"],
+                         "the earlier user-confirmed completion must remain valid")
+        code, auth = self.authorize(later)
         self.assertEqual(code, 200, auth)
         code, applied = self.apply(later, auth["authorization_event_id"])
         self.assertEqual(code, 200, applied)
