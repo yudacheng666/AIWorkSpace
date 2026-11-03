@@ -532,6 +532,45 @@
     .task-lifecycle-controls {display:flex;align-items:center;justify-content:flex-end;margin-top:10px;}
     .task-lifecycle-controls button {border:1px solid #b45353;color:#a33434;background:transparent;border-radius:6px;padding:8px 12px;}
 
+
+    .nav-count { margin-left:auto; min-width:20px; padding:2px 6px; border-radius:20px; background:#fff0e8; color:#a94b32; font-size:10px; font-weight:700; text-align:center; }
+    .review-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:18px 0; }
+    .review-stat { padding:15px 17px; border:1px solid #e2e9f1; border-radius:11px; background:#fff; }
+    .review-stat strong { display:block; color:#263b58; font-size:22px; line-height:1.2; }
+    .review-stat span { display:block; margin-top:5px; color:#8290a2; font-size:11px; }
+    .review-layout { display:grid; grid-template-columns:minmax(260px,330px) minmax(0,1fr); align-items:start; gap:16px; }
+    .review-list-panel,.review-detail { min-width:0; border:1px solid #e2e9f1; border-radius:12px; background:#fff; padding:15px; }
+    .review-list-panel h2,.review-detail h2 { margin:0 0 12px; color:#2a405f; font-size:14px; }
+    .review-list { display:grid; gap:8px; max-height:690px; overflow:auto; }
+    .review-list-item { width:100%; min-width:0; display:grid; gap:6px; text-align:left; padding:11px 12px; border:1px solid #e7edf4; border-radius:9px; background:#fbfcfe; color:#405670; }
+    .review-list-item:hover,.review-list-item.is-active { border-color:#a9c4e8; background:#f3f7fd; }
+    .review-list-item strong { font-size:12px; line-height:1.5; }
+    .review-list-item small { color:#8a97a7; font-size:10px; overflow-wrap:anywhere; }
+    .review-status { display:inline-flex; width:max-content; padding:3px 7px; border-radius:20px; background:#edf1f5; color:#62748a; font-size:10px; }
+    .review-status.pending,.review-status.failed,.review-status.stale,.review-status.conflict { background:#fff0e8; color:#a64d31; }
+    .review-status.authorized { background:#edf4ff; color:#285e9d; }
+    .review-status.applied { background:#eaf6ef; color:#26734b; }
+    .review-status.dismissed { background:#f1f2f4; color:#6f7a88; }
+    .review-detail-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+    .review-detail-meta { color:#7d8ca0; font-size:11px; line-height:1.7; white-space:pre-line; overflow-wrap:anywhere; }
+    .review-reason { margin:12px 0; padding:11px 13px; border-left:3px solid #d69a58; border-radius:6px; background:#fff9f2; color:#6d563c; font-size:12px; line-height:1.65; }
+    .review-code { max-height:220px; overflow:auto; padding:11px; border:1px solid #e8edf3; border-radius:8px; background:#f8fafc; color:#42536b; font:11px/1.55 Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .review-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:13px; }
+    .review-actions button { min-height:34px; padding:7px 12px; border:1px solid #dbe4ee; border-radius:7px; background:#fff; color:#49627e; font-size:11px; }
+    .review-actions button.save { border-color:var(--blue); background:var(--blue); color:#fff; }
+    .review-actions button.review-danger { border-color:#ecd4d0; color:#a64d43; }
+    .review-actions button:disabled { opacity:.45; cursor:not-allowed; }
+    .review-note { display:grid; gap:5px; margin-top:12px; color:#687a91; font-size:11px; }
+    .review-note textarea { min-height:64px; padding:9px; border:1px solid #dce5ef; border-radius:7px; resize:vertical; font:inherit; font-size:12px; line-height:1.5; }
+    .review-timeline { display:grid; gap:7px; margin:12px 0; padding-left:16px; color:#77869a; font-size:10px; }
+    .review-empty { padding:26px 12px; color:#8996a7; font-size:12px; text-align:center; }
+    .review-message { min-height:18px; margin-top:10px; color:#72839a; font-size:11px; }
+    .review-message.error { color:#a94b37; }
+    @media(max-width:900px) {
+      .review-layout { grid-template-columns:minmax(0,1fr); }
+      .review-list { max-height:280px; }
+      .review-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
   </style>
 </head>
 <body>
@@ -553,6 +592,7 @@
       <button type="button" class="nav-item" id="nav-followup"><span class="nav-icon">↗</span><span>跟进他人</span></button>
       <button type="button" class="nav-item" id="nav-due"><span class="nav-icon">▣</span><span>7 天内到期</span></button>
       <button type="button" class="nav-item" id="nav-risk"><span class="nav-icon">△</span><span>风险事项</span></button>
+      <button type="button" class="nav-item" id="nav-reviews"><span class="nav-icon">⌕</span><span>数据核查</span><span id="review-nav-count" class="nav-count" hidden>0</span></button>
     </nav>
     <div class="sidebar-divider"></div>
     <div class="sidebar-section-label">项目</div>
@@ -618,6 +658,21 @@
       </div>
       <p id="trash-message" class="message" role="status"></p>
       </section>
+    </section>
+    <section id="page-reviews" class="workspace-page" hidden>
+      <div class="page-heading"><div><h1>数据核查</h1><p class="subtitle">查看异常来源、人工核查、明确授权、执行合法修复并追踪结果。</p></div>
+        <button type="button" id="review-refresh">重新扫描</button></div>
+      <div id="review-summary" class="review-summary" aria-label="数据核查统计"></div>
+      <div class="review-layout">
+        <section class="review-list-panel" aria-labelledby="review-list-heading">
+          <h2 id="review-list-heading">异常与核查记录</h2>
+          <div id="review-list" class="review-list"></div>
+        </section>
+        <section id="review-detail" class="review-detail" aria-label="异常详情与处理">
+          <div class="review-empty">选择一条异常，查看原始事件、校验原因和可执行的修复方案。</div>
+        </section>
+      </div>
+      <p id="review-message" class="review-message" role="status" aria-live="polite"></p>
     </section>
     <section id="page-overview" class="workspace-page is-active">
     <div class="page-heading">
