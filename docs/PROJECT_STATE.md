@@ -10,17 +10,18 @@
 - 该修复只保护后续授权/执行，不会扫描、修改或自动处理真实 Drive 数据。2.0.5 main 未改变；2.0.6 候选仍需准确 SHA CI 与用户审批后才能合并。
 - 真实 Windows 8770 尚未升级；真实异常仍只读检查，任何写入仍需逐项人工确认。
 
-## 2026-11-03：异常发现 → 人工核查 → 明确授权 → 合法写入 → 结果追踪（PR #23 / 2.0.5 发布候选）
+## 2026-11-03：异常发现 → 人工核查 → 明确授权 → 合法写入 → 结果追踪（PR #23 / 2.0.5 已发布）
 
 - 用户要求补齐完整数据治理闭环，起因是首页仅提示“6 项需要核查”，没有可进入的核查页面。此前示例包含：任务 lifecycle 缺少用户 actor/有效 revision、step update 使用 revision 0 或非法 position、step completion 缺少显式确认。
-- 开发分支：feat/20261103-data-governance-loop，从 PR #23 步骤删除/步骤级文档候选 HEAD e286ac3736b572dfb7473cdce35612a0f03036b0 继续；当前实现/测试 HEAD 以本文件最新回写时 GitHub 分支 SHA 为准。PR #23 目标 main；用户已于 2026-11-03 明确授权正式合并。正式 main 当前仍为 `8f713526f00370d5c8db518d6fa855b7a3f58885 / VERSION 2.0.4`；候选分支 VERSION 已提升为 2.0.5，须按新 SHA 复验 CI 后合并。
+- 正式发布：用户授权 PR #23 后已正常合并进入 main，merge SHA `f137fd6cd400b23c7878b4cd514ff27b94d88c92`，`VERSION=2.0.5`。2.0.5 RC SHA `4d2f27e632821ee4f914f1ad1b60215a98371aa1` 的 Actions #41595613734 与合并后 main Actions #41595962365 均 3/3 SUCCESS。
 - 实现：新增独立侧栏“数据核查”页面；只读扫描 task/project/step/settings 事件和 workspace 语义警告，生成基于来源目录、文件名、原始 SHA-256 的稳定异常编号，完整展示原始证据、原因、修复预览、核查轨迹。首页提示不再截断异常清单。
 - 追加式 review_events/ 流保存人工 authorize/dismissed/stale/failed/applied 事件；原始异常源文件始终保留、不移动、不覆盖。授权与执行严格分离；修复时重新验证源 SHA、当前 task/step revision、冲突状态、proposal SHA 和既有 validator；合法事件使用新 ID/actor=user 追加，成功回执记录目标事件 ID、文件 SHA 与结果 revision。每次展示 applied 都重新检查目标结果文件完整性；缺失可重新授权，hash/内容变化冻结冲突。
 - 支持无歧义修复的范围：lifecycle trash/restore；step update 中剔除非法 position 并保留合法字段；task/step completion 在二次明确确认后写入 confirmed_done。purge、格式损坏、目标缺失、其他项目/设置异常不猜测、不自动写入，只能人工记录“不写入”或使用专门业务界面。
 - 多设备安全：Google Drive 同步的授权事件只代表审计记录，不会自动执行；另一设备仍须本机人工确认执行。相同 anomaly revision 并发决定冻结冲突。JSON actor 字段不是强身份认证；服务仍仅允许本机 Host/Origin。
 - 自动化测试新增 tests/test_data_governance.py 15 项 Python API/数据层测试和 Windows Chromium 真实网页 E2E；包括原文件 hash 保持、授权不写入、合法写入、完成二次确认、restore、settings anomaly、同步授权不自动执行、并发审查冲突、源/目标 revision 变化、回执缺失/篡改、幂等追踪。**产品逻辑准确 SHA `cc8913083a8ef4616358fa81e4b0f899feb06526` 的 Actions #41591071040：3/3 SUCCESS，0 FAIL。** Ubuntu Python 151 total / 139 PASS / 12 SKIP、Node 68 PASS；Windows Python 151 total / 141 PASS / 10 SKIP、Node 68 PASS；Windows Chromium 升级/回滚 3 PASS、真实 UI E2E 7 PASS（含治理闭环）。新增 15 项治理专项 Python 测试全部通过。
-- 约束：不修改 main/VERSION，不合并、不部署，不读取/修改公司 Windows 8770 或真实 Google Drive 任务数据；Actions 标准免费 runner 为默认验收。工作档案仍暂停。
-- 下一步：自动化实现与 CI 已完成。PR #23 保持 Draft，等待用户审阅和另行批准；真实双电脑 Drive 同步、公司 Windows 8770 与真实异常数据尚未验证/修改。
+- 自动化结果：Ubuntu Python 151 total / 139 PASS / 12 SKIP、Node 68 PASS；Windows Python 151 total / 141 PASS / 10 SKIP、Node 68 PASS；Windows Chromium 更新/回滚 3 PASS、工作台 UI E2E 7 PASS；15 项治理专项 Python 测试全部通过。
+- 发布边界：合并只改变 GitHub main；未升级公司 Windows 8770。真实 Drive 数据只做了只读检查，没有创建 review_events、授权、写入或覆盖任何真实事件。真实双电脑 Drive 同步仍未独立验收。工作档案仍暂停。
+- 下一步：当前独立 2.0.6 候选修复同一目标异常的修订顺序保护，需通过准确 SHA CI 并另行获得用户合并批准；真实异常的任何写入仍需逐项人工授权。
 
 
 ## 2026-11-03：步骤删除与步骤级关联文档（独立候选）
