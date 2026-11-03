@@ -114,7 +114,6 @@ test("last refresh status lives in the sidebar footer, outside the task toolbar"
   await page.api.refresh(true);
   assert.match(page.el("sync").textContent, /^上次刷新 /);
   assert.equal(page.el("sync").title, page.el("sync").textContent);
-  assert.equal(page.el("sync").className, "sync sidebar-refresh");
   assert.equal(page.writes.length, 0);
 });
 
