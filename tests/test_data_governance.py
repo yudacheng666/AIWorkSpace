@@ -408,5 +408,27 @@ class DataGovernanceApiTests(unittest.TestCase):
         self.assertEqual(target.read_bytes(), tampered)
 
 
+    def test_task_completion_repair_requires_explicit_user_confirmation(self):
+        source, original = self.invalid_source("events", "evt_task_completion_needs_review.json", {
+            **task_event("bad-task-completion-001", "update", 1, {"status": "done"})
+        })
+        item = self.item("completion_confirmation_missing")
+        self.assertTrue(item["proposal"]["requires_completion_confirmation"])
+        code, result = self.authorize(item, confirm_completion=False)
+        self.assertEqual(code, 400, result)
+        code, auth = self.authorize(item, confirm_completion=True)
+        self.assertEqual(code, 200, auth)
+        code, applied = self.apply(item, auth["authorization_event_id"])
+        self.assertEqual(code, 200, applied)
+        task = app.read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual(task["status"], "done")
+        self.assertEqual(task["revision"], 2)
+        self.assertEqual(source.read_bytes(), original)
+        repaired = next(json.loads(path.read_text("utf-8")) for path in
+                        (self.data_dir / "events").glob("*.json")
+                        if json.loads(path.read_text("utf-8"))["event_id"] == applied["target_event_id"])
+        self.assertTrue(repaired["confirmed_done"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
