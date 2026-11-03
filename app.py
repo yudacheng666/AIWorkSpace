@@ -1103,6 +1103,23 @@ def _classify_invalid_event(folder: str, event: object, reason: str) -> tuple[st
     return "invalid_event", "事件未通过数据结构与业务规则校验"
 
 
+def _hash_file(path: Path) -> tuple[str, bytes, int]:
+    """Hash a source file in bounded memory and retain only a small diagnostic excerpt."""
+    digest = hashlib.sha256()
+    prefix = bytearray()
+    size = 0
+    with path.open("rb") as stream:
+        while True:
+            chunk = stream.read(64 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+            size += len(chunk)
+            if len(prefix) < 2400:
+                prefix.extend(chunk[:2400 - len(prefix)])
+    return digest.hexdigest(), bytes(prefix), size
+
+
 def scan_invalid_event_files(data_dir: Path) -> tuple[list[dict], list[str]]:
     """Discover invalid immutable source files without changing or quarantining them."""
     validators = {"events": validate_event, "project_events": validate_project_event,
@@ -1118,13 +1135,12 @@ def scan_invalid_event_files(data_dir: Path) -> tuple[list[dict], list[str]]:
                 continue
             event = None
             try:
-                raw = path.read_bytes()
-                source_hash = hashlib.sha256(raw).hexdigest()
-                if len(raw) > MAX_BODY:
-                    event, reason = None, "file too large"
+                source_hash, prefix, size = _hash_file(path)
+                if size > MAX_BODY:
+                    reason = "file too large"
                 else:
                     try:
-                        event = json.loads(raw.decode("utf-8-sig"))
+                        event = json.loads(prefix.decode("utf-8-sig"))
                         validator(event)
                         continue
                     except (UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
@@ -1136,15 +1152,12 @@ def scan_invalid_event_files(data_dir: Path) -> tuple[list[dict], list[str]]:
             anomaly_id = "ANOM-" + hashlib.sha256(
                 f"{folder}/{path.name}:{source_hash}".encode("utf-8")
             ).hexdigest()[:32].upper()
-            raw_excerpt = None
-            if not isinstance(event, dict):
-                raw_excerpt = raw[:2400].decode("utf-8", errors="replace")
             anomalies.append({
                 "anomaly_id": anomaly_id, "category": category, "title": title,
                 "reason": reason, "source": {"folder": folder, "filename": path.name,
                                              "sha256": source_hash},
                 "source_present": True, "source_event": event if isinstance(event, dict) else None,
-                "raw_excerpt": raw_excerpt,
+                "raw_excerpt": prefix.decode("utf-8", errors="replace") if not isinstance(event, dict) else None,
                 "event_id": event.get("event_id") if isinstance(event, dict) else None,
                 "task_id": event.get("task_id") if isinstance(event, dict) else None,
                 "step_id": event.get("step_id") if isinstance(event, dict) else None,
@@ -1407,18 +1420,17 @@ def _load_current_anomaly(data_dir: Path, anomaly: dict) -> tuple[dict | None, s
     if path.is_symlink() or not path.is_file():
         return None, "original source file is missing or unsafe"
     try:
-        raw = path.read_bytes()
+        digest, prefix, size = _hash_file(path)
     except OSError as exc:
         return None, f"unable to read original source: {exc}"
-    digest = hashlib.sha256(raw).hexdigest()
     if digest != source["sha256"]:
         return None, "original source changed after review"
-    if len(raw) > MAX_BODY:
+    if size > MAX_BODY:
         reason = "file too large"
         event = None
     else:
         try:
-            event = json.loads(raw.decode("utf-8-sig"))
+            event = json.loads(prefix.decode("utf-8-sig"))
             validator = {"events": validate_event, "project_events": validate_project_event,
                          "step_events": validate_step_event,
                          "settings_events": validate_setting_event}[source["folder"]]
@@ -1431,7 +1443,7 @@ def _load_current_anomaly(data_dir: Path, anomaly: dict) -> tuple[dict | None, s
         "anomaly_id": anomaly["anomaly_id"], "category": category, "title": title,
         "reason": reason, "source": source, "source_present": True,
         "source_event": event if isinstance(event, dict) else None,
-        "raw_excerpt": raw[:2400].decode("utf-8", errors="replace") if event is None else None,
+        "raw_excerpt": prefix.decode("utf-8", errors="replace") if not isinstance(event, dict) else None,
         "event_id": event.get("event_id") if isinstance(event, dict) else None,
         "task_id": event.get("task_id") if isinstance(event, dict) else None,
         "step_id": event.get("step_id") if isinstance(event, dict) else None,
