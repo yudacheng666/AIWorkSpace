@@ -306,6 +306,8 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         source.write_text(json.dumps(invalid, ensure_ascii=False, indent=2), encoding="utf-8")
         original = source.read_bytes()
         page = self._open_browser()
+        # _open_browser opens the task drawer; close it through the real backdrop first.
+        page.mouse.click(140, 400)
         page.locator("#nav-reviews").click()
         expect(page.locator("#review-list .review-list-item")).to_have_count(1)
         page.locator("#review-list .review-list-item").click()
