@@ -217,7 +217,8 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(page.locator("#tasks .task-summary").count(), 3)
         page.locator("#task-list-columns details[data-field='owner'] summary").click()
         owner_menu = page.locator("#task-list-columns details[data-field='owner']")
-        owner_menu.locator(".task-column-choice input").uncheck()
+        for checkbox in owner_menu.locator(".task-column-choice input").all():
+            checkbox.uncheck()
         owner_menu.locator(".task-column-choice").filter(has_text="虚构甲").locator("input").check()
         owner_menu.get_by_role("button", name="应用筛选").click()
         expect(page.locator("#tasks .task-summary")).to_have_count(1)
