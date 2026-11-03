@@ -1,7 +1,18 @@
 # AIWorkSpace｜当前项目状态
 
 
-## 2026-11-03：数据核查修复顺序保护（2.0.6 候选，独立修复 PR）
+## 2026-11-03：2.0.6 已正式发布至 GitHub main（PR #24）
+
+- **用户发布授权**：2026-11-03 用户明确要求“遵守项目规则，发布最新版本”，本轮按此前已经隔离开发、验收通过的最新 PR #24（2.0.6）执行正式发布；不包括未获批准的 PR #19/#20/#22 或工作档案。
+- **准确 RC 验收**：产品/测试最终 PR HEAD `352c7f3854a72ed5a28343a248bdbd658ff17ddb`，[Actions #41599009901](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41599009901) 3/3 SUCCESS（Ubuntu Python 141 PASS/12 SKIP + Node 68 PASS；Windows Python 143 PASS/10 SKIP + Node 68 PASS；Windows Chromium 更新/回滚 3 PASS + 工作台 UI E2E 7 PASS）。最终 HEAD 相对合并前 main ahead 6 / behind 0；提交差异检查未发现新增密钥、真实台账或公司业务文件。
+- **发布动作核验**：PR #24 Draft → Ready → GitHub 标准 Merge，返回 merged=true；合并 SHA `2fca238e8e1fd635161d1b0f3a52961e8d982f67`。已重新读取 `main` HEAD 与 `main/VERSION=2.0.6`、PR CLOSED/MERGED。合并后 push [Actions #41609836093](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41609836093) 已启动，结果以 GitHub 最终 conclusion 为准，不使用 PR CI 冒充主干 CI。
+- **修复范围**：防止同一目标异常跨修订号乱序重放；高于当前修订号的候选不提供授权；旧任务 trash 不自动重基到更新后的任务；步骤已人工完成则不重复制造完成动作。原始异常证据不删除、不自动修复。
+- **发布边界**：本次发布仅改变 GitHub main；未访问或升级真实 Windows `127.0.0.1:8770`，未写入真实 Google Drive 或 review_events。真实双设备同步及六项异常的人工逐项核查/授权仍待后续单独执行；不得把 GitHub 发布当作本地部署。
+- **下一步**：首先核验合并后 Actions 最终状态，再由用户在实际工作台检查更新并自主决定是否应用；实际部署前保存草稿、确认备份，部署后查看数据核查建议但不自动执行修复。历史 PR #19/#20/#22 若恢复须基于当前 main 重新合并/定版及准确 SHA 回归。
+
+
+
+## 2026-11-03：数据核查修复顺序保护（2.0.6 发布前候选记录）
 
 - 2.0.5 正式版本已由 PR #23 合并进入 main，merge SHA `f137fd6cd400b23c7878b4cd514ff27b94d88c92`；合并后 [Actions #41595962365](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41595962365) 3/3 SUCCESS。当前候选分支从该 main 派生，VERSION 提升为 2.0.6。
 - 对 2.0.5 的核查建议流程做只读数据场景复核时，发现同一目标存在连续非法事件（base_revision 2、3）时，若先处理后一个，可能把较早标题覆盖到较新状态；旧 lifecycle trash 若基于旧任务 revision，也不应重放到更新后的任务。
