@@ -1094,6 +1094,7 @@ def scan_invalid_event_files(data_dir: Path) -> tuple[list[dict], list[str]]:
         for path in sorted(directory.glob("*.json")):
             if path.is_symlink() or not path.is_file():
                 continue
+            event = None
             try:
                 raw = path.read_bytes()
                 source_hash = hashlib.sha256(raw).hexdigest()
@@ -1114,7 +1115,7 @@ def scan_invalid_event_files(data_dir: Path) -> tuple[list[dict], list[str]]:
                 f"{folder}/{path.name}:{source_hash}".encode("utf-8")
             ).hexdigest()[:32].upper()
             raw_excerpt = None
-            if event is None:
+            if not isinstance(event, dict):
                 raw_excerpt = raw[:2400].decode("utf-8", errors="replace")
             anomalies.append({
                 "anomaly_id": anomaly_id, "category": category, "title": title,
@@ -1577,11 +1578,24 @@ def perform_review_action(data_dir: Path, anomaly_id: str, action: str,
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
             # If the target event was already written, leave it in place. A retry
             # reuses the same deterministic event ID and completes the receipt.
+            already_written = False
             try:
-                _append_review_transition(data_dir, item, state, "failed", {"reason": str(exc)[:500]})
-            except (OSError, ValueError, FileExistsError):
-                pass
-            return 500, {"error": f"write/result verification failed: {exc}; original source remains untouched"}
+                if "target_path" in locals() and target_path.is_file():
+                    already_written = json.loads(target_path.read_text(encoding="utf-8-sig")) == approved
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                already_written = False
+            if not already_written:
+                try:
+                    _append_review_transition(data_dir, item, state, "failed",
+                                              {"reason": str(exc)[:500]})
+                except (OSError, ValueError, FileExistsError):
+                    pass
+            return 500, {"error": (
+                f"approved event is already written but its result receipt is incomplete: {exc}; "
+                "refresh and retry the same apply action"
+                if already_written else
+                f"write/result verification failed: {exc}; original source remains untouched"
+            )}
     return 404, {"error": "unknown review action"}
 
 
@@ -1755,7 +1769,15 @@ def handler_factory(data_dir: Path):
                 with _write_lock:
                     expire_trashed_tasks(data_dir)
                     workspace = read_workspace(data_dir)
+                review_register = list_data_reviews(data_dir, workspace)
+                workspace["review_summary"] = review_register["summary"]
+                workspace["review_warnings"] = review_register["warnings"]
                 return self.json_response(200, workspace)
+            if path == "/api/reviews":
+                with _write_lock:
+                    workspace = read_workspace(data_dir, include_trashed=True)
+                    register = list_data_reviews(data_dir, workspace)
+                return self.json_response(200, register)
             if path == "/api/trash":
                 with _write_lock:
                     expire_trashed_tasks(data_dir)
@@ -1788,6 +1810,8 @@ def handler_factory(data_dir: Path):
                 r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/delete", path)
             lifecycle_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/(trash|restore|purge)", path)
             changing_retention = path == "/api/trash/settings"
+            review_match = re.fullmatch(
+                r"/api/reviews/(ANOM-[A-F0-9]{32})/(authorize|apply|dismiss)", path)
             project_match = re.fullmatch(r"/api/projects/(PROJECT-[A-F0-9]{32})/update", path)
             step_create_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps", path)
             step_update_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/update", path)
@@ -1798,7 +1822,7 @@ def handler_factory(data_dir: Path):
             if not (creating_task or creating_project or task_match or project_match or
                     step_create_match or step_update_match or step_reorder_match or
                     step_documents_match or step_delete_match or applying_update or
-                    documents_match or lifecycle_match or changing_retention):
+                    documents_match or lifecycle_match or changing_retention or review_match):
                 return self.json_response(404, {"error": "not found"})
             if not self.local_request_allowed():
                 return self.json_response(403, {"error": "local requests only"})
@@ -1846,6 +1870,12 @@ def handler_factory(data_dir: Path):
 
             try:
                 payload = self.read_payload()
+                if review_match:
+                    with _write_lock:
+                        code, result = perform_review_action(
+                            data_dir, review_match.group(1), review_match.group(2), payload)
+                    return self.json_response(code, result)
+
                 if changing_retention:
                     if set(payload) != {"retention_days"} or type(payload["retention_days"]) is not int or payload["retention_days"] not in {0, 7, 30, 90}:
                         raise ValueError("retention_days must be 0, 7, 30 or 90")
