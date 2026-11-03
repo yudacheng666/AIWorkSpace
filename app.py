@@ -1097,7 +1097,8 @@ def _classify_invalid_event(folder: str, event: object, reason: str) -> tuple[st
     if (folder == "step_events" and isinstance(event, dict)
             and event.get("action") == "update" and "cannot set position" in reason):
         return "step_update_position", "执行步骤更新包含不允许的 position 字段"
-    if "explicit user confirmation" in reason or "completion needs" in reason:
+    if ("explicit user confirmation" in reason or "completion needs" in reason or
+            "explicitly confirmed user action can complete a task" in reason):
         return "completion_confirmation_missing", "完成状态缺少用户明确确认"
     if any(token in reason.lower() for token in
            ("expecting", "delimiter", "property name", "extra data", "utf-8", "encoding")):
