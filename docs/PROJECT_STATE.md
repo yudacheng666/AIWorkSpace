@@ -7,7 +7,8 @@
 - 对 2.0.5 的核查建议流程做只读数据场景复核时，发现同一目标存在连续非法事件（base_revision 2、3）时，若先处理后一个，可能把较早标题覆盖到较新状态；旧 lifecycle trash 若基于旧任务 revision，也不应重放到更新后的任务。
 - 修复策略：高于当前目标 revision 的异常不提供授权，提示先处理前序异常；同一目标异常按 task/step 与 base_revision 升序展示；任务 trash 源 revision 与当前 revision 不一致时禁止自动重放，须从当前任务的正常操作入口重新发起；对低于当前 revision 且允许人工重审的候选，预览明确说明按当前 revision 重建。
 - 新增合成测试：连续步骤异常必须按 revision 顺序授权/执行，后一个事件在前一个完成前不可授权；过期 task trash 只能人工核查不写入。原始异常文件保持不变。
-- 该修复只保护后续授权/执行，不会扫描、修改或自动处理真实 Drive 数据。2.0.5 main 未改变；2.0.6 候选仍需准确 SHA CI 与用户审批后才能合并。
+- 最终候选 SHA：`49ac4c3f27adceba63fd942fbcd79af0e955fe76`；[Actions #41598685352](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41598685352) **3/3 SUCCESS，0 FAIL**。Ubuntu Python 153 total / 141 PASS / 12 SKIP、Node 68 PASS；Windows Python 153 total / 143 PASS / 10 SKIP、Node 68 PASS；Windows Chromium 更新/回滚 3 PASS、工作台 E2E 7 PASS。新增 2 项专项测试全部通过。
+- 该修复只保护后续授权/执行，不会扫描、修改或自动处理真实 Drive 数据。2.0.5 main 未改变；PR #24 保持 Draft，等待用户另行批准后才可合并。
 - 真实 Windows 8770 尚未升级；真实异常仍只读检查，任何写入仍需逐项人工确认。
 
 ## 2026-11-03：异常发现 → 人工核查 → 明确授权 → 合法写入 → 结果追踪（PR #23 / 2.0.5 已发布）

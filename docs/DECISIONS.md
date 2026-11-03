@@ -81,3 +81,6 @@
 
 
 | D-20261103-DG-03（数据核查必须尊重目标修订顺序） | 对 2.0.5 实际数据只读复核时发现，同一目标的连续异常若按文件名排序，后续 base_revision 事件可能先显示；原提案会直接使用当前 revision 重新生成事件，可能使旧内容覆盖较新的意图。修复为：source base_revision 高于目标当前 revision 时阻止授权，等待前序事件处理；异常列表按 task/step 和 source revision 升序；旧 revision 的 task trash 不得重放到更新后的任务，需走当前任务正常回收站入口。 | 追加式事件必须遵守每个目标的版本顺序；文件名不是业务顺序。破坏性 trash 不能以过期授权重新作用于已更新任务。 |
+
+
+| D-20261103-DG-04（2.0.6 修订顺序保护候选验收） | 独立 Draft PR #24 基于 main 2.0.5，VERSION=2.0.6。最终候选 SHA `49ac4c3f27adceba63fd942fbcd79af0e955fe76` 的 Actions #41598685352 3/3 SUCCESS：Ubuntu Python 153 total / 141 PASS / 12 SKIP、Node 68 PASS；Windows Python 153 total / 143 PASS / 10 SKIP、Node 68 PASS；Windows Chromium 更新/回滚 3 PASS、工作台 UI E2E 7 PASS。CI 通过不等于用户批准合并；PR #24 保持 Draft，等待另行授权。 | 通过准确 SHA 的自动化验收后，仍按项目规则由用户决定是否将独立安全修复发布到 main。 |

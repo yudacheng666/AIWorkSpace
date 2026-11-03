@@ -16,5 +16,6 @@
 
 ## 发布边界
 - 正式 main 仍为 2.0.5；独立 Draft PR 候选版本 2.0.6。
-- 2.0.6 需以准确 SHA 通过 Actions 后再交用户审批；未获批准前不合并。
+- 最终候选 SHA `49ac4c3f27adceba63fd942fbcd79af0e955fe76` 的 Actions #41598685352 3/3 SUCCESS；Ubuntu Python 153 total / 141 PASS / 12 SKIP、Node 68 PASS；Windows Python 153 total / 143 PASS / 10 SKIP、Node 68 PASS；Windows Chromium 更新/回滚 3 PASS、工作台 UI E2E 7 PASS。
+- PR #24 保持 Draft，等待用户另行批准；未获批准前不合并。
 - 公司 Windows 8770 未升级，真实六项异常没有写入/删除/覆盖。
