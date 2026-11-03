@@ -326,5 +326,42 @@ class DataGovernanceApiTests(unittest.TestCase):
         self.assertFalse((self.data_dir / "review_events").exists())
 
 
+    def test_invalid_restore_can_be_repaired_against_current_trashed_revision(self):
+        app.append_event(self.data_dir, task_event(
+            "governance-existing-trash-001", "trash", 1,
+            {"trashed_at": "2026-11-03T04:05:00Z"}))
+        source, original = self.invalid_source("events", "evt_bad_restore.json", {
+            **task_event("bad-restore-001", "restore", 1, {"trashed_at": None}, actor="chatgpt")
+        })
+        item = self.item("task_lifecycle_requires_user")
+        self.assertIsNotNone(item["proposal"])
+        self.assertEqual(item["proposal"]["event"]["action"], "restore")
+        self.assertEqual(item["proposal"]["event"]["base_revision"], 2)
+        code, auth = self.authorize(item)
+        self.assertEqual(code, 200, auth)
+        code, result = self.apply(item, auth["authorization_event_id"])
+        self.assertEqual(code, 200, result)
+        task = app.read_workspace(self.data_dir, include_trashed=True)["tasks"][0]
+        self.assertIsNone(task["trashed_at"])
+        self.assertEqual(task["revision"], 3)
+        self.assertEqual(source.read_bytes(), original)
+
+    def test_invalid_settings_event_is_discovered_and_can_only_be_reviewed(self):
+        source = self.data_dir / "settings_events" / "evt_bad_retention.json"
+        source.parent.mkdir(parents=True)
+        source.write_bytes(b'{"version":1,"event_id":"broken-settings-001","key":"trash_retention_days","days":13}')
+        original = source.read_bytes()
+        item = self.item("invalid_event")
+        self.assertEqual(item["source"]["folder"], "settings_events")
+        self.assertIsNone(item["proposal"])
+        code, result = self.request(f"/api/reviews/{item['anomaly_id']}/dismiss", {
+            "source_sha256": item["source"]["sha256"], "confirmed": True,
+            "note": "周期值不在允许范围内，保留原文件，暂不修改共享设置。"})
+        self.assertEqual(code, 200, result)
+        self.assertEqual(source.read_bytes(), original)
+        self.assertEqual(app.read_trash_retention(self.data_dir)[0], 30)
+        self.assertEqual(len(list((self.data_dir / "events").glob("*.json"))), 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
