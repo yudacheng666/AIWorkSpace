@@ -1048,7 +1048,9 @@ def read_review_states(data_dir: Path) -> tuple[dict, list[str]]:
             if previous is not None:
                 if previous == event:
                     continue
+                duplicate_ids.add(previous["anomaly_id"])
                 duplicate_ids.add(event["anomaly_id"])
+                groups[event["anomaly_id"]].append(event)
                 warnings.append(f"{path.name}: duplicate review event_id with conflicting content")
                 continue
             seen[event["event_id"]] = event
@@ -1314,6 +1316,39 @@ def _build_review_proposal(data_dir: Path, anomaly: dict, workspace: dict) -> di
     }
 
 
+
+def _applied_receipt_status(data_dir: Path, state: dict) -> str:
+    """Re-check the exact approved result file whenever a receipt is displayed."""
+    latest = state.get("latest")
+    if not latest or latest.get("action") != "applied":
+        return state["status"]
+    receipt = latest["changes"]
+    folder, filename = receipt["target_folder"], receipt["target_filename"]
+    if folder not in REVIEW_FOLDERS or not re.fullmatch(
+            r"evt_[A-Za-z0-9-]{8,80}\.json", filename):
+        return "conflict"
+    path = data_dir / folder / filename
+    if path.is_symlink() or not path.is_file():
+        return "failed"
+    try:
+        digest, prefix, size = _hash_file(path)
+        if size > MAX_BODY or digest != receipt["target_sha256"]:
+            return "conflict"
+        actual = json.loads(prefix.decode("utf-8-sig"))
+        validator = {"events": validate_event, "project_events": validate_project_event,
+                     "step_events": validate_step_event, "settings_events": validate_setting_event}[folder]
+        validator(actual)
+        authorization = next((event for event in reversed(state["timeline"])
+                              if event["action"] == "authorize"), None)
+        if not authorization or actual != authorization["changes"]["approved_event"]:
+            return "conflict"
+        if actual.get("event_id") != receipt["target_event_id"]:
+            return "conflict"
+        return "applied"
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError):
+        return "conflict"
+
+
 def list_data_reviews(data_dir: Path, workspace: dict | None = None) -> dict:
     """Return all current anomalies plus immutable review history and summary."""
     workspace = workspace if workspace is not None else read_workspace(data_dir, include_trashed=True)
@@ -1332,6 +1367,8 @@ def list_data_reviews(data_dir: Path, workspace: dict | None = None) -> dict:
         current_ids.add(anomaly_id)
         state = states.get(anomaly_id)
         status = state["status"] if state else "pending"
+        if state and state["status"] == "applied":
+            status = _applied_receipt_status(data_dir, state)
         proposal = _build_review_proposal(data_dir, anomaly, workspace)
         latest = state["latest"] if state else None
         if state and state["status"] == "authorized":
@@ -1370,6 +1407,8 @@ def list_data_reviews(data_dir: Path, workspace: dict | None = None) -> dict:
         latest = state["latest"]
         snapshot = state["snapshot"] or {}
         status = state["status"]
+        if status == "applied":
+            status = _applied_receipt_status(data_dir, state)
         if status == "authorized":
             status = "stale"
         items.append({
