@@ -5,10 +5,10 @@
 补齐“异常发现 → 人工核查 → 明确授权 → 合法写入 → 结果追踪”整套数据治理闭环。起因：工作台仅显示若干项“需要核查”，没有核查入口。
 
 ## 开发基线与边界
-- 正式 main：8f713526f00370d5c8db518d6fa855b7a3f58885 / VERSION 2.0.4。
+- 正式 main（合并前）：8f713526f00370d5c8db518d6fa855b7a3f58885 / VERSION 2.0.4；用户已授权 PR #23 正式集成，候选 VERSION 提升为 2.0.5。
 - 继续在 PR #23 步骤删除/步骤级文档候选之上开发；不修改 main，不合并，不升级公司电脑，不接触真实 Drive/任务数据。
 - 本次只用 GitHub 中的虚构测试数据和标准 Actions runner。工作档案继续暂停。
-- PR #23 保持 Draft，用户未授权合并。
+- 用户于 2026-11-03 回复“授权”，批准 PR #23 正式集成到 GitHub main；不包含真实 Windows/Drive 部署或自动修复六项真实异常。
 
 ## 设计决策
 1. 扫描 events/、project_events/、step_events/、settings_events/；同时把 workspace 读取器的冲突/引用缺失/同步等待转成异常条目。
@@ -25,6 +25,10 @@
 - tests/test_data_governance.py：15 项合成 Python 测试。
 - tests/test_task_id_drawer_windows_e2e.py：新增真实 Chromium 数据治理流程测试。
 - README.md、REQUIREMENTS.md、PROJECT_STATE.md、DECISIONS.md 更新。
+
+## 发布批准
+- PR #23 纳入正式发布；main 当前 2.0.4，因此将候选 VERSION 提升为 2.0.5。
+- 版本变更后的准确 SHA 必须重新运行 GitHub Actions；原代码 SHA 的 PASS 不可代替 RC CI。
 
 ## 测试状态
 - **最终产品/测试 SHA：`cc8913083a8ef4616358fa81e4b0f899feb06526`**；[GitHub Actions #41591071040](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41591071040) **3/3 SUCCESS，0 FAIL**。
