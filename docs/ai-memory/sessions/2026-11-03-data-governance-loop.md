@@ -22,16 +22,20 @@
 ## 文件改动
 - app.py：数据源扫描、稳定 anomaly ID、review event validator/reducer、repair proposal、授权/执行/结果验证 API、已处理结果回查。
 - web/index.html：侧栏“数据核查”入口、异常清单、原始事件、修复预览、授权/执行分离、处理轨迹和状态 badge。
-- tests/test_data_governance.py：14 项合成 Python 测试。
+- tests/test_data_governance.py：15 项合成 Python 测试。
 - tests/test_task_id_drawer_windows_e2e.py：新增真实 Chromium 数据治理流程测试。
 - README.md、REQUIREMENTS.md、PROJECT_STATE.md、DECISIONS.md 更新。
 
 ## 测试状态
-- 最终候选 SHA / Actions 尚待核验。未通过最终 CI 前不能称为 PASS。
+- **最终产品/测试 SHA：`cc8913083a8ef4616358fa81e4b0f899feb06526`**；[GitHub Actions #41591071040](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41591071040) **3/3 SUCCESS，0 FAIL**。
+- Ubuntu：Python 151 total，139 PASS / 12 SKIP；Node 68 PASS / 0 FAIL。
+- Windows：Python 151 total，141 PASS / 10 SKIP；Node 68 PASS / 0 FAIL。
+- Windows Chromium：升级/回滚 3 PASS；真实工作台任务/步骤 E2E 7 PASS，包含新增治理流程“发现→查看原始事件→授权但不写入→单独执行→校验结果回执、原始文件字节保持不变”。
+- 新增 15 项 Python 治理专项测试全部通过，覆盖 lifecycle/step position/completion 修复、只读异常发现、源 hash 和目标 revision 变化、并发授权、Drive 同步授权不自动执行、设置异常、结果缺失/篡改与幂等追踪。
 - 目标测试覆盖：只读发现；授权不写入；合法写入；完成二次确认；restore；非法 position 清理；设置事件只读核查；源变更/目标 revision 变化；并发审查冲突；同步授权不自动执行；结果缺失重新授权；结果篡改冲突；原始文件 SHA 不变；真实 Chromium 浏览器流程。
 - 真实双电脑 Google Drive 同步和公司 Windows 8770 仍 NOT TESTED。
 
 ## 后续
-1. 运行最终准确 SHA 的 Actions，修复失败。
-2. 把最终 SHA、Actions 结果、测试统计回写本文件及 PR #23。
-3. 不合并，不部署，等待用户另行审批。
+1. **自动化闭环开发和准确 SHA CI 已完成，3/3 PASS。**
+2. 保持 PR #23 Draft，不合并、不部署；等待用户审阅并另行审批。
+3. 真实双电脑 Google Drive 同步与公司 Windows 8770 仍 NOT TESTED；需单独安排非生产演练。
