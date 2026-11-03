@@ -1,5 +1,13 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-03：PR #21 用户批准、准备 2.0.4 正式发布（待最终准确 SHA CI）
+
+- **批准范围**：用户明确“批准”上一轮任务列表列筛选/多字段排序 PR #21 的发布；仅批准此 PR 正常合并到 GitHub main，不包含 [PR #19](https://github.com/yudacheng666/AIWorkSpace/pull/19) 回收站 UI 和 [PR #20](https://github.com/yudacheng666/AIWorkSpace/pull/20) 父子任务状态联动，也不授权任何本地 Windows 8770 / Google Drive 实际升级。
+- **发布版本**：原 main `68a3212360fed942ccf2dbfca97afd8f4e224bd3` 的 `VERSION=2.0.3`，PR #21 原 UI/测试 SHA `1c446820c53e4f6c5c892fb3a1c4f52e1368dec8` 的 [Actions #41566900915](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41566900915) 3/3 PASS。因网页更新依赖统一版本号，本独立批准的 PR #21 候选升级为 `VERSION=2.0.4`，并更正 README 项目状态及追加本决策。最终 2.0.4 RC 必须以**新准确 SHA** 的 GitHub CI 为准，不使用旧 SHA 冒充。
+- **未合并分支协调**：PR #19 预占了 2.0.4 RC 但尚未批准，保留 Draft；PR #21 先发布 2.0.4 后 PR #19 必须重新基于新的 main 定版为后续版本并回归，PR #20 同理，不强行互相覆盖。
+- **当前状态**：PR #21 待最终 RC CI 和正常 merge；禁止提前写合并成功。项目其它功能/代码和真实设备不变。
+
+
 ## 2026-11-03：任务列表字段标题与联合筛选/多字段排序（隔离开发候选）
 
 - **需求定稿**：用户明确要求“Excel 式筛选排序”，**绝不改成 Excel 风格表格**。保持现有任务卡片、状态徽标、整体 UI 不变；顶部新增字段标题行，列内下拉菜单可做多选筛选、关键字、截止日期区间、升降序与多字段排序优先级，提供各列/全部清理。
