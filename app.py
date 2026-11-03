@@ -1255,7 +1255,7 @@ def _build_review_proposal(data_dir: Path, anomaly: dict, workspace: dict) -> di
     if type(source_revision) is not int:
         return None
     current_task_revision = task.get("revision", 0)
-    if source_revision > current_task_revision:
+    if folder == "events" and source_revision > current_task_revision:
         return None
     # A stale AI-generated trash event must never be rebased onto a newer active task.
     if folder == "events" and action == "trash" and source_revision != current_task_revision:
