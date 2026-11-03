@@ -363,5 +363,50 @@ class DataGovernanceApiTests(unittest.TestCase):
         self.assertEqual(len(list((self.data_dir / "events").glob("*.json"))), 1)
 
 
+    def test_missing_applied_event_is_detected_and_requires_reauthorization(self):
+        self.invalid_source("events", "evt_lifecycle_missing_receipt.json", {
+            **task_event("bad-lifecycle-missing-001", "trash", 0,
+                         {"trashed_at": "2026-11-03T04:10:00Z"}, actor="chatgpt")
+        })
+        item = self.item("task_lifecycle_requires_user")
+        code, auth = self.authorize(item)
+        self.assertEqual(code, 200)
+        code, applied = self.apply(item, auth["authorization_event_id"])
+        self.assertEqual(code, 200)
+        target = self.data_dir / "events" / ("evt_" + applied["target_event_id"] + ".json")
+        target.unlink()
+        tracked = next(entry for entry in self.reviews()["items"]
+                       if entry["anomaly_id"] == item["anomaly_id"])
+        self.assertEqual(tracked["status"], "failed")
+        self.assertTrue(tracked["can_authorize"])
+        code, reauth = self.authorize(tracked, note="结果文件缺失，重新核对后授权恢复。")
+        self.assertEqual(code, 200, reauth)
+        code, recovered = self.apply(tracked, reauth["authorization_event_id"])
+        self.assertEqual(code, 200, recovered)
+        self.assertEqual(next(entry for entry in self.reviews()["items"]
+                              if entry["anomaly_id"] == item["anomaly_id"])["status"], "applied")
+
+    def test_changed_applied_event_receipt_is_a_conflict_and_never_overwritten(self):
+        self.invalid_source("events", "evt_lifecycle_changed_receipt.json", {
+            **task_event("bad-lifecycle-receipt-001", "trash", 0,
+                         {"trashed_at": "2026-11-03T04:10:00Z"}, actor="chatgpt")
+        })
+        item = self.item("task_lifecycle_requires_user")
+        code, auth = self.authorize(item)
+        self.assertEqual(code, 200)
+        code, applied = self.apply(item, auth["authorization_event_id"])
+        self.assertEqual(code, 200)
+        target = self.data_dir / "events" / ("evt_" + applied["target_event_id"] + ".json")
+        target.write_bytes(target.read_bytes() + b" ")
+        tampered = target.read_bytes()
+        tracked = next(entry for entry in self.reviews()["items"]
+                       if entry["anomaly_id"] == item["anomaly_id"])
+        self.assertEqual(tracked["status"], "conflict")
+        self.assertFalse(tracked["can_apply"])
+        code, result = self.apply(item, auth["authorization_event_id"])
+        self.assertEqual(code, 409, result)
+        self.assertEqual(target.read_bytes(), tampered)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
