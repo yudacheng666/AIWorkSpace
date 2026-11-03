@@ -272,14 +272,20 @@ class ApiTests(unittest.TestCase):
         except HTTPError as error:
             return error.code, json.load(error)
 
-    def test_document_link_post_and_stale_revision(self):
-        path = "/api/tasks/TASK-FAKE-001/documents"
+    def test_step_document_link_post_and_stale_revision(self):
+        legacy = "/api/tasks/TASK-FAKE-001/documents"
         links = [{"title": "虚构资料",
                   "url": "https://docs.google.com/document/d/FAKE_DOC123/edit"}]
+        self.assertEqual(self.request(legacy, {"revision": 1, "links": links})[0], 410)
+        code, created = self.request("/api/tasks/TASK-FAKE-001/steps", {"title": "虚构步骤"})
+        self.assertEqual(code, 201)
+        path = ("/api/tasks/TASK-FAKE-001/steps/" + created["step_id"] + "/documents")
         code, body = self.request(path, {"revision": 1, "links": links})
-        self.assertEqual(code, 200)
+        self.assertEqual(code, 200, body)
         self.assertTrue(body["saved"])
-        self.assertEqual(self.request("/api/tasks")[1]["tasks"][0]["document_links"], links)
+        task = self.request("/api/tasks")[1]["tasks"][0]
+        self.assertEqual(task["steps"][0]["document_links"], links)
+        self.assertEqual(task["document_links"], [])
         self.assertEqual(self.request(path, {"revision": 1, "links": []})[0], 409)
         self.assertEqual(self.request(path, {"revision": 2, "links": [
             {"title": "evil", "url": "javascript:alert(1)"}]})[0], 400)

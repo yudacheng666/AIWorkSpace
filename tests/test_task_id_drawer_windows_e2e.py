@@ -107,7 +107,10 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
     def test_v202_document_link_and_safe_trash_restore_purge(self):
         """Real UI exercises all three storage transitions on fictional data."""
         page = self._open_browser()
-        document = page.locator("#task-detail-content .doc-add-form")
+        page.locator(".step-add-form input").fill("虚构文档关联步骤")
+        page.locator(".step-add-form button").click()
+        page.locator(".step-row").wait_for(state="visible")
+        document = page.locator("#task-detail-content .step-row .doc-add-form")
         document.locator("input[type='text']").fill("虚构云端计划")
         document.locator("input[type='url']").fill(
             "https://drive.google.com/file/d/SYNTHETIC_DOC_TEST/view")
@@ -130,7 +133,9 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
             "https://drive.google.com/file/d/SYNTHETIC_DOC_TEST/view")
         self.assertEqual(link.get_attribute("target"), "_blank")
         self.assertEqual(link.get_attribute("rel"), "noopener noreferrer")
-        self.assertEqual(len(read_workspace(self.data_dir)["tasks"][0]["document_links"]), 1)
+        task = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual(task["document_links"], [])
+        self.assertEqual(len(task["steps"][0]["document_links"]), 1)
 
         page.once("dialog", lambda dialog: dialog.accept())
         page.locator(".task-lifecycle-controls button").click()
@@ -165,6 +170,35 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         remaining = list((self.data_dir / "events").glob("*.json"))
         self.assertEqual(len(remaining), 1)
         self.assertEqual(json.loads(remaining[0].read_text("utf-8"))["action"], "purge")
+
+    def test_step_delete_hides_step_and_links_without_deleting_cloud_document(self):
+        page = self._open_browser()
+        page.locator(".step-add-form input").fill("步骤一 · 测试删除")
+        page.locator(".step-add-form button").click()
+        expect(page.locator(".step-row")).to_have_count(1)
+        step = read_workspace(self.data_dir)["tasks"][0]["steps"][0]
+        self.assertEqual(step["title"], "步骤一 · 测试删除")
+        page.locator(".step-row .doc-add-form input[type='text']").fill("虚构关联资料")
+        page.locator(".step-row .doc-add-form input[type='url']").fill(
+            "https://drive.google.com/file/d/SYNTHETIC_STEP_FILE/view")
+        page.locator(".step-row .doc-add-form button.save").click()
+        expect(page.locator(".step-row .doc-row")).to_have_count(1)
+        page.once("dialog", lambda dialog: dialog.dismiss())
+        page.locator(".step-row .step-delete").click()
+        expect(page.locator(".step-row")).to_have_count(1)
+        self.assertEqual(len(read_workspace(self.data_dir)["tasks"][0]["steps"]), 1)
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator(".step-row .step-delete").click()
+        expect(page.locator(".step-row")).to_have_count(0)
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["steps"], [])
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["status"], "todo")
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["revision"], 1)
+        events = [json.loads(p.read_text("utf-8"))
+                  for p in (self.data_dir / "step_events").glob("*.json")]
+        self.assertEqual(len([e for e in events if e["action"] == "delete"]), 1)
+        self.assertTrue(any(e.get("changes", {}).get("document_links") for e in events))
+        self.assertFalse((self.data_dir / "documents").exists(),
+                         "step link removal must not alter Google Drive files")
 
     def test_v202_step_status_updates_task_without_automatic_done(self):
         page = self._open_browser()

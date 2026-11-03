@@ -1,5 +1,13 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-03：步骤删除与步骤级关联文档（独立候选）
+
+- 用户新增两项需求：“步骤增加删除功能”“文档链接关联到步骤级别，而不是任务级别”。前置核对正式 main SHA `8f713526f00370d5c8db518d6fa855b7a3f58885`、VERSION=2.0.4；PR #19（回收站 UI）、#20（父子任务状态联动）、#22（刷新位置）均仍 Draft，本轮不合并也不覆盖。
+- 实现采用新独立分支 `feat/20261103-step-delete-step-documents`：步骤删除追加 `delete` 墓碑并从展示/状态/顺序中隐藏；删除前必须用户确认并检查步骤 revision 与排序/同步冲突；不擦除历史文件、不清除 Google Drive 原文件。文档链接改为按步骤独立存储、读写及版本保护；所有新链接只通过步骤 API。
+- 数据兼容：旧任务事件中 `document_links` 原样保留并只读展示，用户自行按需重新关联至具体步骤；旧任务级写接口返回 410，不自动迁移，不凭项目名称推断关系。步骤删除后的引用仅隐藏、历史保留；未授权合并前不接触真实数据。
+- 测试目标：定向 Python 事件/HTTP（合法删除、确认、版本冲突、并发、迟到旧事件、顺序状态、历史链接、非法 URL）、Node 步骤按钮/草稿/文档区域、Windows 原生 Chromium 从网页创建步骤→关联文档→删除步骤→数据验证；准确 SHA 的 GitHub Actions CI 为准，完成前不得称 PASS。更高风险双电脑真实 Drive 延迟同步仍为 NOT TESTED，后续独立验收只补 CI 未覆盖项。
+
+
 ## 2026-11-03：PR #21 用户批准、准备 2.0.4 正式发布（待最终准确 SHA CI）
 
 - **批准范围**：用户明确“批准”上一轮任务列表列筛选/多字段排序 PR #21 的发布；仅批准此 PR 正常合并到 GitHub main，不包含 [PR #19](https://github.com/yudacheng666/AIWorkSpace/pull/19) 回收站 UI 和 [PR #20](https://github.com/yudacheng666/AIWorkSpace/pull/20) 父子任务状态联动，也不授权任何本地 Windows 8770 / Google Drive 实际升级。
