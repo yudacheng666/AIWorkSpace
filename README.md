@@ -1,6 +1,6 @@
 # AIWorkSpace
 
-> **当前正式版本（2026-11-03）**：`main/VERSION=2.0.5`，PR #23 已合并，merge SHA `f137fd6cd400b23c7878b4cd514ff27b94d88c92`；[2.0.5 RC Actions #41595613734](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41595613734) 与 [合并后 main Actions #41595962365](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41595962365) 均 3/3 PASS。本次正式版本包含步骤安全删除、步骤级文档关联及完整数据核查/授权修复闭环。当前独立 Draft PR #24 将 `VERSION=2.0.6` 作为修复候选；准确 SHA `49ac4c3f27adceba63fd942fbcd79af0e955fe76` 的 [Actions #41598685352](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41598685352) 已 3/3 PASS，等待用户另行批准后才可合并。真实公司 Windows 8770 未升级，真实 Drive/任务数据未写入。
+> **当前正式版本（2026-11-03）**：`main/VERSION=2.0.6`，已获用户明确发布授权；[PR #24](https://github.com/yudacheng666/AIWorkSpace/pull/24) 正常合并，merge SHA `2fca238e8e1fd635161d1b0f3a52961e8d982f67`。最终 RC SHA `352c7f3854a72ed5a28343a248bdbd658ff17ddb` 的 [Actions #41599009901](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41599009901) 3/3 SUCCESS；合并后 [main Actions #41609836093](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41609836093) 另行核验。2.0.6 修复数据治理异常事件的修订顺序、过期 trash 重放和重复完成确认。回收站视觉 PR #19、父子状态联动 PR #20、刷新状态位置 PR #22 仍独立 Draft；工作档案暂缓。公司 Windows 8770 和真实 Google Drive 任务数据未升级或修改。
 >
 > **安全与权限边界**：彻底删除先写防复活墓碑再清除本机事件；通过同步接收到墓碑会隐藏任务，但不会自动物理擦除另一台设备的历史文件。Google Drive 链接只保存 URL，不会自动授予 AI 文件权限或复制原文档。实际双电脑 Google Drive 服务同步仍未独立验收。
 >
