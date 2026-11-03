@@ -2538,7 +2538,8 @@
         const reviewSummary = data.review_summary || {};
         updateReviewNav(reviewSummary.open_count || 0);
         const warnings = $("warnings");
-        warnings.hidden = !(reviewSummary.open_count || data.warnings.length);
+        const hasReviewRegister = Object.prototype.hasOwnProperty.call(data, "review_summary");
+        warnings.hidden = hasReviewRegister ? !(reviewSummary.open_count) : !data.warnings.length;
         warnings.replaceChildren();
         if (reviewSummary.open_count) {
           warnings.append(element("span", "", `发现 ${reviewSummary.open_count} 项数据异常待核查；原始事件尚未自动修复。`));
@@ -2546,7 +2547,7 @@
           openReview.type = "button";
           openReview.addEventListener("click", () => setActivePage("reviews"));
           warnings.append(openReview);
-        } else if (data.warnings.length) {
+        } else if (!hasReviewRegister && data.warnings.length) {
           warnings.append(element("span", "", "存在数据提示，打开数据核查查看记录。"));
           const openReview = element("button", "warning-open", "查看核查记录");
           openReview.type = "button";
