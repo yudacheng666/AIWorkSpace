@@ -894,9 +894,28 @@ def append_step_event(data_dir: Path, event: dict) -> Path:
 
 
 
+def validate_setting_event(value: object) -> dict:
+    """Validate the shared retention settings event schema for review discovery."""
+    if (not isinstance(value, dict) or value.get("version") != 1 or
+            not isinstance(value.get("event_id"), str) or
+            not EVENT_ID.fullmatch(value["event_id"]) or
+            value.get("key") != "trash_retention_days" or
+            type(value.get("days")) is not int or value["days"] not in {0, 7, 30, 90}):
+        raise ValueError("invalid shared trash retention setting")
+    stamp = value.get("timestamp")
+    if not isinstance(stamp, str):
+        raise ValueError("settings timestamp required")
+    try:
+        if datetime.fromisoformat(stamp.replace("Z", "+00:00")).tzinfo is None:
+            raise ValueError("timezone required")
+    except ValueError as exc:
+        raise ValueError("invalid settings timestamp") from exc
+    return value
+
+
 REVIEW_ID = re.compile(r"^ANOM-[A-F0-9]{32}$")
 REVIEW_HASH = re.compile(r"^[a-f0-9]{64}$")
-REVIEW_FOLDERS = {"events", "project_events", "step_events"}
+REVIEW_FOLDERS = {"events", "project_events", "step_events", "settings_events"}
 REVIEW_ACTIONS = {"authorize", "applied", "dismissed", "stale", "failed"}
 
 
@@ -976,6 +995,8 @@ def validate_review_event(value: object) -> dict:
             validate_step_event(approved)
         elif source["folder"] == "project_events":
             validate_project_event(approved)
+        elif source["folder"] == "settings_events":
+            validate_setting_event(approved)
         else:
             raise ValueError("workspace warnings cannot authorize event writes")
         if approved.get("actor") != "user":
@@ -1076,7 +1097,8 @@ def _classify_invalid_event(folder: str, event: object, reason: str) -> tuple[st
         return "step_update_position", "执行步骤更新包含不允许的 position 字段"
     if "explicit user confirmation" in reason or "completion needs" in reason:
         return "completion_confirmation_missing", "完成状态缺少用户明确确认"
-    if "JSON" in reason or "encoding" in reason:
+    if any(token in reason.lower() for token in
+           ("expecting", "delimiter", "property name", "extra data", "utf-8", "encoding")):
         return "malformed_event", "事件文件格式或编码异常"
     return "invalid_event", "事件未通过数据结构与业务规则校验"
 
@@ -1084,7 +1106,7 @@ def _classify_invalid_event(folder: str, event: object, reason: str) -> tuple[st
 def scan_invalid_event_files(data_dir: Path) -> tuple[list[dict], list[str]]:
     """Discover invalid immutable source files without changing or quarantining them."""
     validators = {"events": validate_event, "project_events": validate_project_event,
-                  "step_events": validate_step_event}
+                  "step_events": validate_step_event, "settings_events": validate_setting_event}
     anomalies: list[dict] = []
     warnings: list[str] = []
     for folder, validator in validators.items():
@@ -1279,8 +1301,12 @@ def list_data_reviews(data_dir: Path, workspace: dict | None = None) -> dict:
     """Return all current anomalies plus immutable review history and summary."""
     workspace = workspace if workspace is not None else read_workspace(data_dir, include_trashed=True)
     anomalies, scan_warnings = scan_invalid_event_files(data_dir)
+    _, policy_warnings = read_trash_retention(data_dir)
+    workspace_with_policy = {
+        **workspace, "warnings": list(workspace.get("warnings", [])) + policy_warnings
+    }
     known_filenames = {item["source"]["filename"] for item in anomalies}
-    anomalies.extend(_workspace_warning_anomalies(workspace, known_filenames))
+    anomalies.extend(_workspace_warning_anomalies(workspace_with_policy, known_filenames))
     states, review_warnings = read_review_states(data_dir)
     current_ids = set()
     items = []
@@ -1366,6 +1392,8 @@ def _load_current_anomaly(data_dir: Path, anomaly: dict) -> tuple[dict | None, s
     source = anomaly["source"]
     if source["folder"] == "workspace":
         workspace = read_workspace(data_dir, include_trashed=True)
+        _, policy_warnings = read_trash_retention(data_dir)
+        workspace = {**workspace, "warnings": list(workspace.get("warnings", [])) + policy_warnings}
         current = next((item for item in _workspace_warning_anomalies(workspace, set())
                        if item["anomaly_id"] == anomaly["anomaly_id"]), None)
         return current, None if current else "workspace warning has cleared"
@@ -1392,7 +1420,8 @@ def _load_current_anomaly(data_dir: Path, anomaly: dict) -> tuple[dict | None, s
         try:
             event = json.loads(raw.decode("utf-8-sig"))
             validator = {"events": validate_event, "project_events": validate_project_event,
-                         "step_events": validate_step_event}[source["folder"]]
+                         "step_events": validate_step_event,
+                         "settings_events": validate_setting_event}[source["folder"]]
             validator(event)
             return None, "source event is now valid; review is stale"
         except (UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
