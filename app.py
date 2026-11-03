@@ -1115,8 +1115,8 @@ def _hash_file(path: Path) -> tuple[str, bytes, int]:
                 break
             digest.update(chunk)
             size += len(chunk)
-            if len(prefix) < 2400:
-                prefix.extend(chunk[:2400 - len(prefix)])
+            if len(prefix) < MAX_BODY:
+                prefix.extend(chunk[:MAX_BODY - len(prefix)])
     return digest.hexdigest(), bytes(prefix), size
 
 
@@ -1157,7 +1157,7 @@ def scan_invalid_event_files(data_dir: Path) -> tuple[list[dict], list[str]]:
                 "reason": reason, "source": {"folder": folder, "filename": path.name,
                                              "sha256": source_hash},
                 "source_present": True, "source_event": event if isinstance(event, dict) else None,
-                "raw_excerpt": prefix.decode("utf-8", errors="replace") if not isinstance(event, dict) else None,
+                "raw_excerpt": prefix[:2400].decode("utf-8", errors="replace") if not isinstance(event, dict) else None,
                 "event_id": event.get("event_id") if isinstance(event, dict) else None,
                 "task_id": event.get("task_id") if isinstance(event, dict) else None,
                 "step_id": event.get("step_id") if isinstance(event, dict) else None,
@@ -1443,7 +1443,7 @@ def _load_current_anomaly(data_dir: Path, anomaly: dict) -> tuple[dict | None, s
         "anomaly_id": anomaly["anomaly_id"], "category": category, "title": title,
         "reason": reason, "source": source, "source_present": True,
         "source_event": event if isinstance(event, dict) else None,
-        "raw_excerpt": prefix.decode("utf-8", errors="replace") if not isinstance(event, dict) else None,
+        "raw_excerpt": prefix[:2400].decode("utf-8", errors="replace") if not isinstance(event, dict) else None,
         "event_id": event.get("event_id") if isinstance(event, dict) else None,
         "task_id": event.get("task_id") if isinstance(event, dict) else None,
         "step_id": event.get("step_id") if isinstance(event, dict) else None,
