@@ -300,7 +300,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
             "action": "trash",
             "actor": "chatgpt",
             "timestamp": "2026-11-03T04:10:00Z",
-            "base_revision": 0,
+            "base_revision": 1,
             "changes": {"trashed_at": "2026-11-03T04:10:00Z"},
         }
         source.write_text(json.dumps(invalid, ensure_ascii=False, indent=2), encoding="utf-8")

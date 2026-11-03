@@ -1,6 +1,6 @@
 # AIWorkSpace
 
-> **当前正式版本（2026-11-03，合并前）**：`main/VERSION=2.0.4`，main SHA `8f713526f00370d5c8db518d6fa855b7a3f58885`；合并后 [Actions #41568014074](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41568014074) 3/3 PASS。用户已授权 PR #23 将步骤安全删除、步骤级文档关联和完整数据核查/授权修复闭环整合为 **2.0.5 候选**；本分支已提升 `VERSION=2.0.5`，须以本次版本变更后的准确 SHA CI 通过后合并。回收站视觉 PR #19、父子状态联动 PR #20、刷新状态位置 PR #22 仍未合并；工作档案暂缓。正式公司 Windows 和 Google Drive 任务数据未修改。
+> **当前正式版本（2026-11-03）**：`main/VERSION=2.0.5`，PR #23 已合并，merge SHA `f137fd6cd400b23c7878b4cd514ff27b94d88c92`；[2.0.5 RC Actions #41595613734](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41595613734) 与 [合并后 main Actions #41595962365](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41595962365) 均 3/3 PASS。本次正式版本包含步骤安全删除、步骤级文档关联及完整数据核查/授权修复闭环。当前独立 Draft PR #24 将 `VERSION=2.0.6` 作为修复候选；准确 SHA `49ac4c3f27adceba63fd942fbcd79af0e955fe76` 的 [Actions #41598685352](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41598685352) 已 3/3 PASS，等待用户另行批准后才可合并。真实公司 Windows 8770 未升级，真实 Drive/任务数据未写入。
 >
 > **安全与权限边界**：彻底删除先写防复活墓碑再清除本机事件；通过同步接收到墓碑会隐藏任务，但不会自动物理擦除另一台设备的历史文件。Google Drive 链接只保存 URL，不会自动授予 AI 文件权限或复制原文档。实际双电脑 Google Drive 服务同步仍未独立验收。
 >
