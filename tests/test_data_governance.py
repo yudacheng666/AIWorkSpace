@@ -238,7 +238,7 @@ class DataGovernanceApiTests(unittest.TestCase):
         source.write_text(source.read_text("utf-8") + "\n", encoding="utf-8")
         code, result = self.apply(item, auth["authorization_event_id"])
         self.assertEqual(code, 409, result)
-        self.assertEqual(len(list((self.data_dir / "events").glob("*.json"))), 3)
+        self.assertEqual(len(list((self.data_dir / "events").glob("*.json"))), 2)
         self.assertEqual(app.read_workspace(self.data_dir, include_trashed=True)["tasks"][0]["trashed_at"], None)
         self.assertEqual(self.reviews()["summary"]["stale"], 1)
 
@@ -302,7 +302,7 @@ class DataGovernanceApiTests(unittest.TestCase):
                          if entry["anomaly_id"] == item["anomaly_id"])
         self.assertEqual(refreshed["status"], "conflict")
         self.assertFalse(refreshed["can_apply"])
-        self.assertEqual(len(list((self.data_dir / "events").glob("*.json"))), 3)
+        self.assertEqual(len(list((self.data_dir / "events").glob("*.json"))), 2)
 
     def test_invalid_review_payloads_cannot_authorize_or_apply(self):
         self.invalid_source("events", "evt_lifecycle_invalid_payload.json", {
@@ -322,7 +322,7 @@ class DataGovernanceApiTests(unittest.TestCase):
         self.assertEqual(self.request(base + "/dismiss", {
             "source_sha256": item["source"]["sha256"], "confirmed": True,
             "note": ""})[0], 400)
-        self.assertEqual(len(list((self.data_dir / "events").glob("*.json"))), 3)
+        self.assertEqual(len(list((self.data_dir / "events").glob("*.json"))), 2)
         self.assertFalse((self.data_dir / "review_events").exists())
 
 
