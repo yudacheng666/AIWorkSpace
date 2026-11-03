@@ -312,7 +312,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         expect(page.locator("#review-list .review-list-item")).to_have_count(1)
         page.locator("#review-list .review-list-item").click()
         expect(page.locator("#review-detail .review-status.pending")).to_be_visible()
-        expect(page.locator("#review-detail .review-code")).to_contain_text("chatgpt")
+        expect(page.locator("#review-detail .review-code").first).to_contain_text("chatgpt")
 
         page.once("dialog", lambda dialog: dialog.accept())
         page.get_by_role("button", name="确认核查并授权修复").click()
