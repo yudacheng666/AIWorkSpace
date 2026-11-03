@@ -1,6 +1,6 @@
 # AIWorkSpace
 
-> **当前正式版和 2.0.4 候选（2026-11-03）**：发布前 `main/VERSION=2.0.3`（[PR #18](https://github.com/yudacheng666/AIWorkSpace/pull/18) 已合并；main SHA `68a3212360fed942ccf2dbfca97afd8f4e224bd3`）。用户现已批准发布 [PR #21](https://github.com/yudacheng666/AIWorkSpace/pull/21)“任务列表保留卡片式 UI，列标题提供多字段联合筛选与排序”，故其**候选分支** VERSION 提升到 **2.0.4**；UI/测试基线 SHA `1c446820c53e4f6c5c892fb3a1c4f52e1368dec8` 的 [Actions #41566900915](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41566900915) **3/3 PASS**。正式合并前仍须按最终 RC 准确 SHA 复核 GitHub CI。回收站视觉 [Draft PR #19](https://github.com/yudacheng666/AIWorkSpace/pull/19) 和父子任务联动 [Draft PR #20](https://github.com/yudacheng666/AIWorkSpace/pull/20) **不在本次批准范围**；它们下次发布前须重新定版/更新基线。真实 Windows 电脑及 Google Drive 文件不会因 GitHub 合并而自动修改；工作档案暂停。
+> **当前正式版本（2026-11-03）**：`main/VERSION=2.0.4`，任务列表卡片字段标题、多字段联合筛选与排序已通过 [PR #21](https://github.com/yudacheng666/AIWorkSpace/pull/21) 正式合并，合并 SHA `8f713526f00370d5c8db518d6fa855b7a3f58885`；准确候选及 main push GitHub Actions 均 3/3 PASS（[RC #41567801531](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41567801531)、[main #41568014074](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41568014074)）。回收站视觉 [Draft PR #19](https://github.com/yudacheng666/AIWorkSpace/pull/19) 和父子任务联动 [Draft PR #20](https://github.com/yudacheng666/AIWorkSpace/pull/20) 尚未获批准、未合并，不属于 2.0.4。GitHub 发布不会自动更新真实 Windows 程序或 Google Drive 数据；个人工作档案暂停。
 >
 > **安全与权限边界**：彻底删除先写防复活墓碑再清除本机事件；通过同步接收到墓碑会隐藏任务，但不会自动物理擦除另一台设备的历史文件。Google Drive 链接只保存 URL，不会自动授予 AI 文件权限或复制原文档。实际双电脑 Google Drive 服务同步仍未独立验收。
 >

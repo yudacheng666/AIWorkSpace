@@ -100,6 +100,24 @@ test("V2 shell has distinct overview, tasks, projects and settings pages", () =>
   assert.doesNotMatch(html, /id="trash-modal"/);
 });
 
+
+test("last refresh status lives in the sidebar footer, outside the task toolbar", async () => {
+  const sidebarFooter = html.match(/<div class="sidebar-footnote">([\s\S]*?)<\/div>/);
+  assert.ok(sidebarFooter, "sidebar footer exists");
+  assert.match(sidebarFooter[1], /class="sync sidebar-refresh" id="sync"/);
+  const sectionActions = html.match(/<div class="section-actions">([\s\S]*?)<\/div>/);
+  assert.ok(sectionActions, "task toolbar exists");
+  assert.doesNotMatch(sectionActions[1], /id="sync"/, "refresh feedback is not in the task toolbar");
+  assert.match(html, /\.sidebar-refresh\s*\{[^}]*height:\s*16px/,
+    "the sidebar indicator reserves a fixed line height to avoid layout shifts");
+  const page = harness([sampleTask()]);
+  await page.api.refresh(true);
+  assert.match(page.el("sync").textContent, /^上次刷新 /);
+  assert.equal(page.el("sync").title, page.el("sync").textContent);
+  assert.equal(page.el("sync").className, "sync sidebar-refresh");
+  assert.equal(page.writes.length, 0);
+});
+
 test("page navigation changes the active workspace without writing task data", async () => {
   const page = harness([sampleTask()]);
   await page.api.refresh(true);

@@ -81,6 +81,24 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertFalse(page.locator("#task-detail-drawer").evaluate("(e) => e.hidden"))
         return page
 
+
+    def test_last_refresh_status_is_in_sidebar_footer_and_does_not_shift_task_toolbar(self):
+        page = self._open_browser()
+        status = page.locator(".sidebar-footnote #sync")
+        expect(status).to_be_visible()
+        expect(status).to_contain_text("上次刷新")
+        self.assertEqual(page.locator(".section-actions #sync").count(), 0)
+        before = page.locator(".section-actions").bounding_box()
+        self.assertIsNotNone(before)
+        page.evaluate("refresh(true)")
+        expect(status).to_contain_text("上次刷新")
+        after = page.locator(".section-actions").bounding_box()
+        self.assertIsNotNone(after)
+        self.assertEqual(before["width"], after["width"])
+        self.assertEqual(before["height"], after["height"])
+        self.assertEqual(self._file_hashes(), self.before,
+                         "refresh status updates must not write task data")
+
     def test_short_id_copy_and_backdrop(self):
         page = self._open_browser()
         self.assertEqual(page.locator(".task-summary-id").first.inner_text(), self.short_id)

@@ -1,12 +1,20 @@
 # AIWorkSpace｜当前项目状态
 
-## 2026-11-03：PR #21 用户批准、准备 2.0.4 正式发布（待最终准确 SHA CI）
+## 2026-11-03：刷新状态移至左侧导航底部（独立修复候选）
 
-- **批准范围**：用户明确“批准”上一轮任务列表列筛选/多字段排序 PR #21 的发布；仅批准此 PR 正常合并到 GitHub main，不包含 [PR #19](https://github.com/yudacheng666/AIWorkSpace/pull/19) 回收站 UI 和 [PR #20](https://github.com/yudacheng666/AIWorkSpace/pull/20) 父子任务状态联动，也不授权任何本地 Windows 8770 / Google Drive 实际升级。
-- **发布版本**：原 main `68a3212360fed942ccf2dbfca97afd8f4e224bd3` 的 `VERSION=2.0.3`，PR #21 原 UI/测试 SHA `1c446820c53e4f6c5c892fb3a1c4f52e1368dec8` 的 [Actions #41566900915](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41566900915) 3/3 PASS。因网页更新依赖统一版本号，本独立批准的 PR #21 候选升级为 `VERSION=2.0.4`，并更正 README 项目状态及追加本决策。最终 2.0.4 RC 必须以**新准确 SHA** 的 GitHub CI 为准，不使用旧 SHA 冒充。
-- **未合并分支协调**：PR #19 预占了 2.0.4 RC 但尚未批准，保留 Draft；PR #21 先发布 2.0.4 后 PR #19 必须重新基于新的 main 定版为后续版本并回归，PR #20 同理，不强行互相覆盖。
-- **当前状态**：PR #21 待最终 RC CI 和正常 merge；禁止提前写合并成功。项目其它功能/代码和真实设备不变。
+- **用户反馈**：任务列表工具栏内的“上次刷新 HH:MM:SS”会导致页面闪烁；要求移至左侧导航左下角。
+- **实现边界**：从正式 main `8f713526f00370d5c8db518d6fa855b7a3f58885` / `VERSION=2.0.4` 派生独立分支 `fix/20261103-refresh-status-sidebar`。仅把原 `#sync` 状态节点移到侧栏系统导航之后的底部说明区，退出任务列表工具栏；所有刷新成功/失败/暂停状态继续复用该节点和原刷新生命周期。侧栏状态行固定 16px 高、单行省略、数字稳定宽度，完整消息保留在 title 提示中。
+- **保护范围**：不改变刷新频率、API、任务/项目数据、筛选排序、自动保存、草稿保护或同步；不修改 VERSION，不包含 PR #19/#20，也不操作公司 Windows/Google Drive 真实数据。窄屏沿用原侧栏脚注隐藏规则。
+- **测试要求**：Node 断言状态节点位于侧栏、不在工具栏、刷新成功后显示时间且不写任务数据；Windows 真 app.py + Chromium 验证侧栏可见、工具栏无状态节点、刷新前后工具栏尺寸不变且事件文件哈希不变。CI 状态以该分支最新准确 SHA 为准。
+- **后续**：PR 保持 Draft，用户检查视觉后再决定是否合并；如需发布，届时按统一版本规则另行确定候选版本并重跑准确 SHA CI。
 
+
+## 2026-11-03：AIWorkSpace 2.0.4 正式合并发布
+
+- 用户明确批准 PR #21 的任务卡片列标题、Excel 式联合筛选和多字段排序功能。候选 HEAD `bc829da4508c7b0b50c604103e29e98c3c88945b` 的 [Actions #41567801531](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41567801531) **3/3 SUCCESS**；Linux Python 115 PASS/10 SKIP、Node 66 PASS；Windows Python 117 PASS/8 SKIP、Node 66 PASS；Windows 真 app.py + Chromium 更新回滚 3 PASS、任务 UI 5 PASS。
+- PR #21 正式合并 SHA **`8f713526f00370d5c8db518d6fa855b7a3f58885`**；[合并后 main push Actions #41568014074](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41568014074) **3/3 SUCCESS**；复核 `main/VERSION=2.0.4`、PR CLOSED/MERGED。
+- PR #19（回收站视觉）和 PR #20（父子任务状态联动）均仍 Draft，未进入 2.0.4；原分支基于旧 main，下一次获批时必须重新基于新 main 集成、定版和测试，禁止借用旧 SHA 的 PASS。
+- 本次 GitHub 发布不代表公司 Windows 8770 / Google Drive 实际程序已更新；用户尚未授权访问或修改真实工作数据。个人工作档案继续暂停。
 
 ## 2026-11-03：任务列表字段标题与联合筛选/多字段排序（隔离开发候选）
 
