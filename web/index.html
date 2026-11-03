@@ -73,6 +73,10 @@
     .step-actions { display: flex; gap: 5px; padding-top: 2px; }
     .step-actions button { border: 1px solid #dce4ee; color: #50677f; background: #fff; padding: 6px 9px; font-size: 12px; }
     .step-actions button:disabled { opacity: .4; cursor: not-allowed; }
+    .step-actions .step-delete { border-color: #efd4d4; color: #b34949; }
+    .step-actions .step-delete:hover:not(:disabled) { background: #fff2f2; border-color: #dfa2a2; }
+    .step-content > .doc-panel { margin-top: 8px; padding: 12px; border: 1px solid #e6edf5; border-radius: 8px; background: #fff; }
+    .step-content > .doc-panel h3 { margin: 0 0 10px; color: #57708c; font-size: 12px; }
     .step-add-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; margin-top: 12px; }
     .step-add-form input { min-width: 0; }
     .step-empty, .step-order-warning, .step-conflict { color: #8593a5; font-size: 12px; margin: 10px 0 0; }
@@ -1224,7 +1228,7 @@
           status.disabled = task.conflict || step.conflict;
         }
       });
-      content.append(form);
+      content.append(form, documentPanel(task, step));
       row.append(content);
       const actions = element("div", "step-actions");
       const up = element("button", "", "上移");
@@ -1237,7 +1241,39 @@
       down.disabled = task.conflict || task.step_order_conflict ||
         task.step_order_incomplete || index === task.steps.length - 1;
       down.addEventListener("click", () => saveStepOrder(task, index, index + 1, message));
-      actions.append(up, down);
+      const removeStep = element("button", "step-delete", "删除");
+      removeStep.type = "button";
+      removeStep.disabled = task.conflict || step.conflict ||
+        task.step_order_conflict || task.step_order_incomplete;
+      removeStep.addEventListener("click", async () => {
+        if (isSaving || removeStep.disabled) return;
+        if (!confirmDiscardUnsaved()) return;
+        if (!window.confirm("确认删除步骤「" + step.title +
+                            "」？该步骤及其文档链接将不再显示，但历史事件保留；Google Drive 原文档不会被删除。")) return;
+        isSaving = true; removeStep.disabled = true;
+        message.className = "step-message";
+        message.textContent = "正在删除步骤…";
+        try {
+          const response = await fetch(
+            "/api/tasks/" + encodeURIComponent(task.task_id) +
+            "/steps/" + encodeURIComponent(step.step_id) + "/delete", {
+              method: "POST", headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({revision: step.revision, confirmed_delete: true})
+            });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "步骤删除失败");
+          unsavedTaskEditors.clear(); // Only after a confirmed successful discard/delete.
+          await refresh(true);
+        } catch (error) {
+          message.className = "step-message error";
+          message.textContent = "步骤删除失败：" + error.message + "。未修改草稿，请刷新核查。";
+        } finally {
+          isSaving = false;
+          removeStep.disabled = task.conflict || step.conflict ||
+            task.step_order_conflict || task.step_order_incomplete;
+        }
+      });
+      actions.append(up, down, removeStep);
       row.append(actions);
       if (step.conflict) {
         const candidates = (step.conflict_candidates || []).map(candidate => {
@@ -1446,7 +1482,11 @@
       if (task.step_completion_pending) {
         form.append(element("p", "step-message", "全部执行步骤已完成，请人工确认是否将任务标记为完成。"));
       }
-      card.append(top, form, stepPanel(task), documentPanel(task), lifecyclePanel(task));
+      card.append(top, form, stepPanel(task));
+      if (Array.isArray(task.document_links) && task.document_links.length) {
+        card.append(legacyDocumentPanel(task));
+      }
+      card.append(lifecyclePanel(task));
       if (task.conflict) {
         const details = [];
         const valuesFor = field => [...new Set(candidates
@@ -1480,8 +1520,8 @@
 
 
 
-    async function updateDocumentLinks(task, links, feedback, ownForm = null) {
-      if (isSaving || task.conflict) return false;
+    async function updateDocumentLinks(task, step, links, feedback, ownForm = null) {
+      if (isSaving || task.conflict || step.conflict) return false;
       // Never silently drop another editor's draft just to add/remove a link.
       if ([...unsavedTaskEditors].some(editor => editor !== ownForm)) {
         feedback.textContent = "其他任务或步骤有未保存的草稿，请先保存或放弃再修改文档关联。";
@@ -1492,10 +1532,12 @@
       isSaving = true;
       feedback.textContent = "正在保存关联文档…";
       try {
-        const response = await fetch("/api/tasks/" + encodeURIComponent(task.task_id) + "/documents", {
-          method: "POST", headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({revision: task.revision, links: links})
-        });
+        const response = await fetch(
+          "/api/tasks/" + encodeURIComponent(task.task_id) +
+          "/steps/" + encodeURIComponent(step.step_id) + "/documents", {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({revision: step.revision, links})
+          });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "关联文档保存失败");
         // Do not discard typing that happened while the request was in flight.
@@ -1515,11 +1557,11 @@
       } finally { isSaving = false; }
     }
 
-    function documentPanel(task) {
+    function documentPanel(task, step) {
       const panel = element("section", "doc-panel");
-      panel.append(element("h3", "", "关联文档 · Google Drive"));
+      panel.append(element("h3", "", "步骤关联文档 · Google Drive"));
       const message = element("p", "message");
-      const links = Array.isArray(task.document_links) ? task.document_links : [];
+      const links = Array.isArray(step.document_links) ? step.document_links : [];
       if (!links.length) panel.append(element("p", "hint", "未关联文档。这里只存储云端链接，不会复制文件。"));
       for (const item of links) {
         const row = element("div", "doc-row");
@@ -1528,10 +1570,10 @@
         anchor.title = item.url;
         row.append(anchor);
         const remove = element("button", "", "取消关联");
-        remove.type = "button"; remove.disabled = task.conflict;
+        remove.type = "button"; remove.disabled = task.conflict || step.conflict;
         remove.addEventListener("click", () => {
           if (!window.confirm("确认取消关联「" + item.title + "」？不会删除 Google Drive 原文档。")) return;
-          updateDocumentLinks(task, links.filter(link => link.url !== item.url), message);
+          updateDocumentLinks(task, step, links.filter(link => link.url !== item.url), message);
         });
         row.append(remove); panel.append(row);
       }
@@ -1545,7 +1587,7 @@
       url.placeholder = "https://drive.google.com/…";
       urlLabel.append(url);
       const save = element("button", "save", "添加链接");
-      save.type = "submit"; save.disabled = task.conflict || links.length >= 20;
+      save.type = "submit"; save.disabled = task.conflict || step.conflict || links.length >= 20;
       form.append(nameLabel, urlLabel, save);
       watchUnsavedEditor(form, () => JSON.stringify([title.value, url.value]));
       form.addEventListener("submit", async event => {
@@ -1555,11 +1597,29 @@
           message.textContent = "文档名称或链接无效，或链接已存在。";
           return;
         }
-        const success = await updateDocumentLinks(task, [...links, next], message, form);
+        const success = await updateDocumentLinks(task, step, [...links, next], message, form);
         if (!success) return; // Draft preservation and safe refresh are handled above.
       });
       panel.append(form, message);
       panel.append(element("p", "hint", "文档权限保持原样。AI 能否读取取决于已连接 Google Drive 的文件访问权限。"));
+      return panel;
+    }
+
+    function legacyDocumentPanel(task) {
+      // Never erase or guess ownership of legacy task-scoped links on upgrade.
+      // They stay accessible here until a user manually re-associates each link.
+      const panel = element("section", "doc-panel legacy-doc-panel");
+      panel.append(element("h3", "", "历史任务级文档（只读）"),
+        element("p", "step-empty",
+          "旧版本关联链接已保留，请在对应执行步骤中重新关联。不会自动删除或转移 Google Drive 文件。"));
+      for (const item of task.document_links || []) {
+        const row = element("div", "doc-row");
+        const anchor = element("a", "", item.title);
+        anchor.href = item.url; anchor.target = "_blank"; anchor.rel = "noopener noreferrer";
+        anchor.title = item.url;
+        row.append(anchor);
+        panel.append(row);
+      }
       return panel;
     }
 
