@@ -1,18 +1,16 @@
 # AIWorkSpace｜当前项目状态
 
-## 2026-11-04：2.0.11 通知信箱改造候选（最终 CI 通过，待合并）
+## 2026-11-04：2.0.11 已正式发布 — 数据异常处理改为通知信箱
 
 - **用户决定**：现有“数据异常处理”界面过于复杂，且当前页面没有内嵌 AI 或通用冲突修复能力；改为简洁的“通知信箱”，明确只负责告知，不假装能在此处解决冲突。
-- **基线与 PR**：main 基线 SHA `e4f0a7408eb1ce78dae5b8ff13d65e900201911f`，`VERSION=2.0.10`。分支 `feat/20261104-notification-inbox`；[PR #34](https://github.com/yudacheng666/AIWorkSpace/pull/34)，候选版本 `2.0.11`。最终产品/测试 SHA `d7c817713d86f27e654b2b882e2868f4f5a2b864`。
+- **正式合并**：[PR #34](https://github.com/yudacheng666/AIWorkSpace/pull/34) 已标准 Merge。合并 SHA `d7f703233a48dd22434a6f4e0c5221837610cdb4`，`main/VERSION=2.0.11)。PR 最终 HEAD `f4c68beace8b0c83d2276bdac860350a78bebd1d`；测试后只增加 README、PROJECT_STATE、DECISIONS 文档，没有产品或测试代码变化。
 - **界面实现**：侧栏“异常处理”改名“通知信箱”；移除技术统计卡片、任务/步骤聚合核查组、复杂双栏详情、原始 JSON/内部编号/哈希/英文错误展示，以及授权/执行/确认保留等修复操作。采用全宽消息列表，每条异常独立显示类型、状态、标题、摘要、可靠时间及已识别任务/步骤；详情折叠显示影响与建议；空状态简洁。首页提醒及侧栏待关注数字指向通知信箱。
 - **消息编号**：由现有稳定 `anomaly_id` 的 32 位十六进制部分确定性派生为 `MSG-YYMMDD-<12位大写十六进制>`；若当前消息列表短编号碰撞，则扩展为完整 32 位哈希；来源无可靠时间时使用 `SYS` 日期段。不新增消息数据库/计数器；同一异常刷新后编号稳定，源文件内容变化生成新异常编号。
 - **后台与数据边界**：只调用现有只读 `GET /api/reviews`；`app.py`、API、事件 schema、review_events 审计链、原始事件、授权/执行安全校验均未修改。后端数据扫描和专门治理 API 保留，但不再暴露在普通通知页面。未读写或删除任何真实工作台/Google Drive 数据。
-- **最终自动化验收**：[GitHub Actions #41792421545](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41792421545) 对准确 SHA `d7c817713d86f27e654b2b882e2868f4f5a2b864` **3/3 SUCCESS**：
-  - Ubuntu Python：173 tests；Node UI：81 PASS。
-  - Windows Python：173 tests；Node UI：81 PASS。
-  - Windows 真实 app.py + Chromium：更新/回滚 3 PASS；工作台 UI E2E 11 PASS，其中通知信箱专项验证消息编号稳定、没有修复按钮、刷新不修改异常源文件且不新增 review_events。
-- **首轮失败及修正**：首次 CI 的 Node 测试夹具未模拟 DOM 的 `details.open` 默认值，导致 1 条断言失败；Windows 真实 Chromium 当轮已通过。修正测试夹具断言后，在新准确 SHA 上完整重跑，最终全部通过；没有为追求通过而修改产品安全规则。
-- **合并状态**：所有必需 CI 已通过；PR #34 已具备合并条件，待从 Draft 转为 Ready 并标准合并。不得部署公司 Windows 8770 或触碰真实 Drive 数据。
+- **PR 验收**：[GitHub Actions #41792421545](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41792421545) 对产品/测试 SHA `d7c817713d86f27e654b2b882e2868f4f5a2b864` **3/3 SUCCESS**：Ubuntu/Windows Python 各 173 tests、Node UI 各 81 PASS；Windows 真实 app.py + Chromium 更新/回滚 3 PASS、工作台 UI E2E 11 PASS。
+- **合并后 main 复验**：[GitHub Actions #41792762895](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41792762895) 对 merge SHA `d7f703233a48dd22434a6f4e0c5221837610cdb4` **3/3 SUCCESS**；Ubuntu/Windows Python 各 173 tests、Node UI 各 81 PASS；Windows Chromium 更新/回滚 3 PASS、工作台 UI E2E 11 PASS。
+- **首轮失败及修正**：首次 CI 的 Node 测试夹具未模拟 DOM 的 `details.open` 默认值，导致 1 条断言失败；修正测试夹具断言后，在新准确 SHA 上完整复测通过。没有为追求通过而修改产品安全规则。
+- **合并后状态**：开放 PR=0。GitHub 代码已正式发布；公司 Windows 8770 未升级，真实 Google Drive/任务数据未读取、写入或删除。后续部署须另行按备份/回滚流程授权。
 
 
 ## 2026-11-04：2.0.10 已正式发布 — 任务列表与步骤文档交互优化
