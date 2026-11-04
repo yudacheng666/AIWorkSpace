@@ -1,6 +1,8 @@
 # AIWorkSpace
 
-> **当前正式版本 2.0.10；2.0.11 通知信箱候选已通过完整 CI，待合并（2026-11-04）**：分支 `feat/20261104-notification-inbox` 将原“数据异常处理”改为只读通知列表，每条消息使用稳定编号 `MSG-YYMMDD-<12位大写十六进制>`，短编号碰撞时自动扩展为完整 32 位哈希；不提供无法完成的冲突修复按钮。后台异常扫描、原始事件和 review_events 审计保持不变。PR #34 的准确产品/测试 SHA `d7c817713d86f27e654b2b882e2868f4f5a2b864` 已通过 Actions #41792421545 3/3 SUCCESS；正式合并后更新版本状态。
+> **当前正式版本 2.0.11（2026-11-04）**：PR #34「通知信箱」已正式合并，merge SHA `d7f703233a48dd22434a6f4e0c5221837610cdb4`，`main/VERSION=2.0.11`。产品/测试 SHA `d7c817713d86f27e654b2b882e2868f4f5a2b864` 的 [PR Actions #41792421545](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41792421545) 与合并后 main SHA 的 [Actions #41792762895](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41792762895) 均 3/3 SUCCESS：Ubuntu/Windows Python 各 173 tests、Node UI 各 81 PASS；Windows Chromium 更新/回滚 3 PASS、工作台 UI E2E 11 PASS。通知信箱只读展示异常，后台数据治理与审计保持不变；未升级公司电脑或修改真实 Google Drive 数据。
+
+
 
 > **2.0.10 正式发布回执（2026-11-04）**：用户批准合并 PR #33，四项任务列表与步骤文档易用性改进正式进入 main。PR 最终准确 HEAD `31a720d0f226bedb98653fb224cb9450a98aa389` 的 [Actions #41784404642](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41784404642) 3/3 SUCCESS；GitHub 标准 Merge SHA `0ec256205bf47a7ee36ae74d3a638a3bb71ef44b`，`main/VERSION=2.0.10`。此前已批准并通过验收的父子任务状态联动、刷新状态位置、异常处理体验和回收站视觉等改进均已在 2.0.8/2.0.9 正式发布；本次审计确认无其他开放 PR 遗漏。公司 Windows 8770 和真实 Google Drive 数据未升级或修改。
 
