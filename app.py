@@ -1094,6 +1094,8 @@ def read_review_states(data_dir: Path) -> tuple[dict, list[str]]:
 def _classify_invalid_event(folder: str, event: object, reason: str) -> tuple[str, str]:
     if folder == "events" and isinstance(event, dict) and event.get("action") in TASK_LIFECYCLE_ACTIONS:
         return "task_lifecycle_requires_user", "任务生命周期事件缺少有效的用户操作授权或版本"
+    if folder == "step_events" and isinstance(event, dict) and "invalid step_id" in reason:
+        return "invalid_step_reference", "执行步骤记录中的步骤编号无法识别"
     if (folder == "step_events" and isinstance(event, dict)
             and event.get("action") == "update" and "cannot set position" in reason):
         return "step_update_position", "执行步骤更新包含不允许的 position 字段"
@@ -1200,6 +1202,17 @@ def _review_proposal_block_reason(anomaly: dict, workspace: dict) -> str | None:
     """Explain why an event cannot be safely replayed against the current target revision."""
     source_event = anomaly.get("source_event")
     folder = anomaly.get("source", {}).get("folder")
+    if folder == "step_events" and anomaly.get("category") == "invalid_step_reference":
+        changes = source_event.get("changes", {}) if isinstance(source_event, dict) else {}
+        recorded_title = changes.get("title") if isinstance(changes, dict) else None
+        title_note = (f"记录中填写的步骤名称为“{recorded_title}”。"
+                      if isinstance(recorded_title, str) and recorded_title.strip() else "")
+        return (
+            "这条记录中的步骤编号格式不正确，系统无法确认它属于哪一个步骤，因此不会自动修复或改绑。"
+            + title_note
+            + "请核对关联任务中的步骤列表：如果已有对应步骤，不要重复创建；如果确实缺少且内容需要保留，请通过任务详情正常新增步骤。"
+            "核对后可选择“确认保留，不写入”。"
+        )
     if not isinstance(source_event, dict) or folder not in {"events", "step_events"}:
         return None
     task_id = source_event.get("task_id")
@@ -1216,10 +1229,14 @@ def _review_proposal_block_reason(anomaly: dict, workspace: dict) -> str | None:
     target_label = "任务"
     if folder == "step_events":
         step_id = source_event.get("step_id")
+        if not isinstance(step_id, str) or not STEP_ID.fullmatch(step_id):
+            return "记录引用的步骤编号无法识别。为避免修改错误步骤，系统已停止自动修复；请在关联任务中核对步骤。"
         step = next((item for item in task.get("steps", [])
                      if item.get("step_id") == step_id), None)
-        if not step or step.get("conflict"):
-            return None
+        if not step:
+            return "当前任务中找不到记录所指向的步骤。请先核对任务步骤列表；系统不会猜测或自动创建步骤。"
+        if step.get("conflict"):
+            return "记录所指向的步骤存在未解决的版本冲突。请先核对冲突，不要执行自动修复。"
         target_revision = step.get("revision", 0)
         target_label = "步骤"
     if source_revision > target_revision:
@@ -1231,6 +1248,62 @@ def _review_proposal_block_reason(anomaly: dict, workspace: dict) -> str | None:
                 f"当前任务已到修订号 {target_revision}。为避免误将后续更新的任务移入回收站，"
                 "不提供自动重放；如确需移入回收站，请从任务当前版本的正常操作入口重新发起。")
     return None
+
+
+def _review_user_guidance(anomaly: dict, proposal: dict | None,
+                          proposal_block_reason: str | None) -> dict:
+    """Translate internal validation findings into plain-language user guidance."""
+    category = anomaly.get("category")
+    source_event = anomaly.get("source_event")
+    action = source_event.get("action") if isinstance(source_event, dict) else None
+    if category == "invalid_step_reference":
+        summary = "这条执行步骤记录中的步骤编号格式不正确，系统无法确认它属于哪一个步骤。"
+        impact = "这条记录没有被应用，原始记录仍保留；系统不会猜测目标步骤，也不会覆盖任何现有步骤。"
+        recommendation = ("请先核对关联任务中的步骤列表。记录中如果有步骤名称，请与现有步骤对照："
+                          "若已有对应步骤，不要重复创建；若确实缺少且内容需要保留，请通过任务详情正常新增。"
+                          "核对后可选择“确认保留，不写入”。")
+    elif category == "task_lifecycle_requires_user":
+        operation = "移入回收站" if action == "trash" else "从回收站恢复" if action == "restore" else "永久删除"
+        summary = f"这条记录尝试对任务执行“{operation}”，但没有满足工作台要求的用户确认或版本条件。"
+        impact = "系统没有执行这项操作；任务和原始记录都保留着。"
+        recommendation = "请核对任务当前状态。如仍需操作，请从任务或回收站的正常入口重新执行；不要直接修改原始记录。"
+    elif category == "step_update_position":
+        summary = "这条步骤修改记录同时包含了不允许在普通修改中变更的排序信息。"
+        impact = "系统没有直接应用原始记录。若下方修复建议获你确认，系统只会保留允许的步骤内容，不会擅自调整步骤顺序。"
+        recommendation = "核对下方显示的任务、步骤和修改内容；确认无误后再授权并单独执行。"
+    elif category == "completion_confirmation_missing":
+        summary = "这条记录尝试把任务或步骤标记为已完成，但缺少你的明确确认。"
+        impact = "系统没有把它自动视为已完成，也没有替你确认完成。"
+        recommendation = "只有在你确认工作确实已经完成时，才授权这项修改；否则请选择保留原记录、不写入。"
+    elif category == "malformed_event":
+        summary = "这条记录的文件内容无法正确读取，系统无法可靠判断它原本要执行什么操作。"
+        impact = "系统没有应用这条记录；原始文件保留，其他可正常读取的数据不会被这条记录覆盖。"
+        recommendation = "不要手工修改原始文件。如果能从原始来源确认需要做什么，请通过正常任务或步骤界面重新录入；否则选择保留原记录、不写入。"
+    elif category == "sync_pending":
+        summary = "这条记录所关联的任务或步骤尚未完整同步到当前电脑。"
+        impact = "这通常表示同步尚未完成，不等于数据丢失；系统暂时不会对它进行修改。"
+        recommendation = "先等待 Google Drive 和其他电脑完成同步，再点击“重新扫描”。暂时不要授权修复或手工新建重复任务。"
+    elif category == "semantic_conflict":
+        summary = "同一任务或步骤存在互相冲突的版本，系统无法判断哪一个才是正确结果。"
+        impact = "相关数据已暂停自动处理，系统不会自行选择一个版本覆盖另一个版本。"
+        recommendation = "先核对各版本的实际内容和同步情况。无法确定正确版本时，请保留现状，不要执行修复。"
+    else:
+        summary = "这条记录不符合工作台的数据规则，系统已暂停应用它。"
+        impact = "原始记录仍保留；系统不会自动改写任务、步骤或项目内容。"
+        recommendation = "请核对关联任务、步骤和原始来源。若无法可靠判断正确内容，选择保留原记录、不写入。"
+    if proposal:
+        impact = "目前尚未修改任何业务数据。授权只记录你的决定；真正执行前，系统还会重新核对原始记录和当前版本。"
+        recommendation = "请核对下方的目标对象和修改内容。确认无误后先授权，再单独执行；如有疑问，可暂不修复并保留原始记录。"
+    elif proposal_block_reason and category != "invalid_step_reference":
+        if "修订号" in proposal_block_reason or "前序" in proposal_block_reason:
+            recommendation = "当前任务或步骤已有更新。为避免旧内容覆盖新内容，请先按顺序处理同一任务或步骤中更早的事项，再重新扫描。"
+        elif "回收站" in proposal_block_reason:
+            recommendation = "任务在原记录之后已有更新。若仍需移入回收站，请从当前任务的正常操作入口重新执行。"
+        elif "冲突" in proposal_block_reason:
+            recommendation = "相关任务或步骤存在版本冲突。请先核对并解决冲突；在此之前不要授权写入。"
+        else:
+            recommendation = "系统暂时无法确认安全的处理方式。请先核对关联任务和原始来源；如无法确认，保留原记录、不写入。"
+    return {"summary": summary, "impact": impact, "recommendation": recommendation}
 
 
 def _build_review_proposal(data_dir: Path, anomaly: dict, workspace: dict) -> dict | None:
@@ -1365,13 +1438,11 @@ def _build_review_proposal(data_dir: Path, anomaly: dict, workspace: dict) -> di
     except (ValueError, TypeError):
         return None
     proposal_hash = _canonical_hash({"folder": folder, "event": event_fields})
-    target = {"task_id": task_id}
+    target = {"task_id": task_id, "task_title": task.get("title", "")}
     if "step_id" in event_fields:
         target["step_id"] = event_fields["step_id"]
         target["step_title"] = next((item["title"] for item in task["steps"]
                                      if item["step_id"] == event_fields["step_id"]), "")
-    else:
-        target["task_title"] = task.get("title", "")
     return {
         "target_folder": folder, "target": target, "event": event_fields,
         "proposal_sha256": proposal_hash,
@@ -1466,6 +1537,18 @@ def list_data_reviews(data_dir: Path, workspace: dict | None = None) -> dict:
             "can_dismiss": bool(status in {"pending", "authorized", "failed", "stale"}
                                 and anomaly["source_present"] and not (state and state["status"] == "conflict")),
         })
+        task = next((candidate for candidate in workspace.get("tasks", [])
+                     if candidate.get("task_id") == item.get("task_id")), None)
+        item["task_title"] = task.get("title") if task else None
+        source_event = item.get("source_event")
+        changes = source_event.get("changes", {}) if isinstance(source_event, dict) else {}
+        item["recorded_step_title"] = (
+            changes.get("title") if isinstance(changes, dict) and isinstance(changes.get("title"), str) else None
+        )
+        current_step = next((candidate for candidate in (task or {}).get("steps", [])
+                             if candidate.get("step_id") == item.get("step_id")), None)
+        item["step_title"] = current_step.get("title") if current_step else None
+        item["user_guidance"] = _review_user_guidance(item, proposal, proposal_block_reason)
         items.append(item)
     # Keep an audit trail visible even if a synced source file later disappears.
     for anomaly_id, state in states.items():
