@@ -39,3 +39,9 @@
 - 新增 Node 测试覆盖同任务同步骤聚合、不同步骤隔离、未知对象不合并、每条异常独立选择、内部编号不显示及统计不重叠。
 
 - 首次分组回归 run 41771911358 的 Node UI 测试发现：测试没有调用 loadReviews 加载 mock 数据，且统计文本断言未考虑文本节点空格。已修正测试为真实调用 loadReviews，并用精确文本比较；该失败未指向产品运行逻辑，仍以修复后新 SHA CI 为准。
+
+## 最终回归
+- 最终产品/测试 SHA：`cedf8b9c7c2e6a87bbcf23450b32eeabd918823b`。
+- [GitHub Actions #41772135553](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41772135553)：3/3 SUCCESS；Ubuntu Python+Node、Windows Python+Node、Windows real-app + Chromium updater E2E 3 PASS、工作台 UI E2E 7 PASS（包含数据治理流程）。
+- 首轮分组 Node 测试失败为测试夹具未加载 mock review 数据及文本空格断言问题，已修复；未改动治理 API 或业务数据。
+- PR #28 保持 Draft / Open，等待用户是否发布；不代表公司本机已升级。

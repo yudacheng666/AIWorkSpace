@@ -516,7 +516,7 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 
 - 最终候选 PR：#28（https://github.com/yudacheng666/AIWorkSpace/pull/28），准确 head SHA d23d050701ff831a81fe2b9282857ca1fc606c26；GitHub Actions run 41770447630 对该 SHA 的 Linux Python、Windows Python、Windows real-app + Chromium E2E 三个 jobs 全部 PASS。
 - Windows Chromium E2E 已调整为验证“技术详情默认折叠、用户主动展开后仍可查看原始 JSON”，并验证新授权按钮文案；原先旧测试仍要求 JSON 默认显示和旧按钮文案，首次 CI 因测试断言过时而失败，已更新 E2E 后完整复验通过。
-- 当前 PR 仍为 Draft / Open，未合并 main、未发布、未部署；真实工作台中的 5 项异常和其他业务数据未读取、未写入、未删除。
+- 当前 PR 仍为 Draft / Open，未合并 main、未发布、未部署；本轮不访问真实工作台数据；此前真实数据层核查/修复记录见本文件 2026-11-03 专项记录。
 
 - 最终分支 head 已推进至 277044654d2c0d1e52d5259c96374e2f4d47062d（含最后的文档/会话记录提交）；GitHub Actions run 41770691637 对这一准确 SHA 再次完整通过：Linux Python、Windows Python、Windows real-app + Chromium E2E 全部 SUCCESS。PR #28 仍为 Draft / Open。
 
@@ -527,3 +527,5 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - 仅修改展示逻辑、Node UI 测试和项目文档；不改变后端事件模型、授权 API、业务事件或任何真实工作台数据。现有 2.0.8 候选的 Linux/Windows/Chromium CI 已对前一 SHA 通过；本次新增改动等待新准确 SHA 的 GitHub Actions 回归。
 
 - 本轮首次回归 Actions #41771911358 的 Ubuntu UI 测试发现测试夹具未调用 loadReviews，导致分组列表为空；统计文案断言未考虑测试 DOM 的文本节点空格。属于新增测试自身问题，已按真实页面加载路径修正，等待下一准确 SHA 的完整回归。
+- **最终回归通过**：产品/测试准确 SHA `cedf8b9c7c2e6a87bbcf23450b32eeabd918823b` 的 [Actions #41772135553](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41772135553) 3/3 SUCCESS：Ubuntu Python+Node、Windows Python+Node、Windows real-app + Chromium 更新/回滚 3 PASS、工作台 UI E2E 7 PASS（含数据核查授权/执行/追踪真实浏览器流程）。首轮 Node 测试夹具问题已修正，未重复执行旧 SHA 的测试。
+- **当前发布边界**：PR #28 仍 Draft / Open；未合并 main、未发布、未部署公司 Windows 8770；本轮没有读取、写入或删除任何真实工作台业务数据。下一步等待用户决定是否将 2.0.8 候选合入 main。

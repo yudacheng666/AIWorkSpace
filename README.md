@@ -1,4 +1,4 @@
-> **2.0.8 数据异常处理界面改进（候选）**：基于正式 main/VERSION=2.0.7，默认用业务语言说明异常原因、工作台影响、建议处理方式和可读修复预览；原始 JSON、内部编号及 SHA-256 收入默认折叠的技术详情；同一任务/步骤下的多条异常聚合展示，展开后仍逐条独立处理；待核对、已授权待执行、已修复、已确认保留采用互斥统计。无法识别的步骤编号不会被猜测或自动改绑。候选 PR #28；首轮候选的 Linux Python、Windows Python、Windows Chromium CI 已通过，本轮聚合改动的首次 UI 测试发现测试夹具问题，已修正并等待新 SHA 回归。尚未合并、未部署，本轮不访问真实工作台数据。
+> **2.0.8 数据异常处理界面改进（候选）**：基于正式 main/VERSION=2.0.7，默认用业务语言说明异常原因、工作台影响、建议处理方式和可读修复预览；原始 JSON、内部编号及 SHA-256 收入默认折叠的技术详情；同一任务/步骤下的多条异常聚合展示，展开后仍逐条独立处理；待核对、已授权待执行、已修复、已确认保留采用互斥统计。无法识别的步骤编号不会被猜测或自动改绑。候选 PR #28；最终产品/测试 SHA `cedf8b9c7c2e6a87bbcf23450b32eeabd918823b` 的 [Actions #41772135553](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41772135553) 3/3 SUCCESS：Ubuntu Python+Node、Windows Python+Node、Windows Chromium 更新/回滚 3 PASS 与工作台 UI E2E 7 PASS（含数据核查流程）。首轮新增测试的夹具问题已修正。PR 仍为 Draft，未合并、未部署，本轮不访问真实工作台数据。
 
 # AIWorkSpace
 
