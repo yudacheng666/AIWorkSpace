@@ -312,10 +312,15 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         expect(page.locator("#review-list .review-list-item")).to_have_count(1)
         page.locator("#review-list .review-list-item").click()
         expect(page.locator("#review-detail .review-status.pending")).to_be_visible()
+        technical = page.locator("#review-detail .review-technical")
+        expect(technical).to_be_visible()
+        self.assertFalse(technical.evaluate("(element) => element.open"),
+                         "raw event details must be collapsed by default")
+        technical.locator("summary").click()
         expect(page.locator("#review-detail .review-code").first).to_contain_text("chatgpt")
 
         page.once("dialog", lambda dialog: dialog.accept())
-        page.get_by_role("button", name="确认核查并授权修复").click()
+        page.get_by_role("button", name="确认并授权修复").click()
         expect(page.locator("#review-detail .review-status.authorized")).to_be_visible()
         self.assertIsNone(read_workspace(self.data_dir, include_trashed=True)["tasks"][0]["trashed_at"])
 
