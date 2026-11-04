@@ -326,6 +326,21 @@
     .task-summary-copy-feedback { min-height:11px; color:#24754f; font-size:9px; }
     .task-summary-meta { min-width: 0; overflow: hidden; color: #738198; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
     .status-pill, .priority-pill { display: inline-flex; justify-self: start; align-items: center; min-height: 23px; padding: 0 8px; border-radius: 6px; background: #f0f3f7; color: #64748b; font-size: 10px; font-weight: 650; white-space: nowrap; }
+    .task-quick-editor { position:relative; min-width:0; justify-self:start; }
+    .task-quick-trigger { border:1px solid transparent; cursor:pointer; font:inherit; font-weight:650; transition:border-color .14s, box-shadow .14s; }
+    .task-quick-trigger::after { content:"⌄"; margin-left:6px; font-size:12px; opacity:.68; }
+    .task-quick-trigger:hover:not(:disabled),.task-quick-trigger[aria-expanded="true"] { border-color:#a5bce0; box-shadow:0 0 0 2px #dbe8fb88; }
+    .task-quick-trigger:focus-visible { outline:2px solid #2b64c8; outline-offset:2px; }
+    .task-quick-trigger:disabled { cursor:not-allowed; opacity:.7; }
+    .task-quick-menu { position:absolute; z-index:42; top:calc(100% + 6px); left:0; display:grid; gap:3px; min-width:134px; padding:5px; border:1px solid #dce5f0; border-radius:9px; background:#fff; box-shadow:0 9px 26px #182a4a22; }
+    .task-quick-menu[hidden] { display:none; }
+    .task-quick-editor--priority .task-quick-menu { right:0; left:auto; }
+    .task-quick-option { display:flex; align-items:center; justify-content:space-between; width:100%; min-height:30px; padding:5px 10px; border:0; border-radius:6px; background:transparent; color:#3f5068; font-size:12px; text-align:left; cursor:pointer; white-space:nowrap; }
+    .task-quick-option:hover,.task-quick-option:focus-visible { background:#edf4ff; color:#245a9e; }
+    .task-quick-option.is-selected::after { content:"✓"; color:#2467bd; font-weight:700; }
+    .task-quick-feedback { position:absolute; z-index:43; top:calc(100% + 5px); left:0; width:max-content; max-width:230px; padding:7px 9px; border:1px solid #e9d6ab; border-radius:7px; background:#fffaf0; color:#8e6421; box-shadow:0 7px 18px #182a4a18; font-size:11px; line-height:1.5; white-space:normal; }
+    .task-quick-feedback[hidden] { display:none; }
+    .task-quick-feedback.is-error { border-color:#edc2bd; background:#fff3f1; color:#a33d33; }
     .status-pill.doing { background: #eaf2ff; color: #2863c6; }
     .status-pill.done { background: #e8f6ef; color: #18805b; }
     .status-pill.blocked, .status-pill.conflict { background: #fff0ee; color: #bf4540; }
@@ -405,7 +420,7 @@
       .wrap { min-width:0;max-width:100%; padding:22px 15px 40px; }
       .page-heading h1 { font-size: 23px; }
       .task-summary { grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
-      .task-summary-meta, .task-summary-due, .priority-pill { display: none; }
+      .task-summary-meta, .task-summary-due { display: none; }
       .task-open { grid-column: 2; grid-row: 2; }
       .project-list { grid-template-columns: 1fr; }
     }
@@ -1870,6 +1885,122 @@
       return panel;
     }
 
+    let openTaskQuickMenu = null;
+    let taskQuickDismissInstalled = false;
+    function closeTaskQuickMenu() {
+      if (!openTaskQuickMenu) return;
+      openTaskQuickMenu.menu.hidden = true;
+      openTaskQuickMenu.trigger.setAttribute("aria-expanded", "false");
+      openTaskQuickMenu = null;
+    }
+    function installTaskQuickDismiss() {
+      if (taskQuickDismissInstalled || typeof document.addEventListener !== "function") return;
+      taskQuickDismissInstalled = true;
+      document.addEventListener("click", event => {
+        if (openTaskQuickMenu && !openTaskQuickMenu.root.contains(event.target)) closeTaskQuickMenu();
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape") closeTaskQuickMenu();
+      });
+    }
+    function quickFieldFeedback(node, message, error = false) {
+      node.className = "task-quick-feedback" + (error ? " is-error" : "");
+      node.textContent = message;
+      node.hidden = !message;
+      node.role = "status";
+      node.ariaLive = "polite";
+    }
+    async function updateTaskQuickField(task, field, value, feedback) {
+      if (isSaving || task.conflict || !["status", "priority"].includes(field)) return false;
+      const choices = field === "status" ? labels : priorities;
+      if (!Object.prototype.hasOwnProperty.call(choices, value)) return false;
+      if (value === (field === "status" ? task.status : (task.priority || "normal"))) return false;
+      if (unsavedTaskEditors.size || unsavedProjectEditors.size || unsavedPersistentEditors.size) {
+        quickFieldFeedback(feedback, "有尚未保存的草稿，请先保存或取消草稿后重试。", true);
+        return false;
+      }
+      if (field === "status" && (task.status_rollup_incomplete ||
+          task.step_order_incomplete || task.step_order_conflict || task.parent_missing)) {
+        quickFieldFeedback(feedback, "下级状态或同步信息不完整，请先打开任务详情核查。", true);
+        return false;
+      }
+      if (field === "status" && value === "done" &&
+          !window.confirm("确认亲自将此任务标记为已完成？此操作会保存一条完成记录。")) return false;
+      const payload = {title: task.title, revision: task.revision, [field]: value};
+      if (field === "status" && value === "done") payload.confirmed_done = true;
+      isSaving = true;
+      quickFieldFeedback(feedback, "正在保存…");
+      try {
+        const response = await fetch("/api/tasks/" + encodeURIComponent(task.task_id) + "/update", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          if (response.status === 409) throw new Error("任务已在别处更新或存在冲突，请刷新后重试");
+          throw new Error(result.error || "操作未完成");
+        }
+        quickFieldFeedback(feedback, "");
+        await refresh(true);
+        setRefreshStatus("快速修改已保存 · 页面已刷新");
+        return true;
+      } catch (error) {
+        quickFieldFeedback(feedback, "保存失败：" + error.message, true);
+        return false;
+      } finally {
+        isSaving = false;
+      }
+    }
+    function taskQuickField(task, field) {
+      const isStatus = field === "status";
+      const choices = isStatus ? labels : priorities;
+      const value = isStatus ? task.status : (task.priority || "normal");
+      const unsafeStatus = isStatus && (task.status_rollup_incomplete ||
+        task.step_order_incomplete || task.step_order_conflict || task.parent_missing);
+      const disabled = !!(task.conflict || unsafeStatus);
+      const wrapper = element("div", "task-quick-editor task-quick-editor--" + field);
+      const trigger = element("button",
+        (isStatus ? "status-pill " : "priority-pill ") +
+          (task.conflict && isStatus ? "conflict" : value) + " task-quick-trigger",
+        isStatus && task.conflict ? "需要人工核查" : (choices[value] || "未知"));
+      trigger.type = "button";
+      trigger.disabled = disabled;
+      trigger.setAttribute("aria-expanded", "false");
+      trigger.setAttribute("aria-haspopup", "true");
+      trigger.setAttribute("aria-label", "修改任务" + (isStatus ? "状态" : "优先级") + "：" + trigger.textContent);
+      trigger.title = disabled
+        ? "存在冲突或联动数据不完整，请先在任务详情中核查"
+        : "点击快速修改任务" + (isStatus ? "状态" : "优先级");
+      const menu = element("div", "task-quick-menu");
+      menu.hidden = true;
+      menu.setAttribute("role", "group");
+      menu.setAttribute("aria-label", isStatus ? "选择任务状态" : "选择任务优先级");
+      const feedback = element("span", "task-quick-feedback");
+      feedback.hidden = true;
+      for (const [key, label] of Object.entries(choices)) {
+        const option = element("button", "task-quick-option" + (key === value ? " is-selected" : ""), label);
+        option.type = "button";
+        option.setAttribute("aria-label", "设为" + label);
+        option.addEventListener("click", async () => {
+          closeTaskQuickMenu();
+          await updateTaskQuickField(task, field, key, feedback);
+        });
+        menu.append(option);
+      }
+      trigger.addEventListener("click", () => {
+        if (disabled || isSaving) return;
+        if (openTaskQuickMenu?.trigger === trigger) { closeTaskQuickMenu(); return; }
+        closeTaskQuickMenu();
+        quickFieldFeedback(feedback, "");
+        installTaskQuickDismiss();
+        menu.hidden = false;
+        trigger.setAttribute("aria-expanded", "true");
+        openTaskQuickMenu = {root: wrapper, menu, trigger};
+      });
+      wrapper.append(trigger, menu, feedback);
+      return wrapper;
+    }
+
     function taskSummaryRow(task) {
       const card = element("article", "task-summary");
       const main = element("div", "task-summary-main");
@@ -1901,8 +2032,8 @@
         main,
         element("span", "task-summary-meta", projectName),
         element("span", "task-summary-meta", ownerName),
-        element("span", "status-pill " + statusClass, statusName),
-        element("span", "priority-pill " + priorityClass, priorityName),
+        taskQuickField(task, "status"),
+        taskQuickField(task, "priority"),
         element("span", "task-summary-due" + (overdue ? " is-overdue" : ""), dueDate)
       );
       const open = element("button", "task-open", "查看详情");
@@ -2540,6 +2671,7 @@
     }
 
     function renderTaskList() {
+      closeTaskQuickMenu();
       updateTaskViewControls();
       renderTaskColumnHeaders();
       const days = overviewDates();
