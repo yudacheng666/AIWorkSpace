@@ -1,15 +1,18 @@
 # AIWorkSpace｜当前项目状态
 
-## 2026-11-04：2.0.11 通知信箱改造候选（开发完成，等待准确 SHA 自动化验收）
+## 2026-11-04：2.0.11 通知信箱改造候选（最终 CI 通过，待合并）
 
 - **用户决定**：现有“数据异常处理”界面过于复杂，且当前页面没有内嵌 AI 或通用冲突修复能力；改为简洁的“通知信箱”，明确只负责告知，不假装能在此处解决冲突。
-- **基线**：main SHA `e4f0a7408eb1ce78dae5b8ff13d65e900201911f`，`VERSION=2.0.10`。开发分支 `feat/20261104-notification-inbox`，候选版本 `2.0.11`。
+- **基线与 PR**：main 基线 SHA `e4f0a7408eb1ce78dae5b8ff13d65e900201911f`，`VERSION=2.0.10`。分支 `feat/20261104-notification-inbox`；[PR #34](https://github.com/yudacheng666/AIWorkSpace/pull/34)，候选版本 `2.0.11`。最终产品/测试 SHA `d7c817713d86f27e654b2b882e2868f4f5a2b864`。
 - **界面实现**：侧栏“异常处理”改名“通知信箱”；移除技术统计卡片、任务/步骤聚合核查组、复杂双栏详情、原始 JSON/内部编号/哈希/英文错误展示，以及授权/执行/确认保留等修复操作。采用全宽消息列表，每条异常独立显示类型、状态、标题、摘要、可靠时间及已识别任务/步骤；详情折叠显示影响与建议；空状态简洁。首页提醒及侧栏待关注数字指向通知信箱。
-- **消息编号**：由现有稳定 `anomaly_id` 的 32 位十六进制部分确定性派生为 `MSG-YYMMDD-<12位大写十六进制>`，若短编号碰撞则显示完整 32 位哈希，不新增消息数据库/计数器；同一异常刷新后编号稳定，源文件内容变化生成新异常编号。
+- **消息编号**：由现有稳定 `anomaly_id` 的 32 位十六进制部分确定性派生为 `MSG-YYMMDD-<12位大写十六进制>`；若当前消息列表短编号碰撞，则扩展为完整 32 位哈希；来源无可靠时间时使用 `SYS` 日期段。不新增消息数据库/计数器；同一异常刷新后编号稳定，源文件内容变化生成新异常编号。
 - **后台与数据边界**：只调用现有只读 `GET /api/reviews`；`app.py`、API、事件 schema、review_events 审计链、原始事件、授权/执行安全校验均未修改。后端数据扫描和专门治理 API 保留，但不再暴露在普通通知页面。未读写或删除任何真实工作台/Google Drive 数据。
-- **修改文件**：`web/index.html`、Node UI shell 测试、Windows 真实 Chromium E2E、Actions workflow 测试步骤名称、`VERSION`、`REQUIREMENTS.md`、`DECISIONS.md`。
-- **当前测试状态**：已对生产内嵌 JavaScript 与 Node 测试 harness 做 V8 语法解析，均通过；这是静态语法检查，不等于产品回归 PASS。新增 Node 用例覆盖稳定编号、消息倒序、可读详情、无修复按钮、无内部技术信息、刷新只读；Windows E2E 覆盖真实 app.py + Chromium、原始事件哈希/字节不变、review_events 不新增。准确 SHA 的 GitHub Actions 尚待执行。
-- **下一步**：创建 PR，等待 Ubuntu/Windows Python+Node 与 Windows 真实 app.py + Chromium 完整 CI；失败则修复并以新准确 SHA 复测。全部通过后按用户“通过就合并”的授权正式合并。不得部署公司 Windows 8770 或触碰真实 Drive 数据。
+- **最终自动化验收**：[GitHub Actions #41792421545](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41792421545) 对准确 SHA `d7c817713d86f27e654b2b882e2868f4f5a2b864` **3/3 SUCCESS**：
+  - Ubuntu Python：173 tests；Node UI：81 PASS。
+  - Windows Python：173 tests；Node UI：81 PASS。
+  - Windows 真实 app.py + Chromium：更新/回滚 3 PASS；工作台 UI E2E 11 PASS，其中通知信箱专项验证消息编号稳定、没有修复按钮、刷新不修改异常源文件且不新增 review_events。
+- **首轮失败及修正**：首次 CI 的 Node 测试夹具未模拟 DOM 的 `details.open` 默认值，导致 1 条断言失败；Windows 真实 Chromium 当轮已通过。修正测试夹具断言后，在新准确 SHA 上完整重跑，最终全部通过；没有为追求通过而修改产品安全规则。
+- **合并状态**：所有必需 CI 已通过；PR #34 已具备合并条件，待从 Draft 转为 Ready 并标准合并。不得部署公司 Windows 8770 或触碰真实 Drive 数据。
 
 
 ## 2026-11-04：2.0.10 已正式发布 — 任务列表与步骤文档交互优化
