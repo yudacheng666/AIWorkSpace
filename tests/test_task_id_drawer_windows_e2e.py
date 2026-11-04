@@ -490,6 +490,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
 
         page.locator("#review-refresh").click()
         expect(page.locator("#review-list .inbox-message")).to_have_count(1)
+        expect(page.locator(".inbox-message-id")).to_have_text(message_id)
         self.assertEqual(page.locator(".inbox-message-id").inner_text(), message_id,
                          "message ID must remain stable after a read-only refresh")
         self.assertEqual(source.read_bytes(), original,
