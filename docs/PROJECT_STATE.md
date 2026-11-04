@@ -595,3 +595,14 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - 本轮首次回归 Actions #41771911358 的 Ubuntu UI 测试发现测试夹具未调用 loadReviews，导致分组列表为空；统计文案断言未考虑测试 DOM 的文本节点空格。属于新增测试自身问题，已按真实页面加载路径修正，等待下一准确 SHA 的完整回归。
 - **最终回归通过**：产品/测试准确 SHA `cedf8b9c7c2e6a87bbcf23450b32eeabd918823b` 的 [Actions #41772135553](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41772135553) 3/3 SUCCESS：Ubuntu Python+Node、Windows Python+Node、Windows real-app + Chromium 更新/回滚 3 PASS、工作台 UI E2E 7 PASS（含数据核查授权/执行/追踪真实浏览器流程）。首轮 Node 测试夹具问题已修正，未重复执行旧 SHA 的测试。
 - **当前发布边界**：PR #28 仍 Draft / Open；未合并 main、未发布、未部署公司 Windows 8770；本轮没有读取、写入或删除任何真实工作台业务数据。下一步等待用户决定是否将 2.0.8 候选合入 main。
+
+
+
+## 2026-11-04：2.0.10 正式合并发布
+
+- 用户明确批准最新合并，并补充长期规则：若合并前分别提出多项改进且均已通过测试，应审计并一并纳入，不得只合并最新一个 PR。
+- 开发规则复核：完整读取 AGENTS.md、README.md、docs/REQUIREMENTS.md、docs/PROJECT_STATE.md、docs/DECISIONS.md。按要求核对所有开放 PR；本次唯一开放 PR 为 #33，包含步骤文档折叠、任务名称直达详情、任务编号点击复制、已完成任务置底四项，均按同一候选验收。
+- PR #33 转为 Ready 后，以 GitHub 标准 Merge 合并；最终 head SHA `31a720d0f226bedb98653fb224cb9450a98aa389`，对应 Actions #41784404642 **3/3 SUCCESS**；merge SHA `0ec256205bf47a7ee36ae74d3a638a3bb71ef44b`。
+- 已复核 main 的 `VERSION=2.0.10`，PR #33 已合并，开放 PR 搜索结果为 0。
+- 本轮仅合并 GitHub 代码；未升级公司 Windows 8770，未读取、写入或删除真实 Google Drive 任务、步骤或 review_events 数据。
+- **下一步**：如需在公司电脑使用 2.0.10，另行进行备份和部署确认；本次合并授权不等于本机自动升级或真实数据操作授权。
