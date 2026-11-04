@@ -2677,12 +2677,6 @@
       status.title = message;
     }
 
-    function setRefreshStatus(message) {
-      const status = $("sync");
-      status.textContent = message;
-      status.title = message;
-    }
-
     async function refresh(force = false, allowDiscard = false) {
       if (isSaving && !force) return;
       if (unsavedTaskEditors.size) {
