@@ -2902,9 +2902,9 @@
         details.append(element("summary", "", "查看详情"));
         const detailContent = element("div", "inbox-message-detail-content");
         const impact = element("p");
-        impact.append(element("strong", "", "影响："), document.createTextNode(notificationImpact(item)));
+        impact.append(element("strong", "", "影响："), element("span", "", notificationImpact(item)));
         const recommendation = element("p");
-        recommendation.append(element("strong", "", "建议："), document.createTextNode(notificationRecommendation(item)));
+        recommendation.append(element("strong", "", "建议："), element("span", "", notificationRecommendation(item)));
         detailContent.append(impact, recommendation);
         details.append(detailContent);
         article.append(details);
