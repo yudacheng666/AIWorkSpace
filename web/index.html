@@ -75,8 +75,14 @@
     .step-actions button:disabled { opacity: .4; cursor: not-allowed; }
     .step-actions .step-delete { border-color: #efd4d4; color: #b34949; }
     .step-actions .step-delete:hover:not(:disabled) { background: #fff2f2; border-color: #dfa2a2; }
-    .step-content > .doc-panel { margin-top: 8px; padding: 12px; border: 1px solid #e6edf5; border-radius: 8px; background: #fff; }
-    .step-content > .doc-panel h3 { margin: 0 0 10px; color: #57708c; font-size: 12px; }
+    .step-content > .doc-panel { margin-top: 8px; }
+    .doc-panel-toggle { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; min-height:30px; padding:5px 9px; border:1px solid #e6edf5; border-radius:7px; background:#f8fafc; color:#57708c; font-size:11px; font-weight:650; text-align:left; cursor:pointer; }
+    .doc-panel-toggle::after { content:"⌄"; color:#8293a9; font-size:12px; }
+    .doc-panel-toggle.is-expanded::after { content:"⌃"; }
+    .doc-panel-toggle:hover { border-color:#c8d8ec; background:#f2f6fc; }
+    .doc-panel-toggle:focus-visible { outline:2px solid #2b64c8; outline-offset:2px; }
+    .doc-panel-content { margin-top:7px; padding:10px 12px; border:1px solid #e6edf5; border-radius:8px; background:#fff; }
+    .doc-panel-content[hidden] { display:none; }
     .step-add-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; margin-top: 12px; }
     .step-add-form input { min-width: 0; }
     .child-tasks-panel { margin-top: 17px; padding-top: 15px; border-top: 1px solid #edf1f6; }
@@ -309,7 +315,15 @@
     .task-summary:hover { border-color: #c5d4e9; background: #fcfdff; box-shadow: 0 3px 12px #1c34570a; }
     .task-summary-main { min-width: 0; display: grid; gap: 4px; }
     .task-summary-title { overflow-wrap: anywhere; color: #263a57; font-size: 12px; font-weight: 680; line-height: 1.45; }
+    .task-summary-title-open { display:block; width:100%; padding:0; border:0; background:transparent; text-align:left; cursor:pointer; }
+    .task-summary-title-open:hover { color:var(--blue); }
+    .task-summary-title-open:focus-visible { outline:2px solid #2b64c8; outline-offset:2px; border-radius:3px; }
     .task-summary-id { color: #a0a9b6; font-size: 9px; letter-spacing: .15px; }
+    .task-summary-id-copy { display:inline-flex; width:fit-content; padding:0; border:0; background:transparent; color:inherit; text-align:left; cursor:copy; }
+    .task-summary-id-copy::after { content:" ⧉"; color:#9aa8ba; font-size:10px; }
+    .task-summary-id-copy:hover { color:#4779bf; }
+    .task-summary-id-copy:focus-visible { outline:2px solid #2b64c8; outline-offset:2px; border-radius:3px; }
+    .task-summary-copy-feedback { min-height:11px; color:#24754f; font-size:9px; }
     .task-summary-meta { min-width: 0; overflow: hidden; color: #738198; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
     .status-pill, .priority-pill { display: inline-flex; justify-self: start; align-items: center; min-height: 23px; padding: 0 8px; border-radius: 6px; background: #f0f3f7; color: #64748b; font-size: 10px; font-weight: 650; white-space: nowrap; }
     .status-pill.doing { background: #eaf2ff; color: #2863c6; }
@@ -1791,10 +1805,23 @@
 
     function documentPanel(task, step) {
       const panel = element("section", "doc-panel");
-      panel.append(element("h3", "", "步骤关联文档 · Google Drive"));
-      const message = element("p", "message");
       const links = Array.isArray(step.document_links) ? step.document_links : [];
-      if (!links.length) panel.append(element("p", "hint", "未关联文档。这里只存储云端链接，不会复制文件。"));
+      const toggle = element("button", "doc-panel-toggle");
+      toggle.type = "button";
+      const body = element("div", "doc-panel-content");
+      body.hidden = true;
+      const updateToggle = () => {
+        toggle.textContent = links.length ? "关联文档（" + links.length + "）" : "添加文档";
+        toggle.className = "doc-panel-toggle" + (body.hidden ? "" : " is-expanded");
+        toggle.title = body.hidden ? "展开步骤文档" : "收起步骤文档";
+      };
+      toggle.addEventListener("click", () => {
+        body.hidden = !body.hidden;
+        updateToggle();
+      });
+      updateToggle();
+      panel.append(toggle, body);
+      const message = element("p", "message");
       for (const item of links) {
         const row = element("div", "doc-row");
         const anchor = element("a", "", item.title);
@@ -1807,7 +1834,7 @@
           if (!window.confirm("确认取消关联「" + item.title + "」？不会删除 Google Drive 原文档。")) return;
           updateDocumentLinks(task, step, links.filter(link => link.url !== item.url), message);
         });
-        row.append(remove); panel.append(row);
+        row.append(remove); body.append(row);
       }
       const form = element("form", "doc-add-form");
       const nameLabel = element("label", "", "文档名称");
@@ -1832,8 +1859,8 @@
         const success = await updateDocumentLinks(task, step, [...links, next], message, form);
         if (!success) return; // Draft preservation and safe refresh are handled above.
       });
-      panel.append(form, message);
-      panel.append(element("p", "hint", "文档权限保持原样。AI 能否读取取决于已连接 Google Drive 的文件访问权限。"));
+      body.append(form, message);
+      body.append(element("p", "hint", "只保存云端链接，不会复制文件；文档权限保持原样。AI 能否读取取决于已连接 Google Drive 的文件访问权限。"));
       return panel;
     }
 
@@ -1885,10 +1912,21 @@
     function taskSummaryRow(task) {
       const card = element("article", "task-summary");
       const main = element("div", "task-summary-main");
-      main.append(
-        element("strong", "task-summary-title", (task.parent_task_id ? "↳ " : "") + (task.title || "未命名任务")),
-        element("small", "task-summary-id", taskDisplayId(task))
-      );
+      const title = element("button", "task-summary-title task-summary-title-open",
+        (task.parent_task_id ? "↳ " : "") + (task.title || "未命名任务"));
+      title.type = "button";
+      title.title = "打开任务详情";
+      title.addEventListener("click", () => openTaskDetail(task.task_id));
+      const id = element("button", "task-summary-id task-summary-id-copy", taskDisplayId(task));
+      id.type = "button";
+      id.title = "点击复制任务编号";
+      id.ariaLabel = "复制任务编号 " + taskDisplayId(task);
+      const copyFeedback = element("small", "task-summary-copy-feedback", "");
+      copyFeedback.hidden = true;
+      copyFeedback.role = "status";
+      copyFeedback.ariaLive = "polite";
+      id.addEventListener("click", () => copyTaskSummaryId(task, copyFeedback));
+      main.append(title, id, copyFeedback);
       const projectName = task.project_name || (task.project_id ? "项目未同步／需核查" : "未归类／收件箱");
       const ownerName = task.owner || "未指派";
       const statusName = task.conflict ? "需要人工核查" : (labels[task.status] || "未知状态");
@@ -1911,6 +1949,18 @@
       open.addEventListener("click", () => openTaskDetail(task.task_id));
       card.append(open);
       return card;
+    }
+
+    async function copyTaskSummaryId(task, feedback) {
+      try {
+        const clipboard = globalThis.navigator?.clipboard;
+        if (!clipboard?.writeText) throw new Error("clipboard unavailable");
+        await clipboard.writeText(taskDisplayId(task));
+        feedback.textContent = "已复制";
+      } catch (_) {
+        feedback.textContent = "复制失败";
+      }
+      feedback.hidden = false;
     }
 
     function renderTaskDetail(taskId) {
@@ -2375,6 +2425,10 @@
       return String(a.task_id || "").localeCompare(String(b.task_id || ""));
     }
 
+    function isCompletedTask(task) {
+      return !task.conflict && task.status === "done";
+    }
+
     function columnHasFilter(field) {
       if (field === "title") return !!columnFilters.title;
       if (field === "due") return !!(columnFilters.due.from ||
@@ -2533,15 +2587,21 @@
         matchesQuery(task, appliedQuery) &&
         (taskViewMode !== "list" || matchesColumnFilters(task)));
       const sortMode = $("task-sort").value || "project";
+      const sortWithCompletedLast = compare => visible.sort((a,b) =>
+        (taskViewMode === "list"
+          ? Number(isCompletedTask(a)) - Number(isCompletedTask(b)) : 0) || compare(a,b));
       if (taskViewMode === "list" && columnSorts.length) {
-        visible.sort((a,b) => compareTaskColumns(a,b));
+        sortWithCompletedLast((a,b) => compareTaskColumns(a,b));
       } else if (sortMode === "due") {
-        visible.sort((a, b) => (a.due_date || "9999-99-99").localeCompare(b.due_date || "9999-99-99"));
+        sortWithCompletedLast((a,b) =>
+          (a.due_date || "9999-99-99").localeCompare(b.due_date || "9999-99-99"));
       } else if (sortMode === "priority") {
         const rank = {urgent: 3, high: 2, normal: 1, low: 0};
-        visible.sort((a, b) => (rank[b.priority || "normal"] || 0) - (rank[a.priority || "normal"] || 0));
+        sortWithCompletedLast((a,b) =>
+          (rank[b.priority || "normal"] || 0) - (rank[a.priority || "normal"] || 0));
       } else if (sortMode === "title") {
-        visible.sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), "zh-CN"));
+        sortWithCompletedLast((a,b) =>
+          String(a.title || "").localeCompare(String(b.title || ""), "zh-CN"));
       }
       $("query-result-count").textContent = `（${visible.length} / ${current.length}）`;
       const list = $("tasks");
@@ -2580,8 +2640,10 @@
         renderOpenTaskDetail();
         return;
       }
+      const completed = visible.filter(isCompletedTask);
+      const active = visible.filter(task => !isCompletedTask(task));
       const groups = new Map();
-      for (const task of visible) {
+      for (const task of active) {
         const key = task.project_id || "";
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key).push(task);
@@ -2596,14 +2658,23 @@
         else if (!currentProjects.some(project => project.project_id === key))
           ordered.push([key, "项目未同步 / 需核查", tasks]);
       }
-      list.replaceChildren(...ordered.map(([key, name, tasks]) => {
+      const sections = ordered.map(([key, name, tasks]) => {
         const group = element("section", "project-group");
         const head = element("div", "project-group-head");
         head.append(element("strong", "", name),
                     element("span", "", `${tasks.length} 项任务`));
         group.append(head, ...tasks.map(taskSummaryRow));
         return group;
-      }));
+      });
+      if (completed.length) {
+        const group = element("section", "project-group");
+        const head = element("div", "project-group-head");
+        head.append(element("strong", "", "已完成"),
+                    element("span", "", `${completed.length} 项任务`));
+        group.append(head, ...completed.map(taskSummaryRow));
+        sections.push(group);
+      }
+      list.replaceChildren(...sections);
       renderOpenTaskDetail();
     }
 
