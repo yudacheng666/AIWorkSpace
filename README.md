@@ -1,6 +1,6 @@
 # AIWorkSpace
 
-> **当前正式版本 2.0.8；下一候选版本 2.0.9（开发中）**：本轮将此前未合并的父子任务状态联动（原 PR #20）与刷新状态移至侧栏底部（原 PR #22）重新基于当前 main 整合，候选 PR #31。当前基线 main SHA db6115d9bdecf028d651f5495d92f1b5732c1144；通过准确 SHA 的 GitHub Actions 前不视为验收通过或正式发布。2.0.8 的数据异常处理和回收站视觉已由 PR #30 发布。
+> **当前正式版本 2.0.9（2026-11-04）**：用户批准补齐遗漏的父子任务状态联动和侧栏刷新状态修复，已通过 [PR #31](https://github.com/yudacheng666/AIWorkSpace/pull/31) GitHub 标准 Merge 正式发布（merge SHA `a1f681f9fb18982870741484a4d717979e1bb77d`）。候选准确 HEAD `d71456401e886b53c0f96ba76fbe03c040311186` 的 [Actions #41780863683](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41780863683) 与合并后 main [Actions #41781106338](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41781106338) 均 3/3 SUCCESS。旧 PR #8/#13/#14/#19/#20/#22 已逐项解释并关闭（旧方案/历史资料不重复合并），目前无遗留开放 PR。GitHub 发布不等于真实 Windows 或 Drive 数据已升级。
 
 
 > **2.0.7 更新修复（2026-11-04）**：[PR #27](https://github.com/yudacheng666/AIWorkSpace/pull/27) 已获用户合并发布授权，`VERSION=2.0.7`；发布以 PR merged 状态为准。增加 GitHub 短暂网络失败的有限自动重试、固定提交 VERSION 的官方备用读取和明确错误提示，并修复重复句号。企业网络根因未实测；GitHub 发布不会自动升级本机，可在工作台检查更新后手动安装。以下 2.0.6 与更早章节为历史记录。
