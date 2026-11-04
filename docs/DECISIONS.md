@@ -86,3 +86,8 @@
 | D-20261103-DG-04（2.0.6 修订顺序保护候选验收） | 独立 Draft PR #24 基于 main 2.0.5，VERSION=2.0.6。最终候选 SHA `49ac4c3f27adceba63fd942fbcd79af0e955fe76` 的 Actions #41598685352 3/3 SUCCESS：Ubuntu Python 153 total / 141 PASS / 12 SKIP、Node 68 PASS；Windows Python 153 total / 143 PASS / 10 SKIP、Node 68 PASS；Windows Chromium 更新/回滚 3 PASS、工作台 UI E2E 7 PASS。CI 通过不等于用户批准合并；PR #24 保持 Draft，等待另行授权。 | 通过准确 SHA 的自动化验收后，仍按项目规则由用户决定是否将独立安全修复发布到 main。 |
 
 | D-20261103-DG-05（用户授权并发布 2.0.6） | 用户于 2026-11-03 明确要求“遵守项目规则，发布最新版本”，授权对已完成准确 HEAD Actions 的最新 2.0.6 候选 PR #24 正常发布。ChatGPT 核对 PR HEAD `352c7f3854a72ed5a28343a248bdbd658ff17ddb`、Actions #41599009901 **3/3 SUCCESS**、变更及公开仓库敏感信息检查后，将 Draft 改为 Ready，并以 GitHub 标准 Merge 合入 main，返回 merge SHA `2fca238e8e1fd635161d1b0f3a52961e8d982f67`；复核 `main/VERSION=2.0.6`。合并后 main push Actions #41609836093 已独立核实 3/3 SUCCESS。此授权不涵盖公司 Windows 8770 升级、实际 Google Drive 数据写入或六项异常的自动修复；PR #19/#20/#22 未合并。 | 按用户发布指令与准确 SHA 验收将安全修复正式纳入主干，同时保留实机部署、Drive 数据和逐项人工审核独立授权边界，避免旧文件仍将已发布候选记作等待批准。 |
+
+
+## 2026-11-04：更新网络失败的有限重试与官方固定提交备用读取
+
+用户要求解决更新检查间歇失败。采用有界退避和具体错误分类；保留系统代理与证书校验，拒绝第三方镜像及缓存授权安装。raw VERSION 不可达可从 GitHub contents API 读取精确相同 commit 的文件，安装仍在线复核 main。公司网络根因未实测，不宣称 DNS 或代理故障已证实。当前仅候选，正式发布与部署沿用既有批准门槛。
