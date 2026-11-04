@@ -1,5 +1,27 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-04：用户批准 PR #28 + #29 统一合入 2.0.8
+
+- 用户明确指示“一起合并到2.08”，本次仅包含数据异常处理页面 #28 与回收站主页视觉 #29，不包括父子任务联动 #20、刷新状态位置 #22 或旧回收站 PR #19。
+- 从已通过独立 CI 的 PR #28 和 #29 精确 HEAD 派生组合发布分支 `release/20261104-v2.0.8-review-trash`，使用双父提交保留两套开发与测试历史，按 29 的精确补丁整合到 28，保留 `VERSION=2.0.8`。
+- 对组合提交执行 GitHub Actions 3 项标准 job：Linux Python/Node、Windows Python/Node、Windows 真实 app.py+Chromium 更新/回滚及 UI。用户授权在验证全部通过且未见数据安全缺口后正常合并 GitHub main；不执行真实 Windows 8770 升级、Google Drive 真实数据读写、用户现有异常自动修复。
+- 历史候选状态见下文。以组合最终 SHA 对应 Actions 的真实结论和合并后 main SHA 为发布权威证据；禁止沿用两个独立 PR 的 CI 冒充组合测试。
+
+
+## 2026-11-04：回收站界面统一主页视觉（开发完成，等待用户体验与发布审批）
+
+- **用户反馈**：正式工作台回收站仍是窄容器、原生按钮和简单列表，与工作总览视觉割裂；用户明确要求修复并统一主页界面。
+- **开发记忆规则已复核**：本轮完整读取 AGENTS.md、README.md、REQUIREMENTS.md、PROJECT_STATE.md、DECISIONS.md；以 GitHub main、实际代码和准确 SHA 为准。GitHub Actions 为默认测试主力，ChatGPT 开发维护测试；不重复 Codex 已覆盖用例，不合并 main、不部署公司 Windows 8770、不访问真实 Drive 数据。
+- **历史原因**：旧回收站视觉 PR #19（分支 `feat/20261102-trash-polish`，HEAD `e40b80b055856e06037c80d8d979f20ff5178e7a`）仍为 Draft，且相对当前 main 已不可合并（mergeable=false）；其 CSS/测试从未进入正式 main。旧 PR 的 Actions #41453008757 只证明旧分支当时的测试范围，不证明当前正式版本已包含 UI。
+- **当前基线**：main SHA `c4817668730de6631c86877e93571bd5d4456e15`，`VERSION=2.0.7`。新分支 `fix/20261104-trash-ui-alignment` 从该 main 精确派生；不修改 VERSION，不覆盖 PR #28 的数据异常处理候选，不触碰真实业务数据。
+- **实现**：PR #29（[回收站界面统一主页视觉](https://github.com/yudacheng666/AIWorkSpace/pull/29)）使用与工作总览一致的统计卡片、全宽白色面板、蓝色主操作、次级恢复按钮和危险删除描边；自动清理与已删除任务分区；增加已删除/可恢复/冲突统计、任务行元数据、空状态、实时选择数量和安全禁用；移动端自适应。保留 0/7/30/90 天、默认 30 天、到期在下次访问时执行、恢复/彻底删除确认和原 API/事件模型。
+- **最终产品/测试 SHA**：`7d55390582ee6a639ffe7a93b1da97eb2ee87565`；[GitHub Actions #41775067629](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41775067629) **3/3 SUCCESS**：
+  - Ubuntu Python：161 total / 149 PASS / 12 SKIP；Node：71 PASS / 0 FAIL。
+  - Windows Python：161 total / 151 PASS / 10 SKIP；Node：71 PASS / 0 FAIL。
+  - Windows 真实 app.py + Chromium：更新/回滚 3 PASS；工作台 UI E2E 7 PASS，包含回收站统计、卡片分区、按钮样式、全选/取消、禁用危险操作及恢复/彻底删除原流程。
+- **测试职责**：CI 已覆盖本次新增 Node 与 Windows Chromium 路径，未重复派发 Codex 跑相同测试。自动化证明结构和交互，不替代用户对最终视觉效果的体验确认。
+- **当前状态**：PR #29 Draft / Open，未合并 main、未发布；PR #19 保留历史，不自动关闭或合并。CI 通过不等于发布授权；公司 Windows 8770、Google Drive 实际数据和自动更新均不在本轮范围。测试后的项目记忆提交仅修改 Markdown，不改变上述产品/测试 SHA。
+
 ## 2.0.7 正式发布回执
 
 2026-11-04 用户明确授权“合并，发布”。PR #27 最终 HEAD `ca9ba2acb377c265f6df175a1aff1426dcd152e1` 的 [Actions #41767021531](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41767021531) 全部 SUCCESS（Linux、Windows、Windows Chromium 更新/回滚及 UI 回归）。已通过 GitHub 普通 merge 正式合入 main，merge SHA `dae9c5fcf1797c44ded1ecc569039902c09912a7`，VERSION=2.0.7。合并后 main CI 尚未独立核实；公司 Windows 未由本轮升级，真实 Drive 数据未操作。

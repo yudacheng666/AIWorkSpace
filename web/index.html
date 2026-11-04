@@ -514,14 +514,61 @@
     @media(max-width:520px){.project-filter{grid-template-columns:1fr 1fr;}.project-filter input{grid-column:1/-1;}.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}}
 
 
-    /* V2.0.2 lifecycle and linked references: reuse restrained workspace visual language. */
-    .trash-panel {width:100%;max-width:960px;background:var(--surface,#fff);color:var(--text,#1f2937);border:1px solid var(--line);border-radius:12px;padding:22px;box-shadow:0 2px 10px rgba(12,20,38,.04);}
-    .trash-head,.trash-toolbar {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-    .trash-warning {display:block;font-size:13px;line-height:1.5;color:#9a3412;margin:8px 0;}
-    .trash-list {display:grid;gap:8px;margin:14px 0;}
-    .trash-row {display:flex;align-items:center;gap:12px;padding:10px;border:1px solid #dce1e9;border-radius:8px;}
-    .trash-row-label {flex:1;min-width:0;overflow-wrap:anywhere;}
-    .trash-row small {display:block;opacity:.72;}
+    /* Trash page follows the same stat cards, white panels and action hierarchy as the workspace home. */
+    .trash-stats {grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 16px;}
+    .trash-card {width:100%;min-width:0;margin:0 0 15px;padding:19px 21px;border:1px solid var(--line);border-radius:11px;background:var(--panel);}
+    .trash-card-head {display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+    .trash-card-head h2 {margin:0;color:#34445c;font-size:14px;font-weight:720;}
+    .trash-card-caption {margin:5px 0 0;color:#8a96a6;font-size:11px;line-height:1.6;}
+    .trash-count {display:inline-flex;align-items:center;min-height:22px;margin-left:7px;padding:0 8px;border-radius:6px;background:#eef3fa;color:#66809d;font-size:11px;font-weight:650;vertical-align:2px;}
+    .trash-retention-form {display:flex;align-items:flex-end;gap:9px;flex-wrap:wrap;}
+    .trash-retention-form label {display:grid;gap:5px;min-width:160px;color:#758296;font-size:11px;font-weight:650;}
+    .trash-retention-form select {width:180px;height:36px;border-radius:7px;font-size:12px;}
+    .trash-action {display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:35px;padding:0 13px;border:1px solid #dce4ee;border-radius:7px;background:#fff;color:#49627e;font-size:12px;font-weight:650;line-height:1.3;white-space:nowrap;transition:background .15s,border-color .15s,color .15s;}
+    .trash-action:hover:not(:disabled) {border-color:#b7c9e8;background:#f3f7ff;color:#245eac;}
+    .trash-action:disabled {opacity:.45;cursor:not-allowed;}
+    .trash-action--primary {border-color:var(--blue);background:var(--blue);color:#fff;}
+    .trash-action--primary:hover:not(:disabled) {border-color:#2057bf;background:#2057bf;color:#fff;}
+    .trash-action--restore {min-height:32px;padding:0 12px;border-color:#d4e3f7;background:#f6f9ff;color:#2863bc;}
+    .trash-action--danger {border-color:#e6caca;background:#fff;color:#aa4545;}
+    .trash-action--danger:hover:not(:disabled) {border-color:#d99c9c;background:#fff3f2;color:#a42d2d;}
+    .trash-warning {display:flex;align-items:flex-start;gap:9px;margin:14px 0 0;padding:10px 12px;border:1px solid #f0e5ce;border-radius:8px;background:#fffbf4;color:#8a7349;font-size:11px;line-height:1.65;}
+    .trash-warning-icon {flex:0 0 auto;color:#b48b43;font-size:14px;line-height:1.4;}
+    .trash-list {display:grid;gap:8px;margin:15px 0 0;}
+    .trash-row {display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;gap:13px;min-width:0;padding:13px 15px;border:1px solid var(--line);border-radius:9px;background:#fff;transition:border-color .15s,background .15s,box-shadow .15s;}
+    .trash-row:hover {border-color:#bfd0e8;background:#fcfdff;box-shadow:0 3px 10px #1c345708;}
+    .trash-row:has(.trash-pick:checked) {border-color:#adc7ed;background:#f5f9ff;}
+    .trash-row.is-conflict {background:#fffdfa;}
+    .trash-pick {width:16px;height:16px;margin:0;padding:0;accent-color:var(--blue);cursor:pointer;}
+    .trash-pick:disabled {cursor:not-allowed;opacity:.45;}
+    .trash-row-label {display:grid;gap:5px;min-width:0;overflow-wrap:anywhere;}
+    .trash-row-title {color:#2d405c;font-size:13px;font-weight:680;line-height:1.5;}
+    .trash-row-meta {display:flex;align-items:center;gap:7px 12px;flex-wrap:wrap;color:#8a98aa;font-size:11px;line-height:1.5;}
+    .trash-row-status {display:inline-flex;align-items:center;width:max-content;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:650;}
+    .trash-row-status.is-conflict {background:#fff3df;color:#9a671d;}
+    .trash-empty {display:grid;justify-items:center;gap:8px;padding:35px 16px;border:1px dashed #dbe4ef;border-radius:9px;background:#fbfcff;text-align:center;}
+    .trash-empty-icon {width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:#eff5ff;color:#5182ce;font-size:20px;font-weight:700;}
+    .trash-empty strong {color:#465b77;font-size:13px;font-weight:680;}
+    .trash-empty span:last-child {color:#929fb0;font-size:11px;}
+    .trash-footer-actions {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid #edf1f5;}
+    .trash-selection-actions {display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    .trash-selection-count {color:#8290a1;font-size:11px;font-variant-numeric:tabular-nums;}
+    .trash-status {margin-top:10px;}
+    @media(max-width:760px) {
+      .trash-stats {grid-template-columns:repeat(2,minmax(0,1fr));}
+      .trash-card {padding:16px;}
+      .trash-card-head {align-items:flex-start;}
+    }
+    @media(max-width:520px) {
+      .trash-stats {grid-template-columns:minmax(0,1fr);}
+      .trash-retention-form {width:100%;align-items:stretch;}
+      .trash-retention-form label {flex:1;min-width:0;}
+      .trash-retention-form select {width:100%;}
+      .trash-row {grid-template-columns:18px minmax(0,1fr);gap:10px;padding:12px;}
+      .trash-row .trash-action--restore {grid-column:2;justify-self:start;}
+      .trash-footer-actions {align-items:stretch;flex-direction:column;}
+      .trash-footer-actions > .trash-action--danger {width:100%;}
+    }
     .doc-panel {border-top:1px solid #dfe4eb;margin-top:18px;padding-top:12px;}
     .doc-panel h3 {font-size:15px;margin:0 0 8px;}
     .doc-row {display:flex;align-items:center;gap:10px;margin:8px 0;flex-wrap:wrap;overflow-wrap:anywhere;}
@@ -669,26 +716,53 @@
     </section>
     </section>
     <section id="page-trash" class="workspace-page" hidden>
-      <div class="page-heading"><div><h1 id="trash-title">回收站</h1><p class="subtitle">管理已删除的任务及自动清理设置。</p></div></div>
-      <section class="trash-panel" aria-labelledby="trash-title">
-      <div class="trash-toolbar">
-        <label for="trash-retention">自动清空周期
-          <select id="trash-retention">
-            <option value="0">关闭自动清空</option>
-            <option value="7">7 天</option>
-            <option value="30">30 天</option>
-            <option value="90">90 天</option>
-          </select>
-        </label>
-        <button type="button" id="trash-save-retention">保存周期</button>
+      <div class="page-heading">
+        <div><h1 id="trash-title">回收站</h1><p class="subtitle">恢复误删任务，或管理已删除任务的保留期限。</p></div>
       </div>
-      <p class="trash-warning">到期后将在下次访问工作台时清理。本机彻底删除无法保证清除其他设备、云端版本历史或备份中的副本。</p>
-      <div class="trash-list" id="trash-list" aria-label="已删除任务"></div>
-      <div class="trash-toolbar">
-        <button type="button" id="trash-select-all">全选</button>
-        <button type="button" id="trash-purge-selected">将选中任务彻底删除</button>
+      <div class="stats trash-stats" aria-label="回收站统计">
+        <div class="stat"><b id="trash-stat-total">0</b><span>已删除任务</span></div>
+        <div class="stat"><b id="trash-stat-restorable">0</b><span>可恢复</span></div>
+        <div class="stat"><b id="trash-stat-conflict">0</b><span>存在冲突</span></div>
       </div>
-      <p id="trash-message" class="message" role="status"></p>
+      <section class="trash-card trash-settings-card" aria-labelledby="trash-settings-heading">
+        <div class="trash-card-head">
+          <div>
+            <h2 id="trash-settings-heading">自动清理设置</h2>
+            <p class="trash-card-caption">设置已删除任务的保留期限。</p>
+          </div>
+          <div class="trash-retention-form">
+            <label for="trash-retention">保留期限
+              <select id="trash-retention">
+                <option value="0">关闭自动清空</option>
+                <option value="7">7 天</option>
+                <option value="30">30 天</option>
+                <option value="90">90 天</option>
+              </select>
+            </label>
+            <button type="button" class="trash-action trash-action--primary" id="trash-save-retention">保存设置</button>
+          </div>
+        </div>
+        <div class="trash-warning" role="note">
+          <span class="trash-warning-icon" aria-hidden="true">ⓘ</span>
+          <span>到期任务将在下次访问工作台时清理。彻底删除仅清除本机事件文件，无法保证清除其他设备、云端历史版本或备份中的副本。</span>
+        </div>
+      </section>
+      <section class="trash-card trash-list-card" aria-labelledby="trash-list-heading">
+        <div class="trash-card-head">
+          <div>
+            <h2 id="trash-list-heading">已删除任务 <span class="trash-count" id="trash-count">0 项</span></h2>
+            <p class="trash-card-caption">勾选任务后可批量彻底删除；存在同步冲突的任务会暂时锁定操作。</p>
+          </div>
+        </div>
+        <div class="trash-list" id="trash-list" aria-label="已删除任务"></div>
+        <div class="trash-footer-actions">
+          <div class="trash-selection-actions">
+            <button type="button" class="trash-action" id="trash-select-all" disabled>全选</button>
+            <span class="trash-selection-count" id="trash-selection-count" aria-live="polite">已选 0 项</span>
+          </div>
+          <button type="button" class="trash-action trash-action--danger" id="trash-purge-selected" disabled>彻底删除选中项</button>
+        </div>
+        <p id="trash-message" class="message trash-status" role="status" aria-live="polite"></p>
       </section>
     </section>
     <section id="page-reviews" class="workspace-page" hidden>
@@ -2975,6 +3049,25 @@
     $("review-refresh").addEventListener("click", () => loadReviews());
 
     let trashItems = [];
+    function refreshTrashSelection() {
+      const available = [...document.querySelectorAll(".trash-pick:not(:disabled)")];
+      const selected = available.filter(item => item.checked);
+      const allSelected = available.length > 0 && selected.length === available.length;
+      const selectAll = $("trash-select-all");
+      selectAll.disabled = available.length === 0 || isSaving;
+      selectAll.textContent = allSelected ? "取消全选" : "全选";
+      selectAll.setAttribute("aria-pressed", String(allSelected));
+      $("trash-selection-count").textContent = "已选 " + selected.length + " 项";
+      $("trash-purge-selected").disabled = selected.length === 0 || isSaving;
+    }
+
+    function updateTrashSummary() {
+      $("trash-stat-total").textContent = String(trashItems.length);
+      $("trash-stat-restorable").textContent = String(trashItems.filter(item => !item.conflict).length);
+      $("trash-stat-conflict").textContent = String(trashItems.filter(item => item.conflict).length);
+      $("trash-count").textContent = trashItems.length + " 项";
+    }
+
     async function loadTrash() {
       const message = $("trash-message");
       message.textContent = "正在读取回收站…";
@@ -2984,21 +3077,36 @@
         if (!response.ok) throw new Error(payload.error || "无法读取回收站");
         trashItems = payload.tasks || [];
         $("trash-retention").value = String(payload.retention_days);
+        updateTrashSummary();
         const list = $("trash-list");
         list.replaceChildren();
-        if (!trashItems.length) list.append(element("p", "hint", "回收站为空。"));
+        if (!trashItems.length) {
+          const empty = element("div", "trash-empty");
+          empty.append(element("span", "trash-empty-icon", "✓"),
+                       element("strong", "", "回收站为空"),
+                       element("span", "", "已删除的任务会显示在这里。"));
+          list.append(empty);
+        }
         for (const item of trashItems) {
-          const row = element("div", "trash-row");
+          const row = element("div", "trash-row" + (item.conflict ? " is-conflict" : ""));
           const pick = element("input");
           pick.type = "checkbox"; pick.className = "trash-pick";
           pick.value = item.task_id;
-          pick.disabled = item.conflict;
+          pick.disabled = Boolean(item.conflict);
           pick.setAttribute("aria-label", "选择彻底删除：" + taskDisplayId(item));
+          pick.addEventListener("change", refreshTrashSelection);
           const label = element("div", "trash-row-label");
-          label.append(element("strong", "", item.title || "任务状态冲突"),
-                       element("small", "", taskDisplayId(item) + " · 删除时间 " + (item.trashed_at || "未知")));
-          const restore = element("button", "", "恢复");
-          restore.type = "button"; restore.disabled = item.conflict;
+          const meta = element("div", "trash-row-meta");
+          meta.append(element("span", "", taskDisplayId(item)),
+                      element("span", "", "删除时间 " + (item.trashed_at || "未知")));
+          if (item.conflict) {
+            meta.append(element("span", "trash-row-status is-conflict", "存在同步冲突，暂不可操作"));
+          }
+          label.append(element("strong", "trash-row-title", item.title || "任务状态冲突"), meta);
+          const restore = element("button", "trash-action trash-action--restore", "恢复");
+          restore.type = "button";
+          restore.disabled = Boolean(item.conflict);
+          if (item.conflict) restore.setAttribute("title", "存在同步冲突，核对前不能恢复");
           restore.addEventListener("click", async () => {
             if (!window.confirm("恢复任务「" + item.title + "」及其执行步骤？")) return;
             await actOnTrashedTask(item, "restore");
@@ -3006,6 +3114,7 @@
           row.append(pick, label, restore);
           list.append(row);
         }
+        refreshTrashSelection();
         message.textContent = (payload.warnings || []).length
           ? "部分同步数据需核查：" + payload.warnings.slice(0, 2).join("；")
           : "共 " + trashItems.length + " 项。到期清理会在下次访问时执行。";
@@ -3365,6 +3474,7 @@
       const items = [...document.querySelectorAll(".trash-pick:not(:disabled)")];
       const select = items.some(item => !item.checked);
       for (const item of items) item.checked = select;
+      refreshTrashSelection();
     });
     $("trash-save-retention").addEventListener("click", async () => {
       if (isSaving) return;
@@ -3373,6 +3483,7 @@
       if (days && !window.confirm("确认将回收站自动清空周期设为 " + days +
                                    " 天？超过此期限的任务将在下一次访问时永久删除。")) return;
       isSaving = true;
+      refreshTrashSelection();
       try {
         const response = await fetch("/api/trash/settings", {
           method: "POST", headers: {"Content-Type": "application/json"},
@@ -3383,7 +3494,7 @@
         $("trash-message").textContent = "自动清空周期已保存";
       } catch (error) {
         $("trash-message").textContent = "设置失败：" + error.message;
-      } finally { isSaving = false; }
+      } finally { isSaving = false; refreshTrashSelection(); }
     });
     $("trash-purge-selected").addEventListener("click", async () => {
       if (isSaving) return;
@@ -3394,13 +3505,14 @@
       if (!window.confirm("不可撤销：彻底删除选中的 " + items.length +
                           " 项任务？本机删除不能保证清除其他设备和云端历史备份。")) return;
       isSaving = true;
+      refreshTrashSelection();
       const failures = [];
       try {
         for (const item of items) {
           try { await actOnTrashedTask(item, "purge", true); }
           catch (error) { failures.push(taskDisplayId(item) + ": " + error.message); }
         }
-      } finally { isSaving = false; }
+      } finally { isSaving = false; refreshTrashSelection(); }
       await loadTrash();
       await refresh(true, true);
       $("trash-message").textContent = failures.length

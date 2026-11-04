@@ -1,6 +1,6 @@
-> **2.0.8 数据异常处理界面改进（候选）**：基于正式 main/VERSION=2.0.7，默认用业务语言说明异常原因、工作台影响、建议处理方式和可读修复预览；原始 JSON、内部编号及 SHA-256 收入默认折叠的技术详情；同一任务/步骤下的多条异常聚合展示，展开后仍逐条独立处理；待核对、已授权待执行、已修复、已确认保留采用互斥统计。无法识别的步骤编号不会被猜测或自动改绑。候选 PR #28；最终产品/测试 SHA `cedf8b9c7c2e6a87bbcf23450b32eeabd918823b` 的 [Actions #41772135553](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41772135553) 3/3 SUCCESS：Ubuntu Python+Node、Windows Python+Node、Windows Chromium 更新/回滚 3 PASS 与工作台 UI E2E 7 PASS（含数据核查流程）。首轮新增测试的夹具问题已修正。PR 仍为 Draft，未合并、未部署，本轮不访问真实工作台数据。
-
 # AIWorkSpace
+
+> **2.0.8 统一发布候选（2026-11-04）**：获用户明确授权，统一整合 [PR #28](https://github.com/yudacheng666/AIWorkSpace/pull/28) 的数据异常处理界面改进与 [PR #29](https://github.com/yudacheng666/AIWorkSpace/pull/29) 的回收站主页风格重构。保持异常处理先核查/授权、再执行的安全流程和回收站原有删除/恢复保护；不引入 PR #20、#22 或旧 PR #19。VERSION=2.0.8；组合 SHA 的 Linux/Windows/Chromium CI 通过后方正式合并，本机 Windows 8770 和 Google Drive 数据不自动部署或改动。
 
 > **2.0.7 更新修复（2026-11-04）**：[PR #27](https://github.com/yudacheng666/AIWorkSpace/pull/27) 已获用户合并发布授权，`VERSION=2.0.7`；发布以 PR merged 状态为准。增加 GitHub 短暂网络失败的有限自动重试、固定提交 VERSION 的官方备用读取和明确错误提示，并修复重复句号。企业网络根因未实测；GitHub 发布不会自动升级本机，可在工作台检查更新后手动安装。以下 2.0.6 与更早章节为历史记录。
 
