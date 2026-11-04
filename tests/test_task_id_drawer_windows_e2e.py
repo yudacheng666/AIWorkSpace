@@ -65,7 +65,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
             for item in self.data_dir.rglob("*") if item.is_file()
         }
 
-    def _open_browser(self):
+    def _open_browser(self, open_detail=True):
         manager = sync_playwright().start()
         self.addCleanup(manager.stop)
         browser = manager.chromium.launch(headless=True)
@@ -77,10 +77,79 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page = context.new_page()
         page.goto(origin + "/", wait_until="networkidle")
         page.locator("#nav-tasks").click()
-        page.locator(".task-summary .task-open").first.click()
-        self.assertFalse(page.locator("#task-detail-drawer").evaluate("(e) => e.hidden"))
+        if open_detail:
+            page.locator(".task-summary .task-summary-title").first.click()
+            self.assertFalse(page.locator("#task-detail-drawer").evaluate("(e) => e.hidden"))
+        else:
+            self.assertTrue(page.locator("#task-detail-drawer").evaluate("(e) => e.hidden"))
         return page
 
+
+    def test_task_title_opens_detail_and_list_id_copies_without_opening(self):
+        page = self._open_browser(open_detail=False)
+        row = page.locator(".task-summary").first
+        self.assertEqual(row.locator(".task-summary-title").inner_text(),
+                         "虚构任务：验证短编号及抽屉")
+        row.locator(".task-summary-id-copy").click()
+        expect(row.locator(".task-summary-copy-feedback")).to_have_text("已复制")
+        self.assertEqual(page.evaluate("navigator.clipboard.readText()"), self.short_id)
+        self.assertTrue(page.locator("#task-detail-drawer").evaluate("(e) => e.hidden"),
+                        "copying the list ID must not open the drawer")
+        row.locator(".task-summary-title").click()
+        expect(page.locator("#task-detail-drawer")).to_be_visible()
+        self.assertEqual(page.locator("#task-detail-title").inner_text(),
+                         "虚构任务：验证短编号及抽屉")
+        self.assertEqual(self._file_hashes(), self.before,
+                         "opening and copying task list fields must not write task data")
+
+    def test_completed_tasks_remain_at_end_for_default_and_column_sorts(self):
+        for suffix, title, status, due, priority in [
+            ("B", "虚构待处理任务", "todo", "2026-11-08", "low"),
+            ("C", "虚构进行中任务", "doing", "2026-11-03", "urgent"),
+            ("D", "虚构已完成任务", "done", "2026-11-01", "high"),
+        ]:
+            task_id = "TASK-" + suffix * 32
+            append_event(self.data_dir, {
+                "version": 1, "event_id": "task-list-sort-create-" + suffix,
+                "task_id": task_id, "action": "create", "actor": "user",
+                "timestamp": "2026-11-02T09:00:00Z", "base_revision": 0,
+                "changes": {"title": title, "status": "todo",
+                            "due_date": due, "priority": priority}
+            })
+            if status == "doing":
+                append_event(self.data_dir, {
+                    "version": 1, "event_id": "task-list-sort-doing-" + suffix,
+                    "task_id": task_id, "action": "update", "actor": "user",
+                    "timestamp": "2026-11-02T09:01:00Z", "base_revision": 1,
+                    "changes": {"status": "doing"}
+                })
+            elif status == "done":
+                append_event(self.data_dir, {
+                    "version": 1, "event_id": "task-list-sort-done-" + suffix,
+                    "task_id": task_id, "action": "update", "actor": "user",
+                    "timestamp": "2026-11-02T09:01:00Z", "base_revision": 1,
+                    "changes": {"status": "done"}, "confirmed_done": True
+                })
+        self.before = self._file_hashes()
+        page = self._open_browser(open_detail=False)
+        titles = page.locator("#tasks .task-summary-title")
+        self.assertEqual(titles.last.inner_text(), "虚构已完成任务")
+        for mode in ("due", "priority", "title"):
+            page.locator("#task-sort").select_option(mode)
+            self.assertEqual(page.locator("#tasks .task-summary-title").last.inner_text(),
+                             "虚构已完成任务", mode + " sort must keep completed tasks last")
+        page.locator("#task-sort").select_option("project")
+        page.locator("#task-list-columns details[data-field='due'] summary").click()
+        page.locator("#task-list-columns details[data-field='due']").get_by_role(
+            "button", name="升序").click()
+        page.locator("#task-list-columns details[data-field='priority'] summary").click()
+        page.locator("#task-list-columns details[data-field='priority']").get_by_role(
+            "button", name="降序").click()
+        self.assertEqual(page.locator("#tasks .task-summary-title").last.inner_text(),
+                         "虚构已完成任务", "multi-column sorting must keep completed tasks last")
+        self.assertEqual(len(read_workspace(self.data_dir)["tasks"]), 4)
+        self.assertEqual(self._file_hashes(), self.before,
+                         "task ordering must remain a read-only presentation change")
 
     def test_last_refresh_status_is_in_sidebar_footer_and_does_not_shift_task_toolbar(self):
         page = self._open_browser()
@@ -128,7 +197,11 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.locator(".step-add-form input").fill("虚构文档关联步骤")
         page.locator(".step-add-form button").click()
         page.locator(".step-row").wait_for(state="visible")
-        document = page.locator("#task-detail-content .step-row .doc-add-form")
+        doc_panel = page.locator("#task-detail-content .step-row .doc-panel")
+        expect(doc_panel.locator(".doc-panel-toggle")).to_have_text("添加文档")
+        expect(doc_panel.locator(".doc-panel-content")).to_be_hidden()
+        doc_panel.locator(".doc-panel-toggle").click()
+        document = doc_panel.locator(".doc-add-form")
         document.locator("input[type='text']").fill("虚构云端计划")
         document.locator("input[type='url']").fill(
             "https://drive.google.com/file/d/SYNTHETIC_DOC_TEST/view")
@@ -143,6 +216,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         # the link must succeed without losing or overwriting the task.
         title_editor.fill(original_title)
         document.get_by_role("button", name="添加链接").click()
+        page.locator("#task-detail-content .step-row .doc-panel-toggle").click()
         link = page.locator("#task-detail-content .doc-row a").first
         link.wait_for(state="visible")
         self.assertEqual(link.inner_text(), "虚构云端计划")
@@ -215,10 +289,14 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         expect(page.locator(".step-row")).to_have_count(1)
         step = read_workspace(self.data_dir)["tasks"][0]["steps"][0]
         self.assertEqual(step["title"], "步骤一 · 测试删除")
-        page.locator(".step-row .doc-add-form input[type='text']").fill("虚构关联资料")
-        page.locator(".step-row .doc-add-form input[type='url']").fill(
+        doc_panel = page.locator(".step-row .doc-panel")
+        expect(doc_panel.locator(".doc-panel-content")).to_be_hidden()
+        doc_panel.locator(".doc-panel-toggle").click()
+        doc_panel.locator(".doc-add-form input[type='text']").fill("虚构关联资料")
+        doc_panel.locator(".doc-add-form input[type='url']").fill(
             "https://drive.google.com/file/d/SYNTHETIC_STEP_FILE/view")
-        page.locator(".step-row .doc-add-form button.save").click()
+        doc_panel.locator(".doc-add-form button.save").click()
+        page.locator(".step-row .doc-panel-toggle").click()
         expect(page.locator(".step-row .doc-row")).to_have_count(1)
         page.once("dialog", lambda dialog: dialog.dismiss())
         page.locator(".step-row .step-delete").click()

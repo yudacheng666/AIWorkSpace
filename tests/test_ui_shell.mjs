@@ -76,7 +76,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = []) 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, documentPanel, legacyDocumentPanel, renderReviewDetail, renderReviewList, renderReviewSummary, loadReviews})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, documentPanel, legacyDocumentPanel, taskSummaryRow, renderReviewDetail, renderReviewList, renderReviewSummary, loadReviews})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes, el: id => document.getElementById(id)};
@@ -285,6 +285,34 @@ test("global multi-key sorting honors priority, direction, empty-last and determ
   assert.equal(page.writes.length,0);
 });
 
+test("completed tasks stay at the end of the task list for every sort mode", async () => {
+  const tasks = [
+    {...sampleTask(),task_id:"TASK-DONE",title:"已完成任务",status:"done",due_date:"2026-11-01"},
+    {...sampleTask(),task_id:"TASK-TODO",title:"待处理任务",status:"todo",due_date:"2026-11-08"},
+    {...sampleTask(),task_id:"TASK-CONFLICT-DONE",title:"状态待核查任务",status:"done",
+      conflict:true,due_date:"2026-11-02"},
+    {...sampleTask(),task_id:"TASK-DOING",title:"进行中任务",status:"doing",due_date:"2026-11-03"}
+  ];
+  const page = harness(tasks);
+  await page.api.refresh(true);
+  assert.deepEqual(taskTitles(page),["待处理任务","状态待核查任务","进行中任务","已完成任务"],
+    "completed tasks move to a final group; conflicted records are not treated as completed");
+
+  for (const mode of ["due","priority","title"]) {
+    page.el("task-sort").value = mode;
+    page.api.renderTaskList();
+    assert.equal(taskTitles(page).at(-1),"已完成任务",mode+" sort keeps completed tasks last");
+  }
+
+  page.el("task-sort").value = "project";
+  page.api.renderTaskList();
+  click(columnMenu(page,"due").actions.children[0]);
+  click(columnMenu(page,"priority").actions.children[1]);
+  assert.equal(taskTitles(page).at(-1),"已完成任务",
+    "multi-column sort also keeps completed tasks last");
+  assert.equal(page.writes.length,0,"sorting is display-only");
+});
+
 test("column filters are list-only; board unchanged; rejected draft discard blocks sort", async () => {
   let approved = false;
   const tasks = [
@@ -334,7 +362,7 @@ test("step delete is individually confirmed and posts the step revision, not the
   assert.equal(page.writes[0].body.confirmed_delete, true);
 });
 
-test("document attachments render per step; legacy task links remain read-only", () => {
+test("step document links are collapsed by default and remain editable when expanded", () => {
   const task = {...sampleTask(), revision: 8, document_links: [
     {title:"历史文档",url:"https://docs.google.com/document/d/SYNTHETIC/edit"}
   ]};
@@ -344,14 +372,59 @@ test("document attachments render per step; legacy task links remain read-only",
   const page = harness([task]);
   const panel = page.api.documentPanel(task,step);
   assert.equal(panel.className,"doc-panel");
-  assert.ok(JSON.stringify(panel).includes("步骤附件"));
-  assert.equal(panel.children.filter(x=>x.className==="doc-add-form").length,1);
+  const [toggle,body] = panel.children;
+  assert.equal(toggle.tag,"button");
+  assert.match(toggle.textContent,/1/);
+  assert.equal(body.hidden,true,"step documents start collapsed");
+  assert.equal(toggle.ariaExpanded,"false");
+  assert.equal(body.children.filter(x=>x.className==="doc-row").length,1);
+  assert.equal(body.children.filter(x=>x.className==="doc-add-form").length,1);
+  toggle.handlers.get("click")[0]();
+  assert.equal(body.hidden,false);
+  assert.equal(toggle.ariaExpanded,"true");
+  assert.match(toggle.className,/is-expanded/);
+  toggle.handlers.get("click")[0]();
+  assert.equal(body.hidden,true);
+
+  const empty = page.api.documentPanel(task,{...step,document_links:[]});
+  assert.equal(empty.children[1].hidden,true);
+  assert.equal(empty.children[0].textContent,"添加文档");
+  assert.equal(empty.children[1].children.filter(x=>x.className==="doc-row").length,0);
+  assert.equal(empty.children[1].children.filter(x=>x.className==="doc-add-form").length,1);
+  assert.doesNotMatch(JSON.stringify(empty),/未关联文档/,"steps without documents do not show an empty placeholder");
   const legacy = page.api.legacyDocumentPanel(task);
   assert.equal(legacy.className,"doc-panel legacy-doc-panel");
   assert.ok(JSON.stringify(legacy).includes("历史文档"));
   assert.equal(legacy.children.filter(x=>x.className==="doc-add-form").length,0);
   assert.match(html,/function legacyDocumentPanel\(task\)/);
   assert.doesNotMatch(html,/card\.append\(top, form, stepPanel\(task\), documentPanel\(task\)/);
+  assert.equal(page.writes.length,0);
+});
+
+test("task title opens detail while the task ID below it copies independently", async () => {
+  const task = {...sampleTask(),display_id:"T-261104-ABCDEF123456"};
+  const page = harness([task]);
+  await page.api.refresh(true);
+  const summary = taskRows(page)[0];
+  const main = summary.children[0];
+  const title = main.children[0];
+  const id = main.children[1];
+  const feedback = main.children[2];
+  assert.equal(title.tag,"button");
+  assert.equal(title.className,"task-summary-title task-summary-title-open");
+  title.handlers.get("click")[0]();
+  assert.equal(page.el("task-detail-drawer").hidden,false);
+  assert.equal(page.el("task-detail-title").textContent,task.title);
+  assert.equal(page.api.closeTaskDetail(),true);
+  assert.equal(page.el("task-detail-drawer").hidden,true);
+  assert.equal(id.tag,"button");
+  assert.equal(id.className,"task-summary-id task-summary-id-copy");
+  await id.handlers.get("click")[0]();
+  assert.deepEqual(page.copied,[task.display_id]);
+  assert.equal(feedback.textContent,"已复制");
+  assert.equal(feedback.hidden,false);
+  assert.equal(page.el("task-detail-drawer").hidden,true,
+    "copying the list ID must not open the task detail");
   assert.equal(page.writes.length,0);
 });
 

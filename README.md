@@ -1,6 +1,6 @@
 # AIWorkSpace
 
-> **当前正式版本 2.0.9（2026-11-04）**：用户批准补齐遗漏的父子任务状态联动和侧栏刷新状态修复，已通过 [PR #31](https://github.com/yudacheng666/AIWorkSpace/pull/31) GitHub 标准 Merge 正式发布（merge SHA `a1f681f9fb18982870741484a4d717979e1bb77d`）。候选准确 HEAD `d71456401e886b53c0f96ba76fbe03c040311186` 的 [Actions #41780863683](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41780863683) 与合并后 main [Actions #41781106338](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41781106338) 均 3/3 SUCCESS。旧 PR #8/#13/#14/#16/#19/#20/#22 已逐项解释并关闭（旧方案/历史资料不重复合并），目前无遗留开放 PR。GitHub 发布不等于真实 Windows 或 Drive 数据已升级。
+> **当前正式版本 2.0.9；2.0.10 候选 CI 已通过，等待发布审批（2026-11-04）**：PR #33 实现步骤文档折叠、任务名称直达详情、任务编号点击复制及已完成任务置底。产品/测试 SHA `b0adfae15ce70065f25bada16af8305402fea6c9` 的 [Actions #41783935135](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41783935135) 3/3 SUCCESS：Ubuntu/Windows Python 各 173 tests、Node 各 79 PASS，Windows Chromium updater 3 PASS、工作台 UI 11 PASS。PR #33 仍为 Draft，尚未合并；2.0.9 的发布与 PR 审计记录保留在下文。
 
 
 > **2.0.7 更新修复（2026-11-04）**：[PR #27](https://github.com/yudacheng666/AIWorkSpace/pull/27) 已获用户合并发布授权，`VERSION=2.0.7`；发布以 PR merged 状态为准。增加 GitHub 短暂网络失败的有限自动重试、固定提交 VERSION 的官方备用读取和明确错误提示，并修复重复句号。企业网络根因未实测；GitHub 发布不会自动升级本机，可在工作台检查更新后手动安装。以下 2.0.6 与更早章节为历史记录。

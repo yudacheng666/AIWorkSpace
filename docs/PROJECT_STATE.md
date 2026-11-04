@@ -1,5 +1,18 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-04：2.0.10 候选 — 任务列表与步骤文档交互优化
+
+- **用户需求**：步骤文档增加折叠按钮；任务名称点击打开详情；任务 ID 点击复制；已完成任务自动排到任务列表末尾。
+- **基线**：正式 main SHA `726da94e1817cd910665d5fb984bd3f02c26f8c1`，`VERSION=2.0.9`。分支 `feat/20261104-task-list-usability`，候选 `VERSION=2.0.10`。不改 app.py、事件 schema、API、任务 revision 或真实工作台数据。
+- **设计**：步骤文档默认收起，有文档显示数量、无文档显示“添加文档”；展开后仍用原 Google Drive 链接和步骤 revision/409 表单。任务标题改为可聚焦按钮，仍调用原 openTaskDetail；短编号在列表中可点击复制，显示局部状态反馈，不打开抽屉。无冲突且 status=done 的任务放在列表末尾独立“已完成”组；列多字段、截止日期、优先级和标题排序均保持已完成置底，冲突任务留在普通分组；看板/日历/甘特图不改变。
+- **测试计划**：Node UI shell 增加文档折叠/空文档入口、标题点击、编号复制、默认/字段/多字段排序覆盖；Windows 真实 app.py + Chromium 增加列表复制与标题直达、步骤文档展开/收起实测。沿用既有 Python/Node 双平台和 Windows updater/UI E2E CI；不重复 Codex 已覆盖的 CI 范围。
+- **准确产品/测试 SHA**：`b0adfae15ce70065f25bada16af8305402fea6c9`；[GitHub Actions #41783935135](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41783935135) **3/3 SUCCESS**：
+  - Ubuntu Python：173 total / 157 PASS / 16 SKIP；Node：79 PASS / 0 FAIL。
+  - Windows Python：173 total / 159 PASS / 14 SKIP；Node：79 PASS / 0 FAIL。
+  - Windows 真实 app.py + Chromium：更新/回滚 3 PASS；工作台 UI E2E 11 PASS，覆盖任务名称打开、列表 ID 剪贴板复制、步骤文档折叠/展开/关联、完成任务在默认/字段/多字段排序中置底，以及排序不写任务事件。
+- **当前状态**：PR #33 Draft / Open，base main `726da94e1817cd910665d5fb984bd3f02c26f8c1`；产品/测试准确 SHA `b0adfae15ce70065f25bada16af8305402fea6c9` 之后仅追加 Markdown 项目记忆，不影响已通过的产品/测试代码。CI 已通过，尚未合并或正式发布；用户本轮授权为“继续优化”，并未明确授权合并 main，需等待用户发布审批。
+- **安全边界**：仅更改网页展示与自动化测试；不扫描、修改或重排真实任务数据，不自动把任务写成 done，不改任何事件文件。
+
 ## 2026-11-04：2.0.9 已正式发布，所有遗漏 PR 已审计归档
 
 - **用户授权**：要求检查所有未合并 PR、修复遗漏并一并合并，随后明确批准补入。此次发布的是仍有效的原 PR #20 父子任务状态联动与 #22 刷新状态位置，原始老分支基线落后，故在最新 main 2.0.8 重新集成为 [PR #31](https://github.com/yudacheng666/AIWorkSpace/pull/31)，不是直接硬合旧分支。
