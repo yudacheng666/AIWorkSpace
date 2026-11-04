@@ -3063,7 +3063,7 @@
         latestUpdate = null;
         $("apply-update").hidden = true;
         $("apply-update").disabled = true;
-        $("update-message").textContent = `检查更新失败：${error.message}。工作台数据功能不受影响。`;
+        $("update-message").textContent = `检查更新失败：${error.message.replace(/[。；;\\s]+$/u, "")}。工作台数据功能不受影响。`;
       } finally {
         button.disabled = false;
       }

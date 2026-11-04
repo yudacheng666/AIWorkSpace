@@ -7,6 +7,9 @@ folder, and restarts the local server through a helper process.
 from __future__ import annotations
 
 import argparse
+import base64
+import ssl
+import http.client
 import ctypes
 import hashlib
 import json
@@ -129,7 +132,7 @@ def get_install_status(root: Path | str) -> dict:
     }
 
 
-def _read_url(
+def _read_url_once(
     url: str,
     limit: int,
     timeout: int = 10,
@@ -160,11 +163,73 @@ def _read_url(
             content = response.read(limit + 1)
     except UpdateError:
         raise
-    except (HTTPError, URLError, TimeoutError, OSError) as exc:
-        raise UpdateError("无法连接 GitHub；请检查网络后重试。") from exc
     if len(content) > limit:
         raise UpdateError("GitHub 返回的更新文件超过安全大小限制。")
     return content
+
+
+def _network_failure(exc: Exception) -> tuple[str, bool]:
+    if isinstance(exc, HTTPError):
+        if exc.code == 429 or (exc.code == 403 and
+                (exc.headers.get("X-RateLimit-Remaining") == "0" or
+                 exc.headers.get("Retry-After") is not None)):
+            return "GitHub 请求限流，请稍后检查更新。", False
+        if exc.code == 407:
+            return "网络代理需要认证，请检查系统代理设置。", False
+        return f"GitHub 返回 HTTP {exc.code}。", exc.code in {408, 500, 502, 503, 504}
+    reason = exc.reason if isinstance(exc, URLError) else exc
+    if isinstance(reason, ssl.SSLError):
+        return "GitHub HTTPS 证书或安全连接验证失败，请检查系统时间、证书及网络代理。", False
+    if isinstance(reason, socket.gaierror):
+        return "GitHub 域名解析失败，已自动重试，请检查 DNS 或网络连接。", True
+    if isinstance(reason, (TimeoutError, socket.timeout)):
+        return "连接 GitHub 超时，已自动重试，请稍后再试。", True
+    return "GitHub 网络连接中断，已自动重试，请检查网络及系统代理。", True
+
+
+def _read_url(
+    url: str,
+    limit: int,
+    timeout: int = 10,
+    allowed_hosts: set[str] | None = None,
+) -> bytes:
+    # urllib retains environment and Windows system proxy discovery. Never
+    # bypass proxies or disable TLS verification to make an update succeed.
+    for attempt in range(3):
+        try:
+            return _read_url_once(url, limit, timeout, allowed_hosts)
+        except (HTTPError, URLError, TimeoutError, OSError,
+                http.client.HTTPException) as exc:
+            message, retryable = _network_failure(exc)
+            if not retryable or attempt == 2:
+                raise UpdateError(message) from exc
+            time.sleep(0.5 * (2 ** attempt))
+    raise AssertionError("unreachable")
+
+
+def _read_remote_version(commit: str) -> bytes:
+    try:
+        return _read_url(RAW_VERSION_URL.format(commit=commit), 128)
+    except UpdateError as exc:
+        # Only transport failures permit another official endpoint. Invalid
+        # sizes/redirects/content must fail closed, never trigger fallback.
+        if not isinstance(exc.__cause__, (HTTPError, URLError, OSError,
+                                         http.client.HTTPException)):
+            raise
+        raw = _read_url(
+            f"https://api.github.com/repos/{REPOSITORY}/contents/VERSION?ref={commit}",
+            16 * 1024)
+        try:
+            value = json.loads(raw.decode("utf-8"))
+            if (not isinstance(value, dict) or value.get("encoding") != "base64" or
+                    value.get("path") != "VERSION" or value.get("type") != "file"):
+                raise ValueError("unexpected version response")
+            content = base64.b64decode("".join(value["content"].split()), validate=True)
+            if len(content) > 128:
+                raise ValueError("oversized version")
+            return content
+        except (ValueError, KeyError, TypeError, UnicodeError) as error:
+            raise UpdateError("GitHub 返回了无法识别的版本文件。") from error
 
 
 def check_latest_update(root: Path | str) -> dict:
@@ -179,7 +244,7 @@ def check_latest_update(root: Path | str) -> dict:
     commit = remote.get("sha")
     if not isinstance(commit, str) or not COMMIT_RE.fullmatch(commit):
         raise UpdateError("GitHub 返回的提交编号无效。")
-    version_bytes = _read_url(RAW_VERSION_URL.format(commit=commit), 128)
+    version_bytes = _read_remote_version(commit)
     try:
         latest_version = version_bytes.decode("utf-8").strip()
     except UnicodeError as exc:
@@ -664,3 +729,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
