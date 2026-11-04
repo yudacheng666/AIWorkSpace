@@ -4,8 +4,8 @@
 
 - 基线 main `f63e717c6684815a9aea532eaad225aa7f912f10`，VERSION 2.0.6；用户报告已安装 2.0.4 的更新检查间歇失败。代码确认原请求仅一次尝试且所有网络错误折叠为同一提示；公司网络实际 DNS/代理/限流根因未取得日志，不作确定归因。
 - 增加每请求最多 3 次、0.5/1 秒退避；仅瞬时网络及 HTTP 408/500/502/503/504 重试；证书错误、限流、代理认证及其他永久 HTTP 错误即时解释。保留 urllib 系统/环境代理及 TLS 校验。固定 commit 的 raw VERSION 网络失败后可使用官方 contents API 读取同一 commit；安全校验错误不降级。不使用缓存冒充在线检查，不改变安装包/备份/回滚/数据安全约束。
-- 本地 Linux 更新器定向 25 PASS / 2 Windows-only SKIP，新增 8 项网络故障注入。Windows CI 结果须以 PR 准确 SHA 为准，不借用旧 SHA PASS。未升级真实 Windows 8770，未操作真实 Drive 数据，未修改正式版本号，未合并 main。
-- 下一步：核对候选 PR 的 Linux/Windows/Chromium CI；CI 未覆盖的公司网络与安装版本仍需区分，正式发布须按原规则经用户批准。
+- 本地 Linux 更新器定向 25 PASS / 2 Windows-only SKIP，新增 8 项网络故障注入。[PR #27](https://github.com/yudacheng666/AIWorkSpace/pull/27) 产品/测试 SHA `297997540dbdaeb4906d98b4fb1e94869bb125e1` 的 [Actions #41766281412](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41766281412) 已核实 3/3 SUCCESS：Linux Python 149 PASS/12 SKIP + Node 68 PASS，Windows Python 151 PASS/10 SKIP + Node 68 PASS，Windows 真实 Chromium 更新/回滚 3 PASS + UI E2E 7 PASS。未升级真实 Windows 8770，未操作真实 Drive 数据，未修改正式版本号，未合并 main。
+- 下一步：准确 SHA 自动化 CI 已通过；公司网络实际故障与真实安装升级未验证，候选仍 Draft，正式发布须按原规则经用户批准。
 
 ## 2026-11-03：既有异常事件已通过用户授权的 Google Drive 数据层修复
 
