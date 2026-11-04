@@ -102,6 +102,54 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(self._file_hashes(), self.before,
                          "opening and copying task list fields must not write task data")
 
+    def test_completed_tasks_remain_at_end_for_default_and_column_sorts(self):
+        for suffix, title, status, due, priority in [
+            ("B", "虚构待处理任务", "todo", "2026-11-08", "low"),
+            ("C", "虚构进行中任务", "doing", "2026-11-03", "urgent"),
+            ("D", "虚构已完成任务", "done", "2026-11-01", "high"),
+        ]:
+            task_id = "TASK-" + suffix * 32
+            append_event(self.data_dir, {
+                "version": 1, "event_id": "task-list-sort-create-" + suffix,
+                "task_id": task_id, "action": "create", "actor": "user",
+                "timestamp": "2026-11-02T09:00:00Z", "base_revision": 0,
+                "changes": {"title": title, "status": "todo",
+                            "due_date": due, "priority": priority}
+            })
+            if status == "doing":
+                append_event(self.data_dir, {
+                    "version": 1, "event_id": "task-list-sort-doing-" + suffix,
+                    "task_id": task_id, "action": "update", "actor": "user",
+                    "timestamp": "2026-11-02T09:01:00Z", "base_revision": 1,
+                    "changes": {"status": "doing"}
+                })
+            elif status == "done":
+                append_event(self.data_dir, {
+                    "version": 1, "event_id": "task-list-sort-done-" + suffix,
+                    "task_id": task_id, "action": "update", "actor": "user",
+                    "timestamp": "2026-11-02T09:01:00Z", "base_revision": 1,
+                    "changes": {"status": "done"}, "confirmed_done": True
+                })
+        page = self._open_browser(open_detail=False)
+        titles = page.locator("#tasks .task-summary-title")
+        self.assertEqual(titles.last.inner_text(), "虚构已完成任务")
+        for mode in ("due", "priority", "title"):
+            page.locator("#task-sort").select_option(mode)
+            self.assertEqual(page.locator("#tasks .task-summary-title").last.inner_text(),
+                             "虚构已完成任务", mode + " sort must keep completed tasks last")
+        page.locator("#task-sort").select_option("project")
+        page.locator("#task-list-columns details[data-field='due'] summary").click()
+        page.locator("#task-list-columns details[data-field='due']").get_by_role(
+            "button", name="升序").click()
+        page.locator("#task-list-columns details[data-field='priority'] summary").click()
+        page.locator("#task-list-columns details[data-field='priority']").get_by_role(
+            "button", name="降序").click()
+        self.assertEqual(page.locator("#tasks .task-summary-title").last.inner_text(),
+                         "虚构已完成任务", "multi-column sorting must keep completed tasks last")
+        self.assertEqual(len(read_workspace(self.data_dir)["tasks"]), 4)
+        self.assertEqual(self._file_hashes(), self.before,
+                         "task ordering must remain a read-only presentation change")
+
     def test_last_refresh_status_is_in_sidebar_footer_and_does_not_shift_task_toolbar(self):
         page = self._open_browser()
         status = page.locator(".sidebar-footnote #sync")
