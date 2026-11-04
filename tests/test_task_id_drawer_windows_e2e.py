@@ -130,6 +130,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
                     "timestamp": "2026-11-02T09:01:00Z", "base_revision": 1,
                     "changes": {"status": "done"}, "confirmed_done": True
                 })
+        self.before = self._file_hashes()
         page = self._open_browser(open_detail=False)
         titles = page.locator("#tasks .task-summary-title")
         self.assertEqual(titles.last.inner_text(), "虚构已完成任务")
