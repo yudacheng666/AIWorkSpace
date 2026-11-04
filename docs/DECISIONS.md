@@ -96,3 +96,6 @@
 ## 2026-11-04：用户授权并发布 2.0.7
 
 2026-11-04 用户明确授权“合并，发布”。PR #27 最终 HEAD `ca9ba2acb377c265f6df175a1aff1426dcd152e1` 的 [Actions #41767021531](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41767021531) 全部 SUCCESS（Linux、Windows、Windows Chromium 更新/回滚及 UI 回归）。已通过 GitHub 普通 merge 正式合入 main，merge SHA `dae9c5fcf1797c44ded1ecc569039902c09912a7`，VERSION=2.0.7。合并后 main CI 尚未独立核实；公司 Windows 未由本轮升级，真实 Drive 数据未操作。
+
+
+| D-20261104-DG-06（数据核查页面以业务语言呈现） | 数据异常处理页面默认展示异常含义、业务影响、建议处理方式、关联任务名称及人类可读的修复预览；原始 JSON、内部编号、哈希和校验器错误统一收入折叠的技术详情。对无法识别的步骤编号只允许人工核对后记录“保留、不写入”，禁止猜测步骤归属、自动改绑或重复创建。 | 原界面把开发日志直接交给管理者，无法判断影响或下一步；用户无需理解事件模型和 JSON 才能安全处理异常。保持扫描只读、原始证据保留、授权与执行分离及既有 validator/revision 安全约束。 |
