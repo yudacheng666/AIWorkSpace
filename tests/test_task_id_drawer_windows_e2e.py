@@ -65,7 +65,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
             for item in self.data_dir.rglob("*") if item.is_file()
         }
 
-    def _open_browser(self):
+    def _open_browser(self, open_detail=True):
         manager = sync_playwright().start()
         self.addCleanup(manager.stop)
         browser = manager.chromium.launch(headless=True)
@@ -77,10 +77,30 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page = context.new_page()
         page.goto(origin + "/", wait_until="networkidle")
         page.locator("#nav-tasks").click()
-        page.locator(".task-summary .task-open").first.click()
-        self.assertFalse(page.locator("#task-detail-drawer").evaluate("(e) => e.hidden"))
+        if open_detail:
+            page.locator(".task-summary .task-summary-title").first.click()
+            self.assertFalse(page.locator("#task-detail-drawer").evaluate("(e) => e.hidden"))
+        else:
+            self.assertTrue(page.locator("#task-detail-drawer").evaluate("(e) => e.hidden"))
         return page
 
+
+    def test_task_title_opens_detail_and_list_id_copies_without_opening(self):
+        page = self._open_browser(open_detail=False)
+        row = page.locator(".task-summary").first
+        self.assertEqual(row.locator(".task-summary-title").inner_text(),
+                         "虚构任务：验证短编号及抽屉")
+        row.locator(".task-summary-id-copy").click()
+        expect(row.locator(".task-summary-copy-feedback")).to_have_text("已复制")
+        self.assertEqual(page.evaluate("navigator.clipboard.readText()"), self.short_id)
+        self.assertTrue(page.locator("#task-detail-drawer").evaluate("(e) => e.hidden"),
+                        "copying the list ID must not open the drawer")
+        row.locator(".task-summary-title").click()
+        expect(page.locator("#task-detail-drawer")).to_be_visible()
+        self.assertEqual(page.locator("#task-detail-title").inner_text(),
+                         "虚构任务：验证短编号及抽屉")
+        self.assertEqual(self._file_hashes(), self.before,
+                         "opening and copying task list fields must not write task data")
 
     def test_last_refresh_status_is_in_sidebar_footer_and_does_not_shift_task_toolbar(self):
         page = self._open_browser()
@@ -128,7 +148,11 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.locator(".step-add-form input").fill("虚构文档关联步骤")
         page.locator(".step-add-form button").click()
         page.locator(".step-row").wait_for(state="visible")
-        document = page.locator("#task-detail-content .step-row .doc-add-form")
+        doc_panel = page.locator("#task-detail-content .step-row .doc-panel")
+        expect(doc_panel.locator(".doc-panel-toggle")).to_have_text("添加文档")
+        expect(doc_panel.locator(".doc-panel-content")).to_be_hidden()
+        doc_panel.locator(".doc-panel-toggle").click()
+        document = doc_panel.locator(".doc-add-form")
         document.locator("input[type='text']").fill("虚构云端计划")
         document.locator("input[type='url']").fill(
             "https://drive.google.com/file/d/SYNTHETIC_DOC_TEST/view")
@@ -143,6 +167,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         # the link must succeed without losing or overwriting the task.
         title_editor.fill(original_title)
         document.get_by_role("button", name="添加链接").click()
+        page.locator("#task-detail-content .step-row .doc-panel-toggle").click()
         link = page.locator("#task-detail-content .doc-row a").first
         link.wait_for(state="visible")
         self.assertEqual(link.inner_text(), "虚构云端计划")
@@ -215,10 +240,14 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         expect(page.locator(".step-row")).to_have_count(1)
         step = read_workspace(self.data_dir)["tasks"][0]["steps"][0]
         self.assertEqual(step["title"], "步骤一 · 测试删除")
-        page.locator(".step-row .doc-add-form input[type='text']").fill("虚构关联资料")
-        page.locator(".step-row .doc-add-form input[type='url']").fill(
+        doc_panel = page.locator(".step-row .doc-panel")
+        expect(doc_panel.locator(".doc-panel-content")).to_be_hidden()
+        doc_panel.locator(".doc-panel-toggle").click()
+        doc_panel.locator(".doc-add-form input[type='text']").fill("虚构关联资料")
+        doc_panel.locator(".doc-add-form input[type='url']").fill(
             "https://drive.google.com/file/d/SYNTHETIC_STEP_FILE/view")
-        page.locator(".step-row .doc-add-form button.save").click()
+        doc_panel.locator(".doc-add-form button.save").click()
+        page.locator(".step-row .doc-panel-toggle").click()
         expect(page.locator(".step-row .doc-row")).to_have_count(1)
         page.once("dialog", lambda dialog: dialog.dismiss())
         page.locator(".step-row .step-delete").click()
