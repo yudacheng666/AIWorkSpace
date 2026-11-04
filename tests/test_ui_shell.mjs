@@ -376,10 +376,12 @@ test("step document links are collapsed by default and remain editable when expa
   assert.equal(toggle.tag,"button");
   assert.match(toggle.textContent,/1/);
   assert.equal(body.hidden,true,"step documents start collapsed");
+  assert.equal(toggle.ariaExpanded,"false");
   assert.equal(body.children.filter(x=>x.className==="doc-row").length,1);
   assert.equal(body.children.filter(x=>x.className==="doc-add-form").length,1);
   toggle.handlers.get("click")[0]();
   assert.equal(body.hidden,false);
+  assert.equal(toggle.ariaExpanded,"true");
   assert.match(toggle.className,/is-expanded/);
   toggle.handlers.get("click")[0]();
   assert.equal(body.hidden,true);
