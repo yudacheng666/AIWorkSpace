@@ -1,12 +1,16 @@
 # AIWorkSpace｜当前项目状态
 
-## 2026-11-04：2.0.12 候选开发 — 任务列表状态/优先级快捷切换
+## 2026-11-04：2.0.12 已正式发布 — 任务列表状态/优先级快捷切换
 
-- **需求**：任务列表状态和优先级文字徽标改成可点按钮，点击展开选项并快捷保存；保留原有任务卡片样式、表头筛选排序。
-- **开发基线**：main SHA `0a718be5234a046d7ed15e5a82c90312321539fa`，正式 VERSION=2.0.11。分支 `feat/20261104-task-inline-switch`，候选 VERSION=2.0.12。开始时开放 PR=0。
-- **实现**：仅修改 `web/index.html` 的任务列表卡片及交互；状态/优先级各四项，下拉菜单互斥并可点击外部或 Escape 收起；所有修改走现有 `/api/tasks/{task_id}/update`，只提交原 title、当前 revision、被改字段；状态完成继续明确确认；冲突或状态联动不可靠时禁止快捷操作；未保存草稿保护、409 提示与保存后重新读取均保留。移动端保留两组按钮可见。未修改 app.py/事件格式/真实 Drive 数据。
-- **新增验证**：Node UI shell 定向覆盖按钮/菜单、无写入开关、字段级 payload、完成确认、已完成置底、草稿保护、冲突与不完整状态保护、旧 revision 409；Windows 真实 app.py + Chromium E2E 新增真实保存/确认/取消/改回/窄屏/并发冲突测试。仍需准确 SHA 的 Ubuntu/Windows Python+Node 与 Windows Chromium CI。
-- **当前状态**：代码和自动化测试已提交开发分支；完整 CI 尚未有可引用 PASS。测试通过且满足用户同轮“通过就合并”要求才发布，不操作真实本地程序或 Google Drive 数据。
+- **需求**：任务列表状态与优先级文字徽标改为按钮，点击弹出四项选项并保存，保留原任务卡片及表头筛选排序。
+- **基线/发布**：从 2.0.11 main SHA `0a718be5234a046d7ed15e5a82c90312321539fa` 开发；[PR #35](https://github.com/yudacheng666/AIWorkSpace/pull/35) 最终产品/测试 SHA `7d6dc3a61439d0b93d4d1d64dbb9fb41598fcd4c`，通过完整验收后 Draft→Ready、GitHub 标准 Merge，merge SHA `8172f8eee501923cb1230ffc35ec7d5af7a2f56e`，`main/VERSION=2.0.12`；开放 PR=0。
+- **产品实现**：仅改动 `web/index.html`，状态/优先级各四项。点击标签按钮展开选项、菜单互斥并可点外部/Escape 收起；当前值不写入；修改通过原有 `/api/tasks/{task_id}/update`，只提交原 title、准确 revision 和用户明确改变的一个字段。已完成需明确确认，取消不写；冲突任务两个字段均禁用，状态联动信息不可靠时禁用状态快改；未保存草稿阻止快捷操作，409 失败不乐观改状态。服务端刷新后延续完成任务置底与字段排序。窄屏两组按钮可见。
+- **安全范围**：`app.py`、任务事件 schema、原始数据、后台审计规则均未改变；不新增 API、数据库或自动业务写入。公司 Windows 8770 和真实 Google Drive 未由本轮更新/操作。
+- **自动化范围**：新增 Node UI shell 5 条快捷操作回归；Windows 真实 app.py + Chromium E2E 新增 2 条覆盖实际持久化、旧 revision/409、人工完成确认与取消、冲突禁用、手机窄屏和原事件不可覆盖。
+- **候选验收**：[PR GitHub Actions #41818398711](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41818398711)，准确 SHA `7d6dc3a61439d0b93d4d1d64dbb9fb41598fcd4c` **3/3 SUCCESS**。Ubuntu/Windows Python 各运行 175 tests（含设计性 SKIP），Node 各 86 PASS / 0 FAIL；Windows Chromium updater 3 PASS，工作台 UI E2E 13 PASS。
+- **合并后复验**：[main GitHub Actions #41818715644](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41818715644)，准确 merge SHA `8172f8eee501923cb1230ffc35ec7d5af7a2f56e` **3/3 SUCCESS**，同样的 175 Python tests（含预期 SKIP）、86 Node PASS，3 updater 与 13 UI Chromium PASS。
+- **首轮修正证据**：首轮 Linux/Windows Node 失败为历史 mock DOM 缺少 button setAttribute 与新测试误判抽屉默认 hidden；第二轮仅残余一处新测试断言错误；均已修正并在最终准确 SHA 完整重测 PASS，产品写入行为本身的 Windows 真实 Chromium E2E 各轮均通过。
+- **下一步**：公司电脑如需使用 2.0.12，应在真实环境先备份，再从网页软件更新中心升级；GitHub Merge 不等于本机已升级，真实 Drive/任务数据操作独立授权。
 
 ## 2026-11-04：2.0.11 已正式发布 — 数据异常处理改为通知信箱
 
