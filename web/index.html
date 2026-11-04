@@ -338,6 +338,8 @@
     .task-quick-option { display:flex; align-items:center; justify-content:space-between; width:100%; min-height:30px; padding:5px 10px; border:0; border-radius:6px; background:transparent; color:#3f5068; font-size:12px; text-align:left; cursor:pointer; white-space:nowrap; }
     .task-quick-option:hover,.task-quick-option:focus-visible { background:#edf4ff; color:#245a9e; }
     .task-quick-option.is-selected::after { content:"✓"; color:#2467bd; font-weight:700; }
+    .task-quick-hint { display:block; max-width:222px; padding:6px 9px 4px; color:#718096; font-size:11px; line-height:1.5; white-space:normal; }
+    .task-quick-editor--status .task-quick-menu:has(.task-quick-hint) { max-width:min(244px,calc(100vw - 28px)); }
     .task-quick-feedback { position:absolute; z-index:43; top:calc(100% + 5px); left:0; width:max-content; max-width:230px; padding:7px 9px; border:1px solid #e9d6ab; border-radius:7px; background:#fffaf0; color:#8e6421; box-shadow:0 7px 18px #182a4a18; font-size:11px; line-height:1.5; white-space:normal; }
     .task-quick-feedback[hidden] { display:none; }
     .task-quick-feedback.is-error { border-color:#edc2bd; background:#fff3f1; color:#a33d33; }
@@ -1910,6 +1912,17 @@
       node.role = "status";
       node.ariaLive = "polite";
     }
+    function taskHasProgressDependents(task) {
+      return !!((Array.isArray(task.child_task_ids) && task.child_task_ids.length) ||
+        (Array.isArray(task.steps) && task.steps.length) ||
+        ["steps", "children", "steps_and_children"].includes(task.status_source));
+    }
+    function taskQuickStatusOptions(task) {
+      if (!taskHasProgressDependents(task)) return Object.entries(labels);
+      return (task.manual_status ?? task.status) === "done"
+        ? [["todo", "重新打开（恢复自动联动）"]]
+        : [["done", "确认完成任务"]];
+    }
     async function updateTaskQuickField(task, field, value, feedback) {
       if (isSaving || task.conflict || !["status", "priority"].includes(field)) return false;
       const choices = field === "status" ? labels : priorities;
@@ -1920,9 +1933,19 @@
         return false;
       }
       if (field === "status" && (task.status_rollup_incomplete ||
-          task.step_order_incomplete || task.step_order_conflict || task.parent_missing)) {
+          task.step_order_incomplete || task.step_order_conflict || task.parent_missing ||
+          task.parent_cycle)) {
         quickFieldFeedback(feedback, "下级状态或同步信息不完整，请先打开任务详情核查。", true);
         return false;
+      }
+      if (field === "status" && taskHasProgressDependents(task)) {
+        const reopening = (task.manual_status ?? task.status) === "done";
+        if (value !== (reopening ? "todo" : "done")) {
+          quickFieldFeedback(feedback, "此任务状态由下级自动计算；只能确认完成或重新打开。", true);
+          return false;
+        }
+        if (reopening && !window.confirm(
+          "确认重新打开任务？原人工完成状态将撤销，随后按子任务和执行步骤的进度自动计算状态。")) return false;
       }
       if (field === "status" && value === "done" &&
           !window.confirm("确认亲自将此任务标记为已完成？此操作会保存一条完成记录。")) return false;
@@ -1956,7 +1979,8 @@
       const choices = isStatus ? labels : priorities;
       const value = isStatus ? task.status : (task.priority || "normal");
       const unsafeStatus = isStatus && (task.status_rollup_incomplete ||
-        task.step_order_incomplete || task.step_order_conflict || task.parent_missing);
+        task.step_order_incomplete || task.step_order_conflict || task.parent_missing ||
+        task.parent_cycle);
       const disabled = !!(task.conflict || unsafeStatus);
       const wrapper = element("div", "task-quick-editor task-quick-editor--" + field);
       const trigger = element("button",
@@ -1970,17 +1994,26 @@
       trigger.setAttribute("aria-label", "修改任务" + (isStatus ? "状态" : "优先级") + "：" + trigger.textContent);
       trigger.title = disabled
         ? "存在冲突或联动数据不完整，请先在任务详情中核查"
-        : "点击快速修改任务" + (isStatus ? "状态" : "优先级");
+        : isStatus && taskHasProgressDependents(task)
+          ? "由下级进度自动计算；点击确认完成或重新打开"
+          : "点击快速修改任务" + (isStatus ? "状态" : "优先级");
       const menu = element("div", "task-quick-menu");
       menu.hidden = true;
       menu.setAttribute("role", "group");
       menu.setAttribute("aria-label", isStatus ? "选择任务状态" : "选择任务优先级");
       const feedback = element("span", "task-quick-feedback");
       feedback.hidden = true;
-      for (const [key, label] of Object.entries(choices)) {
+      const menuOptions = isStatus ? taskQuickStatusOptions(task) : Object.entries(choices);
+      if (isStatus && taskHasProgressDependents(task)) {
+        const isCompleted = (task.manual_status ?? task.status) === "done";
+        menu.append(element("span", "task-quick-hint", isCompleted
+          ? "重新打开后，由子任务和执行步骤自动计算状态。"
+          : "当前状态由下级进度自动计算，不支持直接覆盖。"));
+      }
+      for (const [key, label] of menuOptions) {
         const option = element("button", "task-quick-option" + (key === value ? " is-selected" : ""), label);
         option.type = "button";
-        option.setAttribute("aria-label", "设为" + label);
+        option.setAttribute("aria-label", isStatus && taskHasProgressDependents(task) ? label : "设为" + label);
         option.addEventListener("click", async () => {
           closeTaskQuickMenu();
           await updateTaskQuickField(task, field, key, feedback);
