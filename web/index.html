@@ -534,37 +534,59 @@
 
 
     .nav-count { margin-left:auto; min-width:20px; padding:2px 6px; border-radius:20px; background:#fff0e8; color:#a94b32; font-size:10px; font-weight:700; text-align:center; }
-    .review-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:18px 0; }
-    .review-stat { padding:15px 17px; border:1px solid #e2e9f1; border-radius:11px; background:#fff; }
-    .review-stat strong { display:block; color:#263b58; font-size:22px; line-height:1.2; }
-    .review-stat span { display:block; margin-top:5px; color:#8290a2; font-size:11px; }
-    .review-layout { display:grid; grid-template-columns:minmax(260px,330px) minmax(0,1fr); align-items:start; gap:16px; }
-    .review-list-panel,.review-detail { min-width:0; border:1px solid #e2e9f1; border-radius:12px; background:#fff; padding:15px; }
-    .review-list-panel h2,.review-detail h2 { margin:0 0 12px; color:#2a405f; font-size:14px; }
-    .review-list { display:grid; gap:8px; max-height:690px; overflow:auto; }
-    .review-list-item { width:100%; min-width:0; display:grid; gap:6px; text-align:left; padding:11px 12px; border:1px solid #e7edf4; border-radius:9px; background:#fbfcfe; color:#405670; }
+    .review-intro { margin:14px 0 16px; padding:12px 15px; border:1px solid #e2e9f1; border-radius:9px; background:#fff; color:#53677f; font-size:13px; line-height:1.7; }
+    .review-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:16px 0; }
+    .review-stat { padding:14px 16px; border:1px solid #e2e9f1; border-radius:11px; background:#fff; }
+    .review-stat strong { display:block; color:#263b58; font-size:23px; line-height:1.2; }
+    .review-stat span { display:block; margin-top:5px; color:#718198; font-size:12px; }
+    .review-layout { display:grid; grid-template-columns:minmax(280px,340px) minmax(0,1fr); align-items:start; gap:16px; }
+    .review-list-panel,.review-detail { min-width:0; border:1px solid #e2e9f1; border-radius:12px; background:#fff; padding:17px; }
+    .review-list-panel h2,.review-detail h2 { margin:0 0 12px; color:#2a405f; font-size:15px; }
+    .review-list { display:grid; gap:9px; max-height:690px; overflow:auto; }
+    .review-list-item { width:100%; min-width:0; display:grid; gap:7px; text-align:left; padding:12px 13px; border:1px solid #e7edf4; border-radius:9px; background:#fbfcfe; color:#405670; }
     .review-list-item:hover,.review-list-item.is-active { border-color:#a9c4e8; background:#f3f7fd; }
-    .review-list-item strong { font-size:12px; line-height:1.5; }
-    .review-list-item small { color:#8a97a7; font-size:10px; overflow-wrap:anywhere; }
-    .review-status { display:inline-flex; width:max-content; padding:3px 7px; border-radius:20px; background:#edf1f5; color:#62748a; font-size:10px; }
+    .review-list-item strong { font-size:13px; line-height:1.55; }
+    .review-list-item small { color:#718198; font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+    .review-status { display:inline-flex; width:max-content; padding:4px 8px; border-radius:20px; background:#edf1f5; color:#62748a; font-size:11px; }
     .review-status.pending,.review-status.failed,.review-status.stale,.review-status.conflict { background:#fff0e8; color:#a64d31; }
     .review-status.authorized { background:#edf4ff; color:#285e9d; }
     .review-status.applied { background:#eaf6ef; color:#26734b; }
     .review-status.dismissed { background:#f1f2f4; color:#6f7a88; }
+    .review-detail { display:grid; gap:14px; }
     .review-detail-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
-    .review-detail-meta { color:#7d8ca0; font-size:11px; line-height:1.7; white-space:pre-line; overflow-wrap:anywhere; }
-    .review-reason { margin:12px 0; padding:11px 13px; border-left:3px solid #d69a58; border-radius:6px; background:#fff9f2; color:#6d563c; font-size:12px; line-height:1.65; }
-    .review-code { max-height:220px; overflow:auto; padding:11px; border:1px solid #e8edf3; border-radius:8px; background:#f8fafc; color:#42536b; font:11px/1.55 Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
-    .review-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:13px; }
-    .review-actions button { min-height:34px; padding:7px 12px; border:1px solid #dbe4ee; border-radius:7px; background:#fff; color:#49627e; font-size:11px; }
+    .review-detail-head h2 { margin-bottom:7px; font-size:17px; }
+    .review-target { margin:0; color:#64758b; font-size:13px; line-height:1.6; }
+    .review-guidance-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .review-guidance-card { min-width:0; padding:12px 13px; border:1px solid #e6ebf2; border-radius:9px; background:#fbfcfe; }
+    .review-guidance-card h3,.review-proposal h3 { margin:0 0 7px; color:#53677f; font-size:12px; }
+    .review-guidance-card p { margin:0; color:#344a64; font-size:13px; line-height:1.7; overflow-wrap:anywhere; }
+    .review-guidance-card.recommendation { grid-column:1 / -1; background:#f7f9fc; }
+    .review-proposal { padding:14px; border:1px solid #dbe6f3; border-radius:10px; background:#f8fbff; }
+    .review-proposal-target { margin:0 0 10px; color:#2f4969; font-size:13px; font-weight:600; }
+    .review-proposal-list { display:grid; gap:7px; margin:0; }
+    .review-proposal-row { display:grid; grid-template-columns:110px minmax(0,1fr); gap:10px; padding:8px 0; border-top:1px solid #e4ebf4; font-size:13px; line-height:1.55; }
+    .review-proposal-row span:first-child { color:#718198; }
+    .review-proposal-row span:last-child { color:#2f4969; overflow-wrap:anywhere; }
+    .review-proposal-note { margin:10px 0 0; color:#586d86; font-size:12px; line-height:1.6; }
+    .review-proposal-warning { margin-top:10px; padding:10px 12px; border-left:3px solid #d69a58; background:#fff8ef; color:#775a38; font-size:12px; line-height:1.65; }
+    .review-blocked { padding:13px; border:1px solid #e9e4dc; border-radius:9px; background:#fffaf3; }
+    .review-blocked h3 { margin:0 0 6px; color:#775a38; font-size:13px; }
+    .review-blocked p { margin:0; color:#6d5a44; font-size:13px; line-height:1.7; }
+    .review-actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:4px; }
+    .review-actions button { min-height:38px; padding:8px 14px; border:1px solid #dbe4ee; border-radius:7px; background:#fff; color:#49627e; font-size:13px; }
     .review-actions button.save { border-color:var(--blue); background:var(--blue); color:#fff; }
-    .review-actions button.review-danger { border-color:#ecd4d0; color:#a64d43; }
+    .review-actions button.secondary { border-color:#cbd7e5; color:#49627e; }
     .review-actions button:disabled { opacity:.45; cursor:not-allowed; }
-    .review-note { display:grid; gap:5px; margin-top:12px; color:#687a91; font-size:11px; }
-    .review-note textarea { min-height:64px; padding:9px; border:1px solid #dce5ef; border-radius:7px; resize:vertical; font:inherit; font-size:12px; line-height:1.5; }
-    .review-timeline { display:grid; gap:7px; margin:12px 0; padding-left:16px; color:#77869a; font-size:10px; }
-    .review-empty { padding:26px 12px; color:#8996a7; font-size:12px; text-align:center; }
-    .review-message { min-height:18px; margin-top:10px; color:#72839a; font-size:11px; }
+    .review-note { display:grid; gap:6px; margin-top:2px; color:#53677f; font-size:12px; }
+    .review-note textarea { min-height:70px; padding:10px; border:1px solid #dce5ef; border-radius:7px; resize:vertical; font:inherit; font-size:13px; line-height:1.6; }
+    .review-history,.review-technical { border-top:1px solid #e8edf3; padding-top:10px; color:#718198; font-size:12px; }
+    .review-history summary,.review-technical summary { cursor:pointer; color:#53677f; font-size:12px; font-weight:600; }
+    .review-timeline { display:grid; gap:7px; margin:12px 0 0; padding-left:18px; color:#718198; font-size:12px; line-height:1.6; }
+    .review-technical-body { display:grid; gap:9px; margin-top:10px; }
+    .review-detail-meta { color:#7d8ca0; font-size:11px; line-height:1.7; white-space:pre-line; overflow-wrap:anywhere; }
+    .review-code { max-height:220px; overflow:auto; padding:11px; border:1px solid #e8edf3; border-radius:8px; background:#f8fafc; color:#42536b; font:11px/1.55 Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .review-empty { padding:28px 14px; color:#718198; font-size:13px; line-height:1.7; text-align:center; }
+    .review-message { min-height:20px; margin-top:10px; color:#53677f; font-size:12px; line-height:1.6; }
     .review-message.error { color:#a94b37; }
     @media(max-width:900px) {
       .review-layout { grid-template-columns:minmax(0,1fr); }
@@ -660,16 +682,17 @@
       </section>
     </section>
     <section id="page-reviews" class="workspace-page" hidden>
-      <div class="page-heading"><div><h1>数据核查</h1><p class="subtitle">查看异常来源、人工核查、明确授权、执行合法修复并追踪结果。</p></div>
+      <div class="page-heading"><div><h1>数据异常处理</h1><p class="subtitle">这里列出系统暂时无法安全处理的记录。正常任务不需要你逐条检查。</p></div>
         <button type="button" id="review-refresh">重新扫描</button></div>
-      <div id="review-summary" class="review-summary" aria-label="数据核查统计"></div>
+      <p class="review-intro">重新扫描只读取数据，不会修改任务、步骤或原始记录。选择左侧事项后，先看“发生了什么”“对工作台的影响”和“建议怎么处理”；只有你明确确认后，系统才会记录处理决定。</p>
+      <div id="review-summary" class="review-summary" aria-label="异常处理统计"></div>
       <div class="review-layout">
         <section class="review-list-panel" aria-labelledby="review-list-heading">
-          <h2 id="review-list-heading">异常与核查记录</h2>
+          <h2 id="review-list-heading">异常与处理记录</h2>
           <div id="review-list" class="review-list"></div>
         </section>
-        <section id="review-detail" class="review-detail" aria-label="异常详情与处理">
-          <div class="review-empty">选择一条异常，查看原始事件、校验原因和可执行的修复方案。</div>
+        <section id="review-detail" class="review-detail" aria-label="异常说明与处理方式">
+          <div class="review-empty">请从左侧选择一项。这里会用日常语言说明发生了什么、是否影响工作，以及你可以怎么处理。</div>
         </section>
       </div>
       <p id="review-message" class="review-message" role="status" aria-live="polite"></p>
@@ -2571,16 +2594,35 @@
     }
 
     const reviewStatusLabels = {
-      pending: "待人工核查", authorized: "已授权·待执行", applied: "已写入并验证",
-      dismissed: "已核查·不写入", stale: "来源或版本已变化", failed: "写入/验证失败",
-      conflict: "核查记录冲突"
+      pending: "需要你处理", authorized: "已确认，等待执行", applied: "已修复并验证",
+      dismissed: "已确认保留", stale: "情况已变化，需重新核对", failed: "上次处理未完成",
+      conflict: "存在冲突，已暂停"
     };
-
+    function reviewGuidanceFor(item) {
+      if (item.user_guidance) return item.user_guidance;
+      const fallback = {
+        invalid_step_reference: {
+          summary: "这条执行步骤记录中的步骤编号无法识别，系统不能确定它属于哪一步。",
+          impact: "记录没有被应用，原始文件保留；系统不会猜测目标步骤。",
+          recommendation: "请核对关联任务中的步骤列表。无法确认时，选择“确认保留，不写入”。"
+        },
+        malformed_event: {
+          summary: "这条记录的文件内容无法正确读取，系统无法可靠判断原本要执行什么操作。",
+          impact: "系统没有应用这条记录，原始文件仍保留。",
+          recommendation: "请通过正常任务或步骤界面重新录入可确认的内容；无法确认时保留原记录。"
+        }
+      };
+      return fallback[item.category] || {
+        summary: "系统发现一条暂时无法安全处理的记录。",
+        impact: "系统已暂停应用它，不会自动覆盖任务或步骤。",
+        recommendation: "请核对关联任务和原始来源；不确定时保留原记录，不要授权写入。"
+      };
+    }
     function renderReviewSummary(summary) {
       const host = $("review-summary");
       const stats = [
-        ["open_count", "待处理 / 待执行"], ["authorized", "已授权待执行"],
-        ["applied", "已写入并验证"], ["dismissed", "已核查不写入"]
+        ["open_count", "需要你处理"], ["authorized", "等你执行"],
+        ["applied", "已修复并验证"], ["dismissed", "已确认保留"]
       ];
       host.replaceChildren(...stats.map(([key, label]) => {
         const card = element("div", "review-stat");
@@ -2588,23 +2630,24 @@
         return card;
       }));
     }
-
     function renderReviewList() {
       const host = $("review-list");
       host.replaceChildren();
       if (!reviewItems.length) {
-        host.append(element("p", "review-empty", "当前没有异常或历史核查记录。"));
+        host.append(element("p", "review-empty", "目前没有需要处理的异常记录。"));
         return;
       }
       for (const item of reviewItems) {
         const button = element("button", "review-list-item" +
           (item.anomaly_id === selectedReviewId ? " is-active" : ""));
         button.type = "button";
+        const guidance = reviewGuidanceFor(item);
+        const context = item.task_title ? "关联任务：" + item.task_title :
+          item.source?.folder === "workspace" ? "工作区提示" : "暂未识别关联任务";
         button.append(
-          element("span", "review-status " + item.status, reviewStatusLabels[item.status] || item.status),
+          element("span", "review-status " + item.status, reviewStatusLabels[item.status] || "需要核对"),
           element("strong", "", item.title),
-          element("small", "", (item.task_id || item.step_id || item.source.filename || "工作区") +
-            " · " + item.reason)
+          element("small", "", context + " · " + guidance.summary)
         );
         button.addEventListener("click", () => {
           selectedReviewId = item.anomaly_id;
@@ -2614,88 +2657,156 @@
         host.append(button);
       }
     }
-
+    const reviewFieldLabels = {
+      title: "名称", status: "状态", trashed_at: "任务位置", owner: "负责人",
+      priority: "优先级", due_date: "截止日期", planned_date: "计划日期",
+      follow_up_date: "下次跟进日期", project_id: "所属项目", related_project_ids: "关联项目",
+      document_links: "文档关联"
+    };
+    function reviewChangeValue(field, value) {
+      const statuses = {todo: "待处理", doing: "进行中", blocked: "受阻", done: "已完成"};
+      const priorities = {low: "低", normal: "普通", high: "高", urgent: "紧急"};
+      if (field === "status") return statuses[value] || String(value);
+      if (field === "priority") return priorities[value] || String(value);
+      if (field === "trashed_at") return value ? "移入回收站" : "从回收站恢复";
+      if (["project_id", "related_project_ids", "document_links"].includes(field)) {
+        return "按已核对的原记录更新关联（不删除云端文件）";
+      }
+      if (value === null || value === "") return "清空";
+      if (Array.isArray(value)) return value.length ? "更新 " + value.length + " 项" : "清空";
+      if (typeof value === "object") return "更新关联信息";
+      return String(value);
+    }
+    function renderReviewProposal(item, host) {
+      const proposal = item.proposal;
+      const section = element("section", "review-proposal");
+      section.append(element("h3", "", "系统建议的修改内容（请核对）"));
+      const taskTitle = proposal.target.task_title || item.task_title || "关联任务";
+      const target = proposal.target.step_title
+        ? "任务“" + taskTitle + "”中的步骤“" + proposal.target.step_title + "”"
+        : "任务“" + taskTitle + "”";
+      section.append(element("p", "review-proposal-target", "修改对象：" + target));
+      const list = element("dl", "review-proposal-list");
+      for (const [field, value] of Object.entries(proposal.event?.changes || {})) {
+        const row = element("div", "review-proposal-row");
+        row.append(element("span", "", reviewFieldLabels[field] || "其他内容"),
+          element("span", "", reviewChangeValue(field, value)));
+        list.append(row);
+      }
+      section.append(list);
+      let note = "系统会追加一条经过规则校验的新记录；原始异常记录会保留，不会被覆盖或删除。";
+      if (item.category === "step_update_position") note += " 原记录中不合规的排序信息会被忽略，不会改变其他步骤的顺序。";
+      section.append(element("p", "review-proposal-note", note));
+      if (proposal.requires_completion_confirmation) {
+        section.append(element("p", "review-proposal-warning",
+          "注意：这项修改会把任务或步骤标记为“已完成”。只有你亲自确认工作确实完成时，才继续授权。"));
+      }
+      host.append(section);
+    }
     function renderReviewDetail(item) {
       const host = $("review-detail");
       host.replaceChildren();
       const heading = element("div", "review-detail-head");
       const title = element("div");
       title.append(element("h2", "", item.title),
-        element("span", "review-status " + item.status,
-          reviewStatusLabels[item.status] || item.status));
+        element("span", "review-status " + item.status, reviewStatusLabels[item.status] || "需要核对"));
       heading.append(title);
       host.append(heading);
-      const meta = element("div", "review-detail-meta");
-      meta.textContent = [
-        "异常编号：" + item.anomaly_id,
-        "来源：" + (item.source.folder + (item.source.filename ? "/" + item.source.filename : "")),
-        "原始事件 ID：" + (item.event_id || "无法解析"),
-        "任务：" + (item.task_id || "未识别"),
-        "步骤：" + (item.step_id || "未识别"),
-        "原始文件 SHA-256：" + item.source.sha256,
-        item.source_present ? "原始文件：仍在，未修改" : "原始文件：已不存在，历史记录保留"
-      ].join("\n");
-      host.append(meta, element("p", "review-reason", item.reason));
-      if (item.source_event) {
-        host.append(element("h3", "", "原始事件（只读）"));
-        const raw = element("pre", "review-code");
-        raw.textContent = JSON.stringify(item.source_event, null, 2);
-        host.append(raw);
-      } else if (item.raw_excerpt) {
-        const raw = element("pre", "review-code");
-        raw.textContent = item.raw_excerpt;
-        host.append(raw);
+      const context = item.task_title ? "关联任务：" + item.task_title :
+        item.source?.folder === "workspace" ? "工作区提示" : "关联任务暂未识别";
+      host.append(element("p", "review-target", context +
+        (item.recorded_step_title ? " · 记录中的步骤名称：" + item.recorded_step_title : "")));
+      const guidance = reviewGuidanceFor(item);
+      const cards = element("div", "review-guidance-grid");
+      for (const [label, value, className] of [
+        ["发生了什么", guidance.summary, ""],
+        ["对工作台的影响", guidance.impact, ""],
+        ["建议怎么处理", guidance.recommendation, "recommendation"]
+      ]) {
+        const card = element("section", "review-guidance-card " + className);
+        card.append(element("h3", "", label), element("p", "", value));
+        cards.append(card);
       }
-      if (item.proposal) {
-        host.append(element("h3", "", "系统建议的合法修复（预览，不会自动写入）"));
-        const preview = element("pre", "review-code");
-        preview.textContent = JSON.stringify({
-          target: item.proposal.target,
-          target_folder: item.proposal.target_folder,
-          event: item.proposal.event,
-          explanation: item.proposal.explanation,
-          proposal_sha256: item.proposal.proposal_sha256
-        }, null, 2);
-        host.append(preview);
-      } else if (item.status === "pending" || item.status === "failed" || item.status === "stale") {
-        host.append(element("p", "review-reason",
-          item.proposal_block_reason || "此异常暂不支持自动修复。可以核查原始资料并记录处理结论；该操作不会写入任务、步骤或项目数据。"));
+      host.append(cards);
+      if (item.proposal) renderReviewProposal(item, host);
+      else if (item.source_present && ["pending", "failed", "stale"].includes(item.status)) {
+        const blocked = element("section", "review-blocked");
+        blocked.append(element("h3", "", "目前不能自动修复"),
+          element("p", "", guidance.recommendation));
+        host.append(blocked);
       }
       if (item.timeline && item.timeline.length) {
-        host.append(element("h3", "", "处理轨迹"));
+        const history = element("details", "review-history");
+        history.append(element("summary", "", "查看此前处理记录"));
         const timeline = element("ol", "review-timeline");
         for (const entry of item.timeline) {
-          const label = entry.action === "dismissed" ? "已核查不写入" :
-            entry.action === "authorize" ? "已授权" :
-            entry.action === "applied" ? "已写入并验证" : entry.action;
+          const label = entry.action === "dismissed" ? "已确认保留、不写入" :
+            entry.action === "authorize" ? "已授权，尚未执行" :
+            entry.action === "applied" ? "已修复并验证" : "处理状态更新";
           timeline.append(element("li", "", entry.timestamp + " · " + label +
             (entry.note ? " · " + entry.note : "")));
         }
-        host.append(timeline);
+        history.append(timeline);
+        host.append(history);
       }
+      const technical = element("details", "review-technical");
+      technical.append(element("summary", "", "查看技术详情（通常不需要打开）"));
+      const technicalBody = element("div", "review-technical-body");
+      const meta = element("div", "review-detail-meta");
+      meta.textContent = [
+        "异常编号：" + (item.anomaly_id || "—"),
+        "来源文件：" + (item.source?.folder || "—") + (item.source?.filename ? "/" + item.source.filename : ""),
+        "原始事件 ID：" + (item.event_id || "无法解析"),
+        "任务内部编号：" + (item.task_id || "未识别"),
+        "步骤内部编号：" + (item.step_id || "未识别"),
+        "校验原因：" + (item.reason || "—"),
+        "来源文件 SHA-256：" + (item.source?.sha256 || "—"),
+        item.source_present ? "原始文件：仍在，未修改" : "原始文件：已不存在，历史记录保留"
+      ].join("\n");
+      technicalBody.append(meta);
+      if (item.source_event) {
+        technicalBody.append(element("h3", "", "原始事件（只读）"));
+        const raw = element("pre", "review-code");
+        raw.textContent = JSON.stringify(item.source_event, null, 2);
+        technicalBody.append(raw);
+      } else if (item.raw_excerpt) {
+        const raw = element("pre", "review-code");
+        raw.textContent = item.raw_excerpt;
+        technicalBody.append(raw);
+      }
+      if (item.proposal) {
+        technicalBody.append(element("h3", "", "修复记录详情"));
+        const rawProposal = element("pre", "review-code");
+        rawProposal.textContent = JSON.stringify(item.proposal, null, 2);
+        technicalBody.append(rawProposal);
+      }
+      technical.append(technicalBody);
+      host.append(technical);
       if (!item.source_present || item.status === "applied" || item.status === "dismissed" ||
           item.status === "conflict") return;
-      const noteLabel = element("label", "review-note", "核查说明 / 不写入原因");
+      const needsDecisionNote = item.can_dismiss && !item.proposal;
+      const noteLabel = element("label", "review-note",
+        needsDecisionNote ? "处理结论（必填）" : "处理备注（可选）");
       const note = element("textarea");
       note.maxLength = 500;
-      note.placeholder = item.can_dismiss ? "标记不修复时请说明核查结论（必填）" : "可记录本次核查依据";
+      note.placeholder = item.category === "invalid_step_reference"
+        ? "例如：已核对任务步骤，无法确认对应步骤，决定保留原记录。"
+        : needsDecisionNote ? "说明为什么决定保留原记录、不写入。" : "可补充本次核查依据。";
       noteLabel.append(note);
       host.append(noteLabel);
       const actions = element("div", "review-actions");
       if (item.can_authorize) {
         const authorize = element("button", "save",
-          item.status === "stale" ? "重新核查并授权" : "确认核查并授权修复");
+          item.status === "stale" ? "重新核对并授权修复" : "确认并授权修复");
         authorize.type = "button";
         authorize.addEventListener("click", async () => {
           if (reviewBusy) return;
-          if (!window.confirm("请确认已核对原始事件和修复预览。授权只记录你的决定，不会立即写入任务数据。是否授权？")) return;
+          if (!window.confirm("确认授权这项修复建议？这一步只记录你的授权，不会立即修改任务或步骤。")) return;
           if (item.proposal.requires_completion_confirmation &&
-              !window.confirm("该修复会将任务/步骤标记为已完成。请再次明确确认：确实要完成吗？")) return;
+              !window.confirm("请再次确认：你亲自确认这项任务或步骤已经完成吗？")) return;
           await submitReviewAction(item, "authorize", {
-            source_sha256: item.source.sha256,
-            proposal_sha256: item.proposal.proposal_sha256,
-            confirmed: true,
-            confirm_completion: item.proposal.requires_completion_confirmation,
+            source_sha256: item.source.sha256, proposal_sha256: item.proposal.proposal_sha256,
+            confirmed: true, confirm_completion: item.proposal.requires_completion_confirmation,
             note: note.value.trim()
           }, $("review-message"));
         });
@@ -2706,26 +2817,26 @@
         apply.type = "button";
         apply.addEventListener("click", async () => {
           if (reviewBusy) return;
-          if (!window.confirm("将按已授权预览写入一条新的、经过校验的事件。原始异常文件不会修改或删除。确认执行？")) return;
+          if (!window.confirm("现在执行已经授权的修复？系统会再次核对版本，并保留原始异常文件。")) return;
           await submitReviewAction(item, "apply", {
-            source_sha256: item.source.sha256,
-            authorization_event_id: item.authorization_event_id,
+            source_sha256: item.source.sha256, authorization_event_id: item.authorization_event_id,
             confirmed: true
           }, $("review-message"));
         });
         actions.append(apply);
       }
       if (item.can_dismiss) {
-        const dismiss = element("button", "review-danger", "标记已核查·不写入");
+        const dismiss = element("button", "secondary",
+          item.proposal ? "暂不修复，保留原记录" : "确认保留，不写入");
         dismiss.type = "button";
         dismiss.addEventListener("click", async () => {
           if (reviewBusy) return;
           if (note.value.trim().length < 1) {
             $("review-message").className = "review-message error";
-            $("review-message").textContent = "请先填写核查结论或不修复原因。";
+            $("review-message").textContent = "请先填写处理结论，说明为什么保留原记录。";
             return;
           }
-          if (!window.confirm("仅记录“已核查、不授权写入”，不会修复或删除任何原始数据。确认？")) return;
+          if (!window.confirm("确认保留这条原始异常记录、不写入工作台？这不会修改或删除任何任务、步骤或原始文件。")) return;
           await submitReviewAction(item, "dismiss", {
             source_sha256: item.source.sha256, confirmed: true, note: note.value.trim()
           }, $("review-message"));
@@ -2748,14 +2859,14 @@
           });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "核查操作失败");
-        message.textContent = action === "authorize" ? "授权已记录；尚未写入，下一步需要单独执行。" :
-          action === "apply" ? "合法事件已写入，结果校验与追踪回执已保存。" :
-          "已记录人工核查结论；未修改业务数据。";
+        message.textContent = action === "authorize" ? "授权已记录；尚未修改任务或步骤。请再次核对后，单独点击“执行已授权修复”。" :
+          action === "apply" ? "修复已执行，系统已核对结果；原始异常记录仍保留。" :
+          "已记录你的决定；原始异常记录保留，未修改任务或步骤。";
         await loadReviews();
         await refresh(true);
       } catch (error) {
         message.className = "review-message error";
-        message.textContent = "操作未完成：" + error.message + "。请刷新核对状态，不要重复创建其他事件。";
+        message.textContent = "这次操作没有完成。请点击“重新扫描”查看最新状态；在确认结果前不要重复操作。";
         await loadReviews();
       } finally {
         reviewBusy = false;
