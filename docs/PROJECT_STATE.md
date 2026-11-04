@@ -513,3 +513,7 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - 新增 Python 数据治理测试及 Node UI 测试；测试结果以该分支准确 SHA 的 GitHub Actions 为准，当前尚未运行。
 - 安全边界：不自动写入或删除真实数据；保留授权/执行分离、源 SHA、目标 revision、冲突检查和 validator；候选 VERSION=2.0.8，未合并、未发布、未部署。
 - 下一步：核验 PR 与准确 SHA 的 GitHub Actions（Linux、Windows、Windows Chromium）；修复失败项后只复测受影响范围。通过后向用户展示 PR/CI 结果，等待用户决定是否发布。
+
+- 最终候选 PR：#28（https://github.com/yudacheng666/AIWorkSpace/pull/28），准确 head SHA d23d050701ff831a81fe2b9282857ca1fc606c26；GitHub Actions run 41770447630 对该 SHA 的 Linux Python、Windows Python、Windows real-app + Chromium E2E 三个 jobs 全部 PASS。
+- Windows Chromium E2E 已调整为验证“技术详情默认折叠、用户主动展开后仍可查看原始 JSON”，并验证新授权按钮文案；原先旧测试仍要求 JSON 默认显示和旧按钮文案，首次 CI 因测试断言过时而失败，已更新 E2E 后完整复验通过。
+- 当前 PR 仍为 Draft / Open，未合并 main、未发布、未部署；真实工作台中的 5 项异常和其他业务数据未读取、未写入、未删除。
