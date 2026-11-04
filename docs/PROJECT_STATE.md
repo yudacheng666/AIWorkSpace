@@ -1,6 +1,6 @@
 # AIWorkSpace｜当前项目状态
 
-## 2026-11-04：2.0.10 候选 — 任务列表与步骤文档交互优化
+## 2026-11-04：2.0.10 已正式发布 — 任务列表与步骤文档交互优化
 
 - **用户需求**：步骤文档增加折叠按钮；任务名称点击打开详情；任务 ID 点击复制；已完成任务自动排到任务列表末尾。
 - **基线**：正式 main SHA `726da94e1817cd910665d5fb984bd3f02c26f8c1`，`VERSION=2.0.9`。分支 `feat/20261104-task-list-usability`，候选 `VERSION=2.0.10`。不改 app.py、事件 schema、API、任务 revision 或真实工作台数据。
@@ -10,7 +10,7 @@
   - Ubuntu Python：173 total / 157 PASS / 16 SKIP；Node：79 PASS / 0 FAIL。
   - Windows Python：173 total / 159 PASS / 14 SKIP；Node：79 PASS / 0 FAIL。
   - Windows 真实 app.py + Chromium：更新/回滚 3 PASS；工作台 UI E2E 11 PASS，覆盖任务名称打开、列表 ID 剪贴板复制、步骤文档折叠/展开/关联、完成任务在默认/字段/多字段排序中置底，以及排序不写任务事件。
-- **当前状态**：PR #33 Draft / Open，base main `726da94e1817cd910665d5fb984bd3f02c26f8c1`；产品/测试准确 SHA `b0adfae15ce70065f25bada16af8305402fea6c9` 之后仅追加 Markdown 项目记忆，不影响已通过的产品/测试代码。CI 已通过，尚未合并或正式发布；用户本轮授权为“继续优化”，并未明确授权合并 main，需等待用户发布审批。
+- **正式合并**：用户于 2026-11-04 明确批准最新合并。PR #33 Draft→Ready 后以 GitHub 标准 Merge 合入 main；产品/测试准确 SHA `b0adfae15ce70065f25bada16af8305402fea6c9` 的 Actions #41783935135 3/3 SUCCESS。最终 PR HEAD `31a720d0f226bedb98653fb224cb9450a98aa389` 相对该已测 SHA 仅包含 README、PROJECT_STATE、DECISIONS 三个 Markdown 文件的记忆追记，无产品/测试代码变化；最终 HEAD 对应 Actions #41784404642 SUCCESS。合并 SHA `0ec256205bf47a7ee36ae74d3a638a3bb71ef44b`，已回读确认 `main/VERSION=2.0.10`；PR #33 merged，当前开放 PR=0。当前连接器未返回合并后 main push CI，故不宣称该项已核实。
 - **安全边界**：仅更改网页展示与自动化测试；不扫描、修改或重排真实任务数据，不自动把任务写成 done，不改任何事件文件。
 
 ## 2026-11-04：2.0.9 已正式发布，所有遗漏 PR 已审计归档
