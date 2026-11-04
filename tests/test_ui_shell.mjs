@@ -1076,3 +1076,112 @@ test("quick status blocks 409 stale-revision writes and shows a local error with
   assert.equal(task.status,"doing");
   assert.equal(task.revision,1);
 });
+
+
+test("derived parent status menu permits confirmed completion but no manual override", async () => {
+  const parent = {...sampleTask(), manual_status:"todo", status_source:"children",
+    child_task_ids:["TASK-SYNTHETIC-CHILD-1"]};
+  let approved = false;
+  let confirms = 0;
+  const page = harness([parent], () => {confirms++; return approved;}, [], [],
+    async (_path, body) => {
+      if (body.status === "done") {
+        parent.manual_status = "done";
+        parent.status_source = "user_confirmed";
+        parent.status = "done";
+      }
+      parent.revision += 1;
+      return successReply();
+    });
+  await page.api.refresh(true);
+  const original = taskQuickControl(taskRows(page)[0], "status");
+  original.trigger.handlers.get("click")[0]();
+  assert.match(original.trigger.title, /下级进度自动计算/);
+  assert.equal(original.menu.children.length, 2, "hint plus one deliberate completion action");
+  assert.match(original.menu.children[0].textContent, /不支持直接覆盖/);
+  assert.equal(original.menu.children[1].textContent, "确认完成任务");
+  const blocked = await page.api.updateTaskQuickField(parent, "status", "blocked", original.feedback);
+  assert.equal(blocked, false, "even programmatic attempts cannot override a derived parent");
+  assert.match(original.feedback.textContent, /只能确认完成或重新打开/);
+  assert.equal(page.writes.length, 0);
+  await chooseQuick(original, "确认完成任务");
+  assert.equal(confirms, 1);
+  assert.equal(page.writes.length, 0, "declined completion cannot write");
+  approved = true;
+  original.trigger.handlers.get("click")[0]();
+  await chooseQuick(original, "确认完成任务");
+  assert.equal(confirms, 2);
+  assert.deepEqual(page.writes[0].body, {
+    title:parent.title, revision:1, status:"done", confirmed_done:true
+  });
+  assert.equal(parent.status, "done");
+  assert.equal(parent.manual_status, "done");
+  const completed = taskQuickControl(taskRows(page)[0], "status");
+  completed.trigger.handlers.get("click")[0]();
+  assert.equal(completed.menu.children[1].textContent, "重新打开（恢复自动联动）");
+});
+
+test("confirmed parent reopens with one explicit action and immediately resumes derived status", async () => {
+  const parent = {...sampleTask(),status:"done",manual_status:"done",
+    status_source:"user_confirmed", child_task_ids:["TASK-SYNTHETIC-CHILD-2"],
+    revision:3, priority:"normal"};
+  let allow = false;
+  let confirms = 0;
+  const page = harness([parent], () => {confirms++; return allow;}, [], [],
+    async (_path, body) => {
+      if (body.status === "todo") {
+        parent.manual_status = "todo";
+        parent.status = "blocked"; // Simulated child is blocked; server rollup wins.
+        parent.status_source = "children";
+      } else if (body.priority) parent.priority=body.priority;
+      parent.revision += 1;
+      return successReply();
+    });
+  await page.api.refresh(true);
+  const status = taskQuickControl(taskRows(page)[0],"status");
+  status.trigger.handlers.get("click")[0]();
+  assert.equal(status.menu.children.length,2);
+  assert.match(status.menu.children[0].textContent,/重新打开后/);
+  assert.equal(status.menu.children[1].textContent,"重新打开（恢复自动联动）");
+  await chooseQuick(status,"重新打开（恢复自动联动）");
+  assert.equal(confirms,1);
+  assert.equal(page.writes.length,0,"declined reopen must not create an event");
+  allow=true;
+  status.trigger.handlers.get("click")[0]();
+  await chooseQuick(status,"重新打开（恢复自动联动）");
+  assert.equal(confirms,2);
+  assert.deepEqual(page.writes[0].body,{
+    title:parent.title,revision:3,status:"todo"
+  },"reopening saves manual todo without a completion marker");
+  assert.equal(parent.status,"blocked","effective status is recalculated from child");
+  assert.equal(parent.manual_status,"todo");
+  assert.equal(taskQuickControl(taskRows(page)[0],"status").trigger.textContent,"受阻");
+  const priority=taskQuickControl(taskRows(page)[0],"priority");
+  priority.trigger.handlers.get("click")[0]();
+  await chooseQuick(priority,"紧急");
+  assert.deepEqual(page.writes[1].body,{
+    title:parent.title,revision:4,priority:"urgent"
+  });
+  assert.equal(parent.status,"blocked","changing priority cannot affect a derived parent");
+});
+
+test("step-only aggregate follows the same safety gate and unreliable parents stay disabled", async () => {
+  const step={step_id:"STEP-"+"A".repeat(32),title:"虚构采购步骤",status:"doing",revision:1};
+  const parent={...sampleTask(),manual_status:"todo",status_source:"steps",steps:[step]};
+  const page=harness([parent]);
+  await page.api.refresh(true);
+  const status=taskQuickControl(taskRows(page)[0],"status");
+  status.trigger.handlers.get("click")[0]();
+  assert.deepEqual(status.menu.children.filter(x=>x.tag==="button").map(x=>x.textContent),
+    ["确认完成任务"]);
+  const guard=await page.api.updateTaskQuickField(parent,"status","todo",status.feedback);
+  assert.equal(guard,false);
+  assert.equal(page.writes.length,0);
+  const incomplete={...parent,status_rollup_incomplete:true};
+  const guarded=page.api.taskSummaryRow(incomplete);
+  assert.equal(taskQuickControl(guarded,"status").trigger.disabled,true);
+  assert.equal(taskQuickControl(guarded,"priority").trigger.disabled,false);
+  const cycle={...parent,parent_cycle:true};
+  const cycleRow=page.api.taskSummaryRow(cycle);
+  assert.equal(taskQuickControl(cycleRow,"status").trigger.disabled,true);
+});
