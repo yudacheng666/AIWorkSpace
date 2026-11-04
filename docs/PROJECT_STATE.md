@@ -1,13 +1,15 @@
 # AIWorkSpace｜当前项目状态
 
-## 2026-11-04：2.0.13 候选 — 派生父子任务快捷状态修复
+## 2026-11-04：2.0.13 已正式发布 — 派生父任务快捷状态保护
 
-- **用户批准**：修复任务列表中新状态按钮对父任务自动联动的误导性交互。普通任务仍可切换全部四个状态；有子任务/执行步骤时，未确认完成只提供“确认完成任务”，已人工完成只提供“重新打开（恢复自动联动）”，两者均单独确认。父任务优先级仍可独立快捷修改。
-- **基线**：main SHA `ad503bfa1fd89f81e7956a000a61ede4f09f68d9`，`VERSION=2.0.12`；开发分支 `fix/20261104-parent-quick-status`；候选版本 `2.0.13`；开始前开放 PR=0。
-- **代码变更**：仅修改 `web/index.html` 的快捷状态菜单及其字段保存前防护，不修改 `app.py`、事件 schema 和父子状态递归汇总代码。子项进度派生状态不可直接覆盖；人工完成按原样传递 confirmed_done=true；已完成父任务重新打开需确认且只记录 status=todo，不传完成确认，随后 GET /api/tasks 返回由下级计算的实际状态。
-- **防误写**：已有草稿保护、冲突/同步不完整/父子环路禁用、原 revision/409 校验与服务器刷新保持；普通子任务和无下级任务全状态菜单保持，优先级不触动进度计算。
-- **测试新增**：Node UI shell 专项覆盖父任务按钮、拒绝人工覆盖、完成取消与确认、重新打开取消与确认及最终派生受阻、步骤型父任务、冲突/不完整的禁用；Windows 真实 app.py+Chromium 使用隔离虚构父子任务验证事件链、revision、原事件不可覆盖和界面完成置底。
-- **验收状态**：开发测试已写入候选分支，准确 SHA 的 GitHub Actions 尚待执行，通过才按用户既定授权合并。真实 Windows 8770 未更新，真实 Google Drive 文件未读取/修改。
+- **用户批准**：修复任务列表的父任务快捷状态覆盖问题。拥有有效子任务或执行步骤的任务，未完成时只提供“确认完成任务”，已人工完成时只提供“重新打开（恢复自动联动）”，操作均需人工确认。普通无下级任务仍支持四种状态快捷切换，优先级独立。
+- **正式合并**：从 main `ad503bfa1fd89f81e7956a000a61ede4f09f68d9`（VERSION 2.0.12）开发；[PR #36](https://github.com/yudacheng666/AIWorkSpace/pull/36) 准确产品/测试 HEAD `b37330e24019a743630b8604ead37ec17ec17587` 通过验收后 Draft→Ready、GitHub 标准 Merge，merge SHA `0bd1c811417e7c5251138f3dedd12c793890b090`；`main/VERSION=2.0.13`，开放 PR=0。
+- **实际修复**：仅变更 `web/index.html`，不更改后端 app.py/事件 schema/原父子递归汇总逻辑。派生父任务无法通过列表按钮写入会被计算覆盖的待处理/进行中/受阻人工值；人工完成仍明确确认、合法追加 `confirmed_done=true`。已完成父任务的重新打开确认后只追加 `status=todo`（无 completed 标记），刷新后可自动显示待处理、进行中或受阻，依下级实际状态而定。
+- **安全**：草稿保护、冲突/缺失/父子环路/步骤不完整禁用、准确 revision/409 和不可覆盖事件链均保留；不扫描/迁移/写入真实用户任务或 Google Drive。
+- **新增定向回归**：Node UI shell 3 项，验证派生任务按钮防覆盖、完成确认/取消、重新打开/取消、恢复下级受阻以及步骤汇总/环路保护。Windows 真实 app.py + Chromium 1 项，以隔离虚构数据验证父子任务联动、保存事件结构、revision、优先级独立、已完成置底及原事件字节不变。
+- **PR 自动化验收**：[Actions #41821750877](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41821750877) 对产品/测试 SHA `b37330e24019a743630b8604ead37ec17ec17587` **3/3 SUCCESS**。Ubuntu/Windows Python 各执行 176 tests（含预期 SKIP），Node UI 各 89 PASS / 0 FAIL；Windows Chromium 更新/回滚 3 PASS、工作台 UI E2E 14 PASS。
+- **合并后 main 复验**：[Actions #41822077475](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41822077475) 对 merge SHA `0bd1c811417e7c5251138f3dedd12c793890b090` **3/3 SUCCESS**，覆盖同样 Ubuntu/Windows Python+Node 与 Windows 真实 Chromium 范围。
+- **部署边界**：GitHub 正式版本发布不代表 Windows 本机已经升级；公司 Windows 8770 未部署、实际 Google Drive/任务数据未修改。后续本机升级应在独立备份/回滚保障下进行。
 
 ## 2026-11-04：2.0.12 已正式发布 — 任务列表状态/优先级快捷切换
 
