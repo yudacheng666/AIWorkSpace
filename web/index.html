@@ -2770,7 +2770,7 @@
           warnings.append(openReview);
         }
         setRefreshStatus(`上次刷新 ${new Date().toLocaleTimeString()}`);
-        if (activePage === "reviews") loadReviews();
+        if (activePage === "reviews") loadNotifications();
       } catch (error) {
         setRefreshStatus(`读取失败：${error.message}`);
       }
