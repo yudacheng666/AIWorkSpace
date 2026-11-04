@@ -211,6 +211,32 @@ class DataGovernanceApiTests(unittest.TestCase):
                         if json.loads(path.read_text("utf-8"))["event_id"] == applied["target_event_id"])
         self.assertTrue(repaired["confirmed_done"])
 
+    def test_invalid_step_id_is_explained_and_can_only_be_kept_without_writing(self):
+        source, original = self.invalid_source(
+            "step_events", "evt_bad_step_reference.json",
+            {**step_event("bad-step-reference-001", "update", 1,
+                          {"title": "需要核对的虚构步骤名称"}),
+             "step_id": "STEP-not-a-valid-id"})
+        item = self.item("invalid_step_reference")
+        self.assertEqual(item["title"], "执行步骤记录中的步骤编号无法识别")
+        self.assertEqual(item["task_title"], "虚构治理测试任务")
+        self.assertEqual(item["recorded_step_title"], "需要核对的虚构步骤名称")
+        self.assertIsNone(item["proposal"])
+        self.assertFalse(item["can_authorize"])
+        self.assertTrue(item["can_dismiss"])
+        self.assertIn("无法确认", item["user_guidance"]["summary"])
+        self.assertIn("不会猜测", item["user_guidance"]["impact"])
+        self.assertIn("不要重复创建", item["user_guidance"]["recommendation"])
+        self.assertIn("步骤编号格式不正确", item["proposal_block_reason"])
+        code, result = self.request(f"/api/reviews/{item['anomaly_id']}/dismiss", {
+            "source_sha256": item["source"]["sha256"], "confirmed": True,
+            "note": "已核对关联任务，无法确认该步骤编号对应的步骤，决定保留原记录。"})
+        self.assertEqual(code, 200, result)
+        self.assertEqual(source.read_bytes(), original)
+        task = app.read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual([step["title"] for step in task["steps"]], ["虚构步骤"])
+        self.assertEqual(self.item("invalid_step_reference")["status"], "dismissed")
+
     def test_unsupported_invalid_json_can_only_be_dismissed_without_business_write(self):
         source = self.data_dir / "events" / "evt_malformed.json"
         source.write_bytes(b'{"version": 1, broken')
