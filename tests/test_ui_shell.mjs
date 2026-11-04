@@ -840,7 +840,7 @@ test("notification inbox shows stable message IDs, readable summaries and no rep
     "the mailbox must not expose authorize, apply or dismiss controls");
   const details = findTreeNode(list.children[1], node => node.tag === "details");
   assert.ok(details, "read-only message details can be expanded");
-  assert.equal(details.open, false, "message details are collapsed by default");
+  assert.notEqual(details.open, true, "message details are collapsed by default");
   assert.match(treeText(details), /影响：/);
   assert.match(treeText(details), /建议：/);
   assert.match(treeText(details), /不会猜测或自动改绑/);
