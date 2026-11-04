@@ -1,6 +1,6 @@
 # AIWorkSpace
 
-> **当前正式版本 2.0.9；2.0.10 候选开发中（2026-11-04）**：本轮优化步骤文档折叠、任务名称直达详情、任务编号点击复制及已完成任务置底。候选分支 `feat/20261104-task-list-usability` 基于正式 main SHA `726da94e1817cd910665d5fb984bd3f02c26f8c1`；待准确 SHA 的 GitHub Actions 验收。2.0.9 的发布与 PR 审计记录保留在下文。
+> **当前正式版本 2.0.9；2.0.10 候选 CI 已通过，等待发布审批（2026-11-04）**：PR #33 实现步骤文档折叠、任务名称直达详情、任务编号点击复制及已完成任务置底。产品/测试 SHA `b0adfae15ce70065f25bada16af8305402fea6c9` 的 [Actions #41783935135](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41783935135) 3/3 SUCCESS：Ubuntu/Windows Python 各 173 tests、Node 各 79 PASS，Windows Chromium updater 3 PASS、工作台 UI 11 PASS。PR #33 仍为 Draft，尚未合并；2.0.9 的发布与 PR 审计记录保留在下文。
 
 
 > **2.0.7 更新修复（2026-11-04）**：[PR #27](https://github.com/yudacheng666/AIWorkSpace/pull/27) 已获用户合并发布授权，`VERSION=2.0.7`；发布以 PR merged 状态为准。增加 GitHub 短暂网络失败的有限自动重试、固定提交 VERSION 的官方备用读取和明确错误提示，并修复重复句号。企业网络根因未实测；GitHub 发布不会自动升级本机，可在工作台检查更新后手动安装。以下 2.0.6 与更早章节为历史记录。
