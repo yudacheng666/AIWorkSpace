@@ -91,3 +91,8 @@
 ## 2026-11-04：更新网络失败的有限重试与官方固定提交备用读取
 
 用户要求解决更新检查间歇失败。采用有界退避和具体错误分类；保留系统代理与证书校验，拒绝第三方镜像及缓存授权安装。raw VERSION 不可达可从 GitHub contents API 读取精确相同 commit 的文件，安装仍在线复核 main。公司网络根因未实测，不宣称 DNS 或代理故障已证实。当前仅候选，正式发布与部署沿用既有批准门槛。
+
+
+## 2026-11-04：用户授权并发布 2.0.7
+
+2026-11-04 用户明确授权“合并，发布”。PR #27 最终 HEAD `ca9ba2acb377c265f6df175a1aff1426dcd152e1` 的 [Actions #41767021531](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41767021531) 全部 SUCCESS（Linux、Windows、Windows Chromium 更新/回滚及 UI 回归）。已通过 GitHub 普通 merge 正式合入 main，merge SHA `dae9c5fcf1797c44ded1ecc569039902c09912a7`，VERSION=2.0.7。合并后 main CI 尚未独立核实；公司 Windows 未由本轮升级，真实 Drive 数据未操作。
