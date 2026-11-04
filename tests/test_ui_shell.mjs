@@ -746,3 +746,72 @@ test("data review uses plain language and keeps raw event details collapsed", ()
     "an unidentifiable step reference must never offer automatic repair");
 });
 
+
+
+test("data review groups repeated records by task and step without merging their actions", () => {
+  const guidance = {
+    summary: "这条记录需要核对。",
+    impact: "系统没有自动修改任务或步骤。",
+    recommendation: "请逐条核对。"
+  };
+  const reviews = [
+    {
+      anomaly_id: "ANOM-SYNTHETIC-1", category: "step_update_position",
+      title: "步骤修改包含不允许的排序信息", status: "pending",
+      task_id: "TASK-SYNTHETIC-1", task_title: "虚构采购任务",
+      step_id: "STEP-SYNTHETIC-1", step_title: "收集供应商报价",
+      source_event: {action: "update", timestamp: "2026-11-04T08:00:00Z"},
+      source: {folder: "step_events"}, user_guidance: guidance
+    },
+    {
+      anomaly_id: "ANOM-SYNTHETIC-2", category: "completion_confirmation_missing",
+      title: "完成状态缺少用户明确确认", status: "pending",
+      task_id: "TASK-SYNTHETIC-1", task_title: "虚构采购任务",
+      step_id: "STEP-SYNTHETIC-1", step_title: "收集供应商报价",
+      source_event: {action: "update", timestamp: "2026-11-04T08:01:00Z"},
+      source: {folder: "step_events"}, user_guidance: guidance
+    },
+    {
+      anomaly_id: "ANOM-SYNTHETIC-3", category: "step_update_position",
+      title: "步骤修改包含不允许的排序信息", status: "pending",
+      task_id: "TASK-SYNTHETIC-1", task_title: "虚构采购任务",
+      step_id: "STEP-SYNTHETIC-2", step_title: "比较供应商报价",
+      source_event: {action: "update", timestamp: "2026-11-04T08:02:00Z"},
+      source: {folder: "step_events"}, user_guidance: guidance
+    },
+    {
+      anomaly_id: "ANOM-SYNTHETIC-4", category: "invalid_event",
+      title: "无法识别关联对象的异常记录", status: "pending",
+      task_id: null, task_title: null, step_id: null,
+      source_event: null, source: {folder: "workspace"}, user_guidance: guidance
+    }
+  ];
+  const page = harness([], () => true, [], reviews);
+  page.api.renderReviewList();
+  const list = page.el("review-list");
+  const groups = list.children.filter(node => node.className === "review-group");
+  assert.equal(groups.length, 1, "only the two records for the same task and step should be grouped");
+  assert.equal(list.children.length, 3, "other steps and unlinked records remain separate");
+  assert.match(treeText(groups[0]), /虚构采购任务/);
+  assert.match(treeText(groups[0]), /步骤：收集供应商报价/);
+  assert.match(treeText(groups[0]), /共 2 条记录/);
+  assert.match(treeText(groups[0]), /第 1 条/);
+  assert.match(treeText(groups[0]), /第 2 条/);
+  assert.equal(groups[0].children[1].children.length, 2,
+    "each original anomaly remains independently selectable");
+  assert.doesNotMatch(treeText(list), /TASK-SYNTHETIC|STEP-SYNTHETIC|ANOM-SYNTHETIC/);
+});
+
+test("data review summary cards count pending and authorized records separately", () => {
+  const page = harness();
+  page.api.renderReviewSummary({
+    open_count: 5, pending: 2, stale: 1, failed: 0, conflict: 0,
+    authorized: 2, applied: 3, dismissed: 4
+  });
+  const cards = page.el("review-summary").children;
+  assert.equal(cards.length, 4);
+  assert.match(treeText(cards[0]), /3待核对记录/);
+  assert.match(treeText(cards[1]), /2已授权待执行/);
+  assert.match(treeText(cards[2]), /3已修复并验证/);
+  assert.match(treeText(cards[3]), /4已确认保留/);
+});

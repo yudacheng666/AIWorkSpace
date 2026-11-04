@@ -31,3 +31,9 @@
 - 更新 E2E 断言适配新设计后，最终 head SHA：277044654d2c0d1e52d5259c96374e2f4d47062d。
 - GitHub Actions run 41770691637：Linux Python PASS；Windows Python PASS；Windows real-app + Chromium E2E PASS；总体 SUCCESS。该 run 对最后文档/会话提交后的准确 head SHA 执行。
 - PR #28：https://github.com/yudacheng666/AIWorkSpace/pull/28，Draft / Open，未合并。
+
+## 第二轮细化：重复异常聚合与统计口径
+- 复核发现首轮界面虽已使用业务语言，但同一任务/步骤的异常仍逐条重复显示，侧栏仍称“数据核查”，待处理统计与已授权待执行存在重叠。
+- 列表按可确认的 task_id + step_id 聚合；无效步骤引用仅按任务及原记录中的步骤名称分组，不推断目标步骤。展开后每条异常保留独立状态、动作、时间和处置按钮，不合并原始事件。
+- 统计改为互斥口径：待核对（pending/stale/failed/conflict）、已授权待执行、已修复并验证、已确认保留。
+- 新增 Node 测试覆盖同任务同步骤聚合、不同步骤隔离、未知对象不合并、每条异常独立选择、内部编号不显示及统计不重叠。
