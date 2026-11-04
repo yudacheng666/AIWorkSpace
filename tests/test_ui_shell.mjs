@@ -8,7 +8,7 @@ const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8")
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(scriptMatch, "the production page must contain its inline script");
 
-function harness(tasks = [], confirm = () => true, projects = []) {
+function harness(tasks = [], confirm = () => true, projects = [], reviews = []) {
   const elements = new Map();
   const writes = [];
   function node(tag = "div") {
@@ -65,10 +65,18 @@ function harness(tasks = [], confirm = () => true, projects = []) {
       return {ok: true, json: async () => ({version: "1.0.0", build_short: "abcdef0"})};
     }
     if (path === "/api/trash") return {ok: true, json: async () => ({tasks: [], retention_days: 30, warnings: []})};
+    if (path === "/api/reviews") return {ok: true, json: async () => ({
+      items: reviews, summary: {
+        open_count: reviews.filter(item => ["pending","authorized","stale","failed","conflict"].includes(item.status)).length,
+        authorized: reviews.filter(item => item.status === "authorized").length,
+        applied: reviews.filter(item => item.status === "applied").length,
+        dismissed: reviews.filter(item => item.status === "dismissed").length
+      }, warnings: []
+    })};
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, documentPanel, legacyDocumentPanel})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, documentPanel, legacyDocumentPanel, renderReviewDetail, renderReviewList, renderReviewSummary, loadReviews})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes, el: id => document.getElementById(id)};
@@ -679,4 +687,131 @@ test("clicking only drawer backdrop closes and respects unsaved edit confirmatio
   click({target: backdrop});
   assert.equal(backdrop.hidden, true);
   assert.equal(page.writes.length, 0);
+});
+
+
+function treeText(node) {
+  return [node.textContent || "", ...(node.children || []).map(treeText)].join(" ");
+}
+function findTreeNode(node, predicate) {
+  if (predicate(node)) return node;
+  for (const child of node.children || []) {
+    const found = findTreeNode(child, predicate);
+    if (found) return found;
+  }
+  return null;
+}
+
+test("data review uses plain language and keeps raw event details collapsed", () => {
+  const item = {
+    anomaly_id: "ANOM-PRIVATE-TEST-ONLY",
+    category: "invalid_step_reference",
+    title: "执行步骤记录中的步骤编号无法识别",
+    status: "pending",
+    task_id: "TASK-PRIVATE-TEST-ONLY",
+    task_title: "虚构演示任务：整理设备资料",
+    step_id: "STEP-PRIVATE-TEST-ONLY",
+    recorded_step_title: "整理供应商图纸",
+    source: {folder: "step_events", filename: "evt_synthetic.json", sha256: "a".repeat(64)},
+    source_present: true,
+    reason: "invalid step_id",
+    source_event: {action: "create", step_id: "bad-id", changes: {title: "整理供应商图纸"}},
+    raw_excerpt: null,
+    proposal: null,
+    proposal_block_reason: "步骤编号格式不正确",
+    can_authorize: false,
+    can_apply: false,
+    can_dismiss: true,
+    user_guidance: {
+      summary: "这条执行步骤记录中的步骤编号格式不正确，系统无法确认它属于哪一个步骤。",
+      impact: "这条记录没有被应用，原始记录仍保留；系统不会猜测目标步骤，也不会覆盖任何现有步骤。",
+      recommendation: "请核对关联任务中的步骤列表；若无法确认，选择确认保留，不写入。"
+    }
+  };
+  const page = harness([], () => true, [], [item]);
+  page.api.renderReviewDetail(item);
+  const detail = page.el("review-detail");
+  const allText = treeText(detail);
+  assert.match(allText, /发生了什么/);
+  assert.match(allText, /对工作台的影响/);
+  assert.match(allText, /建议怎么处理/);
+  assert.match(allText, /整理设备资料/);
+  assert.match(allText, /确认保留，不写入/);
+  assert.doesNotMatch(detail.children.map(child => child.textContent).join(" "), /ANOM-|SHA-256|invalid step_id|STEP-PRIVATE/);
+  const technical = findTreeNode(detail, node => node.className === "review-technical");
+  assert.ok(technical, "technical details are available for support");
+  assert.ok(findTreeNode(technical, node => node.className === "review-code"),
+    "raw JSON remains available inside collapsed technical details");
+  assert.equal(findTreeNode(detail, node => node.tag === "button" && node.textContent === "确认并授权修复"), null,
+    "an unidentifiable step reference must never offer automatic repair");
+});
+
+
+
+test("data review groups repeated records by task and step without merging their actions", async () => {
+  const guidance = {
+    summary: "这条记录需要核对。",
+    impact: "系统没有自动修改任务或步骤。",
+    recommendation: "请逐条核对。"
+  };
+  const reviews = [
+    {
+      anomaly_id: "ANOM-SYNTHETIC-1", category: "step_update_position",
+      title: "步骤修改包含不允许的排序信息", status: "pending",
+      task_id: "TASK-SYNTHETIC-1", task_title: "虚构采购任务",
+      step_id: "STEP-SYNTHETIC-1", step_title: "收集供应商报价",
+      source_event: {action: "update", timestamp: "2026-11-04T08:00:00Z"},
+      source: {folder: "step_events"}, user_guidance: guidance
+    },
+    {
+      anomaly_id: "ANOM-SYNTHETIC-2", category: "completion_confirmation_missing",
+      title: "完成状态缺少用户明确确认", status: "pending",
+      task_id: "TASK-SYNTHETIC-1", task_title: "虚构采购任务",
+      step_id: "STEP-SYNTHETIC-1", step_title: "收集供应商报价",
+      source_event: {action: "update", timestamp: "2026-11-04T08:01:00Z"},
+      source: {folder: "step_events"}, user_guidance: guidance
+    },
+    {
+      anomaly_id: "ANOM-SYNTHETIC-3", category: "step_update_position",
+      title: "步骤修改包含不允许的排序信息", status: "pending",
+      task_id: "TASK-SYNTHETIC-1", task_title: "虚构采购任务",
+      step_id: "STEP-SYNTHETIC-2", step_title: "比较供应商报价",
+      source_event: {action: "update", timestamp: "2026-11-04T08:02:00Z"},
+      source: {folder: "step_events"}, user_guidance: guidance
+    },
+    {
+      anomaly_id: "ANOM-SYNTHETIC-4", category: "invalid_event",
+      title: "无法识别关联对象的异常记录", status: "pending",
+      task_id: null, task_title: null, step_id: null,
+      source_event: null, source: {folder: "workspace"}, user_guidance: guidance
+    }
+  ];
+  const page = harness([], () => true, [], reviews);
+  await page.api.loadReviews();
+  const list = page.el("review-list");
+  const groups = list.children.filter(node => node.className === "review-group");
+  assert.equal(groups.length, 1, "only the two records for the same task and step should be grouped");
+  assert.equal(list.children.length, 3, "other steps and unlinked records remain separate");
+  assert.match(treeText(groups[0]), /虚构采购任务/);
+  assert.match(treeText(groups[0]), /步骤：收集供应商报价/);
+  assert.match(treeText(groups[0]), /共 2 条记录/);
+  assert.match(treeText(groups[0]), /第 1 条/);
+  assert.match(treeText(groups[0]), /第 2 条/);
+  assert.equal(groups[0].children[1].children.length, 2,
+    "each original anomaly remains independently selectable");
+  assert.doesNotMatch(treeText(list), /TASK-SYNTHETIC|STEP-SYNTHETIC|ANOM-SYNTHETIC/);
+});
+
+test("data review summary cards count pending and authorized records separately", () => {
+  const page = harness();
+  page.api.renderReviewSummary({
+    open_count: 5, pending: 2, stale: 1, failed: 0, conflict: 0,
+    authorized: 2, applied: 3, dismissed: 4
+  });
+  const cards = page.el("review-summary").children;
+  assert.equal(cards.length, 4);
+  assert.equal(treeText(cards[0]).trim(), "3 待核对记录");
+  assert.equal(treeText(cards[1]).trim(), "2 已授权待执行");
+  assert.equal(treeText(cards[2]).trim(), "3 已修复并验证");
+  assert.equal(treeText(cards[3]).trim(), "4 已确认保留");
 });

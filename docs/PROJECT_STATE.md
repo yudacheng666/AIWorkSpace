@@ -1,5 +1,27 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-04：用户批准 PR #28 + #29 统一合入 2.0.8
+
+- 用户明确指示“一起合并到2.08”，本次仅包含数据异常处理页面 #28 与回收站主页视觉 #29，不包括父子任务联动 #20、刷新状态位置 #22 或旧回收站 PR #19。
+- 从已通过独立 CI 的 PR #28 和 #29 精确 HEAD 派生组合发布分支 `release/20261104-v2.0.8-review-trash`，使用双父提交保留两套开发与测试历史，按 29 的精确补丁整合到 28，保留 `VERSION=2.0.8`。
+- 对组合提交执行 GitHub Actions 3 项标准 job：Linux Python/Node、Windows Python/Node、Windows 真实 app.py+Chromium 更新/回滚及 UI。用户授权在验证全部通过且未见数据安全缺口后正常合并 GitHub main；不执行真实 Windows 8770 升级、Google Drive 真实数据读写、用户现有异常自动修复。
+- 历史候选状态见下文。以组合最终 SHA 对应 Actions 的真实结论和合并后 main SHA 为发布权威证据；禁止沿用两个独立 PR 的 CI 冒充组合测试。
+
+
+## 2026-11-04：回收站界面统一主页视觉（开发完成，等待用户体验与发布审批）
+
+- **用户反馈**：正式工作台回收站仍是窄容器、原生按钮和简单列表，与工作总览视觉割裂；用户明确要求修复并统一主页界面。
+- **开发记忆规则已复核**：本轮完整读取 AGENTS.md、README.md、REQUIREMENTS.md、PROJECT_STATE.md、DECISIONS.md；以 GitHub main、实际代码和准确 SHA 为准。GitHub Actions 为默认测试主力，ChatGPT 开发维护测试；不重复 Codex 已覆盖用例，不合并 main、不部署公司 Windows 8770、不访问真实 Drive 数据。
+- **历史原因**：旧回收站视觉 PR #19（分支 `feat/20261102-trash-polish`，HEAD `e40b80b055856e06037c80d8d979f20ff5178e7a`）仍为 Draft，且相对当前 main 已不可合并（mergeable=false）；其 CSS/测试从未进入正式 main。旧 PR 的 Actions #41453008757 只证明旧分支当时的测试范围，不证明当前正式版本已包含 UI。
+- **当前基线**：main SHA `c4817668730de6631c86877e93571bd5d4456e15`，`VERSION=2.0.7`。新分支 `fix/20261104-trash-ui-alignment` 从该 main 精确派生；不修改 VERSION，不覆盖 PR #28 的数据异常处理候选，不触碰真实业务数据。
+- **实现**：PR #29（[回收站界面统一主页视觉](https://github.com/yudacheng666/AIWorkSpace/pull/29)）使用与工作总览一致的统计卡片、全宽白色面板、蓝色主操作、次级恢复按钮和危险删除描边；自动清理与已删除任务分区；增加已删除/可恢复/冲突统计、任务行元数据、空状态、实时选择数量和安全禁用；移动端自适应。保留 0/7/30/90 天、默认 30 天、到期在下次访问时执行、恢复/彻底删除确认和原 API/事件模型。
+- **最终产品/测试 SHA**：`7d55390582ee6a639ffe7a93b1da97eb2ee87565`；[GitHub Actions #41775067629](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41775067629) **3/3 SUCCESS**：
+  - Ubuntu Python：161 total / 149 PASS / 12 SKIP；Node：71 PASS / 0 FAIL。
+  - Windows Python：161 total / 151 PASS / 10 SKIP；Node：71 PASS / 0 FAIL。
+  - Windows 真实 app.py + Chromium：更新/回滚 3 PASS；工作台 UI E2E 7 PASS，包含回收站统计、卡片分区、按钮样式、全选/取消、禁用危险操作及恢复/彻底删除原流程。
+- **测试职责**：CI 已覆盖本次新增 Node 与 Windows Chromium 路径，未重复派发 Codex 跑相同测试。自动化证明结构和交互，不替代用户对最终视觉效果的体验确认。
+- **当前状态**：PR #29 Draft / Open，未合并 main、未发布；PR #19 保留历史，不自动关闭或合并。CI 通过不等于发布授权；公司 Windows 8770、Google Drive 实际数据和自动更新均不在本轮范围。测试后的项目记忆提交仅修改 Markdown，不改变上述产品/测试 SHA。
+
 ## 2.0.7 正式发布回执
 
 2026-11-04 用户明确授权“合并，发布”。PR #27 最终 HEAD `ca9ba2acb377c265f6df175a1aff1426dcd152e1` 的 [Actions #41767021531](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41767021531) 全部 SUCCESS（Linux、Windows、Windows Chromium 更新/回滚及 UI 回归）。已通过 GitHub 普通 merge 正式合入 main，merge SHA `dae9c5fcf1797c44ded1ecc569039902c09912a7`，VERSION=2.0.7。合并后 main CI 尚未独立核实；公司 Windows 未由本轮升级，真实 Drive 数据未操作。
@@ -503,3 +525,29 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - **发布版本标记**：在同一个集成 PR #12 中将 `VERSION` 从 `1.0.0` 更新为 `2.0.0`，同时维护真实版本端点测试和说明。这一版本变动需按新的准确 SHA 重跑必要 CI，**运行通过前不得称为正式 PASS 或合并**。
 - **最终合并策略**：只用 #12 作为三阶段累计变更的最终 Git 合并入口，使用保留历史的 merge commit 使 #10/#11 的祖先提交进入 main；对两旧 PR 保留记录，若 GitHub 未自动关闭，则以重复已吸收为由关闭（不分别重复合并）。
 - **正式部署门槛**：合并与代码发布不启动公司 Windows、8770、Drive 同步或任何程序自动更新；真实生产环境仍须独立安装与备份/回滚验证及明确授权。
+
+
+## 2026-11-04：数据核查中心可用性改造（2.0.8 候选）
+- 用户反馈：现有“数据核查”页面展示内部 ID、SHA-256、原始 JSON 和英文校验错误，普通管理者无法理解异常或判断如何处理。
+- 基线：正式 main SHA c4817668730de6631c86877e93571bd5d4456e15，VERSION=2.0.7；本轮在独立分支 fix/20261104-review-center-usability 开发，不修改 main，不操作公司 Windows 8770 或真实 Drive 数据。
+- UI 改造：统计卡片和状态改为业务语言；列表显示关联任务名称及异常含义；详情分为“发生了什么 / 对工作台的影响 / 建议怎么处理”；修复预览改为目标对象与字段值；原始 JSON、内部编号、SHA-256、原始错误及 proposal 结构默认折叠到技术详情。
+- 后端补充：将 invalid step_id 归类为“执行步骤记录中的步骤编号无法识别”，解释其不可自动修复原因，明确不猜测/不改绑/不覆盖；提供关联任务名称和记录中的步骤名称。无效步骤编号只允许人工核对后记录“保留、不写入”，原始文件和业务事件均不修改。
+- 新增 Python 数据治理测试及 Node UI 测试；测试结果以该分支准确 SHA 的 GitHub Actions 为准，当前尚未运行。
+- 安全边界：不自动写入或删除真实数据；保留授权/执行分离、源 SHA、目标 revision、冲突检查和 validator；候选 VERSION=2.0.8，未合并、未发布、未部署。
+- 下一步：核验 PR 与准确 SHA 的 GitHub Actions（Linux、Windows、Windows Chromium）；修复失败项后只复测受影响范围。通过后向用户展示 PR/CI 结果，等待用户决定是否发布。
+
+- 最终候选 PR：#28（https://github.com/yudacheng666/AIWorkSpace/pull/28），准确 head SHA d23d050701ff831a81fe2b9282857ca1fc606c26；GitHub Actions run 41770447630 对该 SHA 的 Linux Python、Windows Python、Windows real-app + Chromium E2E 三个 jobs 全部 PASS。
+- Windows Chromium E2E 已调整为验证“技术详情默认折叠、用户主动展开后仍可查看原始 JSON”，并验证新授权按钮文案；原先旧测试仍要求 JSON 默认显示和旧按钮文案，首次 CI 因测试断言过时而失败，已更新 E2E 后完整复验通过。
+- 当前 PR 仍为 Draft / Open，未合并 main、未发布、未部署；本轮不访问真实工作台数据；此前真实数据层核查/修复记录见本文件 2026-11-03 专项记录。
+
+- 最终分支 head 已推进至 277044654d2c0d1e52d5259c96374e2f4d47062d（含最后的文档/会话记录提交）；GitHub Actions run 41770691637 对这一准确 SHA 再次完整通过：Linux Python、Windows Python、Windows real-app + Chromium E2E 全部 SUCCESS。PR #28 仍为 Draft / Open。
+
+
+## 2026-11-04：数据异常处理列表聚合与统计口径修正
+- 用户指出核查界面无法理解；首轮 2.0.8 候选已把英文错误、原始 JSON 和内部编号移入折叠技术详情，并提供中文影响/建议，但复核发现相同任务/步骤的异常仍重复占据列表，侧栏名称与页面用途不一致，统计卡片的“需要处理”还包含“已授权待执行”而重复计数。
+- 本轮在 PR #28 分支追加：侧栏改名“异常处理”；按任务/步骤对象聚合多条异常，展开后仍逐条独立处理；无效步骤引用只按记录中的步骤名称作分组提示，不建立错误关联；待核对、已授权待执行、已修复、已确认保留改为互斥计数。
+- 仅修改展示逻辑、Node UI 测试和项目文档；不改变后端事件模型、授权 API、业务事件或任何真实工作台数据。现有 2.0.8 候选的 Linux/Windows/Chromium CI 已对前一 SHA 通过；本次新增改动等待新准确 SHA 的 GitHub Actions 回归。
+
+- 本轮首次回归 Actions #41771911358 的 Ubuntu UI 测试发现测试夹具未调用 loadReviews，导致分组列表为空；统计文案断言未考虑测试 DOM 的文本节点空格。属于新增测试自身问题，已按真实页面加载路径修正，等待下一准确 SHA 的完整回归。
+- **最终回归通过**：产品/测试准确 SHA `cedf8b9c7c2e6a87bbcf23450b32eeabd918823b` 的 [Actions #41772135553](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41772135553) 3/3 SUCCESS：Ubuntu Python+Node、Windows Python+Node、Windows real-app + Chromium 更新/回滚 3 PASS、工作台 UI E2E 7 PASS（含数据核查授权/执行/追踪真实浏览器流程）。首轮 Node 测试夹具问题已修正，未重复执行旧 SHA 的测试。
+- **当前发布边界**：PR #28 仍 Draft / Open；未合并 main、未发布、未部署公司 Windows 8770；本轮没有读取、写入或删除任何真实工作台业务数据。下一步等待用户决定是否将 2.0.8 候选合入 main。

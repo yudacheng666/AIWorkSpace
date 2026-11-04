@@ -514,14 +514,61 @@
     @media(max-width:520px){.project-filter{grid-template-columns:1fr 1fr;}.project-filter input{grid-column:1/-1;}.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}}
 
 
-    /* V2.0.2 lifecycle and linked references: reuse restrained workspace visual language. */
-    .trash-panel {width:100%;max-width:960px;background:var(--surface,#fff);color:var(--text,#1f2937);border:1px solid var(--line);border-radius:12px;padding:22px;box-shadow:0 2px 10px rgba(12,20,38,.04);}
-    .trash-head,.trash-toolbar {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-    .trash-warning {display:block;font-size:13px;line-height:1.5;color:#9a3412;margin:8px 0;}
-    .trash-list {display:grid;gap:8px;margin:14px 0;}
-    .trash-row {display:flex;align-items:center;gap:12px;padding:10px;border:1px solid #dce1e9;border-radius:8px;}
-    .trash-row-label {flex:1;min-width:0;overflow-wrap:anywhere;}
-    .trash-row small {display:block;opacity:.72;}
+    /* Trash page follows the same stat cards, white panels and action hierarchy as the workspace home. */
+    .trash-stats {grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 16px;}
+    .trash-card {width:100%;min-width:0;margin:0 0 15px;padding:19px 21px;border:1px solid var(--line);border-radius:11px;background:var(--panel);}
+    .trash-card-head {display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+    .trash-card-head h2 {margin:0;color:#34445c;font-size:14px;font-weight:720;}
+    .trash-card-caption {margin:5px 0 0;color:#8a96a6;font-size:11px;line-height:1.6;}
+    .trash-count {display:inline-flex;align-items:center;min-height:22px;margin-left:7px;padding:0 8px;border-radius:6px;background:#eef3fa;color:#66809d;font-size:11px;font-weight:650;vertical-align:2px;}
+    .trash-retention-form {display:flex;align-items:flex-end;gap:9px;flex-wrap:wrap;}
+    .trash-retention-form label {display:grid;gap:5px;min-width:160px;color:#758296;font-size:11px;font-weight:650;}
+    .trash-retention-form select {width:180px;height:36px;border-radius:7px;font-size:12px;}
+    .trash-action {display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:35px;padding:0 13px;border:1px solid #dce4ee;border-radius:7px;background:#fff;color:#49627e;font-size:12px;font-weight:650;line-height:1.3;white-space:nowrap;transition:background .15s,border-color .15s,color .15s;}
+    .trash-action:hover:not(:disabled) {border-color:#b7c9e8;background:#f3f7ff;color:#245eac;}
+    .trash-action:disabled {opacity:.45;cursor:not-allowed;}
+    .trash-action--primary {border-color:var(--blue);background:var(--blue);color:#fff;}
+    .trash-action--primary:hover:not(:disabled) {border-color:#2057bf;background:#2057bf;color:#fff;}
+    .trash-action--restore {min-height:32px;padding:0 12px;border-color:#d4e3f7;background:#f6f9ff;color:#2863bc;}
+    .trash-action--danger {border-color:#e6caca;background:#fff;color:#aa4545;}
+    .trash-action--danger:hover:not(:disabled) {border-color:#d99c9c;background:#fff3f2;color:#a42d2d;}
+    .trash-warning {display:flex;align-items:flex-start;gap:9px;margin:14px 0 0;padding:10px 12px;border:1px solid #f0e5ce;border-radius:8px;background:#fffbf4;color:#8a7349;font-size:11px;line-height:1.65;}
+    .trash-warning-icon {flex:0 0 auto;color:#b48b43;font-size:14px;line-height:1.4;}
+    .trash-list {display:grid;gap:8px;margin:15px 0 0;}
+    .trash-row {display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;gap:13px;min-width:0;padding:13px 15px;border:1px solid var(--line);border-radius:9px;background:#fff;transition:border-color .15s,background .15s,box-shadow .15s;}
+    .trash-row:hover {border-color:#bfd0e8;background:#fcfdff;box-shadow:0 3px 10px #1c345708;}
+    .trash-row:has(.trash-pick:checked) {border-color:#adc7ed;background:#f5f9ff;}
+    .trash-row.is-conflict {background:#fffdfa;}
+    .trash-pick {width:16px;height:16px;margin:0;padding:0;accent-color:var(--blue);cursor:pointer;}
+    .trash-pick:disabled {cursor:not-allowed;opacity:.45;}
+    .trash-row-label {display:grid;gap:5px;min-width:0;overflow-wrap:anywhere;}
+    .trash-row-title {color:#2d405c;font-size:13px;font-weight:680;line-height:1.5;}
+    .trash-row-meta {display:flex;align-items:center;gap:7px 12px;flex-wrap:wrap;color:#8a98aa;font-size:11px;line-height:1.5;}
+    .trash-row-status {display:inline-flex;align-items:center;width:max-content;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:650;}
+    .trash-row-status.is-conflict {background:#fff3df;color:#9a671d;}
+    .trash-empty {display:grid;justify-items:center;gap:8px;padding:35px 16px;border:1px dashed #dbe4ef;border-radius:9px;background:#fbfcff;text-align:center;}
+    .trash-empty-icon {width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:#eff5ff;color:#5182ce;font-size:20px;font-weight:700;}
+    .trash-empty strong {color:#465b77;font-size:13px;font-weight:680;}
+    .trash-empty span:last-child {color:#929fb0;font-size:11px;}
+    .trash-footer-actions {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid #edf1f5;}
+    .trash-selection-actions {display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    .trash-selection-count {color:#8290a1;font-size:11px;font-variant-numeric:tabular-nums;}
+    .trash-status {margin-top:10px;}
+    @media(max-width:760px) {
+      .trash-stats {grid-template-columns:repeat(2,minmax(0,1fr));}
+      .trash-card {padding:16px;}
+      .trash-card-head {align-items:flex-start;}
+    }
+    @media(max-width:520px) {
+      .trash-stats {grid-template-columns:minmax(0,1fr);}
+      .trash-retention-form {width:100%;align-items:stretch;}
+      .trash-retention-form label {flex:1;min-width:0;}
+      .trash-retention-form select {width:100%;}
+      .trash-row {grid-template-columns:18px minmax(0,1fr);gap:10px;padding:12px;}
+      .trash-row .trash-action--restore {grid-column:2;justify-self:start;}
+      .trash-footer-actions {align-items:stretch;flex-direction:column;}
+      .trash-footer-actions > .trash-action--danger {width:100%;}
+    }
     .doc-panel {border-top:1px solid #dfe4eb;margin-top:18px;padding-top:12px;}
     .doc-panel h3 {font-size:15px;margin:0 0 8px;}
     .doc-row {display:flex;align-items:center;gap:10px;margin:8px 0;flex-wrap:wrap;overflow-wrap:anywhere;}
@@ -534,37 +581,69 @@
 
 
     .nav-count { margin-left:auto; min-width:20px; padding:2px 6px; border-radius:20px; background:#fff0e8; color:#a94b32; font-size:10px; font-weight:700; text-align:center; }
-    .review-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:18px 0; }
-    .review-stat { padding:15px 17px; border:1px solid #e2e9f1; border-radius:11px; background:#fff; }
-    .review-stat strong { display:block; color:#263b58; font-size:22px; line-height:1.2; }
-    .review-stat span { display:block; margin-top:5px; color:#8290a2; font-size:11px; }
-    .review-layout { display:grid; grid-template-columns:minmax(260px,330px) minmax(0,1fr); align-items:start; gap:16px; }
-    .review-list-panel,.review-detail { min-width:0; border:1px solid #e2e9f1; border-radius:12px; background:#fff; padding:15px; }
-    .review-list-panel h2,.review-detail h2 { margin:0 0 12px; color:#2a405f; font-size:14px; }
-    .review-list { display:grid; gap:8px; max-height:690px; overflow:auto; }
-    .review-list-item { width:100%; min-width:0; display:grid; gap:6px; text-align:left; padding:11px 12px; border:1px solid #e7edf4; border-radius:9px; background:#fbfcfe; color:#405670; }
+    .review-intro { margin:14px 0 16px; padding:12px 15px; border:1px solid #e2e9f1; border-radius:9px; background:#fff; color:#53677f; font-size:13px; line-height:1.7; }
+    .review-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:16px 0; }
+    .review-stat { padding:14px 16px; border:1px solid #e2e9f1; border-radius:11px; background:#fff; }
+    .review-stat strong { display:block; color:#263b58; font-size:23px; line-height:1.2; }
+    .review-stat span { display:block; margin-top:5px; color:#718198; font-size:12px; }
+    .review-layout { display:grid; grid-template-columns:minmax(280px,340px) minmax(0,1fr); align-items:start; gap:16px; }
+    .review-list-panel,.review-detail { min-width:0; border:1px solid #e2e9f1; border-radius:12px; background:#fff; padding:17px; }
+    .review-list-panel h2,.review-detail h2 { margin:0 0 12px; color:#2a405f; font-size:15px; }
+    .review-list { display:grid; gap:9px; max-height:690px; overflow:auto; }
+    .review-group { min-width:0; border:1px solid #e7edf4; border-radius:9px; background:#fbfcfe; overflow:hidden; }
+    .review-group > summary { display:grid; gap:5px; padding:12px 13px; cursor:pointer; list-style:none; }
+    .review-group > summary::-webkit-details-marker { display:none; }
+    .review-group > summary::after { content:"展开查看记录"; color:#718198; font-size:11px; }
+    .review-group[open] > summary::after { content:"收起记录"; }
+    .review-group-title { color:#344a64; font-size:13px; line-height:1.5; font-weight:650; overflow-wrap:anywhere; }
+    .review-group-meta { color:#718198; font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+    .review-group-records { display:grid; gap:7px; padding:0 9px 9px; }
+    .review-record-item { background:#fff; }
+    .review-record-item.is-active { border-color:#a9c4e8; background:#f3f7fd; }
+    .review-list-item { width:100%; min-width:0; display:grid; gap:7px; text-align:left; padding:12px 13px; border:1px solid #e7edf4; border-radius:9px; background:#fbfcfe; color:#405670; }
     .review-list-item:hover,.review-list-item.is-active { border-color:#a9c4e8; background:#f3f7fd; }
-    .review-list-item strong { font-size:12px; line-height:1.5; }
-    .review-list-item small { color:#8a97a7; font-size:10px; overflow-wrap:anywhere; }
-    .review-status { display:inline-flex; width:max-content; padding:3px 7px; border-radius:20px; background:#edf1f5; color:#62748a; font-size:10px; }
+    .review-list-item strong { font-size:13px; line-height:1.55; }
+    .review-list-item small { color:#718198; font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+    .review-status { display:inline-flex; width:max-content; padding:4px 8px; border-radius:20px; background:#edf1f5; color:#62748a; font-size:11px; }
     .review-status.pending,.review-status.failed,.review-status.stale,.review-status.conflict { background:#fff0e8; color:#a64d31; }
     .review-status.authorized { background:#edf4ff; color:#285e9d; }
     .review-status.applied { background:#eaf6ef; color:#26734b; }
     .review-status.dismissed { background:#f1f2f4; color:#6f7a88; }
+    .review-detail { display:grid; gap:14px; }
     .review-detail-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
-    .review-detail-meta { color:#7d8ca0; font-size:11px; line-height:1.7; white-space:pre-line; overflow-wrap:anywhere; }
-    .review-reason { margin:12px 0; padding:11px 13px; border-left:3px solid #d69a58; border-radius:6px; background:#fff9f2; color:#6d563c; font-size:12px; line-height:1.65; }
-    .review-code { max-height:220px; overflow:auto; padding:11px; border:1px solid #e8edf3; border-radius:8px; background:#f8fafc; color:#42536b; font:11px/1.55 Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
-    .review-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:13px; }
-    .review-actions button { min-height:34px; padding:7px 12px; border:1px solid #dbe4ee; border-radius:7px; background:#fff; color:#49627e; font-size:11px; }
+    .review-detail-head h2 { margin-bottom:7px; font-size:17px; }
+    .review-target { margin:0; color:#64758b; font-size:13px; line-height:1.6; }
+    .review-guidance-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .review-guidance-card { min-width:0; padding:12px 13px; border:1px solid #e6ebf2; border-radius:9px; background:#fbfcfe; }
+    .review-guidance-card h3,.review-proposal h3 { margin:0 0 7px; color:#53677f; font-size:12px; }
+    .review-guidance-card p { margin:0; color:#344a64; font-size:13px; line-height:1.7; overflow-wrap:anywhere; }
+    .review-guidance-card.recommendation { grid-column:1 / -1; background:#f7f9fc; }
+    .review-proposal { padding:14px; border:1px solid #dbe6f3; border-radius:10px; background:#f8fbff; }
+    .review-proposal-target { margin:0 0 10px; color:#2f4969; font-size:13px; font-weight:600; }
+    .review-proposal-list { display:grid; gap:7px; margin:0; }
+    .review-proposal-row { display:grid; grid-template-columns:110px minmax(0,1fr); gap:10px; padding:8px 0; border-top:1px solid #e4ebf4; font-size:13px; line-height:1.55; }
+    .review-proposal-row span:first-child { color:#718198; }
+    .review-proposal-row span:last-child { color:#2f4969; overflow-wrap:anywhere; }
+    .review-proposal-note { margin:10px 0 0; color:#586d86; font-size:12px; line-height:1.6; }
+    .review-proposal-warning { margin-top:10px; padding:10px 12px; border-left:3px solid #d69a58; background:#fff8ef; color:#775a38; font-size:12px; line-height:1.65; }
+    .review-blocked { padding:13px; border:1px solid #e9e4dc; border-radius:9px; background:#fffaf3; }
+    .review-blocked h3 { margin:0 0 6px; color:#775a38; font-size:13px; }
+    .review-blocked p { margin:0; color:#6d5a44; font-size:13px; line-height:1.7; }
+    .review-actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:4px; }
+    .review-actions button { min-height:38px; padding:8px 14px; border:1px solid #dbe4ee; border-radius:7px; background:#fff; color:#49627e; font-size:13px; }
     .review-actions button.save { border-color:var(--blue); background:var(--blue); color:#fff; }
-    .review-actions button.review-danger { border-color:#ecd4d0; color:#a64d43; }
+    .review-actions button.secondary { border-color:#cbd7e5; color:#49627e; }
     .review-actions button:disabled { opacity:.45; cursor:not-allowed; }
-    .review-note { display:grid; gap:5px; margin-top:12px; color:#687a91; font-size:11px; }
-    .review-note textarea { min-height:64px; padding:9px; border:1px solid #dce5ef; border-radius:7px; resize:vertical; font:inherit; font-size:12px; line-height:1.5; }
-    .review-timeline { display:grid; gap:7px; margin:12px 0; padding-left:16px; color:#77869a; font-size:10px; }
-    .review-empty { padding:26px 12px; color:#8996a7; font-size:12px; text-align:center; }
-    .review-message { min-height:18px; margin-top:10px; color:#72839a; font-size:11px; }
+    .review-note { display:grid; gap:6px; margin-top:2px; color:#53677f; font-size:12px; }
+    .review-note textarea { min-height:70px; padding:10px; border:1px solid #dce5ef; border-radius:7px; resize:vertical; font:inherit; font-size:13px; line-height:1.6; }
+    .review-history,.review-technical { border-top:1px solid #e8edf3; padding-top:10px; color:#718198; font-size:12px; }
+    .review-history summary,.review-technical summary { cursor:pointer; color:#53677f; font-size:12px; font-weight:600; }
+    .review-timeline { display:grid; gap:7px; margin:12px 0 0; padding-left:18px; color:#718198; font-size:12px; line-height:1.6; }
+    .review-technical-body { display:grid; gap:9px; margin-top:10px; }
+    .review-detail-meta { color:#7d8ca0; font-size:11px; line-height:1.7; white-space:pre-line; overflow-wrap:anywhere; }
+    .review-code { max-height:220px; overflow:auto; padding:11px; border:1px solid #e8edf3; border-radius:8px; background:#f8fafc; color:#42536b; font:11px/1.55 Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .review-empty { padding:28px 14px; color:#718198; font-size:13px; line-height:1.7; text-align:center; }
+    .review-message { min-height:20px; margin-top:10px; color:#53677f; font-size:12px; line-height:1.6; }
     .review-message.error { color:#a94b37; }
     @media(max-width:900px) {
       .review-layout { grid-template-columns:minmax(0,1fr); }
@@ -592,7 +671,7 @@
       <button type="button" class="nav-item" id="nav-followup"><span class="nav-icon">↗</span><span>跟进他人</span></button>
       <button type="button" class="nav-item" id="nav-due"><span class="nav-icon">▣</span><span>7 天内到期</span></button>
       <button type="button" class="nav-item" id="nav-risk"><span class="nav-icon">△</span><span>风险事项</span></button>
-      <button type="button" class="nav-item" id="nav-reviews"><span class="nav-icon">⌕</span><span>数据核查</span><span id="review-nav-count" class="nav-count" hidden>0</span></button>
+      <button type="button" class="nav-item" id="nav-reviews"><span class="nav-icon">⌕</span><span>异常处理</span><span id="review-nav-count" class="nav-count" hidden>0</span></button>
     </nav>
     <div class="sidebar-divider"></div>
     <div class="sidebar-section-label">项目</div>
@@ -637,39 +716,67 @@
     </section>
     </section>
     <section id="page-trash" class="workspace-page" hidden>
-      <div class="page-heading"><div><h1 id="trash-title">回收站</h1><p class="subtitle">管理已删除的任务及自动清理设置。</p></div></div>
-      <section class="trash-panel" aria-labelledby="trash-title">
-      <div class="trash-toolbar">
-        <label for="trash-retention">自动清空周期
-          <select id="trash-retention">
-            <option value="0">关闭自动清空</option>
-            <option value="7">7 天</option>
-            <option value="30">30 天</option>
-            <option value="90">90 天</option>
-          </select>
-        </label>
-        <button type="button" id="trash-save-retention">保存周期</button>
+      <div class="page-heading">
+        <div><h1 id="trash-title">回收站</h1><p class="subtitle">恢复误删任务，或管理已删除任务的保留期限。</p></div>
       </div>
-      <p class="trash-warning">到期后将在下次访问工作台时清理。本机彻底删除无法保证清除其他设备、云端版本历史或备份中的副本。</p>
-      <div class="trash-list" id="trash-list" aria-label="已删除任务"></div>
-      <div class="trash-toolbar">
-        <button type="button" id="trash-select-all">全选</button>
-        <button type="button" id="trash-purge-selected">将选中任务彻底删除</button>
+      <div class="stats trash-stats" aria-label="回收站统计">
+        <div class="stat"><b id="trash-stat-total">0</b><span>已删除任务</span></div>
+        <div class="stat"><b id="trash-stat-restorable">0</b><span>可恢复</span></div>
+        <div class="stat"><b id="trash-stat-conflict">0</b><span>存在冲突</span></div>
       </div>
-      <p id="trash-message" class="message" role="status"></p>
+      <section class="trash-card trash-settings-card" aria-labelledby="trash-settings-heading">
+        <div class="trash-card-head">
+          <div>
+            <h2 id="trash-settings-heading">自动清理设置</h2>
+            <p class="trash-card-caption">设置已删除任务的保留期限。</p>
+          </div>
+          <div class="trash-retention-form">
+            <label for="trash-retention">保留期限
+              <select id="trash-retention">
+                <option value="0">关闭自动清空</option>
+                <option value="7">7 天</option>
+                <option value="30">30 天</option>
+                <option value="90">90 天</option>
+              </select>
+            </label>
+            <button type="button" class="trash-action trash-action--primary" id="trash-save-retention">保存设置</button>
+          </div>
+        </div>
+        <div class="trash-warning" role="note">
+          <span class="trash-warning-icon" aria-hidden="true">ⓘ</span>
+          <span>到期任务将在下次访问工作台时清理。彻底删除仅清除本机事件文件，无法保证清除其他设备、云端历史版本或备份中的副本。</span>
+        </div>
+      </section>
+      <section class="trash-card trash-list-card" aria-labelledby="trash-list-heading">
+        <div class="trash-card-head">
+          <div>
+            <h2 id="trash-list-heading">已删除任务 <span class="trash-count" id="trash-count">0 项</span></h2>
+            <p class="trash-card-caption">勾选任务后可批量彻底删除；存在同步冲突的任务会暂时锁定操作。</p>
+          </div>
+        </div>
+        <div class="trash-list" id="trash-list" aria-label="已删除任务"></div>
+        <div class="trash-footer-actions">
+          <div class="trash-selection-actions">
+            <button type="button" class="trash-action" id="trash-select-all" disabled>全选</button>
+            <span class="trash-selection-count" id="trash-selection-count" aria-live="polite">已选 0 项</span>
+          </div>
+          <button type="button" class="trash-action trash-action--danger" id="trash-purge-selected" disabled>彻底删除选中项</button>
+        </div>
+        <p id="trash-message" class="message trash-status" role="status" aria-live="polite"></p>
       </section>
     </section>
     <section id="page-reviews" class="workspace-page" hidden>
-      <div class="page-heading"><div><h1>数据核查</h1><p class="subtitle">查看异常来源、人工核查、明确授权、执行合法修复并追踪结果。</p></div>
+      <div class="page-heading"><div><h1>数据异常处理</h1><p class="subtitle">这里列出系统暂时无法安全处理的记录。正常任务不需要你逐条检查。</p></div>
         <button type="button" id="review-refresh">重新扫描</button></div>
-      <div id="review-summary" class="review-summary" aria-label="数据核查统计"></div>
+      <p class="review-intro">先从左侧选择一个任务或步骤问题。相同任务、步骤下的多条异常会集中显示，展开后仍可逐条核对。重新扫描只读取数据，不会修改任务、步骤或原始记录。能安全修复的事项必须先授权、再单独执行；不能自动修复的事项会说明原因，页面提供“确认保留，不写入”时，这只记录你的核查决定，不会改动任务或原始记录。</p>
+      <div id="review-summary" class="review-summary" aria-label="异常处理统计"></div>
       <div class="review-layout">
         <section class="review-list-panel" aria-labelledby="review-list-heading">
-          <h2 id="review-list-heading">异常与核查记录</h2>
+          <h2 id="review-list-heading">异常与处理记录</h2>
           <div id="review-list" class="review-list"></div>
         </section>
-        <section id="review-detail" class="review-detail" aria-label="异常详情与处理">
-          <div class="review-empty">选择一条异常，查看原始事件、校验原因和可执行的修复方案。</div>
+        <section id="review-detail" class="review-detail" aria-label="异常说明与处理方式">
+          <div class="review-empty">请从左侧选择一项。这里会用日常语言说明发生了什么、是否影响工作，以及你可以怎么处理。</div>
         </section>
       </div>
       <p id="review-message" class="review-message" role="status" aria-live="polite"></p>
@@ -2571,131 +2678,281 @@
     }
 
     const reviewStatusLabels = {
-      pending: "待人工核查", authorized: "已授权·待执行", applied: "已写入并验证",
-      dismissed: "已核查·不写入", stale: "来源或版本已变化", failed: "写入/验证失败",
-      conflict: "核查记录冲突"
+      pending: "需要你处理", authorized: "已确认，等待执行", applied: "已修复并验证",
+      dismissed: "已确认保留", stale: "情况已变化，需重新核对", failed: "上次处理未完成",
+      conflict: "存在冲突，已暂停"
     };
-
+    function reviewGuidanceFor(item) {
+      if (item.user_guidance) return item.user_guidance;
+      const fallback = {
+        invalid_step_reference: {
+          summary: "这条执行步骤记录中的步骤编号无法识别，系统不能确定它属于哪一步。",
+          impact: "记录没有被应用，原始文件保留；系统不会猜测目标步骤。",
+          recommendation: "请核对关联任务中的步骤列表。无法确认时，选择“确认保留，不写入”。"
+        },
+        malformed_event: {
+          summary: "这条记录的文件内容无法正确读取，系统无法可靠判断原本要执行什么操作。",
+          impact: "系统没有应用这条记录，原始文件仍保留。",
+          recommendation: "请通过正常任务或步骤界面重新录入可确认的内容；无法确认时保留原记录。"
+        }
+      };
+      return fallback[item.category] || {
+        summary: "系统发现一条暂时无法安全处理的记录。",
+        impact: "系统已暂停应用它，不会自动覆盖任务或步骤。",
+        recommendation: "请核对关联任务和原始来源；不确定时保留原记录，不要授权写入。"
+      };
+    }
     function renderReviewSummary(summary) {
       const host = $("review-summary");
+      const needsReview = ["pending", "stale", "failed", "conflict"]
+        .reduce((total, key) => total + (summary[key] || 0), 0);
       const stats = [
-        ["open_count", "待处理 / 待执行"], ["authorized", "已授权待执行"],
-        ["applied", "已写入并验证"], ["dismissed", "已核查不写入"]
+        [needsReview, "待核对记录"], [summary.authorized || 0, "已授权待执行"],
+        [summary.applied || 0, "已修复并验证"], [summary.dismissed || 0, "已确认保留"]
       ];
-      host.replaceChildren(...stats.map(([key, label]) => {
+      host.replaceChildren(...stats.map(([count, label]) => {
         const card = element("div", "review-stat");
-        card.append(element("strong", "", summary[key] || 0), element("span", "", label));
+        card.append(element("strong", "", count), element("span", "", label));
         return card;
       }));
     }
-
+    function reviewGroupKey(item) {
+      if (!item.task_id) return "anomaly:" + item.anomaly_id;
+      const target = item.category === "invalid_step_reference"
+        ? "unmatched-step:" + (item.recorded_step_title || "unknown")
+        : item.step_id ? "step:" + item.step_id : "task";
+      return item.task_id + "|" + target;
+    }
+    function reviewGroupTarget(group) {
+      const first = group.items[0];
+      if (first.step_title) return "步骤：" + first.step_title;
+      if (first.recorded_step_title) return "记录中的步骤名称（尚未匹配）：" + first.recorded_step_title;
+      if (first.category === "invalid_step_reference") return "步骤编号无法识别，尚未匹配到具体步骤";
+      return "任务级记录";
+    }
+    function reviewRecordDescription(item, index, total) {
+      const actions = {
+        create: "新增记录", update: "修改记录", delete: "删除步骤记录",
+        trash: "移入回收站记录", restore: "恢复任务记录", purge: "永久删除记录"
+      };
+      const event = item.source_event || {};
+      const action = actions[event.action || item.action] || "异常记录";
+      const timestamp = typeof event.timestamp === "string"
+        ? event.timestamp.replace("T", " ").replace(/Z$/, "").slice(0, 16) : "";
+      const sequence = total > 1 ? "第 " + (index + 1) + " 条" : "";
+      return [action, timestamp, sequence].filter(Boolean).join(" · ");
+    }
+    function reviewRecordButton(item, index, total, context) {
+      const button = element("button", "review-list-item review-record-item" +
+        (item.anomaly_id === selectedReviewId ? " is-active" : ""));
+      button.type = "button";
+      const guidance = reviewGuidanceFor(item);
+      const description = reviewRecordDescription(item, index, total);
+      button.append(
+        element("span", "review-status " + item.status, reviewStatusLabels[item.status] || "需要核对"),
+        element("strong", "", item.title),
+        element("small", "", (context ? context + " · " : "") +
+          (description || guidance.summary))
+      );
+      button.addEventListener("click", () => {
+        selectedReviewId = item.anomaly_id;
+        renderReviewList();
+        renderReviewDetail(item);
+      });
+      return button;
+    }
     function renderReviewList() {
       const host = $("review-list");
       host.replaceChildren();
       if (!reviewItems.length) {
-        host.append(element("p", "review-empty", "当前没有异常或历史核查记录。"));
+        host.append(element("p", "review-empty", "目前没有需要处理的异常记录。"));
         return;
       }
+      const groups = new Map();
       for (const item of reviewItems) {
-        const button = element("button", "review-list-item" +
-          (item.anomaly_id === selectedReviewId ? " is-active" : ""));
-        button.type = "button";
-        button.append(
-          element("span", "review-status " + item.status, reviewStatusLabels[item.status] || item.status),
-          element("strong", "", item.title),
-          element("small", "", (item.task_id || item.step_id || item.source.filename || "工作区") +
-            " · " + item.reason)
+        const key = reviewGroupKey(item);
+        if (!groups.has(key)) {
+          groups.set(key, {
+            items: [], taskTitle: item.task_title || "暂未识别关联任务",
+            taskId: item.task_id || null
+          });
+        }
+        groups.get(key).items.push(item);
+      }
+      for (const group of groups.values()) {
+        const target = reviewGroupTarget(group);
+        const todoCount = group.items.filter(item =>
+          ["pending", "stale", "failed", "conflict"].includes(item.status)).length;
+        const authorizedCount = group.items.filter(item => item.status === "authorized").length;
+        const statusSummary = [
+          "共 " + group.items.length + " 条记录",
+          todoCount ? todoCount + " 条待核对" : "",
+          authorizedCount ? authorizedCount + " 条待执行" : ""
+        ].filter(Boolean).join(" · ");
+        const context = group.taskTitle + " · " + target;
+        if (group.items.length === 1) {
+          host.append(reviewRecordButton(group.items[0], 0, 1, context));
+          continue;
+        }
+        const details = element("details", "review-group");
+        details.open = group.items.some(item => item.anomaly_id === selectedReviewId);
+        const summary = element("summary", "review-group-summary");
+        summary.append(
+          element("strong", "review-group-title", group.taskTitle),
+          element("small", "review-group-meta", target + " · " + statusSummary)
         );
-        button.addEventListener("click", () => {
-          selectedReviewId = item.anomaly_id;
-          renderReviewList();
-          renderReviewDetail(item);
+        details.append(summary);
+        const records = element("div", "review-group-records");
+        group.items.forEach((item, index) => {
+          records.append(reviewRecordButton(item, index, group.items.length, ""));
         });
-        host.append(button);
+        details.append(records);
+        host.append(details);
       }
     }
-
+    const reviewFieldLabels = {
+      title: "名称", status: "状态", trashed_at: "任务位置", owner: "负责人",
+      priority: "优先级", due_date: "截止日期", planned_date: "计划日期",
+      follow_up_date: "下次跟进日期", project_id: "所属项目", related_project_ids: "关联项目",
+      document_links: "文档关联"
+    };
+    function reviewChangeValue(field, value) {
+      const statuses = {todo: "待处理", doing: "进行中", blocked: "受阻", done: "已完成"};
+      const priorities = {low: "低", normal: "普通", high: "高", urgent: "紧急"};
+      if (field === "status") return statuses[value] || String(value);
+      if (field === "priority") return priorities[value] || String(value);
+      if (field === "trashed_at") return value ? "移入回收站" : "从回收站恢复";
+      if (["project_id", "related_project_ids", "document_links"].includes(field)) {
+        return "按已核对的原记录更新关联（不删除云端文件）";
+      }
+      if (value === null || value === "") return "清空";
+      if (Array.isArray(value)) return value.length ? "更新 " + value.length + " 项" : "清空";
+      if (typeof value === "object") return "更新关联信息";
+      return String(value);
+    }
+    function renderReviewProposal(item, host) {
+      const proposal = item.proposal;
+      const section = element("section", "review-proposal");
+      section.append(element("h3", "", "系统建议的修改内容（请核对）"));
+      const taskTitle = proposal.target.task_title || item.task_title || "关联任务";
+      const target = proposal.target.step_title
+        ? "任务“" + taskTitle + "”中的步骤“" + proposal.target.step_title + "”"
+        : "任务“" + taskTitle + "”";
+      section.append(element("p", "review-proposal-target", "修改对象：" + target));
+      const list = element("dl", "review-proposal-list");
+      for (const [field, value] of Object.entries(proposal.event?.changes || {})) {
+        const row = element("div", "review-proposal-row");
+        row.append(element("span", "", reviewFieldLabels[field] || "其他内容"),
+          element("span", "", reviewChangeValue(field, value)));
+        list.append(row);
+      }
+      section.append(list);
+      let note = "系统会追加一条经过规则校验的新记录；原始异常记录会保留，不会被覆盖或删除。";
+      if (item.category === "step_update_position") note += " 原记录中不合规的排序信息会被忽略，不会改变其他步骤的顺序。";
+      section.append(element("p", "review-proposal-note", note));
+      if (proposal.requires_completion_confirmation) {
+        section.append(element("p", "review-proposal-warning",
+          "注意：这项修改会把任务或步骤标记为“已完成”。只有你亲自确认工作确实完成时，才继续授权。"));
+      }
+      host.append(section);
+    }
     function renderReviewDetail(item) {
       const host = $("review-detail");
       host.replaceChildren();
       const heading = element("div", "review-detail-head");
       const title = element("div");
       title.append(element("h2", "", item.title),
-        element("span", "review-status " + item.status,
-          reviewStatusLabels[item.status] || item.status));
+        element("span", "review-status " + item.status, reviewStatusLabels[item.status] || "需要核对"));
       heading.append(title);
       host.append(heading);
-      const meta = element("div", "review-detail-meta");
-      meta.textContent = [
-        "异常编号：" + item.anomaly_id,
-        "来源：" + (item.source.folder + (item.source.filename ? "/" + item.source.filename : "")),
-        "原始事件 ID：" + (item.event_id || "无法解析"),
-        "任务：" + (item.task_id || "未识别"),
-        "步骤：" + (item.step_id || "未识别"),
-        "原始文件 SHA-256：" + item.source.sha256,
-        item.source_present ? "原始文件：仍在，未修改" : "原始文件：已不存在，历史记录保留"
-      ].join("\n");
-      host.append(meta, element("p", "review-reason", item.reason));
-      if (item.source_event) {
-        host.append(element("h3", "", "原始事件（只读）"));
-        const raw = element("pre", "review-code");
-        raw.textContent = JSON.stringify(item.source_event, null, 2);
-        host.append(raw);
-      } else if (item.raw_excerpt) {
-        const raw = element("pre", "review-code");
-        raw.textContent = item.raw_excerpt;
-        host.append(raw);
+      const context = item.task_title ? "关联任务：" + item.task_title :
+        item.source?.folder === "workspace" ? "工作区提示" : "关联任务暂未识别";
+      host.append(element("p", "review-target", context +
+        (item.recorded_step_title ? " · 记录中的步骤名称：" + item.recorded_step_title : "")));
+      const guidance = reviewGuidanceFor(item);
+      const cards = element("div", "review-guidance-grid");
+      for (const [label, value, className] of [
+        ["发生了什么", guidance.summary, ""],
+        ["对工作台的影响", guidance.impact, ""],
+        ["建议怎么处理", guidance.recommendation, "recommendation"]
+      ]) {
+        const card = element("section", "review-guidance-card " + className);
+        card.append(element("h3", "", label), element("p", "", value));
+        cards.append(card);
       }
-      if (item.proposal) {
-        host.append(element("h3", "", "系统建议的合法修复（预览，不会自动写入）"));
-        const preview = element("pre", "review-code");
-        preview.textContent = JSON.stringify({
-          target: item.proposal.target,
-          target_folder: item.proposal.target_folder,
-          event: item.proposal.event,
-          explanation: item.proposal.explanation,
-          proposal_sha256: item.proposal.proposal_sha256
-        }, null, 2);
-        host.append(preview);
-      } else if (item.status === "pending" || item.status === "failed" || item.status === "stale") {
-        host.append(element("p", "review-reason",
-          item.proposal_block_reason || "此异常暂不支持自动修复。可以核查原始资料并记录处理结论；该操作不会写入任务、步骤或项目数据。"));
-      }
+      host.append(cards);
+      if (item.proposal) renderReviewProposal(item, host);
       if (item.timeline && item.timeline.length) {
-        host.append(element("h3", "", "处理轨迹"));
+        const history = element("details", "review-history");
+        history.append(element("summary", "", "查看此前处理记录"));
         const timeline = element("ol", "review-timeline");
         for (const entry of item.timeline) {
-          const label = entry.action === "dismissed" ? "已核查不写入" :
-            entry.action === "authorize" ? "已授权" :
-            entry.action === "applied" ? "已写入并验证" : entry.action;
+          const label = entry.action === "dismissed" ? "已确认保留、不写入" :
+            entry.action === "authorize" ? "已授权，尚未执行" :
+            entry.action === "applied" ? "已修复并验证" : "处理状态更新";
           timeline.append(element("li", "", entry.timestamp + " · " + label +
             (entry.note ? " · " + entry.note : "")));
         }
-        host.append(timeline);
+        history.append(timeline);
+        host.append(history);
       }
+      const technical = element("details", "review-technical");
+      technical.append(element("summary", "", "查看技术详情（通常不需要打开）"));
+      const technicalBody = element("div", "review-technical-body");
+      const meta = element("div", "review-detail-meta");
+      meta.textContent = [
+        "异常编号：" + (item.anomaly_id || "—"),
+        "来源文件：" + (item.source?.folder || "—") + (item.source?.filename ? "/" + item.source.filename : ""),
+        "原始事件 ID：" + (item.event_id || "无法解析"),
+        "任务内部编号：" + (item.task_id || "未识别"),
+        "步骤内部编号：" + (item.step_id || "未识别"),
+        "校验原因：" + (item.reason || "—"),
+        "来源文件 SHA-256：" + (item.source?.sha256 || "—"),
+        item.source_present ? "原始文件：仍在，未修改" : "原始文件：已不存在，历史记录保留"
+      ].join("\n");
+      technicalBody.append(meta);
+      if (item.source_event) {
+        technicalBody.append(element("h3", "", "原始事件（只读）"));
+        const raw = element("pre", "review-code");
+        raw.textContent = JSON.stringify(item.source_event, null, 2);
+        technicalBody.append(raw);
+      } else if (item.raw_excerpt) {
+        const raw = element("pre", "review-code");
+        raw.textContent = item.raw_excerpt;
+        technicalBody.append(raw);
+      }
+      if (item.proposal) {
+        technicalBody.append(element("h3", "", "修复记录详情"));
+        const rawProposal = element("pre", "review-code");
+        rawProposal.textContent = JSON.stringify(item.proposal, null, 2);
+        technicalBody.append(rawProposal);
+      }
+      technical.append(technicalBody);
+      host.append(technical);
       if (!item.source_present || item.status === "applied" || item.status === "dismissed" ||
           item.status === "conflict") return;
-      const noteLabel = element("label", "review-note", "核查说明 / 不写入原因");
+      const noteLabel = element("label", "review-note",
+        item.can_dismiss ? "处理说明（选择保留时必填）" : "核查备注（可选）");
       const note = element("textarea");
       note.maxLength = 500;
-      note.placeholder = item.can_dismiss ? "标记不修复时请说明核查结论（必填）" : "可记录本次核查依据";
+      note.placeholder = item.category === "invalid_step_reference"
+        ? "例如：已核对任务步骤，无法确认对应步骤，决定保留原记录。"
+        : item.can_dismiss ? "如果选择保留原记录，请说明核查结论。" : "可补充本次核查依据。";
       noteLabel.append(note);
       host.append(noteLabel);
       const actions = element("div", "review-actions");
       if (item.can_authorize) {
         const authorize = element("button", "save",
-          item.status === "stale" ? "重新核查并授权" : "确认核查并授权修复");
+          item.status === "stale" ? "重新核对并授权修复" : "确认并授权修复");
         authorize.type = "button";
         authorize.addEventListener("click", async () => {
           if (reviewBusy) return;
-          if (!window.confirm("请确认已核对原始事件和修复预览。授权只记录你的决定，不会立即写入任务数据。是否授权？")) return;
+          if (!window.confirm("确认授权这项修复建议？这一步只记录你的授权，不会立即修改任务或步骤。")) return;
           if (item.proposal.requires_completion_confirmation &&
-              !window.confirm("该修复会将任务/步骤标记为已完成。请再次明确确认：确实要完成吗？")) return;
+              !window.confirm("请再次确认：你亲自确认这项任务或步骤已经完成吗？")) return;
           await submitReviewAction(item, "authorize", {
-            source_sha256: item.source.sha256,
-            proposal_sha256: item.proposal.proposal_sha256,
-            confirmed: true,
-            confirm_completion: item.proposal.requires_completion_confirmation,
+            source_sha256: item.source.sha256, proposal_sha256: item.proposal.proposal_sha256,
+            confirmed: true, confirm_completion: item.proposal.requires_completion_confirmation,
             note: note.value.trim()
           }, $("review-message"));
         });
@@ -2706,26 +2963,26 @@
         apply.type = "button";
         apply.addEventListener("click", async () => {
           if (reviewBusy) return;
-          if (!window.confirm("将按已授权预览写入一条新的、经过校验的事件。原始异常文件不会修改或删除。确认执行？")) return;
+          if (!window.confirm("现在执行已经授权的修复？系统会再次核对版本，并保留原始异常文件。")) return;
           await submitReviewAction(item, "apply", {
-            source_sha256: item.source.sha256,
-            authorization_event_id: item.authorization_event_id,
+            source_sha256: item.source.sha256, authorization_event_id: item.authorization_event_id,
             confirmed: true
           }, $("review-message"));
         });
         actions.append(apply);
       }
       if (item.can_dismiss) {
-        const dismiss = element("button", "review-danger", "标记已核查·不写入");
+        const dismiss = element("button", "secondary",
+          item.proposal ? "暂不修复，保留原记录" : "确认保留，不写入");
         dismiss.type = "button";
         dismiss.addEventListener("click", async () => {
           if (reviewBusy) return;
           if (note.value.trim().length < 1) {
             $("review-message").className = "review-message error";
-            $("review-message").textContent = "请先填写核查结论或不修复原因。";
+            $("review-message").textContent = "请先填写处理结论，说明为什么保留原记录。";
             return;
           }
-          if (!window.confirm("仅记录“已核查、不授权写入”，不会修复或删除任何原始数据。确认？")) return;
+          if (!window.confirm("确认保留这条原始异常记录、不写入工作台？这不会修改或删除任何任务、步骤或原始文件。")) return;
           await submitReviewAction(item, "dismiss", {
             source_sha256: item.source.sha256, confirmed: true, note: note.value.trim()
           }, $("review-message"));
@@ -2748,14 +3005,14 @@
           });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "核查操作失败");
-        message.textContent = action === "authorize" ? "授权已记录；尚未写入，下一步需要单独执行。" :
-          action === "apply" ? "合法事件已写入，结果校验与追踪回执已保存。" :
-          "已记录人工核查结论；未修改业务数据。";
+        message.textContent = action === "authorize" ? "授权已记录；尚未修改任务或步骤。请再次核对后，单独点击“执行已授权修复”。" :
+          action === "apply" ? "修复已执行，系统已核对结果；原始异常记录仍保留。" :
+          "已记录你的决定；原始异常记录保留，未修改任务或步骤。";
         await loadReviews();
         await refresh(true);
       } catch (error) {
         message.className = "review-message error";
-        message.textContent = "操作未完成：" + error.message + "。请刷新核对状态，不要重复创建其他事件。";
+        message.textContent = "这次操作没有完成。请点击“重新扫描”查看最新状态；在确认结果前不要重复操作。";
         await loadReviews();
       } finally {
         reviewBusy = false;
@@ -2792,6 +3049,25 @@
     $("review-refresh").addEventListener("click", () => loadReviews());
 
     let trashItems = [];
+    function refreshTrashSelection() {
+      const available = [...document.querySelectorAll(".trash-pick:not(:disabled)")];
+      const selected = available.filter(item => item.checked);
+      const allSelected = available.length > 0 && selected.length === available.length;
+      const selectAll = $("trash-select-all");
+      selectAll.disabled = available.length === 0 || isSaving;
+      selectAll.textContent = allSelected ? "取消全选" : "全选";
+      selectAll.setAttribute("aria-pressed", String(allSelected));
+      $("trash-selection-count").textContent = "已选 " + selected.length + " 项";
+      $("trash-purge-selected").disabled = selected.length === 0 || isSaving;
+    }
+
+    function updateTrashSummary() {
+      $("trash-stat-total").textContent = String(trashItems.length);
+      $("trash-stat-restorable").textContent = String(trashItems.filter(item => !item.conflict).length);
+      $("trash-stat-conflict").textContent = String(trashItems.filter(item => item.conflict).length);
+      $("trash-count").textContent = trashItems.length + " 项";
+    }
+
     async function loadTrash() {
       const message = $("trash-message");
       message.textContent = "正在读取回收站…";
@@ -2801,21 +3077,36 @@
         if (!response.ok) throw new Error(payload.error || "无法读取回收站");
         trashItems = payload.tasks || [];
         $("trash-retention").value = String(payload.retention_days);
+        updateTrashSummary();
         const list = $("trash-list");
         list.replaceChildren();
-        if (!trashItems.length) list.append(element("p", "hint", "回收站为空。"));
+        if (!trashItems.length) {
+          const empty = element("div", "trash-empty");
+          empty.append(element("span", "trash-empty-icon", "✓"),
+                       element("strong", "", "回收站为空"),
+                       element("span", "", "已删除的任务会显示在这里。"));
+          list.append(empty);
+        }
         for (const item of trashItems) {
-          const row = element("div", "trash-row");
+          const row = element("div", "trash-row" + (item.conflict ? " is-conflict" : ""));
           const pick = element("input");
           pick.type = "checkbox"; pick.className = "trash-pick";
           pick.value = item.task_id;
-          pick.disabled = item.conflict;
+          pick.disabled = Boolean(item.conflict);
           pick.setAttribute("aria-label", "选择彻底删除：" + taskDisplayId(item));
+          pick.addEventListener("change", refreshTrashSelection);
           const label = element("div", "trash-row-label");
-          label.append(element("strong", "", item.title || "任务状态冲突"),
-                       element("small", "", taskDisplayId(item) + " · 删除时间 " + (item.trashed_at || "未知")));
-          const restore = element("button", "", "恢复");
-          restore.type = "button"; restore.disabled = item.conflict;
+          const meta = element("div", "trash-row-meta");
+          meta.append(element("span", "", taskDisplayId(item)),
+                      element("span", "", "删除时间 " + (item.trashed_at || "未知")));
+          if (item.conflict) {
+            meta.append(element("span", "trash-row-status is-conflict", "存在同步冲突，暂不可操作"));
+          }
+          label.append(element("strong", "trash-row-title", item.title || "任务状态冲突"), meta);
+          const restore = element("button", "trash-action trash-action--restore", "恢复");
+          restore.type = "button";
+          restore.disabled = Boolean(item.conflict);
+          if (item.conflict) restore.setAttribute("title", "存在同步冲突，核对前不能恢复");
           restore.addEventListener("click", async () => {
             if (!window.confirm("恢复任务「" + item.title + "」及其执行步骤？")) return;
             await actOnTrashedTask(item, "restore");
@@ -2823,6 +3114,7 @@
           row.append(pick, label, restore);
           list.append(row);
         }
+        refreshTrashSelection();
         message.textContent = (payload.warnings || []).length
           ? "部分同步数据需核查：" + payload.warnings.slice(0, 2).join("；")
           : "共 " + trashItems.length + " 项。到期清理会在下次访问时执行。";
@@ -3182,6 +3474,7 @@
       const items = [...document.querySelectorAll(".trash-pick:not(:disabled)")];
       const select = items.some(item => !item.checked);
       for (const item of items) item.checked = select;
+      refreshTrashSelection();
     });
     $("trash-save-retention").addEventListener("click", async () => {
       if (isSaving) return;
@@ -3190,6 +3483,7 @@
       if (days && !window.confirm("确认将回收站自动清空周期设为 " + days +
                                    " 天？超过此期限的任务将在下一次访问时永久删除。")) return;
       isSaving = true;
+      refreshTrashSelection();
       try {
         const response = await fetch("/api/trash/settings", {
           method: "POST", headers: {"Content-Type": "application/json"},
@@ -3200,7 +3494,7 @@
         $("trash-message").textContent = "自动清空周期已保存";
       } catch (error) {
         $("trash-message").textContent = "设置失败：" + error.message;
-      } finally { isSaving = false; }
+      } finally { isSaving = false; refreshTrashSelection(); }
     });
     $("trash-purge-selected").addEventListener("click", async () => {
       if (isSaving) return;
@@ -3211,13 +3505,14 @@
       if (!window.confirm("不可撤销：彻底删除选中的 " + items.length +
                           " 项任务？本机删除不能保证清除其他设备和云端历史备份。")) return;
       isSaving = true;
+      refreshTrashSelection();
       const failures = [];
       try {
         for (const item of items) {
           try { await actOnTrashedTask(item, "purge", true); }
           catch (error) { failures.push(taskDisplayId(item) + ": " + error.message); }
         }
-      } finally { isSaving = false; }
+      } finally { isSaving = false; refreshTrashSelection(); }
       await loadTrash();
       await refresh(true, true);
       $("trash-message").textContent = failures.length

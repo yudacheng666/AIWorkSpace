@@ -37,7 +37,7 @@ jobs:
         with:
           node-version: "22"
       - name: Run UI regression tests
-        run: node --test tests/test_create_ui.mjs tests/test_ui_shell.mjs
+        run: node --test tests/test_create_ui.mjs tests/test_ui_shell.mjs tests/test_trash_ui.mjs
 
   windows-update-e2e:
     name: Windows real app + Chromium updater E2E

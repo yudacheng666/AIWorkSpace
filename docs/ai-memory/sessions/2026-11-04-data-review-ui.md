@@ -1,0 +1,47 @@
+# 2026-11-04 数据核查界面可用性改造
+
+## 用户反馈
+用户提供数据核查页面截图，反馈现有界面完全看不懂、不知道异常如何处理，要求修正。
+
+## 基线与范围
+- 仓库：yudacheng666/AIWorkSpace
+- 基线 main SHA：c4817668730de6631c86877e93571bd5d4456e15（VERSION 2.0.7）
+- 修复分支：fix/20261104-review-center-usability
+- 候选版本：2.0.8
+- 不操作本地 8770 实例或真实工作台业务数据；不合并 main、不发布、不部署。
+
+## 主要问题
+旧页面将开发人员日志直接呈现给管理者：内部 ID、SHA-256、原始 JSON、英文校验错误默认可见；异常标题泛化；修复建议以 JSON 展示；“标记已核查·不写入”没有解释其业务含义。
+
+## 设计决策
+1. 页面默认以“发生了什么 / 对工作台的影响 / 建议怎么处理”解释异常。
+2. 列表显示关联任务名称和业务含义；状态用“需要你处理 / 等你执行 / 已修复并验证 / 已确认保留”等表达。
+3. 安全修复预览展示目标任务/步骤和字段值；授权与执行继续分开。
+4. 原始 JSON、内部编号、来源文件、SHA-256、原始错误和完整 proposal 结构保留为只读技术详情，默认折叠。
+5. 无效 step_id 单独分类，明确系统无法识别步骤归属；禁止猜测、改绑、自动创建或覆盖。用户核对后可通过正常任务界面重新录入，并将原异常记录为“确认保留，不写入”。
+6. 扫描仍只读；dismiss 仅追加人工核查记录，不修改任务、步骤或原始异常文件。
+
+## 实现
+- app.py：新增 invalid_step_reference 分类、不可自动修复原因、用户说明字段、关联任务名称和记录中的步骤名称。
+- web/index.html：重做数据核查页面文案、异常列表、说明卡片、可读修复预览、折叠技术详情及处理按钮。
+- 测试：新增 invalid_step_id 数据治理回归测试；更新 Node UI 测试；更新 Windows Chromium E2E，验证技术详情默认折叠且展开后可查看原始 JSON。
+
+## 验收
+- 首次 PR CI：旧 Windows E2E 仍要求原始 JSON 默认显示并匹配旧授权按钮文案，因 UI 改版导致断言失败；Linux Python、Windows Python、Windows updater E2E 均通过。
+- 更新 E2E 断言适配新设计后，最终 head SHA：277044654d2c0d1e52d5259c96374e2f4d47062d。
+- GitHub Actions run 41770691637：Linux Python PASS；Windows Python PASS；Windows real-app + Chromium E2E PASS；总体 SUCCESS。该 run 对最后文档/会话提交后的准确 head SHA 执行。
+- PR #28：https://github.com/yudacheng666/AIWorkSpace/pull/28，Draft / Open，未合并。
+
+## 第二轮细化：重复异常聚合与统计口径
+- 复核发现首轮界面虽已使用业务语言，但同一任务/步骤的异常仍逐条重复显示，侧栏仍称“数据核查”，待处理统计与已授权待执行存在重叠。
+- 列表按可确认的 task_id + step_id 聚合；无效步骤引用仅按任务及原记录中的步骤名称分组，不推断目标步骤。展开后每条异常保留独立状态、动作、时间和处置按钮，不合并原始事件。
+- 统计改为互斥口径：待核对（pending/stale/failed/conflict）、已授权待执行、已修复并验证、已确认保留。
+- 新增 Node 测试覆盖同任务同步骤聚合、不同步骤隔离、未知对象不合并、每条异常独立选择、内部编号不显示及统计不重叠。
+
+- 首次分组回归 run 41771911358 的 Node UI 测试发现：测试没有调用 loadReviews 加载 mock 数据，且统计文本断言未考虑文本节点空格。已修正测试为真实调用 loadReviews，并用精确文本比较；该失败未指向产品运行逻辑，仍以修复后新 SHA CI 为准。
+
+## 最终回归
+- 最终产品/测试 SHA：`cedf8b9c7c2e6a87bbcf23450b32eeabd918823b`。
+- [GitHub Actions #41772135553](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41772135553)：3/3 SUCCESS；Ubuntu Python+Node、Windows Python+Node、Windows real-app + Chromium updater E2E 3 PASS、工作台 UI E2E 7 PASS（包含数据治理流程）。
+- 首轮分组 Node 测试失败为测试夹具未加载 mock review 数据及文本空格断言问题，已修复；未改动治理 API 或业务数据。
+- PR #28 保持 Draft / Open，等待用户是否发布；不代表公司本机已升级。
