@@ -882,8 +882,8 @@ test("notification inbox has a simple empty state and no exception statistics", 
 });
 
 test("navigation presents a notification mailbox instead of a repair center", () => {
-  assert.match(html, /id="nav-reviews"[\\s\\S]*?通知信箱/);
-  assert.match(html, /<h1>通知信箱<\\/h1>/);
+  assert.match(html, /id="nav-reviews"[\s\S]*?通知信箱/);
+  assert.match(html, /<h1>通知信箱<\/h1>/);
   assert.match(html, /id="review-refresh">刷新消息/);
   assert.doesNotMatch(html, /数据异常处理|打开数据核查|确认并授权修复|执行已授权修复|确认保留，不写入/);
 });
