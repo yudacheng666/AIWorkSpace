@@ -8,7 +8,7 @@ const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8")
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(scriptMatch, "the production page must contain its inline script");
 
-function harness(tasks = [], confirm = () => true, projects = [], reviews = []) {
+function harness(tasks = [], confirm = () => true, projects = [], reviews = [], onPost = null) {
   const elements = new Map();
   const writes = [];
   function node(tag = "div") {
@@ -16,8 +16,12 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = []) 
     const item = {
       tag, handlers, children: [], textContent: "", className: "",
       disabled: false, hidden: false, multiple: false, selected: false,
-      _value: "", append(...children) { this.children.push(...children); },
+      _value: "", attributes: new Map(),
+      append(...children) { this.children.push(...children); },
       replaceChildren(...children) { this.children = children; },
+      setAttribute(name, value) { this.attributes.set(name, String(value)); },
+      getAttribute(name) { return this.attributes.get(name) ?? null; },
+      contains(target) { return this === target || this.children.some(child => child.contains?.(target)); },
       addEventListener(type, handler) {
         if (!handlers.has(type)) handlers.set(type, []);
         handlers.get(type).push(handler);
@@ -40,8 +44,13 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = []) 
     });
     return item;
   }
+  const documentHandlers = new Map();
   const document = {
     activeElement: null,
+    addEventListener(type, handler) {
+      if (!documentHandlers.has(type)) documentHandlers.set(type, []);
+      documentHandlers.get(type).push(handler);
+    },
     getElementById(id) {
       if (!elements.has(id)) {
         const selects = new Set(["overview-owner", "query-project", "query-owner",
@@ -58,7 +67,9 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = []) 
   const window = {confirm, addEventListener() {}};
   const fetch = async (path, options) => {
     if (options?.method === "POST") {
-      writes.push({path, body: JSON.parse(options.body)});
+      const body = JSON.parse(options.body);
+      writes.push({path, body});
+      if (onPost) return onPost(path, body);
       return {ok: true, json: async () => ({saved: true, task_id: "TASK-MOCK"})};
     }
     if (path === "/api/update/status") {
@@ -76,10 +87,14 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = []) 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, documentPanel, legacyDocumentPanel, taskSummaryRow, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
-  return {api, document, copied, writes, el: id => document.getElementById(id)};
+  return {api, document, copied, writes,
+    dispatchDocument(type, event) {
+      for (const handler of documentHandlers.get(type) || []) handler(event);
+    },
+    el: id => document.getElementById(id)};
 }
 
 function sampleTask() {
@@ -907,4 +922,157 @@ test("navigation presents a notification mailbox instead of a repair center", ()
   assert.match(html, /<h1>通知信箱<\/h1>/);
   assert.match(html, /id="review-refresh">刷新消息/);
   assert.doesNotMatch(html, /数据异常处理|打开数据核查|确认并授权修复|执行已授权修复|确认保留，不写入/);
+});
+
+function taskQuickControl(row, field) {
+  const editor = row.children.find(item => item.className?.includes("task-quick-editor--" + field));
+  assert.ok(editor, "missing quick edit field " + field);
+  return {editor, trigger:editor.children[0], menu:editor.children[1], feedback:editor.children[2]};
+}
+function chooseQuick(editor, label) {
+  const option = editor.menu.children.find(item => item.textContent === label);
+  assert.ok(option, "missing quick option " + label);
+  return option.handlers.get("click")[0]();
+}
+const successReply = () => ({ok:true, status:200, json:async()=>({saved:true})});
+
+test("task-list status and priority labels are accessible buttons with one-click menus", async () => {
+  const page = harness([sampleTask()]);
+  await page.api.refresh(true);
+  const row = taskRows(page)[0];
+  const status = taskQuickControl(row, "status");
+  const priority = taskQuickControl(row, "priority");
+  assert.equal(status.trigger.tag, "button");
+  assert.equal(priority.trigger.tag, "button");
+  assert.match(status.trigger.className, /status-pill.*task-quick-trigger/);
+  assert.match(priority.trigger.className, /priority-pill.*task-quick-trigger/);
+  assert.equal(status.trigger.textContent, "进行中");
+  assert.equal(priority.trigger.textContent, "高");
+  assert.equal(status.menu.hidden, true);
+  status.trigger.handlers.get("click")[0]();
+  assert.equal(status.menu.hidden, false);
+  assert.deepEqual(status.menu.children.map(x => x.textContent), ["待处理", "进行中", "受阻", "已完成"]);
+  priority.trigger.handlers.get("click")[0]();
+  assert.equal(status.menu.hidden, true, "opening a second field closes the previous menu");
+  assert.equal(priority.menu.hidden, false);
+  page.dispatchDocument("keydown", {key:"Escape"});
+  assert.equal(priority.menu.hidden, true);
+  status.trigger.handlers.get("click")[0]();
+  page.dispatchDocument("click", {target:row.children[0]});
+  assert.equal(status.menu.hidden, true, "clicking outside closes a menu");
+  assert.equal(page.el("task-detail-drawer").hidden, true, "quick controls do not open task details");
+  assert.equal(page.writes.length, 0, "opening/closing menus is read-only");
+});
+
+test("quick status and priority updates write only the changed field and the exact revision", async () => {
+  const task = sampleTask();
+  const page = harness([task], () => true, [], [], async (_path, body) => {
+    Object.assign(task, {
+      ...(body.status ? {status:body.status, manual_status:body.status} : {}),
+      ...(body.priority ? {priority:body.priority} : {}),
+      revision: task.revision + 1
+    });
+    return successReply();
+  });
+  await page.api.refresh(true);
+  let row = taskRows(page)[0];
+  let status = taskQuickControl(row,"status");
+  status.trigger.handlers.get("click")[0]();
+  await chooseQuick(status, "受阻");
+  assert.equal(page.writes.length, 1);
+  assert.equal(page.writes[0].path, "/api/tasks/TASK-UI-V2-001/update");
+  assert.deepEqual(page.writes[0].body, {title:task.title, revision:1, status:"blocked"});
+  assert.equal(taskQuickControl(taskRows(page)[0],"status").trigger.textContent, "受阻");
+  row = taskRows(page)[0];
+  const priority = taskQuickControl(row, "priority");
+  priority.trigger.handlers.get("click")[0]();
+  await chooseQuick(priority,"紧急");
+  assert.deepEqual(page.writes[1].body, {title:task.title, revision:2, priority:"urgent"});
+  assert.equal(page.writes.length, 2);
+  assert.equal(taskQuickControl(taskRows(page)[0],"priority").trigger.textContent,"紧急");
+  assert.equal(task.status,"blocked", "priority updates must not overwrite task status");
+  assert.equal(page.el("task-detail-drawer").hidden,true);
+  assert.equal(task.revision,3);
+  assert.equal(taskQuickControl(taskRows(page)[0],"status").trigger.getAttribute("aria-expanded"),"false");
+});
+
+test("quick completion requires confirmation and can move tasks to completed-last group", async () => {
+  const task = sampleTask();
+  const later = {...sampleTask(), task_id:"TASK-UI-V2-002",title:"虚构未完成任务",revision:1};
+  let approve = false, asks = 0;
+  const page = harness([task,later], () => {asks++; return approve;}, [], [], async (_path, body) => {
+    if (body.status) {task.status=body.status;task.manual_status=body.status;}
+    task.revision++;
+    return successReply();
+  });
+  await page.api.refresh(true);
+  let status=taskQuickControl(taskRows(page)[0],"status");
+  status.trigger.handlers.get("click")[0]();
+  await chooseQuick(status,"已完成");
+  assert.equal(asks,1);
+  assert.equal(page.writes.length,0,"cancelled completion must not write");
+  approve=true;
+  status.trigger.handlers.get("click")[0]();
+  await chooseQuick(status,"已完成");
+  assert.equal(asks,2);
+  assert.deepEqual(page.writes[0].body,
+    {title:task.title,revision:1,status:"done",confirmed_done:true});
+  assert.equal(taskRows(page).at(-1).children[0].children[0].textContent,task.title,
+    "completed task stays last after refresh");
+  const newStatus=taskQuickControl(taskRows(page).at(-1),"status");
+  newStatus.trigger.handlers.get("click")[0]();
+  await chooseQuick(newStatus,"待处理");
+  assert.deepEqual(page.writes[1].body,
+    {title:task.title,revision:2,status:"todo"},
+    "reopening must not inherit completion confirmation");
+});
+
+test("quick controls preserve dirty drafts and refuse conflicts, incomplete rollups, same value, and busy writes", async () => {
+  const task = sampleTask();
+  const page = harness([task]);
+  await page.api.refresh(true);
+  const row=taskRows(page)[0];
+  let priority=taskQuickControl(row,"priority");
+  priority.trigger.handlers.get("click")[0]();
+  await chooseQuick(priority,"高");
+  assert.equal(page.writes.length,0,"selecting unchanged value must not create an event");
+
+  page.api.openTaskDetail(task.task_id);
+  const editor=page.el("task-detail-content").children[0];
+  const form=editor.children.find(child=>child.className==="task-form");
+  const title=form.children[0].children[0];
+  title.value="未保存的虚构新标题";
+  form.handlers.get("input")[0]();
+  priority.trigger.handlers.get("click")[0]();
+  await chooseQuick(priority,"紧急");
+  assert.equal(page.writes.length,0);
+  assert.match(priority.feedback.textContent,/未保存的草稿/);
+  assert.equal(title.value,"未保存的虚构新标题");
+
+  const conflicted={...task,task_id:"TASK-UI-V2-003",conflict:true};
+  let status=taskQuickControl(page.api.taskSummaryRow(conflicted),"status");
+  priority=taskQuickControl(page.api.taskSummaryRow(conflicted),"priority");
+  assert.equal(status.trigger.disabled,true);
+  assert.equal(priority.trigger.disabled,true);
+  const unreliable={...task,status_rollup_incomplete:true};
+  status=taskQuickControl(page.api.taskSummaryRow(unreliable),"status");
+  priority=taskQuickControl(page.api.taskSummaryRow(unreliable),"priority");
+  assert.equal(status.trigger.disabled,true,"incomplete parent/step rollup blocks status quick changes");
+  assert.equal(priority.trigger.disabled,false,"priority may be changed separately");
+});
+
+test("quick status blocks 409 stale-revision writes and shows a local error without optimistic changes", async () => {
+  const task=sampleTask();
+  const page=harness([task],()=>true,[],[],async()=>({
+    ok:false,status:409,json:async()=>({error:"task changed or has a conflict; refresh"})
+  }));
+  await page.api.refresh(true);
+  const status=taskQuickControl(taskRows(page)[0],"status");
+  status.trigger.handlers.get("click")[0]();
+  await chooseQuick(status,"受阻");
+  assert.equal(page.writes.length,1);
+  assert.match(status.feedback.textContent,/已在别处更新或存在冲突/);
+  assert.equal(status.trigger.textContent,"进行中");
+  assert.equal(task.status,"doing");
+  assert.equal(task.revision,1);
 });
