@@ -2729,12 +2729,6 @@
       }
       host.append(cards);
       if (item.proposal) renderReviewProposal(item, host);
-      else if (item.source_present && ["pending", "failed", "stale"].includes(item.status)) {
-        const blocked = element("section", "review-blocked");
-        blocked.append(element("h3", "", "目前不能自动修复"),
-          element("p", "", guidance.recommendation));
-        host.append(blocked);
-      }
       if (item.timeline && item.timeline.length) {
         const history = element("details", "review-history");
         history.append(element("summary", "", "查看此前处理记录"));
@@ -2784,14 +2778,13 @@
       host.append(technical);
       if (!item.source_present || item.status === "applied" || item.status === "dismissed" ||
           item.status === "conflict") return;
-      const needsDecisionNote = item.can_dismiss && !item.proposal;
       const noteLabel = element("label", "review-note",
-        needsDecisionNote ? "处理结论（必填）" : "处理备注（可选）");
+        item.can_dismiss ? "处理说明（选择保留时必填）" : "核查备注（可选）");
       const note = element("textarea");
       note.maxLength = 500;
       note.placeholder = item.category === "invalid_step_reference"
         ? "例如：已核对任务步骤，无法确认对应步骤，决定保留原记录。"
-        : needsDecisionNote ? "说明为什么决定保留原记录、不写入。" : "可补充本次核查依据。";
+        : item.can_dismiss ? "如果选择保留原记录，请说明核查结论。" : "可补充本次核查依据。";
       noteLabel.append(note);
       host.append(noteLabel);
       const actions = element("div", "review-actions");
