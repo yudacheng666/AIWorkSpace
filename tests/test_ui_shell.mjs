@@ -431,7 +431,7 @@ test("task title opens detail while the task ID below it copies independently", 
   assert.equal(page.el("task-detail-drawer").hidden,false);
   assert.equal(page.el("task-detail-title").textContent,task.title);
   assert.equal(page.api.closeTaskDetail(),true);
-  assert.equal(page.el("task-detail-drawer").hidden,true);
+  assert.equal(page.el("task-detail-content").children.length,0);
   assert.equal(id.tag,"button");
   assert.equal(id.className,"task-summary-id task-summary-id-copy");
   await id.handlers.get("click")[0]();
@@ -960,7 +960,7 @@ test("task-list status and priority labels are accessible buttons with one-click
   status.trigger.handlers.get("click")[0]();
   page.dispatchDocument("click", {target:row.children[0]});
   assert.equal(status.menu.hidden, true, "clicking outside closes a menu");
-  assert.equal(page.el("task-detail-drawer").hidden, true, "quick controls do not open task details");
+  assert.equal(page.el("task-detail-content").children.length, 0, "quick controls do not open task details");
   assert.equal(page.writes.length, 0, "opening/closing menus is read-only");
 });
 
