@@ -1,5 +1,7 @@
 # AIWorkSpace
 
+> **当前正式版本 2.0.10（2026-11-04）**：用户批准合并 PR #33，四项任务列表与步骤文档易用性改进正式进入 main。PR 最终准确 HEAD `31a720d0f226bedb98653fb224cb9450a98aa389` 的 [Actions #41784404642](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41784404642) 3/3 SUCCESS；GitHub 标准 Merge SHA `0ec256205bf47a7ee36ae74d3a638a3bb71ef44b`，`main/VERSION=2.0.10`。此前已批准并通过验收的父子任务状态联动、刷新状态位置、异常处理体验和回收站视觉等改进均已在 2.0.8/2.0.9 正式发布；本次审计确认无其他开放 PR 遗漏。公司 Windows 8770 和真实 Google Drive 数据未升级或修改。
+
 > **当前正式版本 2.0.9；2.0.10 候选 CI 已通过，等待发布审批（2026-11-04）**：PR #33 实现步骤文档折叠、任务名称直达详情、任务编号点击复制及已完成任务置底。产品/测试 SHA `b0adfae15ce70065f25bada16af8305402fea6c9` 的 [Actions #41783935135](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41783935135) 3/3 SUCCESS：Ubuntu/Windows Python 各 173 tests、Node 各 79 PASS，Windows Chromium updater 3 PASS、工作台 UI 11 PASS。PR #33 仍为 Draft，尚未合并；2.0.9 的发布与 PR 审计记录保留在下文。
 
 
