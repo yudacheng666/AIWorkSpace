@@ -8,7 +8,7 @@ const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8")
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(scriptMatch, "the production page must contain its inline script");
 
-function harness(tasks = [], confirm = () => true, projects = []) {
+function harness(tasks = [], confirm = () => true, projects = [], reviews = []) {
   const elements = new Map();
   const writes = [];
   function node(tag = "div") {
@@ -65,10 +65,18 @@ function harness(tasks = [], confirm = () => true, projects = []) {
       return {ok: true, json: async () => ({version: "1.0.0", build_short: "abcdef0"})};
     }
     if (path === "/api/trash") return {ok: true, json: async () => ({tasks: [], retention_days: 30, warnings: []})};
+    if (path === "/api/reviews") return {ok: true, json: async () => ({
+      items: reviews, summary: {
+        open_count: reviews.filter(item => ["pending","authorized","stale","failed","conflict"].includes(item.status)).length,
+        authorized: reviews.filter(item => item.status === "authorized").length,
+        applied: reviews.filter(item => item.status === "applied").length,
+        dismissed: reviews.filter(item => item.status === "dismissed").length
+      }, warnings: []
+    })};
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, documentPanel, legacyDocumentPanel})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, documentPanel, legacyDocumentPanel, renderReviewDetail, renderReviewList, renderReviewSummary, loadReviews})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes, el: id => document.getElementById(id)};
@@ -680,3 +688,61 @@ test("clicking only drawer backdrop closes and respects unsaved edit confirmatio
   assert.equal(backdrop.hidden, true);
   assert.equal(page.writes.length, 0);
 });
+
+
+function treeText(node) {
+  return [node.textContent || "", ...(node.children || []).map(treeText)].join(" ");
+}
+function findTreeNode(node, predicate) {
+  if (predicate(node)) return node;
+  for (const child of node.children || []) {
+    const found = findTreeNode(child, predicate);
+    if (found) return found;
+  }
+  return null;
+}
+
+test("data review uses plain language and keeps raw event details collapsed", () => {
+  const item = {
+    anomaly_id: "ANOM-PRIVATE-TEST-ONLY",
+    category: "invalid_step_reference",
+    title: "执行步骤记录中的步骤编号无法识别",
+    status: "pending",
+    task_id: "TASK-PRIVATE-TEST-ONLY",
+    task_title: "虚构演示任务：整理设备资料",
+    step_id: "STEP-PRIVATE-TEST-ONLY",
+    recorded_step_title: "整理供应商图纸",
+    source: {folder: "step_events", filename: "evt_synthetic.json", sha256: "a".repeat(64)},
+    source_present: true,
+    reason: "invalid step_id",
+    source_event: {action: "create", step_id: "bad-id", changes: {title: "整理供应商图纸"}},
+    raw_excerpt: null,
+    proposal: null,
+    proposal_block_reason: "步骤编号格式不正确",
+    can_authorize: false,
+    can_apply: false,
+    can_dismiss: true,
+    user_guidance: {
+      summary: "这条执行步骤记录中的步骤编号格式不正确，系统无法确认它属于哪一个步骤。",
+      impact: "这条记录没有被应用，原始记录仍保留；系统不会猜测目标步骤，也不会覆盖任何现有步骤。",
+      recommendation: "请核对关联任务中的步骤列表；若无法确认，选择确认保留，不写入。"
+    }
+  };
+  const page = harness([], () => true, [], [item]);
+  page.api.renderReviewDetail(item);
+  const detail = page.el("review-detail");
+  const allText = treeText(detail);
+  assert.match(allText, /发生了什么/);
+  assert.match(allText, /对工作台的影响/);
+  assert.match(allText, /建议怎么处理/);
+  assert.match(allText, /整理设备资料/);
+  assert.match(allText, /确认保留，不写入/);
+  assert.doesNotMatch(detail.children.map(child => child.textContent).join(" "), /ANOM-|SHA-256|invalid step_id|STEP-PRIVATE/);
+  const technical = findTreeNode(detail, node => node.className === "review-technical");
+  assert.ok(technical, "technical details are available for support");
+  assert.ok(findTreeNode(technical, node => node.className === "review-code"),
+    "raw JSON remains available inside collapsed technical details");
+  assert.equal(findTreeNode(detail, node => node.tag === "button" && node.textContent === "确认并授权修复"), null,
+    "an unidentifiable step reference must never offer automatic repair");
+});
+
