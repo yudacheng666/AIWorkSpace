@@ -1,14 +1,18 @@
 # AIWorkSpace｜当前项目状态
 
-## 2026-11-04：回收站界面统一主页视觉（开发与验收中）
+## 2026-11-04：回收站界面统一主页视觉（开发完成，等待用户体验与发布审批）
 
 - **用户反馈**：正式工作台回收站仍是窄容器、原生按钮和简单列表，与工作总览视觉割裂；用户明确要求修复并统一主页界面。
 - **开发记忆规则已复核**：本轮完整读取 AGENTS.md、README.md、REQUIREMENTS.md、PROJECT_STATE.md、DECISIONS.md；以 GitHub main、实际代码和准确 SHA 为准。GitHub Actions 为默认测试主力，ChatGPT 开发维护测试；不重复 Codex 已覆盖用例，不合并 main、不部署公司 Windows 8770、不访问真实 Drive 数据。
 - **历史原因**：旧回收站视觉 PR #19（分支 `feat/20261102-trash-polish`，HEAD `e40b80b055856e06037c80d8d979f20ff5178e7a`）仍为 Draft，且相对当前 main 已不可合并（mergeable=false）；其 CSS/测试从未进入正式 main。旧 PR 的 Actions #41453008757 只证明旧分支当时的测试范围，不证明当前正式版本已包含 UI。
 - **当前基线**：main SHA `c4817668730de6631c86877e93571bd5d4456e15`，`VERSION=2.0.7`。新分支 `fix/20261104-trash-ui-alignment` 从该 main 精确派生；不修改 VERSION，不覆盖 PR #28 的数据异常处理候选，不触碰真实业务数据。
-- **本轮改造**：回收站使用与工作总览一致的统计卡片、全宽白色面板、蓝色主操作、次级恢复按钮和危险删除描边；自动清理与已删除任务分区；增加已删除/可恢复/冲突统计、任务行元数据、空状态、实时选择数量和安全禁用；移动端自适应。保留 0/7/30/90 天、默认 30 天、到期在下次访问时执行、恢复/彻底删除确认和原 API/事件模型。
-- **测试**：新增独立 Node 回归文件 `tests/test_trash_ui.mjs`；扩展 Windows 真实 app.py + Chromium 回归，验证统计、卡片布局、恢复样式、选择/取消选择、无选择时危险操作禁用和恢复/彻底删除原流程。结果只记录本 PR 最终准确 HEAD 的 Actions。
-- **发布边界**：PR #19 保留历史，不自动关闭或合并；本轮新 PR 以 Draft 开始。CI 通过不等于发布授权；公司 Windows 8770、Google Drive 实际数据和自动更新均不在本轮范围。
+- **实现**：PR #29（[回收站界面统一主页视觉](https://github.com/yudacheng666/AIWorkSpace/pull/29)）使用与工作总览一致的统计卡片、全宽白色面板、蓝色主操作、次级恢复按钮和危险删除描边；自动清理与已删除任务分区；增加已删除/可恢复/冲突统计、任务行元数据、空状态、实时选择数量和安全禁用；移动端自适应。保留 0/7/30/90 天、默认 30 天、到期在下次访问时执行、恢复/彻底删除确认和原 API/事件模型。
+- **最终产品/测试 SHA**：`7d55390582ee6a639ffe7a93b1da97eb2ee87565`；[GitHub Actions #41775067629](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41775067629) **3/3 SUCCESS**：
+  - Ubuntu Python：161 total / 149 PASS / 12 SKIP；Node：71 PASS / 0 FAIL。
+  - Windows Python：161 total / 151 PASS / 10 SKIP；Node：71 PASS / 0 FAIL。
+  - Windows 真实 app.py + Chromium：更新/回滚 3 PASS；工作台 UI E2E 7 PASS，包含回收站统计、卡片分区、按钮样式、全选/取消、禁用危险操作及恢复/彻底删除原流程。
+- **测试职责**：CI 已覆盖本次新增 Node 与 Windows Chromium 路径，未重复派发 Codex 跑相同测试。自动化证明结构和交互，不替代用户对最终视觉效果的体验确认。
+- **当前状态**：PR #29 Draft / Open，未合并 main、未发布；PR #19 保留历史，不自动关闭或合并。CI 通过不等于发布授权；公司 Windows 8770、Google Drive 实际数据和自动更新均不在本轮范围。测试后的项目记忆提交仅修改 Markdown，不改变上述产品/测试 SHA。
 
 ## 2.0.7 正式发布回执
 
