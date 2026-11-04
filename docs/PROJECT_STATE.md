@@ -517,3 +517,5 @@ M3 目标：从“可记录和同步的任务列表”升级为“可管理项�
 - 最终候选 PR：#28（https://github.com/yudacheng666/AIWorkSpace/pull/28），准确 head SHA d23d050701ff831a81fe2b9282857ca1fc606c26；GitHub Actions run 41770447630 对该 SHA 的 Linux Python、Windows Python、Windows real-app + Chromium E2E 三个 jobs 全部 PASS。
 - Windows Chromium E2E 已调整为验证“技术详情默认折叠、用户主动展开后仍可查看原始 JSON”，并验证新授权按钮文案；原先旧测试仍要求 JSON 默认显示和旧按钮文案，首次 CI 因测试断言过时而失败，已更新 E2E 后完整复验通过。
 - 当前 PR 仍为 Draft / Open，未合并 main、未发布、未部署；真实工作台中的 5 项异常和其他业务数据未读取、未写入、未删除。
+
+- 最终分支 head 已推进至 277044654d2c0d1e52d5259c96374e2f4d47062d（含最后的文档/会话记录提交）；GitHub Actions run 41770691637 对这一准确 SHA 再次完整通过：Linux Python、Windows Python、Windows real-app + Chromium E2E 全部 SUCCESS。PR #28 仍为 Draft / Open。
