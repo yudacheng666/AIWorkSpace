@@ -10,7 +10,7 @@
   - Ubuntu Python：173 total / 157 PASS / 16 SKIP；Node：79 PASS / 0 FAIL。
   - Windows Python：173 total / 159 PASS / 14 SKIP；Node：79 PASS / 0 FAIL。
   - Windows 真实 app.py + Chromium：更新/回滚 3 PASS；工作台 UI E2E 11 PASS，覆盖任务名称打开、列表 ID 剪贴板复制、步骤文档折叠/展开/关联、完成任务在默认/字段/多字段排序中置底，以及排序不写任务事件。
-- **当前状态**：PR #33 Draft / Open，当前 PR HEAD `c7ca7ca64e36b5be5a0f6cba1b5258b181aa0252`（产品/测试准确 SHA 仍为 `b0adfae15ce70065f25bada16af8305402fea6c9`，其后仅有 Markdown 记忆更新），base main `726da94e1817cd910665d5fb984bd3f02c26f8c1`，GitHub 报告 mergeable=true。CI 已通过，尚未合并或正式发布；用户本轮授权为“继续优化”，并未明确授权合并 main，需等待用户发布审批。
+- **当前状态**：PR #33 Draft / Open，base main `726da94e1817cd910665d5fb984bd3f02c26f8c1`；产品/测试准确 SHA `b0adfae15ce70065f25bada16af8305402fea6c9` 之后仅追加 Markdown 项目记忆，不影响已通过的产品/测试代码。CI 已通过，尚未合并或正式发布；用户本轮授权为“继续优化”，并未明确授权合并 main，需等待用户发布审批。
 - **安全边界**：仅更改网页展示与自动化测试；不扫描、修改或重排真实任务数据，不自动把任务写成 done，不改任何事件文件。
 
 ## 2026-11-04：2.0.9 已正式发布，所有遗漏 PR 已审计归档
