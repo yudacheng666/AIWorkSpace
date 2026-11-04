@@ -1,15 +1,18 @@
 # AIWorkSpace｜当前项目状态
 
-## 2026-11-04：2.0.9 候选 — 补齐遗漏的父子状态联动与刷新状态布局
+## 2026-11-04：2.0.9 正式发布 — 父子状态联动与刷新状态侧栏布局
 
-- **用户要求**：全面盘点未合并 PR，补齐此前遗漏且仍有效的修复。本轮确认 PR #20（父子任务状态联动）与 PR #22（刷新状态移至侧栏底部）仍未进入正式 main；用户现明确要求一并执行。
-- **当前基线**：GitHub main SHA db6115d9bdecf028d651f5495d92f1b5732c1144，VERSION=2.0.8。新集成分支 release/20261104-v2.0.9-parent-rollup-refresh 从该准确 SHA 派生；统一候选 VERSION=2.0.9。
-- **旧 PR 为什么不能直接合并**：#20 以 68a3212360fed942ccf2dbfca97afd8f4e224bd3 为基线，较当前 main 落后 92 个提交；#22 以 8f713526f00370d5c8db518d6fa855b7a3f58885 为基线，落后 87 个提交。两个旧分支都与当前 main diverged、mergeable=false；其旧 CI 只证明旧基线。
-- **父子状态联动整合**：保留 PR #20 已审阅的核心实现：明确 parent_task_id、递归步骤/子任务状态、冲突/缺失/环路冻结、全部完成仍需人工确认、人工 done 不自动撤销、无合成父事件/无 revision 推进、非状态编辑不覆盖 manual_status。已将其代码补丁移植到 2.0.8 当前 app.py；网页实现与 2.0.8 当前步骤级文档、数据异常处理和回收站代码做兼容整合，不回退新功能。
-- **刷新状态整合**：将 #sync 唯一状态节点从任务工具栏移至侧栏底部，刷新状态通过 setRefreshStatus 同步文本与 title；保留原刷新频率、读取状态、草稿保护和数据读写行为。
-- **测试**：移植 PR #20 的 parent rollup Python/Node/Windows Chromium 用例和 PR #22 的刷新位置 Node/Windows Chromium 用例。以本集成分支最终准确 SHA 的 GitHub Actions 为准；不沿用旧 Actions #41455699276/#41576050443 的旧基线 PASS。
-- **其余开放 PR 处置**：#19 已由 2.0.8 的 #29/#30 取代；#14 工作档案继续暂停；#13 是 2.0.0 历史部署记录；#8 是 1.0.0 时代 QA。它们不作为本次产品功能合并内容，待本次集成验证后分别关闭/归档并保留说明。#20/#22 旧 PR 在新集成 PR 完成后标记为已由新 PR 取代。
-- **发布边界**：新集成 PR 先以 Draft 验收；CI 通过后按用户本轮“一并合并”的授权完成 GitHub 合并。不得将 GitHub 合并视为公司 Windows 8770 实机部署、Google Drive 数据写入或真实任务自动修复授权。
+- **用户要求**：全面盘点未合并 PR，补齐此前遗漏且仍有效的修复；用户明确要求将父子任务状态联动与刷新状态移至侧栏底部一并执行、合并。
+- **正式发布**：以 2.0.8 main SHA `db6115d9bdecf028d651f5495d92f1b5732c1144` 为基线，原 PR #20/#22 因分支分别落后 92/87 个提交且与当前代码冲突，未直接合并。将功能兼容移植为 2.0.9 候选 PR #31，GitHub 普通 Merge 成功；main merge SHA `a1f681f9fb18982870741484a4d717979e1bb77d`，`main/VERSION=2.0.9`。
+- **准确集成 SHA 验收**：[Actions #41780863683](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41780863683) **3/3 SUCCESS**：
+  - Ubuntu Python：171 total / 157 PASS / 14 SKIP；Node：77 PASS / 0 FAIL。
+  - Windows Python：171 total / 159 PASS / 12 SKIP；Node：77 PASS / 0 FAIL。
+  - Windows 真实 app.py + Chromium：更新/回滚 3 PASS；工作台 UI E2E 9 PASS，含显式创建子任务、上级状态递归联动、标题编辑不污染人工状态、刷新状态侧栏位置与工具栏尺寸不变。
+- **合并后 main 验收**：[Actions #41781106338](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41781106338) 对准确 main merge SHA `a1f681f9fb18982870741484a4d717979e1bb77d` 执行 push CI，**3/3 SUCCESS**。
+- **产品范围**：只有明确选择 parent_task_id 才建立父子任务；状态递归合并直属步骤和未删除子任务，blocked 优先、doing/done→doing、全 todo→todo；全部子项完成仍需人工确认，人工 done 不自动重开。冲突、缺失、环路和步骤顺序不完整时冻结联动。派生状态不写父任务事件、不推进 revision，纯标题/日期/项目编辑不污染 manual_status。刷新状态节点移至左侧导航底部，保留原刷新频率、草稿保护和数据读写。
+- **旧 PR 盘点**：当前仓库无开放 PR。#20/#22 已由 #31 的新基线集成取代；#19 已由 2.0.8 的 #29/#30 取代；#8（1.0.0 实时更新源 QA）、#13（2.0.0 Windows 部署历史记录）、#14（暂停的个人工作档案 M0 设计）均已关闭并保留历史分支/审核说明，未搭载到 2.0.9。不得重新打开或合并这些旧分支，除非未来有明确新需求。
+- **安全边界**：本轮只合并 GitHub 代码；未升级公司 Windows `127.0.0.1:8770`，未操作 Google Drive 真实任务/步骤/review_events，未自动修复真实工作台异常。2.0.9 GitHub 发布不代表本机自动升级或真实数据已完成核对。
+
 
 ## 2026-11-04：2.0.8 组合发布完成（数据异常处理 + 回收站视觉）
 
