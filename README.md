@@ -1,5 +1,7 @@
 # AIWorkSpace
 
+> **2.0.13 候选（2026-11-04）**：正在修复父任务的列表快捷状态按钮，自动联动的任务只能明确确认完成，或从已人工完成状态重新打开并恢复下级自动计算。普通任务四种状态与优先级快捷切换均保留；开发分支 `fix/20261104-parent-quick-status`，须通过准确 SHA 的 Linux/Windows+Chromium 验收后合并。当前正式版仍为 **2.0.12**。
+
 > **当前正式版本 2.0.12（2026-11-04）**：[PR #35](https://github.com/yudacheng666/AIWorkSpace/pull/35) 已按用户“测试通过就合并”要求标准 Merge，merge SHA `8172f8eee501923cb1230ffc35ec7d5af7a2f56e`，`main/VERSION=2.0.12`。任务列表的状态/优先级徽标升级为可点击快捷切换按钮，仍走原单字段事件写入、精确 revision/409、草稿保护和完成明确确认；不改 app.py 或真实数据。准确产品/测试 SHA `7d6dc3a61439d0b93d4d1d64dbb9fb41598fcd4c` 的 [PR Actions #41818398711](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41818398711) 和合并 main SHA 的 [Actions #41818715644](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41818715644) 均 **3/3 SUCCESS**：Ubuntu/Windows Python 各执行 175 tests（含预期跳过），Node UI 各 86 PASS；Windows 真实 Chromium 更新/回滚 3 PASS、工作台 UI E2E 13 PASS。开放 PR=0；公司 Windows 8770 未升级，真实 Google Drive 未操作。
 
 > **2.0.11 正式发布回执（2026-11-04）**：PR #34「通知信箱」已正式合并，merge SHA `d7f703233a48dd22434a6f4e0c5221837610cdb4`，`main/VERSION=2.0.11`。产品/测试 SHA `d7c817713d86f27e654b2b882e2868f4f5a2b864` 的 [PR Actions #41792421545](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41792421545) 与合并后 main SHA 的 [Actions #41792762895](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41792762895) 均 3/3 SUCCESS：Ubuntu/Windows Python 各 173 tests、Node UI 各 81 PASS；Windows Chromium 更新/回滚 3 PASS、工作台 UI E2E 11 PASS。通知信箱只读展示异常，后台数据治理与审计保持不变；未升级公司电脑或修改真实 Google Drive 数据。

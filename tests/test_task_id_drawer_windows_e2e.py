@@ -178,6 +178,111 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         expect(row.locator(".task-quick-editor--status .task-quick-trigger")).to_be_visible()
         expect(row.locator(".task-quick-editor--priority .task-quick-trigger")).to_be_visible()
 
+    def test_parent_quick_status_restricts_override_and_reopens_to_child_rollup(self):
+        """Real UI keeps child-driven state authoritative until explicit user confirmation."""
+        child_id = "TASK-" + "C" * 32
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "parent-quick-child-create",
+            "task_id": child_id, "action": "create", "actor": "user",
+            "timestamp": "2026-11-03T08:00:00Z", "base_revision": 0,
+            "changes": {
+                "title": "虚构子任务：供应商询价", "status": "todo",
+                "parent_task_id": self.task_id
+            },
+        })
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "parent-quick-child-doing",
+            "task_id": child_id, "action": "update", "actor": "user",
+            "timestamp": "2026-11-03T08:01:00Z", "base_revision": 1,
+            "changes": {"status": "doing"},
+        })
+        originals = self._file_hashes()
+        state = {t["task_id"]: t for t in read_workspace(self.data_dir)["tasks"]}
+        self.assertEqual(state[self.task_id]["status"], "doing")
+        self.assertEqual(state[self.task_id]["manual_status"], "todo")
+        self.assertEqual(state[self.task_id]["revision"], 1)
+
+        page = self._open_browser(open_detail=False)
+        parent = page.locator(".task-summary").filter(has_text="虚构任务：验证短编号及抽屉")
+        status = parent.locator(".task-quick-editor--status .task-quick-trigger")
+        expect(status).to_have_text("进行中")
+        status.click()
+        status_menu = parent.locator(".task-quick-editor--status .task-quick-menu")
+        expect(status_menu).to_contain_text("当前状态由下级进度自动计算")
+        expect(status_menu.locator("button")).to_have_count(1)
+        expect(status_menu.get_by_role("button", name="确认完成任务")).to_be_visible()
+        for blocked_label in ("设为待处理", "设为进行中", "设为受阻"):
+            self.assertEqual(status_menu.get_by_role("button", name=blocked_label).count(), 0)
+        page.keyboard.press("Escape")
+        self.assertEqual(self._file_hashes(), originals, "opening menus must be read-only")
+
+        # Parent priority is independent from the child-derived effective status.
+        parent.locator(".task-quick-editor--priority .task-quick-trigger").click()
+        parent.get_by_role("button", name="设为高").click()
+        expect(parent.locator(".task-quick-editor--priority .task-quick-trigger")).to_have_text("高")
+        state = {t["task_id"]: t for t in read_workspace(self.data_dir)["tasks"]}
+        self.assertEqual((state[self.task_id]["status"], state[self.task_id]["revision"]), ("doing", 2))
+
+        status.click()
+        count_before = len(list(self.data_dir.glob("events/*.json")))
+        page.once("dialog", lambda dialog: dialog.dismiss())
+        parent.get_by_role("button", name="确认完成任务").click()
+        expect(status).to_have_text("进行中")
+        self.assertEqual(len(list(self.data_dir.glob("events/*.json"))), count_before,
+                         "declined confirmation must not write")
+
+        status.click()
+        page.once("dialog", lambda dialog: dialog.accept())
+        parent.get_by_role("button", name="确认完成任务").click()
+        expect(status).to_have_text("已完成")
+        state = {t["task_id"]: t for t in read_workspace(self.data_dir)["tasks"]}
+        self.assertEqual((state[self.task_id]["status"], state[self.task_id]["manual_status"],
+                          state[self.task_id]["revision"]), ("done", "done", 3))
+        self.assertEqual(page.locator("#tasks .task-summary-title").last.inner_text(),
+                         "虚构任务：验证短编号及抽屉")
+
+        # A later child status change must not secretly reopen a confirmed parent.
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "parent-quick-child-blocked",
+            "task_id": child_id, "action": "update", "actor": "user",
+            "timestamp": "2026-11-03T08:02:00Z", "base_revision": 2,
+            "changes": {"status": "blocked"},
+        })
+        page.locator("#refresh").click()
+        expect(status).to_have_text("已完成")
+        status.click()
+        menu = parent.locator(".task-quick-editor--status .task-quick-menu")
+        expect(menu.locator("button")).to_have_count(1)
+        expect(menu).to_contain_text("重新打开后")
+        count_before = len(list(self.data_dir.glob("events/*.json")))
+        page.once("dialog", lambda dialog: dialog.dismiss())
+        parent.get_by_role("button", name="重新打开（恢复自动联动）").click()
+        expect(status).to_have_text("已完成")
+        self.assertEqual(len(list(self.data_dir.glob("events/*.json"))), count_before)
+
+        status.click()
+        page.once("dialog", lambda dialog: dialog.accept())
+        parent.get_by_role("button", name="重新打开（恢复自动联动）").click()
+        expect(status).to_have_text("受阻", timeout=10000)
+        state = {t["task_id"]: t for t in read_workspace(self.data_dir)["tasks"]}
+        self.assertEqual((state[self.task_id]["status"], state[self.task_id]["manual_status"],
+                          state[self.task_id]["revision"]), ("blocked", "todo", 4))
+        self.assertEqual(state[child_id]["revision"], 3)
+        self.assertEqual(state[self.task_id]["status_source"], "children")
+        self.assertEqual(parent.locator(".task-quick-editor--priority .task-quick-trigger").inner_text(), "高")
+        events = [json.loads(p.read_text("utf-8")) for p in self.data_dir.glob("events/*.json")]
+        parent_updates = sorted((event for event in events if event["task_id"] == self.task_id
+                                 and event["action"] == "update"), key=lambda event: event["base_revision"])
+        self.assertEqual([event["changes"] for event in parent_updates],
+                         [{"priority": "high"}, {"status": "done"}, {"status": "todo"}])
+        self.assertEqual([event["base_revision"] for event in parent_updates], [1, 2, 3])
+        self.assertIs(parent_updates[1].get("confirmed_done"), True)
+        self.assertNotIn("confirmed_done", parent_updates[2])
+        for relative_path, digest in originals.items():
+            current_file = self.data_dir / relative_path
+            self.assertEqual(hashlib.sha256(current_file.read_bytes()).hexdigest(), digest,
+                             "original event files must never be overwritten")
+
     def test_task_list_quick_buttons_reject_stale_revision_and_conflict(self):
         page = self._open_browser(open_detail=False)
         row = page.locator(".task-summary").first
