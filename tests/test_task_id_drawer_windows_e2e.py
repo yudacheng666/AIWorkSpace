@@ -473,7 +473,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         expect(message.locator(".inbox-type")).to_have_text("任务记录异常")
         expect(message.locator(".inbox-status")).to_have_text("待关注")
         message_id = message.locator(".inbox-message-id").inner_text()
-        self.assertRegex(message_id, r"MSG-[A-F0-9]{32}")
+        self.assertRegex(message_id, r"MSG-\\d{6}-[A-F0-9]{12,32}")
         expect(page.locator("#review-list button")).to_have_count(0)
         details = message.locator(".inbox-message-details")
         self.assertFalse(details.evaluate("(element) => element.open"),
