@@ -28,6 +28,6 @@
 
 ## 验收
 - 首次 PR CI：旧 Windows E2E 仍要求原始 JSON 默认显示并匹配旧授权按钮文案，因 UI 改版导致断言失败；Linux Python、Windows Python、Windows updater E2E 均通过。
-- 更新 E2E 断言适配新设计后，最终 head SHA：d23d050701ff831a81fe2b9282857ca1fc606c26。
-- GitHub Actions run 41770447630：Linux Python PASS；Windows Python PASS；Windows real-app + Chromium E2E PASS；总体 SUCCESS。
+- 更新 E2E 断言适配新设计后，最终 head SHA：277044654d2c0d1e52d5259c96374e2f4d47062d。
+- GitHub Actions run 41770691637：Linux Python PASS；Windows Python PASS；Windows real-app + Chromium E2E PASS；总体 SUCCESS。该 run 对最后文档/会话提交后的准确 head SHA 执行。
 - PR #28：https://github.com/yudacheng666/AIWorkSpace/pull/28，Draft / Open，未合并。
