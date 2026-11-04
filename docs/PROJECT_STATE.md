@@ -1,5 +1,9 @@
 # AIWorkSpace｜当前项目状态
 
+## 2.0.7 正式发布回执
+
+2026-11-04 用户明确授权“合并，发布”。PR #27 最终 HEAD `ca9ba2acb377c265f6df175a1aff1426dcd152e1` 的 [Actions #41767021531](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41767021531) 全部 SUCCESS（Linux、Windows、Windows Chromium 更新/回滚及 UI 回归）。已通过 GitHub 普通 merge 正式合入 main，merge SHA `dae9c5fcf1797c44ded1ecc569039902c09912a7`，VERSION=2.0.7。合并后 main CI 尚未独立核实；公司 Windows 未由本轮升级，真实 Drive 数据未操作。
+
 ## 2026-11-04：2.0.7 更新检查网络容错修复（用户已批准发布）
 
 - 基线 main `f63e717c6684815a9aea532eaad225aa7f912f10`，VERSION 2.0.6；用户报告已安装 2.0.4 的更新检查间歇失败。代码确认原请求仅一次尝试且所有网络错误折叠为同一提示；公司网络实际 DNS/代理/限流根因未取得日志，不作确定归因。
