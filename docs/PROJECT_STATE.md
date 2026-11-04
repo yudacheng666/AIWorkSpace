@@ -1,5 +1,15 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-04：2.0.8 组合发布完成（数据异常处理 + 回收站视觉）
+
+- **授权与范围**：用户明确要求“PR #28/#29 一起合并到 2.08”，统一语义版本实际为 `2.0.8`；包含两项 UI/交互改善，不包含 PR #20 父子任务状态联动、PR #22 刷新状态位置或旧 PR #19，工作档案继续暂缓。
+- **集成方式**：以 2.0.7 main `c4817668730de6631c86877e93571bd5d4456e15` 为共同基线，创建包含 PR #28 HEAD `ec816c1d0eac5822a50b6e6ade05c8eabadedf7b` 和 PR #29 HEAD `97dea4f5f1b32ebfcd16881a5726bc1933c4cb53` 的双父合并提交；组合 SHA `742efa1ce8b0b0625c99b6b6b3594c5932ec3131`。
+- **组合 SHA 验收**：[GitHub Actions #41775916301](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41775916301) **3/3 SUCCESS**：Ubuntu Python 162 tests（含设计性 SKIP）、Node 74 PASS/0 FAIL；Windows Python 162 tests（含设计性 SKIP）、Node 74 PASS/0 FAIL；Windows 真实 app.py + Chromium 更新/回滚 3 PASS、工作台 UI E2E 7 PASS，包含数据核查流程和回收站恢复/批量删除。
+- **正式发布**：[集成 PR #30](https://github.com/yudacheng666/AIWorkSpace/pull/30) 经 Draft → Ready、GitHub 标准 Merge 合入 main，合并 SHA `8c15b999c5a23ca1a49b03a89e35291922367e0b`，`main/VERSION=2.0.8`。GitHub 自动将已被集成的 PR #28/#29 标记为 merged。合并后 main push 的 [Actions #41776122516](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41776122516) **3/3 SUCCESS**，与发布前的组合 CI 分开核验。
+- **安全与待办边界**：本轮没有访问公司真实 Windows `127.0.0.1:8770`，没有启动软件网页升级，没有操作 Google Drive 真实任务/步骤/review_events；数据异常修复仍必须由用户先核查/授权、再明确执行；回收站的永久删除、revision 和墓碑保护保持原行为。下一步仅由用户自行在工作台检查更新并决定升级，GitHub 代码发布不代表设备自动更新。
+- **维护方式**：本段仅为合并后的 Markdown 记忆回执，不修改产品/测试或 VERSION，不重复触发 CI；以上产品验证 SHA 仍以合并提交及准确测试运行记录为准。
+
+
 ## 2026-11-04：用户批准 PR #28 + #29 统一合入 2.0.8
 
 - 用户明确指示“一起合并到2.08”，本次仅包含数据异常处理页面 #28 与回收站主页视觉 #29，不包括父子任务联动 #20、刷新状态位置 #22 或旧回收站 PR #19。
