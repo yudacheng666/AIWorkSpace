@@ -830,8 +830,8 @@ test("notification inbox shows stable message IDs, readable summaries and no rep
   assert.equal(list.children.length, 2, "each original anomaly is shown as its own message");
   assert.match(treeText(list.children[0]), /任务数据存在版本冲突/,
     "newest messages appear first");
-  assert.match(treeText(list.children[0]), /MSG-B{32}/);
-  assert.match(treeText(list.children[1]), /MSG-A{32}/);
+  assert.match(treeText(list.children[0]), /MSG-261104-B{12}/);
+  assert.match(treeText(list.children[1]), /MSG-261104-A{12}/);
   assert.match(treeText(list.children[1]), /虚构演示任务：整理设备资料/);
   assert.match(treeText(list.children[1]), /步骤记录异常/);
   assert.match(treeText(list.children[1]), /待关注/);
@@ -863,10 +863,31 @@ test("notification message IDs remain stable across refreshes and the inbox is r
   await page.api.loadNotifications();
   const second = treeText(page.el("review-list"));
   assert.equal(first, second, "message IDs and contents are deterministic across refreshes");
-  assert.equal(page.api.notificationIdFor(item), "MSG-" + "C".repeat(32));
+  assert.equal(page.api.notificationIdFor(item), "MSG-261104-" + "C".repeat(12));
   assert.equal(page.writes.length, 0);
   assert.equal(page.el("review-total").textContent, "1 条消息");
   assert.equal(page.el("nav-reviews").title, "1 条待关注消息");
+});
+
+
+test("notification IDs expand to the full stable hash if short IDs collide", async () => {
+  const prefix = "D".repeat(12);
+  const reviews = [
+    {anomaly_id: "ANOM-" + prefix + "A".repeat(20), category: "invalid_event",
+      title: "第一条虚构提醒", status: "pending",
+      source_event: {timestamp: "2026-11-04T10:00:00Z"}, source: {folder: "events"}},
+    {anomaly_id: "ANOM-" + prefix + "B".repeat(20), category: "invalid_event",
+      title: "第二条虚构提醒", status: "pending",
+      source_event: {timestamp: "2026-11-04T10:01:00Z"}, source: {folder: "events"}}
+  ];
+  const page = harness([], () => true, [], reviews);
+  await page.api.loadNotifications();
+  const ids = page.el("review-list").children.map(node => {
+    const match = treeText(node).match(/MSG-[A-Z0-9-]+/);
+    return match?.[0];
+  });
+  assert.equal(new Set(ids).size, 2, "collision fallback must keep visible message IDs unique");
+  assert.ok(ids.every(id => id.length === "MSG-261104-".length + 32));
 });
 
 test("notification inbox has a simple empty state and no exception statistics", async () => {
