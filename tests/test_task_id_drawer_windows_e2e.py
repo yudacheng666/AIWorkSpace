@@ -102,6 +102,122 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(self._file_hashes(), self.before,
                          "opening and copying task list fields must not write task data")
 
+    def test_task_list_quick_status_priority_and_confirmed_completion(self):
+        """Real Chromium quick buttons use append-only events and exact revisions."""
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "quick-other-task-create",
+            "task_id": "TASK-" + "B" * 32, "action": "create",
+            "actor": "user", "timestamp": "2026-11-02T09:00:00Z",
+            "base_revision": 0,
+            "changes": {"title": "虚构另一项未完成任务", "status": "todo"},
+        })
+        source = next(self.data_dir.glob("events/*.json"))
+        source_bytes = source.read_bytes()
+        page = self._open_browser(open_detail=False)
+        row = page.locator(".task-summary").filter(has_text="虚构任务：验证短编号及抽屉")
+        status = row.locator(".task-quick-editor--status .task-quick-trigger")
+        priority = row.locator(".task-quick-editor--priority .task-quick-trigger")
+        expect(status).to_have_text("待处理")
+        expect(priority).to_have_text("普通")
+        self.assertTrue(page.locator("#task-detail-drawer").evaluate("(e) => e.hidden"))
+        self.assertEqual(len(list(self.data_dir.glob("events/*.json"))), 2)
+
+        priority.click()
+        row.get_by_role("button", name="设为紧急").click()
+        expect(row.locator(".task-quick-editor--priority .task-quick-trigger")).to_have_text("紧急")
+        task = next(x for x in read_workspace(self.data_dir)["tasks"] if x["task_id"] == self.task_id)
+        self.assertEqual((task["priority"], task["revision"], task["status"]), ("urgent", 2, "todo"))
+        self.assertTrue(page.locator("#task-detail-drawer").evaluate("(e) => e.hidden"))
+
+        status = row.locator(".task-quick-editor--status .task-quick-trigger")
+        status.click()
+        row.get_by_role("button", name="设为进行中").click()
+        expect(row.locator(".task-quick-editor--status .task-quick-trigger")).to_have_text("进行中")
+        task = next(x for x in read_workspace(self.data_dir)["tasks"] if x["task_id"] == self.task_id)
+        self.assertEqual((task["manual_status"], task["revision"]), ("doing", 3))
+
+        status = row.locator(".task-quick-editor--status .task-quick-trigger")
+        status.click()
+        count_before = len(list(self.data_dir.glob("events/*.json")))
+        page.once("dialog", lambda dialog: dialog.dismiss())
+        row.get_by_role("button", name="设为已完成").click()
+        self.assertEqual(len(list(self.data_dir.glob("events/*.json"))), count_before,
+                         "declining completion must not append an event")
+        expect(row.locator(".task-quick-editor--status .task-quick-trigger")).to_have_text("进行中")
+
+        status.click()
+        page.once("dialog", lambda dialog: dialog.accept())
+        row.get_by_role("button", name="设为已完成").click()
+        expect(page.locator("#tasks .task-summary-title").last).to_have_text(
+            "虚构任务：验证短编号及抽屉")
+        expect(row.locator(".task-quick-editor--status .task-quick-trigger")).to_have_text("已完成")
+        task = next(x for x in read_workspace(self.data_dir)["tasks"] if x["task_id"] == self.task_id)
+        self.assertEqual((task["status"], task["revision"]), ("done", 4))
+
+        row.locator(".task-quick-editor--status .task-quick-trigger").click()
+        row.get_by_role("button", name="设为待处理").click()
+        expect(row.locator(".task-quick-editor--status .task-quick-trigger")).to_have_text("待处理")
+        task = next(x for x in read_workspace(self.data_dir)["tasks"] if x["task_id"] == self.task_id)
+        self.assertEqual((task["status"], task["revision"]), ("todo", 5))
+        changes = [json.loads(p.read_text("utf-8")) for p in self.data_dir.glob("events/*.json")]
+        updates = sorted((e for e in changes if e["task_id"] == self.task_id
+                          and e["action"] == "update"), key=lambda e: e["base_revision"])
+        self.assertEqual([e["changes"] for e in updates],
+                         [{"priority": "urgent"}, {"status": "doing"},
+                          {"status": "done"}, {"status": "todo"}])
+        self.assertEqual([e["base_revision"] for e in updates], [1, 2, 3, 4])
+        self.assertNotIn("confirmed_done", updates[0])
+        self.assertNotIn("confirmed_done", updates[1])
+        self.assertIs(updates[2].get("confirmed_done"), True)
+        self.assertNotIn("confirmed_done", updates[3])
+        self.assertEqual(source.read_bytes(), source_bytes, "original event is never overwritten")
+        self.assertEqual(next(x for x in read_workspace(self.data_dir)["tasks"]
+                              if x["task_id"] == "TASK-" + "B" * 32)["revision"], 1)
+
+        page.set_viewport_size({"width": 390, "height": 800})
+        expect(row.locator(".task-quick-editor--status .task-quick-trigger")).to_be_visible()
+        expect(row.locator(".task-quick-editor--priority .task-quick-trigger")).to_be_visible()
+
+    def test_task_list_quick_buttons_reject_stale_revision_and_conflict(self):
+        page = self._open_browser(open_detail=False)
+        row = page.locator(".task-summary").first
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "quick-external-status-update",
+            "task_id": self.task_id, "action": "update", "actor": "user",
+            "timestamp": "2026-11-02T09:05:00Z", "base_revision": 1,
+            "changes": {"status": "doing"},
+        })
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["revision"], 2)
+        row.locator(".task-quick-editor--priority .task-quick-trigger").click()
+        row.get_by_role("button", name="设为高").click()
+        expect(row.locator(".task-quick-editor--priority .task-quick-feedback")).to_contain_text(
+            "任务已在别处更新或存在冲突")
+        expect(row.locator(".task-quick-editor--priority .task-quick-trigger")).to_have_text("普通")
+        self.assertEqual(len(list(self.data_dir.glob("events/*.json"))), 2,
+                         "stale quick save must not write an event")
+        page.locator("#refresh").click()
+        expect(row.locator(".task-quick-editor--status .task-quick-trigger")).to_have_text("进行中")
+        row.locator(".task-quick-editor--priority .task-quick-trigger").click()
+        row.get_by_role("button", name="设为高").click()
+        expect(row.locator(".task-quick-editor--priority .task-quick-trigger")).to_have_text("高")
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["revision"], 3)
+
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "quick-conflict-a",
+            "task_id": self.task_id, "action": "update", "actor": "user",
+            "timestamp": "2026-11-02T09:06:00Z", "base_revision": 3,
+            "changes": {"status": "blocked"},
+        })
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "quick-conflict-b",
+            "task_id": self.task_id, "action": "update", "actor": "user",
+            "timestamp": "2026-11-02T09:06:01Z", "base_revision": 3,
+            "changes": {"status": "todo"},
+        })
+        page.locator("#refresh").click()
+        expect(row.locator(".task-quick-editor--status .task-quick-trigger")).to_be_disabled()
+        expect(row.locator(".task-quick-editor--priority .task-quick-trigger")).to_be_disabled()
+
     def test_completed_tasks_remain_at_end_for_default_and_column_sorts(self):
         for suffix, title, status, due, priority in [
             ("B", "虚构待处理任务", "todo", "2026-11-08", "low"),
