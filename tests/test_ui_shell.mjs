@@ -748,7 +748,7 @@ test("data review uses plain language and keeps raw event details collapsed", ()
 
 
 
-test("data review groups repeated records by task and step without merging their actions", () => {
+test("data review groups repeated records by task and step without merging their actions", async () => {
   const guidance = {
     summary: "这条记录需要核对。",
     impact: "系统没有自动修改任务或步骤。",
@@ -787,7 +787,7 @@ test("data review groups repeated records by task and step without merging their
     }
   ];
   const page = harness([], () => true, [], reviews);
-  page.api.renderReviewList();
+  await page.api.loadReviews();
   const list = page.el("review-list");
   const groups = list.children.filter(node => node.className === "review-group");
   assert.equal(groups.length, 1, "only the two records for the same task and step should be grouped");
@@ -810,8 +810,8 @@ test("data review summary cards count pending and authorized records separately"
   });
   const cards = page.el("review-summary").children;
   assert.equal(cards.length, 4);
-  assert.match(treeText(cards[0]), /3待核对记录/);
-  assert.match(treeText(cards[1]), /2已授权待执行/);
-  assert.match(treeText(cards[2]), /3已修复并验证/);
-  assert.match(treeText(cards[3]), /4已确认保留/);
+  assert.equal(treeText(cards[0]).trim(), "3 待核对记录");
+  assert.equal(treeText(cards[1]).trim(), "2 已授权待执行");
+  assert.equal(treeText(cards[2]).trim(), "3 已修复并验证");
+  assert.equal(treeText(cards[3]).trim(), "4 已确认保留");
 });
