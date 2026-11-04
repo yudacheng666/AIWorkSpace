@@ -1,5 +1,7 @@
 # AIWorkSpace
 
+> **2.0.12 开发候选（2026-11-04）**：任务列表状态/优先级将改为可点击的快捷切换按钮，仍走原任务更新校验，完成状态需明确确认，保护草稿和冲突；开发分支 `feat/20261104-task-inline-switch`，尚未完成完整 CI 或合并。正式版仍为 **2.0.11**。
+
 > **当前正式版本 2.0.11（2026-11-04）**：PR #34「通知信箱」已正式合并，merge SHA `d7f703233a48dd22434a6f4e0c5221837610cdb4`，`main/VERSION=2.0.11`。产品/测试 SHA `d7c817713d86f27e654b2b882e2868f4f5a2b864` 的 [PR Actions #41792421545](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41792421545) 与合并后 main SHA 的 [Actions #41792762895](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41792762895) 均 3/3 SUCCESS：Ubuntu/Windows Python 各 173 tests、Node UI 各 81 PASS；Windows Chromium 更新/回滚 3 PASS、工作台 UI E2E 11 PASS。通知信箱只读展示异常，后台数据治理与审计保持不变；未升级公司电脑或修改真实 Google Drive 数据。
 
 
