@@ -431,7 +431,7 @@ test("task title opens detail while the task ID below it copies independently", 
   assert.equal(page.el("task-detail-drawer").hidden,false);
   assert.equal(page.el("task-detail-title").textContent,task.title);
   assert.equal(page.api.closeTaskDetail(),true);
-  assert.equal(page.el("task-detail-content").children.length,0);
+  assert.equal(page.el("task-detail-drawer").hidden,true);
   assert.equal(id.tag,"button");
   assert.equal(id.className,"task-summary-id task-summary-id-copy");
   await id.handlers.get("click")[0]();
@@ -991,7 +991,7 @@ test("quick status and priority updates write only the changed field and the exa
   assert.equal(page.writes.length, 2);
   assert.equal(taskQuickControl(taskRows(page)[0],"priority").trigger.textContent,"紧急");
   assert.equal(task.status,"blocked", "priority updates must not overwrite task status");
-  assert.equal(page.el("task-detail-drawer").hidden,true);
+  assert.equal(page.el("task-detail-content").children.length,0);
   assert.equal(task.revision,3);
   assert.equal(taskQuickControl(taskRows(page)[0],"status").trigger.getAttribute("aria-expanded"),"false");
 });
