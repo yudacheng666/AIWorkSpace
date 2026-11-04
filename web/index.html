@@ -1813,6 +1813,7 @@
       const updateToggle = () => {
         toggle.textContent = links.length ? "关联文档（" + links.length + "）" : "添加文档";
         toggle.className = "doc-panel-toggle" + (body.hidden ? "" : " is-expanded");
+        toggle.ariaExpanded = body.hidden ? "false" : "true";
         toggle.title = body.hidden ? "展开步骤文档" : "收起步骤文档";
       };
       toggle.addEventListener("click", () => {
