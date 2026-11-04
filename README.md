@@ -1,6 +1,6 @@
 # AIWorkSpace
 
-> **2.0.8 统一发布候选（2026-11-04）**：获用户明确授权，统一整合 [PR #28](https://github.com/yudacheng666/AIWorkSpace/pull/28) 的数据异常处理界面改进与 [PR #29](https://github.com/yudacheng666/AIWorkSpace/pull/29) 的回收站主页风格重构。保持异常处理先核查/授权、再执行的安全流程和回收站原有删除/恢复保护；不引入 PR #20、#22 或旧 PR #19。VERSION=2.0.8；组合 SHA 的 Linux/Windows/Chromium CI 通过后方正式合并，本机 Windows 8770 和 Google Drive 数据不自动部署或改动。
+> **当前正式版本 2.0.8（2026-11-04）**：用户明确批准将数据异常处理界面 [PR #28](https://github.com/yudacheng666/AIWorkSpace/pull/28) 与回收站主页视觉 [PR #29](https://github.com/yudacheng666/AIWorkSpace/pull/29) 一起发布，已通过集成 [PR #30](https://github.com/yudacheng666/AIWorkSpace/pull/30) 正常 Merge 至 main。准确整合 SHA `742efa1ce8b0b0625c99b6b6b3594c5932ec3131` 的 [Actions #41775916301](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41775916301) 与合并 main SHA `8c15b999c5a23ca1a49b03a89e35291922367e0b` 的 [Actions #41776122516](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41776122516) 均 **3/3 SUCCESS**。VERSION=2.0.8；不包含仍未批准的 PR #20、#22 或过时 PR #19。GitHub 代码已发布，Windows 8770 和实际 Google Drive 数据未在本轮升级或更改。
 
 > **2.0.7 更新修复（2026-11-04）**：[PR #27](https://github.com/yudacheng666/AIWorkSpace/pull/27) 已获用户合并发布授权，`VERSION=2.0.7`；发布以 PR merged 状态为准。增加 GitHub 短暂网络失败的有限自动重试、固定提交 VERSION 的官方备用读取和明确错误提示，并修复重复句号。企业网络根因未实测；GitHub 发布不会自动升级本机，可在工作台检查更新后手动安装。以下 2.0.6 与更早章节为历史记录。
 
