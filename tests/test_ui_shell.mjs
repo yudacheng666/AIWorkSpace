@@ -76,7 +76,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = []) 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, documentPanel, legacyDocumentPanel, taskSummaryRow, renderReviewDetail, renderReviewList, renderReviewSummary, loadReviews})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, documentPanel, legacyDocumentPanel, taskSummaryRow, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes, el: id => document.getElementById(id)};
@@ -792,116 +792,119 @@ function findTreeNode(node, predicate) {
   return null;
 }
 
-test("data review uses plain language and keeps raw event details collapsed", () => {
-  const item = {
-    anomaly_id: "ANOM-PRIVATE-TEST-ONLY",
-    category: "invalid_step_reference",
-    title: "执行步骤记录中的步骤编号无法识别",
-    status: "pending",
-    task_id: "TASK-PRIVATE-TEST-ONLY",
-    task_title: "虚构演示任务：整理设备资料",
-    step_id: "STEP-PRIVATE-TEST-ONLY",
-    recorded_step_title: "整理供应商图纸",
-    source: {folder: "step_events", filename: "evt_synthetic.json", sha256: "a".repeat(64)},
-    source_present: true,
-    reason: "invalid step_id",
-    source_event: {action: "create", step_id: "bad-id", changes: {title: "整理供应商图纸"}},
-    raw_excerpt: null,
-    proposal: null,
-    proposal_block_reason: "步骤编号格式不正确",
-    can_authorize: false,
-    can_apply: false,
-    can_dismiss: true,
-    user_guidance: {
-      summary: "这条执行步骤记录中的步骤编号格式不正确，系统无法确认它属于哪一个步骤。",
-      impact: "这条记录没有被应用，原始记录仍保留；系统不会猜测目标步骤，也不会覆盖任何现有步骤。",
-      recommendation: "请核对关联任务中的步骤列表；若无法确认，选择确认保留，不写入。"
-    }
-  };
-  const page = harness([], () => true, [], [item]);
-  page.api.renderReviewDetail(item);
-  const detail = page.el("review-detail");
-  const allText = treeText(detail);
-  assert.match(allText, /发生了什么/);
-  assert.match(allText, /对工作台的影响/);
-  assert.match(allText, /建议怎么处理/);
-  assert.match(allText, /整理设备资料/);
-  assert.match(allText, /确认保留，不写入/);
-  assert.doesNotMatch(detail.children.map(child => child.textContent).join(" "), /ANOM-|SHA-256|invalid step_id|STEP-PRIVATE/);
-  const technical = findTreeNode(detail, node => node.className === "review-technical");
-  assert.ok(technical, "technical details are available for support");
-  assert.ok(findTreeNode(technical, node => node.className === "review-code"),
-    "raw JSON remains available inside collapsed technical details");
-  assert.equal(findTreeNode(detail, node => node.tag === "button" && node.textContent === "确认并授权修复"), null,
-    "an unidentifiable step reference must never offer automatic repair");
-});
-
-
-
-test("data review groups repeated records by task and step without merging their actions", async () => {
+test("notification inbox shows stable message IDs, readable summaries and no repair controls", async () => {
   const guidance = {
-    summary: "这条记录需要核对。",
-    impact: "系统没有自动修改任务或步骤。",
-    recommendation: "请逐条核对。"
+    summary: "这条执行步骤记录中的步骤编号无法识别，系统不能确定它属于哪一个步骤。",
+    impact: "这条记录没有被应用，原始记录仍保留；系统不会猜测目标步骤，也不会覆盖现有步骤。"
   };
   const reviews = [
     {
-      anomaly_id: "ANOM-SYNTHETIC-1", category: "step_update_position",
-      title: "步骤修改包含不允许的排序信息", status: "pending",
-      task_id: "TASK-SYNTHETIC-1", task_title: "虚构采购任务",
-      step_id: "STEP-SYNTHETIC-1", step_title: "收集供应商报价",
-      source_event: {action: "update", timestamp: "2026-11-04T08:00:00Z"},
-      source: {folder: "step_events"}, user_guidance: guidance
+      anomaly_id: "ANOM-" + "A".repeat(32),
+      category: "invalid_step_reference",
+      title: "执行步骤记录中的步骤编号无法识别",
+      status: "pending",
+      task_id: "TASK-PRIVATE-TEST-ONLY",
+      task_title: "虚构演示任务：整理设备资料",
+      step_id: "STEP-PRIVATE-TEST-ONLY",
+      recorded_step_title: "整理供应商图纸",
+      source: {folder: "step_events", filename: "evt_private.json", sha256: "a".repeat(64)},
+      reason: "invalid step_id PRIVATE_VALIDATOR_DETAIL",
+      source_event: {action: "create", timestamp: "2026-11-04T08:00:00Z", raw_secret: "PRIVATE_RAW_JSON"},
+      proposal: {private_proposal: "PRIVATE_PROPOSAL"},
+      user_guidance: guidance
     },
     {
-      anomaly_id: "ANOM-SYNTHETIC-2", category: "completion_confirmation_missing",
-      title: "完成状态缺少用户明确确认", status: "pending",
-      task_id: "TASK-SYNTHETIC-1", task_title: "虚构采购任务",
-      step_id: "STEP-SYNTHETIC-1", step_title: "收集供应商报价",
-      source_event: {action: "update", timestamp: "2026-11-04T08:01:00Z"},
-      source: {folder: "step_events"}, user_guidance: guidance
-    },
-    {
-      anomaly_id: "ANOM-SYNTHETIC-3", category: "step_update_position",
-      title: "步骤修改包含不允许的排序信息", status: "pending",
-      task_id: "TASK-SYNTHETIC-1", task_title: "虚构采购任务",
-      step_id: "STEP-SYNTHETIC-2", step_title: "比较供应商报价",
-      source_event: {action: "update", timestamp: "2026-11-04T08:02:00Z"},
-      source: {folder: "step_events"}, user_guidance: guidance
-    },
-    {
-      anomaly_id: "ANOM-SYNTHETIC-4", category: "invalid_event",
-      title: "无法识别关联对象的异常记录", status: "pending",
-      task_id: null, task_title: null, step_id: null,
-      source_event: null, source: {folder: "workspace"}, user_guidance: guidance
+      anomaly_id: "ANOM-" + "B".repeat(32),
+      category: "semantic_conflict",
+      title: "任务数据存在版本冲突",
+      status: "conflict",
+      task_id: null,
+      source: {folder: "workspace"},
+      source_event: {timestamp: "2026-11-04T09:00:00Z"},
+      user_guidance: {summary: "任务或步骤的数据版本存在差异，系统已暂停自动处理。"}
     }
   ];
   const page = harness([], () => true, [], reviews);
-  await page.api.loadReviews();
+  await page.api.loadNotifications();
   const list = page.el("review-list");
-  const groups = list.children.filter(node => node.className === "review-group");
-  assert.equal(groups.length, 1, "only the two records for the same task and step should be grouped");
-  assert.equal(list.children.length, 3, "other steps and unlinked records remain separate");
-  assert.match(treeText(groups[0]), /虚构采购任务/);
-  assert.match(treeText(groups[0]), /步骤：收集供应商报价/);
-  assert.match(treeText(groups[0]), /共 2 条记录/);
-  assert.match(treeText(groups[0]), /第 1 条/);
-  assert.match(treeText(groups[0]), /第 2 条/);
-  assert.equal(groups[0].children[1].children.length, 2,
-    "each original anomaly remains independently selectable");
-  assert.doesNotMatch(treeText(list), /TASK-SYNTHETIC|STEP-SYNTHETIC|ANOM-SYNTHETIC/);
+  assert.equal(list.children.length, 2, "each original anomaly is shown as its own message");
+  assert.match(treeText(list.children[0]), /任务数据存在版本冲突/,
+    "newest messages appear first");
+  assert.match(treeText(list.children[0]), /MSG-261104-B{12}/);
+  assert.match(treeText(list.children[1]), /MSG-261104-A{12}/);
+  assert.match(treeText(list.children[1]), /虚构演示任务：整理设备资料/);
+  assert.match(treeText(list.children[1]), /步骤记录异常/);
+  assert.match(treeText(list.children[1]), /待关注/);
+  assert.doesNotMatch(treeText(list), /ANOM-|TASK-PRIVATE|STEP-PRIVATE|SHA-256|PRIVATE_RAW_JSON|PRIVATE_PROPOSAL|PRIVATE_VALIDATOR_DETAIL/);
+  assert.equal(findTreeNode(list, node => node.tag === "button"), null,
+    "the mailbox must not expose authorize, apply or dismiss controls");
+  const details = findTreeNode(list.children[1], node => node.tag === "details");
+  assert.ok(details, "read-only message details can be expanded");
+  assert.notEqual(details.open, true, "message details are collapsed by default");
+  assert.match(treeText(details), /影响：/);
+  assert.match(treeText(details), /建议：/);
+  assert.match(treeText(details), /不会猜测或自动改绑/);
+  assert.equal(page.writes.length, 0, "loading notifications must not write business or review events");
 });
 
-test("data review summary cards count pending and authorized records separately", () => {
-  const page = harness();
-  page.api.renderReviewSummary({
-    open_count: 5, pending: 2, stale: 1, failed: 0, conflict: 0,
-    authorized: 2, applied: 3, dismissed: 4
+test("notification message IDs remain stable across refreshes and the inbox is read-only", async () => {
+  const item = {
+    anomaly_id: "ANOM-" + "C".repeat(32),
+    category: "step_update_position",
+    title: "步骤记录需要留意",
+    status: "pending",
+    source_event: {timestamp: "2026-11-04T10:00:00Z"},
+    source: {folder: "step_events"},
+    user_guidance: {summary: "系统发现一条需要留意的步骤记录。"}
+  };
+  const page = harness([], () => true, [], [item]);
+  await page.api.loadNotifications();
+  const first = treeText(page.el("review-list"));
+  await page.api.loadNotifications();
+  const second = treeText(page.el("review-list"));
+  assert.equal(first, second, "message IDs and contents are deterministic across refreshes");
+  assert.equal(page.api.notificationIdFor(item), "MSG-261104-" + "C".repeat(12));
+  assert.equal(page.writes.length, 0);
+  assert.equal(page.el("review-total").textContent, "1 条消息");
+  assert.equal(page.el("nav-reviews").title, "1 条待关注消息");
+});
+
+
+test("notification IDs expand to the full stable hash if short IDs collide", async () => {
+  const prefix = "D".repeat(12);
+  const reviews = [
+    {anomaly_id: "ANOM-" + prefix + "A".repeat(20), category: "invalid_event",
+      title: "第一条虚构提醒", status: "pending",
+      source_event: {timestamp: "2026-11-04T10:00:00Z"}, source: {folder: "events"}},
+    {anomaly_id: "ANOM-" + prefix + "B".repeat(20), category: "invalid_event",
+      title: "第二条虚构提醒", status: "pending",
+      source_event: {timestamp: "2026-11-04T10:01:00Z"}, source: {folder: "events"}}
+  ];
+  const page = harness([], () => true, [], reviews);
+  await page.api.loadNotifications();
+  const ids = page.el("review-list").children.map(node => {
+    const match = treeText(node).match(/MSG-[A-Z0-9-]+/);
+    return match?.[0];
   });
-  const cards = page.el("review-summary").children;
-  assert.equal(cards.length, 4);
-  assert.equal(treeText(cards[0]).trim(), "3 待核对记录");
-  assert.equal(treeText(cards[1]).trim(), "2 已授权待执行");
-  assert.equal(treeText(cards[2]).trim(), "3 已修复并验证");
-  assert.equal(treeText(cards[3]).trim(), "4 已确认保留");
+  assert.equal(new Set(ids).size, 2, "collision fallback must keep visible message IDs unique");
+  assert.ok(ids.every(id => id.length === "MSG-261104-".length + 32));
+});
+
+test("notification inbox has a simple empty state and no exception statistics", async () => {
+  const page = harness();
+  await page.api.loadNotifications();
+  assert.equal(page.el("review-list").children.length, 1);
+  assert.match(treeText(page.el("review-list")), /目前没有新的系统消息/);
+  assert.equal(page.el("review-total").textContent, "0 条消息");
+  assert.equal(page.el("review-summary").children.length, 0,
+    "the old technical exception statistic cards are removed");
+  assert.equal(page.el("review-detail").children.length, 0,
+    "the old complex two-panel detail layout is removed");
+});
+
+test("navigation presents a notification mailbox instead of a repair center", () => {
+  assert.match(html, /id="nav-reviews"[\s\S]*?通知信箱/);
+  assert.match(html, /<h1>通知信箱<\/h1>/);
+  assert.match(html, /id="review-refresh">刷新消息/);
+  assert.doesNotMatch(html, /数据异常处理|打开数据核查|确认并授权修复|执行已授权修复|确认保留，不写入/);
 });

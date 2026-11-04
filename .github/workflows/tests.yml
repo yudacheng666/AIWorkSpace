@@ -58,7 +58,7 @@ jobs:
         env:
           AIWORKSPACE_RUN_WINDOWS_E2E: "1"
         run: python -m unittest discover -s tests -p "test_updater_windows_e2e.py" -v
-      - name: Run V2.0.1 task ID and drawer real Chromium E2E
+      - name: Run task UI and notification inbox real Chromium E2E
         env:
           AIWORKSPACE_RUN_WINDOWS_E2E: "1"
         run: python -m unittest discover -s tests -p "test_task_id_drawer_windows_e2e.py" -v

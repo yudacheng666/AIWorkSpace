@@ -449,11 +449,11 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(self._file_hashes(), self.before)
 
 
-    def test_data_governance_detect_authorize_apply_and_track_in_real_browser(self):
-        source = self.data_dir / "events" / "evt_invalid_lifecycle_review.json"
+    def test_notification_inbox_is_read_only_and_displays_stable_message_id(self):
+        source = self.data_dir / "events" / "evt_invalid_lifecycle_notification.json"
         invalid = {
             "version": 1,
-            "event_id": "bad-lifecycle-chromium-001",
+            "event_id": "bad-lifecycle-notification-001",
             "task_id": self.task_id,
             "action": "trash",
             "actor": "chatgpt",
@@ -467,31 +467,33 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         # _open_browser opens the task drawer; close it through the real backdrop first.
         page.mouse.click(140, 400)
         page.locator("#nav-reviews").click()
-        expect(page.locator("#review-list .review-list-item")).to_have_count(1)
-        page.locator("#review-list .review-list-item").click()
-        expect(page.locator("#review-detail .review-status.pending")).to_be_visible()
-        technical = page.locator("#review-detail .review-technical")
-        expect(technical).to_be_visible()
-        self.assertFalse(technical.evaluate("(element) => element.open"),
-                         "raw event details must be collapsed by default")
-        technical.locator("summary").click()
-        expect(page.locator("#review-detail .review-code").first).to_contain_text("chatgpt")
+        expect(page.locator("#page-reviews h1")).to_have_text("通知信箱")
+        expect(page.locator("#review-list .inbox-message")).to_have_count(1)
+        message = page.locator("#review-list .inbox-message")
+        expect(message.locator(".inbox-type")).to_have_text("任务记录异常")
+        expect(message.locator(".inbox-status")).to_have_text("待关注")
+        message_id = message.locator(".inbox-message-id").inner_text()
+        self.assertRegex(message_id, r"MSG-\d{6}-[A-F0-9]{12,32}")
+        expect(page.locator("#review-list button")).to_have_count(0)
+        details = message.locator(".inbox-message-details")
+        self.assertFalse(details.evaluate("(element) => element.open"),
+                         "message details must be collapsed by default")
+        details.locator("summary").click()
+        expect(details.locator(".inbox-message-detail-content")).to_contain_text("影响：")
+        expect(details.locator(".inbox-message-detail-content")).to_contain_text("建议：")
+        visible_text = message.inner_text()
+        self.assertNotIn("ANOM-", visible_text)
+        self.assertNotIn("SHA-256", visible_text)
+        self.assertNotIn("bad-lifecycle-notification-001", visible_text)
+        self.assertNotIn("chatgpt", visible_text)
+        self.assertNotIn("evt_invalid_lifecycle_notification.json", visible_text)
 
-        page.once("dialog", lambda dialog: dialog.accept())
-        page.get_by_role("button", name="确认并授权修复").click()
-        expect(page.locator("#review-detail .review-status.authorized")).to_be_visible()
-        self.assertIsNone(read_workspace(self.data_dir, include_trashed=True)["tasks"][0]["trashed_at"])
-
-        page.once("dialog", lambda dialog: dialog.accept())
-        page.get_by_role("button", name="执行已授权修复").click()
-        expect(page.locator("#review-detail .review-status.applied")).to_be_visible()
-        task = read_workspace(self.data_dir, include_trashed=True)["tasks"][0]
-        self.assertTrue(task["trashed_at"])
-        self.assertEqual(source.read_bytes(), original)
-        self.assertEqual(len(list((self.data_dir / "review_events").glob("*.json"))), 2)
-        valid = [json.loads(path.read_text("utf-8"))
-                 for path in (self.data_dir / "events").glob("*.json")]
-        repaired = [event for event in valid if event.get("actor") == "user"
-                    and event.get("action") == "trash"]
-        self.assertEqual(len(repaired), 1)
-        self.assertEqual(repaired[0]["base_revision"], 1)
+        page.locator("#review-refresh").click()
+        expect(page.locator("#review-list .inbox-message")).to_have_count(1)
+        expect(page.locator(".inbox-message-id")).to_have_text(message_id)
+        self.assertEqual(page.locator(".inbox-message-id").inner_text(), message_id,
+                         "message ID must remain stable after a read-only refresh")
+        self.assertEqual(source.read_bytes(), original,
+                         "opening and refreshing the inbox must not change the invalid source event")
+        self.assertFalse((self.data_dir / "review_events").exists(),
+                         "the read-only mailbox must not create review audit writes")
