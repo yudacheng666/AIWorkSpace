@@ -81,6 +81,24 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertFalse(page.locator("#task-detail-drawer").evaluate("(e) => e.hidden"))
         return page
 
+
+    def test_last_refresh_status_is_in_sidebar_footer_and_does_not_shift_task_toolbar(self):
+        page = self._open_browser()
+        status = page.locator(".sidebar-footnote #sync")
+        expect(status).to_be_visible()
+        expect(status).to_contain_text("上次刷新")
+        self.assertEqual(page.locator(".section-actions #sync").count(), 0)
+        before = page.locator(".section-actions").bounding_box()
+        self.assertIsNotNone(before)
+        page.evaluate("refresh(true)")
+        expect(status).to_contain_text("上次刷新")
+        after = page.locator(".section-actions").bounding_box()
+        self.assertIsNotNone(after)
+        self.assertEqual(before["width"], after["width"])
+        self.assertEqual(before["height"], after["height"])
+        self.assertEqual(self._file_hashes(), self.before,
+                         "refresh status updates must not write task data")
+
     def test_short_id_copy_and_backdrop(self):
         page = self._open_browser()
         self.assertEqual(page.locator(".task-summary-id").first.inner_text(), self.short_id)
@@ -224,6 +242,11 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.locator(".step-add-form input").fill("虚构第一步")
         page.locator(".step-add-form button").click()
         page.locator(".step-row").wait_for(state="visible")
+        page.locator(".step-edit-form select").first.select_option("doing")
+        page.locator(".step-edit-form button.save").first.click()
+        expect(page.locator("#task-detail-content .task-form select").first).to_have_value("doing", timeout=10000)
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["status"], "doing")
+
         page.locator(".step-edit-form select").first.select_option("blocked")
         page.locator(".step-edit-form button.save").first.click()
         expect(page.locator("#task-detail-content .task-form select").first).to_have_value("blocked", timeout=10000)
@@ -293,6 +316,44 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(page.locator("#task-list-columns details[data-field='priority'] .task-column-indicator").inner_text().strip(),
                          "↓2 ▾")
         self.assertEqual(len(read_workspace(self.data_dir)["tasks"]), 3)
+
+    def test_explicit_child_status_updates_parent_and_title_save_does_not_leak_manual(self):
+        page = self._open_browser()
+        page.locator("#task-detail-close").click()
+        page.locator("#open-create-task").click()
+        page.locator("#new-task-title").fill("虚构二级任务")
+        page.locator("#new-task-parent").select_option(self.task_id)
+        page.locator("#create-submit").click()
+        expect(page.locator(".task-summary")).to_have_count(2, timeout=10000)
+
+        child_row = page.locator(".task-summary").filter(has_text="虚构二级任务").first
+        child_row.locator(".task-open").click()
+        parent_choice = page.locator("#task-detail-content .task-form select").nth(1)
+        self.assertEqual(parent_choice.input_value(), self.task_id)
+        page.locator("#task-detail-content .task-form select").first.select_option("doing")
+        page.locator("#task-detail-content .task-form button.save").first.click()
+        expect(page.locator("#sync")).to_contain_text("保存成功", timeout=10000)
+        tasks = {task["task_id"]: task for task in read_workspace(self.data_dir)["tasks"]}
+        self.assertEqual(tasks[self.task_id]["status"], "doing")
+        self.assertEqual(tasks[self.task_id]["manual_status"], "todo")
+        self.assertEqual(tasks[self.task_id]["status_source"], "children")
+        self.assertEqual(tasks[self.task_id]["revision"], 1)
+
+        page.locator("#task-detail-close").click()
+        parent_row = page.locator(".task-summary").filter(has_text="虚构任务：验证短编号及抽屉")
+        expect(parent_row.locator(".status-pill")).to_have_text("进行中")
+        parent_row.locator(".task-open").click()
+        expect(page.locator("#task-detail-content .step-status-note")).to_contain_text("由子任务自动联动")
+        title = page.locator("#task-detail-content .task-form input[type='text']").first
+        title.fill("只修改上层任务名称")
+        page.locator("#task-detail-content .task-form button.save").first.click()
+        expect(page.locator(".task-summary").filter(has_text="只修改上层任务名称")).to_have_count(
+            1, timeout=10000)
+        parent = next(t for t in read_workspace(self.data_dir)["tasks"] if t["task_id"] == self.task_id)
+        self.assertEqual(parent["status"], "doing")
+        self.assertEqual(parent["manual_status"], "todo",
+                         "title-only save must not convert derived doing into manual status")
+        self.assertEqual(parent["revision"], 2)
 
     def test_unsaved_draft_cannot_be_silently_discarded(self):
         page = self._open_browser()
