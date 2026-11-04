@@ -2787,7 +2787,7 @@
 
     const notificationStatusLabels = {
       pending: ["待关注", "attention"],
-      authorized: ["已有授权记录", "info"],
+      authorized: ["待专门处理", "info"],
       applied: ["已修复并验证", "success"],
       dismissed: ["已确认保留", "muted"],
       stale: ["情况已变化", "attention"],
@@ -2806,9 +2806,20 @@
       historical: "历史记录"
     };
 
-    function notificationIdFor(item) {
+    function notificationIdFor(item, items = notificationItems) {
       const match = String(item.anomaly_id || "").match(/^ANOM-([A-F0-9]{32})$/i);
-      return match ? "MSG-" + match[1].toUpperCase() : "消息编号暂不可用";
+      if (!match) return "消息编号暂不可用";
+      const hash = match[1].toUpperCase();
+      const timestamp = notificationTimestamp(item);
+      const date = Date.parse(timestamp);
+      const datePart = Number.isFinite(date) ? new Date(date).toISOString().slice(2, 10).replace(/-/g, "") : "SYS";
+      const shortId = "MSG-" + datePart + "-" + hash.slice(0, 12);
+      const collision = items.some(other => other !== item &&
+        String(other.anomaly_id || "").toUpperCase().startsWith("ANOM-" + hash.slice(0, 12)) &&
+        (Number.isFinite(Date.parse(notificationTimestamp(other)))
+          ? new Date(Date.parse(notificationTimestamp(other))).toISOString().slice(2, 10).replace(/-/g, "")
+          : "SYS") === datePart);
+      return collision ? "MSG-" + datePart + "-" + hash : shortId;
     }
     function notificationTimestamp(item) {
       if (typeof item.source_event?.timestamp === "string") return item.source_event.timestamp;
