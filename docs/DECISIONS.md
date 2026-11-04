@@ -128,3 +128,6 @@
 
 
 | D-20261104-REL-04（2.0.10 交互优化候选 CI 通过，待发布审批） | PR #33 以 main `726da94e1817cd910665d5fb984bd3f02c26f8c1` 为基线，候选 `VERSION=2.0.10`；准确产品/测试 SHA `b0adfae15ce70065f25bada16af8305402fea6c9` 的 Actions #41783935135 3/3 SUCCESS：Ubuntu/Windows Python 各 173 tests、Node 各 79 PASS，Windows Chromium updater 3 PASS、工作台 UI E2E 11 PASS。PR #33 保持 Draft/Open；用户仅要求“继续优化”，未授权合并，因此不转 Ready、不合并 main、不部署真实 Windows/Drive。 | CI PASS 证明候选代码在规定自动化范围通过；GitHub 发布、真实电脑更新及数据操作是独立权限。保留用户最终发布审批。 |
+
+
+| D-20261104-REL-05（用户批准 PR #33 并发布 2.0.10） | 用户明确批准最新合并，并要求：此前分别提出且已通过测试的多项改进应一起合并，而非只合并最新 PR。审计仓库开放 PR 后，唯一开放 PR 为 #33，包含步骤文档折叠、任务名称直达详情、任务编号点击复制、已完成任务置底。PR 最终 HEAD `31a720d0f226bedb98653fb224cb9450a98aa389` 的 Actions #41784404642 3/3 SUCCESS；Draft→Ready 后使用 GitHub 标准 Merge，merge SHA `0ec256205bf47a7ee36ae74d3a638a3bb71ef44b`；main/VERSION=2.0.10，开放 PR=0。此前独立提出并通过验收的父子任务状态联动、刷新状态位置等已在 PR #31 的 2.0.9 组合发布中；异常处理和回收站视觉已在 2.0.8 发布，不存在遗漏开放 PR。 | 合并前必须审计全部开放/未合并 PR、已批准需求、依赖和准确 SHA；把已通过测试且已获授权的改进纳入同一正式版本，避免只合并最新 PR 或重复合并已吸收的旧分支。GitHub 发布与公司 Windows 部署、真实 Drive 数据操作仍是独立授权。 |
