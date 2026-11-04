@@ -137,3 +137,6 @@
 
 
 | D-20261104-REL-06（2.0.11 通知信箱正式发布） | 用户授权测试通过即合并。PR #34 已标准 Merge，merge SHA `d7f703233a48dd22434a6f4e0c5221837610cdb4`，main/VERSION=2.0.11。产品/测试 SHA `d7c817713d86f27e654b2b882e2868f4f5a2b864` 的 Actions #41792421545 及合并后 main SHA 的 Actions #41792762895 均 3/3 SUCCESS：Ubuntu/Windows Python 各 173 tests、Node 各 81 PASS；Windows Chromium updater/rollback 3 PASS、工作台 UI E2E 11 PASS。首次 Node 失败是测试夹具未模拟 `details.open` 默认值，修正后新 SHA 完整复验通过。开放 PR=0。 | 产品变更必须以准确 SHA 的 Linux/Windows 与真实 Windows Chromium 全部通过为合并门槛；测试夹具问题修复后必须完整复验，不把首轮失败或静态语法检查当作 PASS。GitHub 合并不授权部署真实电脑或操作真实 Drive。 |
+
+
+| D-20261104-UI-07（任务列表内联快速修改） | 用户要求将任务列表中的状态及优先级标签改为可点击按钮，直接弹出选项并保存，不改变既有卡片界面与 Excel 风格筛选排序。快捷修改仅向已有任务 update API 发送原 title、精确 revision 和明确更改字段；完成状态必须二次人工确认；冲突/下级联动不可靠时禁用相关编辑；未保存草稿时拒绝快捷修改；409 不乐观展示成功；刷新以服务端为准，完成任务继续置底。按钮兼容键盘、点击外部关闭与窄屏可见。 | 复用既有追加式数据保护和用户确认，避免仅为减轻操作步骤而绕过草稿、完成确认、同步冲突、父子状态联动等安全规则；保持列表原有卡片视觉不升级为表格。 |

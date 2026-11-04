@@ -651,8 +651,12 @@ function overviewHarness(tasks, projects = [], allowWrites = false) {
     const node = {
       tag, textContent: "", className: "", children: [], handlers: new Map(),
       disabled: false, selected: false, hidden: false, _value: "",
+      attributes: new Map(),
       append(...items) { this.children.push(...items); },
       replaceChildren(...items) { this.children = items; },
+      setAttribute(name, value) { this.attributes.set(name, String(value)); },
+      getAttribute(name) { return this.attributes.get(name) ?? null; },
+      contains(target) { return this === target || this.children.some(child => child.contains?.(target)); },
       addEventListener(type, handler) { this.handlers.set(type, handler); }
     };
     Object.defineProperty(node, "value", {
