@@ -41,6 +41,7 @@ TASK_DEFAULTS = {"owner": None, "priority": "normal",
                  "due_date": None, "planned_date": None, "follow_up_date": None}
 MAX_BODY = 16_384
 MAX_CONVERSION_BODY = 65_536
+MAX_WORK_RECORD_BODY = 32_768
 MAX_STEPS_PER_TASK = 100
 RECURRENCE_UNITS = {"daily", "weekly", "monthly", "yearly"}
 _write_lock = threading.Lock()
@@ -1674,7 +1675,7 @@ def read_work_records(data_dir: Path) -> dict:
         if not path.is_file():
             continue
         try:
-            if path.stat().st_size > MAX_BODY:
+            if path.stat().st_size > MAX_WORK_RECORD_BODY:
                 raise ValueError("file too large")
             event = validate_work_record_event(json.loads(path.read_text(encoding="utf-8-sig")))
             old = seen.get(event["event_id"])
@@ -2893,11 +2894,11 @@ def handler_factory(data_dir: Path):
         def json_response(self, code: int, payload: dict):
             self.respond(code, json.dumps(payload, ensure_ascii=False).encode("utf-8"))
 
-        def read_payload(self) -> dict:
+        def read_payload(self, max_body: int = MAX_BODY) -> dict:
             if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
                 raise TypeError("JSON required")
             length = int(self.headers.get("Content-Length", "0"))
-            if not 0 < length <= MAX_BODY:
+            if not 0 < length <= max_body:
                 raise ValueError("invalid body length")
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
             if not isinstance(payload, dict):
@@ -3032,7 +3033,7 @@ def handler_factory(data_dir: Path):
                         _update_lock.release()
 
             try:
-                payload = self.read_payload()
+                payload = self.read_payload(MAX_WORK_RECORD_BODY if creating_work_record or work_record_match else MAX_BODY)
                 if creating_work_record or work_record_match:
                     allowed = WORK_RECORD_FIELDS | ({"revision"} if work_record_match else set())
                     if set(payload) - allowed:
