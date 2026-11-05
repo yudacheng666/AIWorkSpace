@@ -1466,7 +1466,7 @@
       convertStep.addEventListener("click", async () => {
         if (isSaving || convertStep.disabled || !confirmDiscardUnsaved()) return;
         if (!window.confirm("将步骤「" + step.title +
-          "」转换为当前任务下的子任务？原步骤将不再显示，日期、状态和文档关联会保留，历史记录不会删除。")) return;
+          "」转换为当前任务下的子任务？原步骤将不再显示，日期、状态和文档关联会保留，并分配新的任务编号；原步骤编号保留在转换历史中。")) return;
         isSaving = true; convertStep.disabled = true;
         message.className = "step-message"; message.textContent = "正在转换为任务…";
         try {
@@ -1654,7 +1654,7 @@
           return;
         }
         if (!window.confirm("将任务「" + task.title + "」移动为「" + target.title +
-          "」下的一个执行步骤？原任务将不再单独显示；日期、状态、文档链接和原任务属性会保留，历史记录不会删除。")) return;
+          "」下的一个执行步骤？原任务将不再单独显示；日期、状态、文档链接和原任务属性会保留，并分配新的步骤编号；原任务编号保留在转换历史中。")) return;
         isSaving = true; convert.disabled = true;
         note.textContent = "正在转换为步骤…";
         try {
