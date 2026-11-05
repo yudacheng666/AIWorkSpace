@@ -1410,13 +1410,13 @@
         const changes = {revision: step.revision};
         if (nextTitle !== step.title) changes.title = nextTitle;
         if (nextStatus !== step.status) changes.status = nextStatus;
-        for (const field of DATE_FIELDS) {
+        for (const field of Object.keys(dateFields)) {
           const value = dateControls[field].value || null;
           if (value !== (step[field] || null)) changes[field] = value;
         }
         if (completing) changes.confirmed_done = true;
         if (!("title" in changes) && !("status" in changes) &&
-            !DATE_FIELDS.some(field => field in changes)) {
+            !Object.keys(dateFields).some(field => field in changes)) {
           message.textContent = "步骤内容没有变化";
           return;
         }
@@ -1460,7 +1460,7 @@
       down.addEventListener("click", () => saveStepOrder(task, index, index + 1, message));
       const convertStep = element("button", "step-convert", "转为任务");
       convertStep.type = "button";
-      convertStep.disabled = task.conflict || step.conflict || task.status_rollup_incomplete ||
+      convertStep.disabled = task.conflict || step.conflict || task.status_rollup_incomplete || task.manual_status === "done" ||
         task.step_order_conflict || task.step_order_incomplete;
       convertStep.title = "将此步骤移动为当前任务下的子任务，保留日期、状态和文档关联";
       convertStep.addEventListener("click", async () => {
@@ -2451,7 +2451,10 @@
       const button = element("button", className, title === undefined ? ("↳ " + step.title) : title);
       button.type = "button";
       button.title = step.step_id + " · 所属任务：" + task.title + " · 点击查看步骤";
-      button.addEventListener("click", () => openTaskDetail(task.task_id));
+      button.addEventListener("click", () => {
+        openTaskDetail(task.task_id);
+        document.getElementById("step-" + step.step_id)?.scrollIntoView?.({block:"center"});
+      });
       return button;
     }
 
