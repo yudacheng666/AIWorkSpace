@@ -711,6 +711,13 @@
     .work-inbox-item,.work-summary-item,.work-featured-item{border:1px solid #e3eaf2;padding:12px;border-radius:9px;margin:8px 0}
     .work-inbox-item p,.work-summary-item p,.work-featured-item p{white-space:pre-wrap;margin:5px 0 9px;overflow-wrap:anywhere}
     .work-check{display:flex;gap:8px;align-items:center;font-size:12px;color:#526a82}
+    .work-action-item{border:1px solid #e0e8f3;border-radius:10px;margin:9px 0;padding:13px}
+    .work-action-item strong{font-size:13px;color:#294967}
+    .work-action-item .work-action-options{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .work-action-options button{border:1px solid #bfd0e3;border-radius:8px;background:#fff;color:#285baf;padding:7px 11px}
+    .work-action-duplicate{margin-top:8px;font-size:12px;color:#6b5a3b;line-height:1.7}
+    .work-action-prompt{min-height:120px;font-size:12px;line-height:1.6}
+    .work-action-message{font-size:12px;color:#385b81;min-height:17px}
     @media(max-width:640px) {.work-card {padding:16px}.work-meta,.work-filters {grid-template-columns:1fr}.secondary-action {padding:8px 10px}}
 
   </style>
@@ -927,6 +934,26 @@
         <div class="work-timeline" id="work-record-list" aria-live="polite">
           <div class="work-entry-empty">进入此页后读取工作记录…</div>
         </div>
+      </section>
+      <section class="work-card" aria-labelledby="work-action-heading">
+        <h2 id="work-action-heading">从工作记录安排后续待办</h2>
+        <p class="work-archive-hint">选择一条已有工作记录，复制信息交给 ChatGPT 提出待办建议，再粘贴结构化结果。所有建议先查重、人工审核，不会自动完成或新建任务。</p>
+        <form id="work-action-form">
+          <div class="work-archive-row">
+            <label for="work-action-source">工作记录来源
+              <select id="work-action-source"><option value="">请先选择工作记录</option></select>
+            </label>
+            <button type="button" id="work-action-copy-prompt">复制 ChatGPT 分析说明</button>
+          </div>
+          <label for="work-action-json">粘贴 ChatGPT 返回的 JSON 建议（最多 5 条）</label>
+          <textarea class="work-archive-textarea work-action-prompt" id="work-action-json" spellcheck="false" maxlength="16000" placeholder='{"version":1,"record_id":"RECORD-...","record_revision":1,"proposals":[{"title":"核实供应商交期","due_date":null}]}'></textarea>
+          <div class="work-archive-row">
+            <button type="submit" id="work-action-preview">检查建议和重复任务（不写入）</button>
+            <button type="button" id="work-action-clear">清空建议</button>
+          </div>
+        </form>
+        <p class="work-action-message" id="work-action-message" role="status" aria-live="polite"></p>
+        <div id="work-action-list" aria-live="polite"></div>
       </section>
       <section class="work-card" aria-labelledby="work-inbox-heading">
         <h2 id="work-inbox-heading">待整理收件箱 <span class="inbox-total" id="work-inbox-count"></span></h2>
@@ -1222,6 +1249,7 @@
     let workSummaryItems = [];
     let workSummaryPreview = null;
     let editingSummaryId = "";
+    let workActionPreview = null;
     let taskViewMode = "list";
     let taskMonthCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     let taskTimelineCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -3350,12 +3378,13 @@
         return false;
       }
       if (activePage==="worklog" && page!=="worklog" &&
-          ["work-record-form","work-inbox-form","work-summary-form"].some(id =>
+          ["work-record-form","work-inbox-form","work-summary-form","work-action-form"].some(id =>
             unsavedPersistentEditors.has($(id)))) {
         if (!window.confirm("工作档案存在未保存内容，离开将丢弃草稿。确定继续吗？")) return false;
         resetWorkRecordForm();
         resetWorkInboxForm();
         resetWorkSummary();
+        resetWorkActionForm();
       }
       activePage = page;
       if (page === "tasks") taskViewMode = taskViewModes.includes(mode) ? mode : "list";
@@ -3422,6 +3451,7 @@
                      document.activeElement?.closest("#work-record-form") ||
                      document.activeElement?.closest("#work-inbox-form") ||
                      document.activeElement?.closest("#work-summary-form") ||
+                     document.activeElement?.closest("#work-action-form") ||
                      document.activeElement?.closest("#work-record-filters"))) return;
       setRefreshStatus("正在读取…");
       try {
@@ -4276,6 +4306,20 @@
           edit.disabled = !!record.conflict;
           edit.addEventListener("click", () => editWorkRecord(record.record_id));
           footer.append(edit);
+          if (!record.conflict) {
+            const suggest = element("button", "", "安排后续待办");
+            suggest.type = "button";
+            suggest.addEventListener("click", () => {
+              $("work-action-source").value = record.record_id;
+              workActionPreview = null;
+              $("work-action-list").replaceChildren();
+              $("work-action-message").textContent = "已选中 " + record.display_id +
+                "。先复制到 ChatGPT 分析，再将 JSON 建议粘贴到下方审核。";
+              $("work-action-json").focus();
+              workActionWatcher.check();
+            });
+            footer.append(suggest);
+          }
           row.append(footer);
         } else {
           const activity = entry.item;
@@ -4304,6 +4348,7 @@
         workTaskCompletions = state.task_completions || [];
         renderWorkRecords();
         renderWorkOutcomes();
+        populateWorkActionSources();
         if (state.warnings?.length) {
           $("work-record-count").textContent += " · " + state.warnings.length + " 条数据提醒";
         }
