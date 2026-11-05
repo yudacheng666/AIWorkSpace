@@ -697,7 +697,22 @@
     .work-entry-empty {padding:30px;text-align:center;color:#718197;font-size:13px}
     .secondary-action {background:#fff;color:#285baf;border:1px solid #bcd0e6;border-radius:8px;padding:9px 13px;font-weight:650}
     @media(max-width:1100px) {.work-meta {grid-template-columns:repeat(2,minmax(130px,1fr))}.work-filters {grid-template-columns:repeat(2,minmax(120px,1fr))}}
+    .work-archive-row{display:flex;align-items:end;flex-wrap:wrap;gap:10px;margin:10px 0}
+    .work-archive-row label{display:grid;gap:5px;flex:1;min-width:130px;font-size:12px;color:#53677f}
+    .work-archive-row input,.work-archive-row select,.work-archive-row textarea,.work-archive-textarea{
+      font:inherit;padding:9px;border:1px solid #d7e0ed;border-radius:8px;color:#30445f;background:white;min-width:0}
+    .work-archive-row button,.work-entry-link button,.work-inbox-item button,.work-summary-item button{
+      border:1px solid #cad8e8;border-radius:8px;background:#fff;padding:8px 12px;color:#285baf;font-weight:600}
+    .work-archive-textarea{width:100%;min-height:160px;resize:vertical}
+    .work-archive-hint{font-size:12px;color:#6c7f92;line-height:1.65}
+    .work-archive-tags{display:flex;gap:6px;flex-wrap:wrap;margin:7px 0}
+    .work-archive-tag{border-radius:20px;background:#edf3fa;color:#3c6081;padding:5px 9px;font-size:12px}
+    .work-archive-tag button{border:0;background:transparent;color:#99553d;cursor:pointer}
+    .work-inbox-item,.work-summary-item,.work-featured-item{border:1px solid #e3eaf2;padding:12px;border-radius:9px;margin:8px 0}
+    .work-inbox-item p,.work-summary-item p,.work-featured-item p{white-space:pre-wrap;margin:5px 0 9px;overflow-wrap:anywhere}
+    .work-check{display:flex;gap:8px;align-items:center;font-size:12px;color:#526a82}
     @media(max-width:640px) {.work-card {padding:16px}.work-meta,.work-filters {grid-template-columns:1fr}.secondary-action {padding:8px 10px}}
+
   </style>
 </head>
 <body>
@@ -861,6 +876,28 @@
           <label for="work-record-outcome">工作成果（可选）
             <textarea id="work-record-outcome" maxlength="2000" rows="2" placeholder="例如：解决交期争议；不能确定的结果可留空。"></textarea>
           </label>
+          <label class="work-check"><input type="checkbox" id="work-record-featured"> 归入我的成果库（可用于未来项目总结和职业档案）</label>
+          <div class="work-archive-row">
+            <label>关联任务或步骤
+              <select id="work-link-target"><option value="">选择关联对象（可选）</option></select>
+            </label>
+            <label>关联类型
+              <select id="work-link-relation"><option value="progress_on">这项工作的进展</option><option value="result_of">这项工作的成果</option><option value="derived_action">由记录产生的后续行动</option></select>
+            </label>
+            <button type="button" id="work-link-add">添加关联</button>
+          </div>
+          <div class="work-archive-tags" id="work-link-list" aria-live="polite"></div>
+          <div class="work-archive-row">
+            <label>Google Drive 证据名称（可选）
+              <input id="work-evidence-title" maxlength="120" placeholder="如：会议纪要">
+            </label>
+            <label>文件链接
+              <input id="work-evidence-url" type="url" maxlength="2048" placeholder="https://drive.google.com/...">
+            </label>
+            <button type="button" id="work-evidence-add">关联证据</button>
+          </div>
+          <div class="work-archive-tags" id="work-evidence-list" aria-live="polite"></div>
+          <p class="work-archive-hint">关联只记录引用，不自动将任务设为已完成；Google Drive 文件权限保持原状。</p>
           <div class="work-form-actions">
             <button type="submit" class="save" id="work-record-submit">保存记录</button>
             <button type="button" id="work-record-cancel">清空 / 取消编辑</button>
@@ -890,6 +927,51 @@
         <div class="work-timeline" id="work-record-list" aria-live="polite">
           <div class="work-entry-empty">进入此页后读取工作记录…</div>
         </div>
+      </section>
+      <section class="work-card" aria-labelledby="work-inbox-heading">
+        <h2 id="work-inbox-heading">待整理收件箱 <span class="inbox-total" id="work-inbox-count"></span></h2>
+        <p class="work-archive-hint">暂存原始工作笔记。整理成正式记录后自动标记已整理，不重复创建任务；此处不运行后台 AI。</p>
+        <form id="work-inbox-form">
+          <label for="work-inbox-content">临时笔记 / 语音转文字内容</label>
+          <textarea id="work-inbox-content" class="work-archive-textarea" maxlength="8000" rows="3" required placeholder="直接记录事情原文，稍后再整理。"></textarea>
+          <div class="work-archive-row">
+            <label>发生日期（不确定可留空）<input id="work-inbox-date" type="date"></label>
+            <label>项目（可选）<select id="work-inbox-project"><option value="">未归类</option></select></label>
+            <button type="submit" id="work-inbox-submit">暂存原始笔记</button>
+          </div>
+        </form>
+        <p id="work-inbox-message" role="status" aria-live="polite"></p>
+        <div id="work-inbox-list" aria-live="polite"></div>
+      </section>
+      <section class="work-card" aria-labelledby="work-summary-heading">
+        <h2 id="work-summary-heading">工作总结</h2>
+        <p class="work-archive-hint">先根据真实记录生成可核对的底稿，再本人修改，或复制给 ChatGPT 分析。此处不会自行生成未经核实的业绩。</p>
+        <form id="work-summary-form">
+          <div class="work-archive-row">
+            <label>总结周期
+              <select id="work-summary-period"><option value="daily">日报</option><option value="weekly">周报</option><option value="monthly">月报</option></select>
+            </label>
+            <label>包含日期<input id="work-summary-date" type="date" required></label>
+            <label>项目范围<select id="work-summary-project"><option value="">全部项目</option></select></label>
+            <button type="button" id="work-summary-generate">生成来源底稿</button>
+          </div>
+          <label for="work-summary-body">总结正文（可编辑）</label>
+          <textarea id="work-summary-body" class="work-archive-textarea" maxlength="12000" placeholder="先选择周期并生成底稿，再核实和补充。" required></textarea>
+          <div class="work-archive-row">
+            <label class="work-check"><input type="checkbox" id="work-summary-confirm"> 我已核对内容，可用于正式总结</label>
+            <button type="button" id="work-summary-copy">复制供 ChatGPT 分析</button>
+            <button type="submit" id="work-summary-save">保存总结</button>
+            <button type="button" id="work-summary-cancel">清空 / 退出编辑</button>
+          </div>
+        </form>
+        <p id="work-summary-message" role="status" aria-live="polite"></p>
+        <h3>历史总结</h3>
+        <div id="work-summary-list" aria-live="polite"></div>
+      </section>
+      <section class="work-card" aria-labelledby="work-outcomes-heading">
+        <h2 id="work-outcomes-heading">个人成果库</h2>
+        <p class="work-archive-hint">从已核实的工作记录中选出有代表性的成果，保留日期、项目、原始记录和证据引用，便于以后编写项目总结或简历。</p>
+        <div id="work-outcomes-list" aria-live="polite"></div>
       </section>
     </section>
     <section id="page-overview" class="workspace-page is-active">
