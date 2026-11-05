@@ -799,6 +799,12 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         task = next(t for t in read_workspace(self.data_dir)["tasks"] if t["task_id"] == self.task_id)
         self.assertTrue(task["recurrence_active"])
         self.assertEqual(task["status"], "todo")
+        self.assertEqual(page.evaluate(
+            "(id) => taskEffectiveDate(current.find(t => t.task_id === id), 'planned_date')",
+            self.task_id), task["recurrence_period_start"])
+        self.assertEqual(page.evaluate(
+            "(id) => taskEffectiveDate(current.find(t => t.task_id === id), 'due_date')",
+            self.task_id), task["recurrence_period_end"])
 
         form = page.locator("#task-detail-content .task-form")
         form.locator("select").first.select_option("done")
