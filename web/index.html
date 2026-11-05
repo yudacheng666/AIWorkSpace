@@ -955,6 +955,32 @@
         <p class="work-action-message" id="work-action-message" role="status" aria-live="polite"></p>
         <div id="work-action-list" aria-live="polite"></div>
       </section>
+      <section class="work-card" aria-labelledby="work-task-convert-heading">
+        <h2 id="work-task-convert-heading">误建任务转为工作记录</h2>
+        <p class="work-archive-hint">仅转换没有子任务、步骤、循环规则且无冲突的独立任务。转换会保留原任务的全部事件历史，并生成可追溯的工作记录；不会认定任务已完成。若来源随后被其他设备修改，将暂停转换结果并提示核查。</p>
+        <form id="work-task-convert-form">
+          <label for="work-task-convert-source">选择误建的任务
+            <select id="work-task-convert-source" required><option value="">请选择独立任务</option></select>
+          </label>
+          <div class="work-archive-row">
+            <label for="work-task-convert-date">工作实际发生日期
+              <input id="work-task-convert-date" type="date" required>
+            </label>
+            <label for="work-task-convert-minutes">耗时（分钟，可留空）
+              <input id="work-task-convert-minutes" type="number" min="1" max="1440" placeholder="未记录">
+            </label>
+          </div>
+          <label for="work-task-convert-content">已发生工作的事实描述</label>
+          <textarea id="work-task-convert-content" class="work-archive-textarea" maxlength="4000" rows="3" required placeholder="准确描述已经发生的事实；不要把未处理的计划伪装成完成成果。"></textarea>
+          <label for="work-task-convert-outcome">实际成果（可留空）</label>
+          <textarea id="work-task-convert-outcome" class="work-archive-textarea" maxlength="2000" rows="2" placeholder="仅填写实际取得的成果"></textarea>
+          <div class="work-archive-row">
+            <button type="submit" id="work-task-convert-submit" class="save">确认转为工作记录</button>
+            <button type="button" id="work-task-convert-clear">清空 / 取消</button>
+          </div>
+        </form>
+        <p id="work-task-convert-message" role="status" aria-live="polite"></p>
+      </section>
       <section class="work-card" aria-labelledby="work-inbox-heading">
         <h2 id="work-inbox-heading">待整理收件箱 <span class="inbox-total" id="work-inbox-count"></span></h2>
         <p class="work-archive-hint">暂存原始工作笔记。整理成正式记录后自动标记已整理，不重复创建任务；此处不运行后台 AI。</p>
@@ -3452,6 +3478,7 @@
                      document.activeElement?.closest("#work-inbox-form") ||
                      document.activeElement?.closest("#work-summary-form") ||
                      document.activeElement?.closest("#work-action-form") ||
+                     document.activeElement?.closest("#work-task-convert-form") ||
                      document.activeElement?.closest("#work-record-filters"))) return;
       setRefreshStatus("正在读取…");
       try {
@@ -3479,6 +3506,7 @@
         projectOptions($("work-inbox-project"), $("work-inbox-project").value);
         projectOptions($("work-summary-project"), $("work-summary-project").value);
         fillWorkTaskOptions($("work-record-task").value);
+        populateTaskRecordSources();
         populateWorkLinkTargets();
         renderProjects();
         refreshOverviewControls();
@@ -4282,6 +4310,8 @@
             "项目：" + (record.project_name || "关联项目尚未同步")));
           if (record.task_id) meta.append(element("span", "",
             "任务：" + (record.task_title || "关联任务尚未同步")));
+          if (record.source_task_id) meta.append(element("span", "",
+            "从原任务转换（历史编号：" + record.source_task_id + "）"));
           if (record.duration_minutes) meta.append(element("span", "", "耗时：" + record.duration_minutes + " 分钟"));
           if (record.featured) meta.append(element("span", "", "已收录成果库"));
           for (const link of record.action_link_labels || []) {
@@ -4799,6 +4829,117 @@
       }
     }
 
+
+
+    // This form writes ONE immutable task-to-record conversion ledger, never
+    // two independent create/trash operations that could partially sync.
+    function taskConvertSnapshot() {
+      return {task_id:$("work-task-convert-source").value,
+        occurred_on:$("work-task-convert-date").value,
+        content:$("work-task-convert-content").value,
+        outcome:$("work-task-convert-outcome").value,
+        duration_minutes:$("work-task-convert-minutes").value};
+    }
+    $("work-task-convert-date").value = localDayISO(new Date());
+    const taskConvertWatcher = watchUnsavedEditor(
+      $("work-task-convert-form"), taskConvertSnapshot, unsavedPersistentEditors);
+    function resetTaskConvertForm() {
+      $("work-task-convert-source").value = "";
+      $("work-task-convert-date").value = localDayISO(new Date());
+      $("work-task-convert-content").value = "";
+      $("work-task-convert-outcome").value = "";
+      $("work-task-convert-minutes").value = "";
+      taskConvertWatcher.markClean();
+    }
+    function convertibleStandaloneTask(task) {
+      return !task.conflict && !task.trashed_at && !task.parent_task_id &&
+        !task.parent_missing && !task.parent_cycle && !task.status_rollup_incomplete &&
+        !task.step_order_conflict && !task.step_order_incomplete &&
+        !(task.steps || []).length && !(task.all_child_task_ids || []).length &&
+        !task.recurrence && !task.source_work_record;
+    }
+    function populateTaskRecordSources() {
+      const select = $("work-task-convert-source");
+      const old = select.value;
+      select.replaceChildren();
+      const empty = element("option", "", "请选择独立任务");
+      empty.value = "";
+      select.append(empty);
+      for (const task of current.filter(convertibleStandaloneTask)) {
+        const option = element("option", "", taskDisplayId(task) + " · " + task.title);
+        option.value = task.task_id;
+        select.append(option);
+      }
+      if (old && !current.some(task =>
+        task.task_id === old && convertibleStandaloneTask(task))) {
+        const missing = element("option", "", "原任务已变化或已转换，请取消后重新选择");
+        missing.value = old;
+        select.append(missing);
+      }
+      select.value = old;
+    }
+    $("work-task-convert-source").addEventListener("change", () => {
+      const task = current.find(item => item.task_id === $("work-task-convert-source").value);
+      if (task && !$("work-task-convert-content").value.trim()) {
+        $("work-task-convert-content").value = task.title;
+      }
+      taskConvertWatcher.check();
+    });
+    $("work-task-convert-clear").addEventListener("click", () => {
+      if (isSaving) return;
+      if (unsavedPersistentEditors.has($("work-task-convert-form")) &&
+          !window.confirm("确定放弃尚未保存的转换内容吗？")) return;
+      resetTaskConvertForm();
+      $("work-task-convert-message").textContent = "";
+    });
+    $("work-task-convert-form").addEventListener("submit", async event => {
+      event.preventDefault();
+      if (isSaving) return;
+      const snapshot = taskConvertSnapshot();
+      const task = current.find(item =>
+        item.task_id === snapshot.task_id && convertibleStandaloneTask(item));
+      if (!task || !snapshot.content.trim() || !snapshot.occurred_on) {
+        $("work-task-convert-message").textContent = "任务已变化或发生日期、内容缺失；请核查。";
+        return;
+      }
+      const minutes = snapshot.duration_minutes === "" ? null : Number(snapshot.duration_minutes);
+      if (minutes !== null && (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440)) {
+        $("work-task-convert-message").textContent = "耗时只能填写 1 至 1440 分钟。";
+        return;
+      }
+      if (!window.confirm("确定将任务「" + task.title + "」转为已发生的工作记录？原任务历史保留；不会将任务标记已完成，且需要所有共用数据的电脑运行兼容版本。")) return;
+      isSaving = true;
+      $("work-task-convert-submit").disabled = true;
+      $("work-task-convert-clear").disabled = true;
+      try {
+        const response = await fetch("/api/work-archive/tasks/" +
+            encodeURIComponent(task.task_id) + "/convert-to-record", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            revision:task.revision, occurred_on:snapshot.occurred_on,
+            content:snapshot.content, outcome:snapshot.outcome.trim() || null,
+            duration_minutes:minutes, confirmed_move:true
+          })
+        });
+        const reply = await response.json();
+        if (!response.ok) throw Error(reply.error || "HTTP " + response.status);
+        const changed = JSON.stringify(taskConvertSnapshot()) !== JSON.stringify(snapshot);
+        if (changed) taskConvertWatcher.markClean(snapshot);
+        else resetTaskConvertForm();
+        await refresh(true);
+        await loadWorkRecords();
+        $("work-task-convert-message").textContent = changed
+          ? "已追加转换事件，保存期间的其他输入仍为草稿；新记录：" + reply.display_id
+          : "转换成功，原任务事件未覆盖；新记录：" + reply.display_id;
+      } catch (error) {
+        $("work-task-convert-message").textContent = "转换未成功：" + error.message +
+          "。请刷新核查来源版本，系统不会自动重试，草稿保留。";
+      } finally {
+        isSaving = false;
+        $("work-task-convert-submit").disabled = false;
+        $("work-task-convert-clear").disabled = false;
+      }
+    });
 
     function workActionSnapshot() {
       return {record_id:$("work-action-source").value,
