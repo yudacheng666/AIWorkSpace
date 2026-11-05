@@ -7,6 +7,7 @@ Google Drive for desktop synchronizes, or omit it for isolated demo data.
 from __future__ import annotations
 
 import argparse
+import calendar
 import hashlib
 import json
 import os
@@ -40,6 +41,7 @@ TASK_DEFAULTS = {"owner": None, "priority": "normal",
 MAX_BODY = 16_384
 MAX_CONVERSION_BODY = 65_536
 MAX_STEPS_PER_TASK = 100
+RECURRENCE_UNITS = {"daily", "weekly", "monthly", "yearly"}
 _write_lock = threading.Lock()
 _update_lock = threading.Lock()
 
@@ -143,6 +145,8 @@ def validate_parent_assignment(tasks: list[dict], task_id: str,
         parent = by_id.get(ancestor)
         if parent is None or parent.get("conflict") or parent.get("trashed_at"):
             raise ValueError("parent task is missing, deleted or conflicted")
+        if parent.get("recurrence") is not None:
+            raise ValueError("recurring tasks cannot have child tasks")
         ancestor = parent.get("parent_task_id")
 
 
@@ -225,6 +229,101 @@ def resolve_task_hierarchy(tasks: list[dict], warnings: list[str]) -> None:
     for task in sorted(tasks, key=lambda t: t["task_id"]):
         visit(task)
 
+def validate_recurrence(value: object) -> dict:
+    """Validate an anchored calendar schedule, including the stopped form."""
+    if not isinstance(value, dict) or set(value) != {"unit", "interval", "start_date", "enabled"}:
+        raise ValueError("recurrence requires unit, interval, start_date and enabled")
+    if value["unit"] not in RECURRENCE_UNITS:
+        raise ValueError("invalid recurrence unit")
+    if type(value["interval"]) is not int or not 1 <= value["interval"] <= 99:
+        raise ValueError("recurrence interval must be between 1 and 99")
+    if type(value["enabled"]) is not bool:
+        raise ValueError("recurrence enabled must be boolean")
+    raw = value["start_date"]
+    if not isinstance(raw, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
+        raise ValueError("invalid recurrence start date")
+    try:
+        date.fromisoformat(raw)
+    except ValueError as exc:
+        raise ValueError("invalid recurrence start calendar date") from exc
+    return dict(value)
+
+
+def recurrence_bounds(rule: dict, day: date | None = None) -> tuple[str, str] | None:
+    """Current cycle bounds; month-end and leap-day anchors clamp predictably."""
+    today = day or date.today()
+    anchor = date.fromisoformat(rule["start_date"])
+    if today < anchor:
+        return None
+    unit, interval = rule["unit"], rule["interval"]
+
+    def start_at(index: int) -> date:
+        if unit in {"daily", "weekly"}:
+            try:
+                return anchor + timedelta(days=index * interval * (7 if unit == "weekly" else 1))
+            except OverflowError:
+                return date.max
+        if unit == "monthly":
+            ordinal = (anchor.year - 1) * 12 + anchor.month - 1 + index * interval
+            if ordinal >= 9999 * 12:
+                return date.max
+            year, month_zero = divmod(ordinal, 12)
+            year, month = year + 1, month_zero + 1
+        else:
+            year, month = anchor.year + index * interval, anchor.month
+            if year > 9999:
+                return date.max
+        return date(year, month, min(anchor.day, calendar.monthrange(year, month)[1]))
+
+    if unit in {"daily", "weekly"}:
+        estimate = (today - anchor).days // (interval * (7 if unit == "weekly" else 1))
+    elif unit == "monthly":
+        estimate = ((today.year - anchor.year) * 12 + today.month - anchor.month) // interval
+    else:
+        estimate = (today.year - anchor.year) // interval
+    index = max(0, estimate)
+    while index and start_at(index) > today:
+        index -= 1
+    while start_at(index + 1) <= today and start_at(index + 1) > start_at(index):
+        index += 1
+    begin, next_begin = start_at(index), start_at(index + 1)
+    finish = next_begin - timedelta(days=1) if next_begin > begin else date.max
+    return begin.isoformat(), finish.isoformat()
+
+
+def project_recurrence(tasks: list[dict], warnings: list[str],
+                       today: date | None = None) -> None:
+    """Read-only current cycle status; historical events never reset or overwrite."""
+    for task in tasks:
+        task["recurrence_period_start"] = None
+        task["recurrence_period_end"] = None
+        task["recurrence_active"] = False
+        task["recurrence_ended"] = False
+        task.setdefault("recurrence", None)
+        task.setdefault("recurrence_status_period", None)
+        rule = task["recurrence"]
+        if rule is None:
+            continue
+        if (task.get("conflict") or task.get("status_rollup_incomplete") or
+                task.get("step_order_conflict") or task.get("step_order_incomplete") or
+                task.get("steps") or task.get("all_child_task_ids")):
+            warnings.append(f'{task["task_id"]}: recurrence depends on unresolved subitems')
+            continue
+        if not rule["enabled"]:
+            task["recurrence_ended"] = True
+            task["status"] = "done"
+            task["status_source"] = "recurrence_ended"
+            continue
+        task["recurrence_active"] = True
+        bounds = recurrence_bounds(rule, today)
+        if bounds:
+            task["recurrence_period_start"], task["recurrence_period_end"] = bounds
+        task["status"] = (task.get("manual_status", task["status"])
+                          if bounds and task.get("recurrence_status_period") == bounds[0]
+                          else "todo")
+        task["status_source"] = "recurrence"
+
+
 def validate_event(value: object) -> dict:
     """Validate both remote ChatGPT files and locally generated events."""
     if not isinstance(value, dict) or value.get("version") != 1:
@@ -264,10 +363,26 @@ def validate_event(value: object) -> dict:
                 raise ValueError("invalid lifecycle timestamp") from exc
         return value
     if set(changes) - {"title", "status", "project_id", "related_project_ids", "parent_task_id",
-                       "document_links", *TASK_MANAGEMENT_FIELDS}:
+                       "document_links", "recurrence", "recurrence_status_period", *TASK_MANAGEMENT_FIELDS}:
         raise ValueError("unknown fields")
     if "document_links" in changes:
         validate_document_links(changes["document_links"])
+    if "recurrence" in changes:
+        if changes["recurrence"] is not None:
+            validate_recurrence(changes["recurrence"])
+        if value["actor"] != "user":
+            raise ValueError("recurrence changes require an explicit user action")
+    if "recurrence_status_period" in changes:
+        period = changes["recurrence_status_period"]
+        if period is not None:
+            if not isinstance(period, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", period):
+                raise ValueError("invalid recurrence status period")
+            try:
+                date.fromisoformat(period)
+            except ValueError as exc:
+                raise ValueError("invalid recurrence status period date") from exc
+        if value["actor"] != "user" or "status" not in changes:
+            raise ValueError("recurrence period status requires user status change")
     if "title" in changes and (not isinstance(changes["title"], str)
                                or not 1 <= len(changes["title"].strip()) <= 200):
         raise ValueError("title must be 1–200 characters")
@@ -1408,6 +1523,7 @@ def read_workspace(data_dir: Path, include_trashed: bool = False) -> dict:
             step["position"] = index
         task["status"] = task.get("manual_status", task["status"])
         resolve_step_status(task)
+    project_recurrence(tasks, warnings)
     resolve_task_hierarchy(tasks, warnings)
     warnings.extend(project_state["warnings"])
     if not include_trashed:
