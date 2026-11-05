@@ -2247,6 +2247,34 @@ def preview_action_proposals(data_dir: Path, workspace: dict, payload: dict) -> 
             "note": "标题相似度仅供人工查重，不代表已进行 AI 语义判断。"}
 
 
+def already_created_from_work_record(data_dir: Path, record_id: str, title: str) -> bool:
+    """Match immutable task creation facts, even if its current title was edited.
+
+    A renamed existing task must not let a retry of the original AI proposal
+    produce another task for the same source. Only valid creation events count,
+    and historical task create data are never modified.
+    """
+    directory = data_dir / "events"
+    if not directory.exists():
+        return False
+    requested = normalize_action_title(title)
+    for path in directory.glob("*.json"):
+        if not path.is_file():
+            continue
+        try:
+            if path.stat().st_size > MAX_BODY:
+                continue
+            event = validate_event(json.loads(path.read_text(encoding="utf-8-sig")))
+        except (OSError, UnicodeError, ValueError, TypeError, json.JSONDecodeError):
+            continue
+        origin = event["changes"].get("source_work_record")
+        if (event["action"] == "create" and isinstance(origin, dict)
+                and origin["record_id"] == record_id
+                and normalize_action_title(event["changes"]["title"]) == requested):
+            return True
+    return False
+
+
 def derived_action_labels(record: dict, workspace: dict) -> None:
     existing = {(link["target_type"], link["target_id"])
                 for link in record.get("action_link_labels", [])}
@@ -3566,15 +3594,11 @@ def handler_factory(data_dir: Path):
                                 "error": "similar tasks exist; review first before creating another task",
                                 "matches": matches
                             })
-                        for task in workspace["tasks"]:
-                            origin = task.get("source_work_record")
-                            if (isinstance(origin, dict) and
-                                    origin.get("record_id") == payload["record_id"] and
-                                    normalize_action_title(task["title"]) ==
-                                    normalize_action_title(payload["title"])):
-                                return self.json_response(409, {
-                                    "error": "this work record already created the proposed task"
-                                })
+                        if already_created_from_work_record(
+                                data_dir, payload["record_id"], payload["title"]):
+                            return self.json_response(409, {
+                                "error": "this work record already created this proposed task"
+                            })
                         task_id = "TASK-" + uuid.uuid4().hex.upper()
                         changes = {"title": payload["title"].strip(), "status": "todo",
                                    "source_work_record": {
