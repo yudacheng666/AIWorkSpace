@@ -123,3 +123,33 @@ work_archive 原有 record_events 外新增 inbox_events、summary_events。所�
 ### 8.4 阶段 2.5 自动化证据
 
 准确产品/测试 SHA `7cb663881bc6c9b67f193cb0548ae0700831baba` 的 [GitHub Actions #42022478232](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42022478232) 3/3 SUCCESS，Ubuntu/Windows Python 223 项（含设计性 SKIP）、Node 每端 105 PASS、Windows Chromium 更新/回滚 3 PASS 和 UI E2E 19 PASS。所有测试使用虚构临时目录，包含取消确认、人工审核与同名重复阻断、source_work_record 单事件、原始任务/工作记录不覆盖；没有替用户验证公司 Windows 8770、跨电脑 Drive 离线同步或真实 ChatGPT 自动化写回。
+
+
+## 9. 2.6.0 候选：误建任务转为既成事实记录（单事件事务）
+
+在 2.3–2.5 已有补记、工作档案、来源任务审核之后，处理用户过去把“已做完的事实”误建成“待办任务”的场景。**这是事实归档，不是任务完成**：不得自动追加 \`status=done\`，也不根据标题认定工作成果。
+
+### 使用方式与适用范围
+
+进入「工作记录」→「误建任务转为工作记录」，选择无下级、无步骤、无循环规则、非冲突、非回收站且未从其他工作记录派生的独立任务；填写工作实际发生日期、事实内容，以及可选成果/耗时；人工二次确认后执行。服务器不相信客户端筛选结果，必须再次核对任务当前 revision、有效关系、项目和事件源指纹。
+
+转换后原任务暂不出现在活动任务列表，新工作记录进入工作轨迹，展示来源原任务完整 ID，后续可按普通工作记录追加修订。原任务所有 \`events/\` 文件内容和路径保留，Google Drive 证据链接只继承引用、不改变文件权限；不写回原任务 status、不进入回收站、不增加任务完成次数。
+
+### 不可拆分的单事件协议
+
+只在 \`work_archive/task_record_events/evt_<event_id>.json\` 追加一份经校验的事务文件：
+- \`action=task_to_record\`、\`actor=user\`、\`confirmed_move=true\`、实际写入时间；
+- \`source\`：原 TASK ID、当前 revision、对限定白名单源字段的 SHA-256 内容指纹；
+- \`target\`：新 RECORD ID、发生日期、事实内容、成果、耗时、项目关联、继承的 Google Drive 证据引用。
+
+单独转换文件既充当目标工作记录的虚拟 create 根，又标识应隐藏的来源任务；**不采用“先建记录、再删除任务”的两个事件**。新记录的后续编辑仍使用 \`record_events/\`、record revision/409，转换事件和原任务事件不可覆盖、删除或修改。
+
+### 同步与冲突安全
+
+读取器仅在原任务可见、符合独立任务限制、source revision 与源指纹完全吻合、同源及同目标各只有一条有效转换、无文件错误及独立 RECORD create ID 冲突时激活转换。云端晚到的源任务编辑使转换冻结：原任务重新显示，新记录暂不作为有效对象显示，发出需人工核查的警告；不会悄悄选择版本或重复创建。转换文件暂未同步到其他设备时旧任务正常显示；到达后验证通过才改变视图。原本的任务步骤/子任务/周期/人工完成/衍生来源不能在此接口随意扁平化。
+
+风险边界：跨设备真实 Google Drive 离线/重连、旧客户端混用及冲突恢复还未完成真实环境验收。本候选是新事件类型，共享同一数据目录的设备必须先统一升级到兼容正式版本并备份；GitHub 发布不代表公司 Windows 8770 已升级。本轮不处理无法判定的复杂任务和历史数据批量迁移，也不调用付费 AI API。
+
+### 自动化验收
+
+以本候选精确 SHA 的 GitHub Actions Ubuntu/Windows Python + Node + Windows 真实 Chromium 为门槛，并专项验证单事件、原始任务字节不变、HTTP 完成确认、来源旧 revision、重复转换、ID 冲突、晚到源修改、格式损坏、Host/Origin、人工完成不增加、记录继续修订和界面草稿保护。未通过准确 SHA CI 前不得写 PASS，所有 PR 保持 Draft。
