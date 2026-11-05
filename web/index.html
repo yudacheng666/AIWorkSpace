@@ -1478,8 +1478,16 @@
             });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || "转换失败");
-          message.textContent = "已转换为子任务：" + result.task_id;
           await refresh(true);
+          const convertedTaskVisible = current.some(item => item.task_id === result.task_id);
+          const sourceStepVisible = current.some(item => item.task_id === task.task_id &&
+            (item.steps || []).some(candidate => candidate.step_id === step.step_id));
+          if (!convertedTaskVisible && sourceStepVisible) {
+            throw new Error("检测到其他设备同时修改了源步骤，原步骤已保留，本次转换未生效；请刷新并核查。");
+          }
+          message.textContent = convertedTaskVisible
+            ? "已转换为子任务：" + result.task_id
+            : "转换目标当前不可见，请检查回收站或同步状态。";
         } catch (error) {
           message.className = "step-message error";
           message.textContent = "转换失败：" + error.message + "。原步骤保留，请刷新核查。";
@@ -1670,8 +1678,17 @@
             });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || "转换失败");
-          note.textContent = "已转换为步骤：" + result.step_id;
           await refresh(true);
+          const updatedParent = current.find(item => item.task_id === target.task_id);
+          const convertedStepVisible = !!updatedParent &&
+            (updatedParent.steps || []).some(item => item.step_id === result.step_id);
+          const sourceTaskVisible = current.some(item => item.task_id === task.task_id);
+          if (!convertedStepVisible && sourceTaskVisible) {
+            throw new Error("检测到其他设备同时修改了源任务，原任务已保留，本次转换未生效；请刷新并核查。");
+          }
+          note.textContent = convertedStepVisible
+            ? "已转换为步骤：" + result.step_id
+            : "转换目标当前不可见，请检查回收站或同步状态。";
         } catch (error) {
           note.className = "task-conversion-note error";
           note.textContent = "转换失败：" + error.message + "。原任务保留，请刷新核查。";
