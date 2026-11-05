@@ -25,7 +25,7 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from app import append_event, append_step_event, handler_factory, read_workspace  # noqa: E402
+from app import append_event, append_step_event, append_work_record_event, handler_factory, read_workspace  # noqa: E402
 
 
 @unittest.skipUnless(
@@ -998,3 +998,58 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         expect(page.locator("#page-worklog h1")).to_have_text("工作记录")
         expect(page.locator(".work-entry-content")).to_contain_text("临时沟通发现设备交期问题")
         self.assertEqual(source.read_bytes(), original)
+
+
+    def test_review_chatgpt_actions_requires_approval_and_preserves_source(self):
+        """Real Chromium: structured import, duplicate review and single-event provenance."""
+        source_id = "RECORD-" + "D" * 32
+        append_work_record_event(self.data_dir, {
+            "version": 1, "event_id": "actions-chromium-work-0001",
+            "record_id": source_id, "action": "create", "actor": "user",
+            "timestamp": "2026-11-05T10:00:00Z", "base_revision": 0,
+            "changes": {"content": "虚构采购会议已召开，后续需要安排验货",
+                        "occurred_on": "2026-11-04"}
+        })
+        original_files = self._file_hashes()
+        page = self._open_browser(open_detail=False)
+        page.locator("#nav-worklog").click()
+        page.locator("#work-action-source").select_option(source_id)
+        page.locator("#work-action-copy-prompt").click()
+        expect(page.locator("#work-action-message")).to_contain_text("已复制")
+        clipboard = page.evaluate("navigator.clipboard.readText()")
+        self.assertIn(source_id, clipboard)
+        self.assertIn("虚构采购会议已召开", clipboard)
+        self.assertEqual(self._file_hashes(), original_files,
+                         "copying context must not save or mutate business events")
+        proposal = {"version": 1, "record_id": source_id, "record_revision": 1,
+                    "proposals": [{"title": "安排虚构设备验货", "due_date": "2026-11-13"}]}
+        page.locator("#work-action-json").fill(json.dumps(proposal, ensure_ascii=False))
+        page.locator("#work-action-preview").click()
+        expect(page.locator("#work-action-list .work-action-item")).to_have_count(1)
+        self.assertEqual(self._file_hashes(), original_files,
+                         "suggestion preview must never write a task")
+        page.once("dialog", lambda dialog: dialog.dismiss())
+        page.get_by_role("button", name="确认新建待办").click()
+        self.assertEqual(self._file_hashes(), original_files,
+                         "cancelled human confirmation cannot produce a task")
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.get_by_role("button", name="确认新建待办").click()
+        expect(page.locator("#work-action-message")).to_contain_text("已新建待办", timeout=10000)
+        tasks = read_workspace(self.data_dir)["tasks"]
+        created = next(t for t in tasks if t["title"] == "安排虚构设备验货")
+        self.assertEqual(created["status"], "todo")
+        self.assertEqual(created["due_date"], "2026-11-13")
+        self.assertEqual(created["source_work_record"],
+                         {"record_id": source_id, "revision": 1})
+        original_task_event = self.data_dir / "events" / "evt_v201-chromium-create-001.json"
+        self.assertEqual(hashlib.sha256(original_task_event.read_bytes()).hexdigest(),
+                         original_files[original_task_event.relative_to(self.data_dir).as_posix()])
+
+        # Retry the identical proposal: the newly-created source-linked task
+        # appears as a same-title match, and no second create button is offered.
+        page.locator("#work-action-preview").click()
+        expect(page.locator("#work-action-list .work-action-item")).to_have_count(1)
+        expect(page.get_by_text("同项目已有同名任务")).to_be_visible()
+        self.assertFalse(page.get_by_role("button", name="确认新建待办").count())
+        self.assertEqual(len([t for t in read_workspace(self.data_dir)["tasks"]
+                              if t["title"] == "安排虚构设备验货"]), 1)
