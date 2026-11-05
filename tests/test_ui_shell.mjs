@@ -87,7 +87,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes,
@@ -364,7 +364,7 @@ test("step delete is individually confirmed and posts the step revision, not the
   const line = page.api.stepRow(task, step, 0, page.el("step-message"));
   assert.equal(line.className, "step-row");
   const actions = line.children[2];
-  const del = actions.children[2];
+  const del = actions.children[3];
   assert.equal(del.className, "step-delete");
   assert.equal(del.textContent, "删除");
   await del.handlers.get("click")[0]();
@@ -414,6 +414,99 @@ test("step document links are collapsed by default and remain editable when expa
   assert.match(html,/function legacyDocumentPanel\(task\)/);
   assert.doesNotMatch(html,/card\.append\(top, form, stepPanel\(task\), documentPanel\(task\)/);
   assert.equal(page.writes.length,0);
+});
+
+
+
+test("step date controls save all three task-equivalent date fields at the step revision", async () => {
+  const task = {...sampleTask(),revision:12,steps:[]};
+  const step = {step_id:"STEP-"+"A".repeat(32),task_id:task.task_id,title:"日期步骤",
+    status:"doing",revision:4,planned_date:"2026-11-06",due_date:null,
+    follow_up_date:"2026-11-09",document_links:[]};
+  task.steps=[step];
+  const page=harness([task]);
+  const line=page.api.stepRow(task,step,0,page.el("step-message"));
+  const form=line.children[0].children[0];
+  const dates=form.children.find(x=>x.className==="step-date-fields");
+  assert.ok(dates);
+  assert.equal(dates.children.length,3);
+  assert.deepEqual(dates.children.map(x=>x.children[0].type),["date","date","date"]);
+  dates.children[0].children[0].value="2026-11-07";
+  dates.children[1].children[0].value="2026-11-08";
+  await form.handlers.get("submit")[0]({preventDefault(){}});
+  assert.equal(page.writes.length,1);
+  assert.equal(page.writes[0].path,"/api/tasks/"+task.task_id+"/steps/"+step.step_id+"/update");
+  assert.deepEqual(page.writes[0].body,{
+    revision:4,planned_date:"2026-11-07",due_date:"2026-11-08"
+  });
+});
+
+test("calendar and Gantt include step schedule items with the same date semantics as tasks", () => {
+  const now=new Date();
+  const today=[now.getFullYear(),String(now.getMonth()+1).padStart(2,"0"),
+    String(now.getDate()).padStart(2,"0")].join("-");
+  const task={...sampleTask(),due_date:today,planned_date:today,steps:[]};
+  const step={step_id:"STEP-"+"B".repeat(32),task_id:task.task_id,title:"排期步骤",
+    status:"doing",revision:1,due_date:today,planned_date:today,follow_up_date:today,
+    document_links:[]};
+  task.steps=[step];
+  const page=harness([task]);
+  const items=page.api.scheduleItems([task]);
+  assert.deepEqual(items.map(x=>x.kind),["task","step"]);
+  const calendar=page.el("calendar-test");
+  page.api.renderCalendarView([task],calendar);
+  const grid=calendar.children[2];
+  const stepButton=grid.children.flatMap(day=>day.children).find(x=>x.title?.includes(step.step_id));
+  assert.ok(stepButton,"dated step appears in the selected calendar date field");
+  assert.match(stepButton.textContent,/排期步骤/);
+  const gantt=page.el("gantt-test");
+  page.api.renderGanttView([task],gantt);
+  const table=gantt.children[1].children[0];
+  assert.equal(table.children.length,3,"header plus task and step rows");
+  assert.match(table.children[2].className,/gantt-step-row/);
+  assert.match(table.children[2].children[0].children[0].textContent,/排期步骤/);
+});
+
+test("task-to-step panel requires an eligible destination and posts both exact revisions", async () => {
+  const parent={...sampleTask(),task_id:"TASK-PARENT-DEST",title:"目标父任务",steps:[],
+    step_order_revision:2,manual_status:"todo"};
+  const source={...sampleTask(),task_id:"TASK-LEAF-SOURCE",title:"待移动末级任务",
+    revision:7,steps:[],child_task_ids:[],manual_status:"doing"};
+  const page=harness([parent,source]);
+  await page.api.refresh(true);
+  const panel=page.api.taskToStepPanel(source);
+  const select=panel.children[1].children[0];
+  const button=panel.children[1].children[1];
+  assert.equal(button.disabled,false);
+  select.value=parent.task_id;
+  await button.handlers.get("click")[0]();
+  assert.equal(page.writes.length,1);
+  assert.equal(page.writes[0].path,"/api/tasks/"+source.task_id+"/convert-to-step");
+  assert.deepEqual(page.writes[0].body,{
+    revision:7,target_parent_task_id:parent.task_id,
+    target_step_order_revision:2,confirmed_move:true
+  });
+  const complex={...source,task_id:"TASK-COMPLEX",steps:[{
+    step_id:"STEP-"+"C".repeat(32),title:"仍未完成的步骤"
+  }]};
+  const blocked=page.api.taskToStepPanel(complex);
+  assert.equal(blocked.children[1].children[1].disabled,true);
+  assert.match(blocked.children[2].textContent,/没有子任务、没有执行步骤/);
+});
+
+test("step-to-task action is explicit, preserves the step revision and requires confirmation", async () => {
+  const task={...sampleTask(),steps:[]};
+  const step={step_id:"STEP-"+"D".repeat(32),task_id:task.task_id,
+    title:"升级步骤",status:"todo",revision:3,document_links:[]};
+  task.steps=[step];
+  const page=harness([task]);
+  const line=page.api.stepRow(task,step,0,page.el("step-message"));
+  const convert=line.children[2].children[2];
+  assert.equal(convert.textContent,"转为任务");
+  await convert.handlers.get("click")[0]();
+  assert.equal(page.writes.length,1);
+  assert.equal(page.writes[0].path,"/api/tasks/"+task.task_id+"/steps/"+step.step_id+"/convert-to-task");
+  assert.deepEqual(page.writes[0].body,{revision:3,confirmed_move:true});
 });
 
 test("task title opens detail while the task ID below it copies independently", async () => {
