@@ -3938,6 +3938,11 @@
         option.value = task.task_id;
         select.append(option);
       }
+      if (selectedId && !current.some(task => task.task_id === selectedId && !task.conflict && !task.trashed_at)) {
+        const missing = element("option", "", "原关联任务未同步 / 不可编辑");
+        missing.value = selectedId;
+        select.append(missing);
+      }
       select.value = selectedId;
     }
 
@@ -4063,7 +4068,7 @@
       $("work-record-outcome").value = record.outcome || "";
       $("work-record-minutes").value = record.duration_minutes == null ? "" : String(record.duration_minutes);
       $("work-record-project").value = record.project_id || "";
-      $("work-record-task").value = record.task_id || "";
+      fillWorkTaskOptions(record.task_id || "");
       $("work-record-submit").textContent = "保存修改";
       workDraftWatcher.markClean();
       $("work-record-message").textContent = "正在编辑 " + record.display_id + "；原始记录会保留。";
