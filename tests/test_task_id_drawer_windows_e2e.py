@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import sys
 import tempfile
 import threading
@@ -675,9 +676,12 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
 
     def test_step_dates_calendar_gantt_and_bidirectional_conversion_in_real_chromium(self):
         today = date.today()
-        planned = (today + timedelta(days=1)).isoformat()
-        follow_up = (today + timedelta(days=2)).isoformat()
-        due = (today + timedelta(days=3)).isoformat()
+        initial_planned = (today + timedelta(days=1)).isoformat()
+        initial_follow_up = (today + timedelta(days=2)).isoformat()
+        initial_due = (today + timedelta(days=3)).isoformat()
+        planned = (today + timedelta(days=2)).isoformat()
+        follow_up = (today + timedelta(days=3)).isoformat()
+        due = (today + timedelta(days=4)).isoformat()
         step_id = "STEP-" + "C" * 32
         append_step_event(self.data_dir, {
             "version": 1, "event_id": "step-dates-conversion-create",
@@ -685,10 +689,9 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
             "actor": "user", "timestamp": "2026-11-05T09:00:00Z",
             "base_revision": 0,
             "changes": {"title": "虚构采购步骤：整理报价", "position": 1,
-                        "planned_date": planned, "due_date": due,
-                        "follow_up_date": follow_up},
+                        "planned_date": initial_planned, "due_date": initial_due,
+                        "follow_up_date": initial_follow_up},
         })
-        original_streams = self._file_hashes()
         page = self._open_browser(open_detail=True)
         step_row = page.locator("#step-" + step_id)
         dates = step_row.locator(".step-date-fields input[type=date]")
