@@ -1375,7 +1375,7 @@
       status.disabled = task.conflict || step.conflict;
       statusLabel.append(status);
       const dateControls = {};
-      const dateFields = element("div", "step-date-fields");
+      const dateFieldsContainer = element("div", "step-date-fields");
       for (const [field, labelText] of [
         ["planned_date", "计划执行日期"], ["due_date", "截止日期"], ["follow_up_date", "下次跟进日期"]
       ]) {
@@ -1385,12 +1385,12 @@
         input.value = step[field] || "";
         input.disabled = task.conflict || step.conflict;
         label.append(input);
-        dateFields.append(label);
+        dateFieldsContainer.append(label);
         dateControls[field] = input;
       }
       const save = element("button", "save", "保存步骤");
       save.type = "submit"; save.disabled = task.conflict || step.conflict;
-      form.append(titleLabel, statusLabel, dateFields, save);
+      form.append(titleLabel, statusLabel, dateFieldsContainer, save);
       const stepDraftSnapshot = () => JSON.stringify([
         title.value, status.value, ...Object.keys(dateFields).map(field => dateControls[field].value)
       ]);
