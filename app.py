@@ -372,6 +372,10 @@ def validate_event(value: object) -> dict:
             validate_recurrence(changes["recurrence"])
         if value["actor"] != "user":
             raise ValueError("recurrence changes require an explicit user action")
+        if (changes["recurrence"] is not None and
+                changes["recurrence"]["enabled"] is False and
+                value.get("confirmed_end") is not True):
+            raise ValueError("ending recurrence needs explicit confirmation")
     if "recurrence_status_period" in changes:
         period = changes["recurrence_status_period"]
         if period is not None:
@@ -2892,6 +2896,8 @@ def handler_factory(data_dir: Path):
                                  "task_id": task["task_id"], "action": "update",
                                  "actor": "user", "timestamp": utc_now(),
                                  "base_revision": revision, "changes": changes}
+                        if action == "end":
+                            event["confirmed_end"] = True
                         validate_event(event)
                         append_event(data_dir, event)
                     return self.json_response(200, {"saved": True, "action": action})
