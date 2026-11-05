@@ -1343,7 +1343,8 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
         resolve_step_status(task)
 
 
-def read_workspace(data_dir: Path, include_trashed: bool = False) -> dict:
+def read_workspace(data_dir: Path, include_trashed: bool = False,
+                   hide_work_record_sources: bool = True) -> dict:
     """Reduce independent event files; never silently choose a concurrent edit."""
     event_dir = data_dir / "events"
     created: dict[str, list[dict]] = defaultdict(list)
@@ -1542,6 +1543,11 @@ def read_workspace(data_dir: Path, include_trashed: bool = False) -> dict:
         resolve_step_status(task)
     project_recurrence(tasks, warnings)
     resolve_task_hierarchy(tasks, warnings)
+    if hide_work_record_sources:
+        active, archive_warnings = active_task_record_conversions(data_dir, tasks)
+        warnings.extend(archive_warnings)
+        hidden_as_records = {event["source"]["task_id"] for event in active}
+        tasks = [task for task in tasks if task["task_id"] not in hidden_as_records]
     warnings.extend(project_state["warnings"])
     if not include_trashed:
         tasks = [task for task in tasks if not task.get("trashed_at")]
@@ -1715,8 +1721,6 @@ def work_record_display_id(record_id: str, created_at: str) -> str:
 def read_work_records(data_dir: Path) -> dict:
     """Reduce independent append-only files; fail closed on conflicting revisions."""
     directory = data_dir / "work_archive" / "record_events"
-    if not directory.exists():
-        return {"records": [], "warnings": []}
     roots: dict[str, list[dict]] = defaultdict(list)
     updates: dict[str, list[dict]] = defaultdict(list)
     seen: dict[str, dict] = {}
@@ -1741,6 +1745,35 @@ def read_work_records(data_dir: Path) -> dict:
             (roots if event["action"] == "create" else updates)[event["record_id"]].append(event)
         except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
             warnings.append(path.name + ": " + str(exc))
+    # One verified conversion event is the sole create root for its new record.
+    # No second file is written, and the original task event bytes are untouched.
+    conversion_map: dict[str, dict] = {}
+    if (data_dir / TASK_RECORD_CONVERSION_DIR).exists():
+        original_workspace = read_workspace(data_dir, include_trashed=True,
+                                            hide_work_record_sources=False)
+        active, archive_warnings = active_task_record_conversions(
+            data_dir, original_workspace["tasks"])
+        warnings.extend(archive_warnings)
+        for conversion in active:
+            target = conversion["target"]
+            record_id = target["record_id"]
+            changes = {key: target[key] for key in (
+                "content", "occurred_on", "project_id", "outcome",
+                "duration_minutes", "evidence_links")}
+            changes.update({"task_id": None, "action_links": [], "featured": False})
+            root = {"version": 1, "event_id": conversion["event_id"],
+                    "record_id": record_id, "action": "create", "actor": "user",
+                    "timestamp": conversion["timestamp"], "base_revision": 0,
+                    "changes": changes}
+            validate_work_record_event(root)
+            if root["event_id"] in seen:
+                collisions[root["event_id"]].update({
+                    record_id, seen[root["event_id"]]["record_id"]})
+                warnings.append(record_id + ": conversion collides with a record event ID")
+            else:
+                seen[root["event_id"]] = root
+            roots[record_id].append(root)
+            conversion_map[record_id] = conversion
     records: list[dict] = []
     compromised = set().union(*collisions.values()) if collisions else set()
     for record_id in sorted(set(roots) | set(updates)):
@@ -1758,6 +1791,8 @@ def read_work_records(data_dir: Path) -> dict:
                   "updated_at": root["timestamp"],
                   "actor": root["actor"], "revision": 1, "conflict": False,
                   "display_id": work_record_display_id(record_id, root["timestamp"])}
+        if record_id in conversion_map:
+            record["source_task_id"] = conversion_map[record_id]["source"]["task_id"]
         by_revision: dict[int, list[dict]] = defaultdict(list)
         for event in updates[record_id]:
             by_revision[event["base_revision"]].append(event)
@@ -1795,6 +1830,166 @@ def read_work_records(data_dir: Path) -> dict:
 def append_work_record_event(data_dir: Path, event: dict) -> Path:
     validate_work_record_event(event)
     return _append_json_event(data_dir, event, "work_archive/record_events")
+
+
+
+# Converting an accidentally created task into a fact is a single atomic,
+# immutable ledger event. Task history stays in events/; only the read model
+# hides the source when both the exact source revision and fingerprint match.
+TASK_RECORD_CONVERSION_DIR = "work_archive/task_record_events"
+TASK_RECORD_SOURCE_FIELDS = (
+    "task_id", "revision", "title", "manual_status", "project_id",
+    "parent_task_id", "related_project_ids", "document_links", "owner",
+    "priority", "due_date", "planned_date", "follow_up_date"
+)
+
+
+def task_record_source_hash(task: dict) -> str:
+    snapshot = {key: task.get(key) for key in TASK_RECORD_SOURCE_FIELDS}
+    return hashlib.sha256(json.dumps(
+        snapshot, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")).hexdigest()
+
+
+def task_record_source_allowed(task: dict) -> bool:
+    """Only standalone tasks can become fact records, never a task tree."""
+    return bool(
+        not task.get("conflict") and not task.get("trashed_at")
+        and not task.get("steps") and not task.get("all_child_task_ids")
+        and not task.get("parent_task_id") and not task.get("parent_missing")
+        and not task.get("parent_cycle") and not task.get("status_rollup_incomplete")
+        and not task.get("step_order_conflict") and not task.get("step_order_incomplete")
+        and task.get("recurrence") is None
+        and task.get("source_work_record") is None
+        and type(task.get("revision")) is int and task["revision"] >= 1
+    )
+
+
+def validate_task_record_conversion(value: object) -> dict:
+    if not isinstance(value, dict) or set(value) != {
+        "version", "event_id", "action", "actor", "timestamp",
+        "confirmed_move", "source", "target"
+    } or value["version"] != 1 or value["action"] != "task_to_record" or (
+        value["actor"] != "user" or value["confirmed_move"] is not True
+    ):
+        raise ValueError("task to record requires a confirmed user conversion")
+    if not isinstance(value["event_id"], str) or not EVENT_ID.fullmatch(value["event_id"]):
+        raise ValueError("invalid task to record event ID")
+    stamp = value["timestamp"]
+    if not isinstance(stamp, str):
+        raise ValueError("conversion timestamp required")
+    try:
+        if datetime.fromisoformat(stamp.replace("Z", "+00:00")).tzinfo is None:
+            raise ValueError("conversion timestamp timezone required")
+    except ValueError as exc:
+        raise ValueError("invalid conversion timestamp") from exc
+    source = value["source"]
+    if (not isinstance(source, dict) or set(source) != {
+            "task_id", "revision", "snapshot_sha256"
+        } or not isinstance(source["task_id"], str)
+        or not TASK_ID.fullmatch(source["task_id"])
+        or type(source["revision"]) is not int or source["revision"] < 1
+        or not isinstance(source["snapshot_sha256"], str)
+        or not re.fullmatch(r"[0-9a-f]{64}", source["snapshot_sha256"])):
+        raise ValueError("invalid conversion source")
+    target = value["target"]
+    if not isinstance(target, dict) or set(target) != {
+        "record_id", "content", "occurred_on", "project_id",
+        "outcome", "duration_minutes", "evidence_links"
+    }:
+        raise ValueError("invalid conversion target")
+    record = {
+        "version": 1, "event_id": value["event_id"],
+        "record_id": target["record_id"], "action": "create", "actor": "user",
+        "timestamp": stamp, "base_revision": 0,
+        "changes": {**{key: target[key] for key in target if key != "record_id"},
+                    "task_id": None, "action_links": [], "featured": False}
+    }
+    validate_work_record_event(record)
+    return value
+
+
+def read_task_record_conversions(data_dir: Path) -> tuple[list[dict], list[str]]:
+    directory = data_dir / TASK_RECORD_CONVERSION_DIR
+    if not directory.exists():
+        return [], []
+    events, warnings = [], []
+    seen_ids: dict[str, dict] = {}
+    for path in sorted(directory.glob("*.json")):
+        try:
+            if not path.is_file() or path.stat().st_size > MAX_WORK_RECORD_BODY:
+                raise ValueError("invalid conversion event file")
+            event = validate_task_record_conversion(
+                json.loads(path.read_text(encoding="utf-8-sig")))
+            previous = seen_ids.get(event["event_id"])
+            if previous is not None:
+                if previous == event:
+                    continue
+                raise ValueError("conversion event ID collision")
+            seen_ids[event["event_id"]] = event
+            events.append(event)
+        except (ValueError, TypeError, OSError, UnicodeError,
+                json.JSONDecodeError) as exc:
+            warnings.append(path.name + ": " + str(exc))
+    # All conversions must remain visible for review, rather than hiding tasks
+    # while a corrupted or not-yet-synchronized ledger may compete with them.
+    return events, warnings
+
+
+def active_task_record_conversions(data_dir: Path,
+                                   tasks: list[dict]) -> tuple[list[dict], list[str]]:
+    events, warnings = read_task_record_conversions(data_dir)
+    if warnings:
+        return [], warnings
+    by_source: dict[str, list[dict]] = defaultdict(list)
+    by_target: dict[str, list[dict]] = defaultdict(list)
+    for event in events:
+        by_source[event["source"]["task_id"]].append(event)
+        by_target[event["target"]["record_id"]].append(event)
+    tasks_by_id = {task["task_id"]: task for task in tasks}
+    active = []
+    for event in events:
+        source = event["source"]
+        target = event["target"]
+        task = tasks_by_id.get(source["task_id"])
+        if len(by_source[source["task_id"]]) != 1 or len(by_target[target["record_id"]]) != 1:
+            warnings.append(source["task_id"] + ": competing task-to-record conversions")
+            continue
+        if (task is None or not task_record_source_allowed(task)
+            or task["revision"] != source["revision"]
+            or task_record_source_hash(task) != source["snapshot_sha256"]
+            or task.get("project_id") != target["project_id"]
+            or task.get("document_links", []) != target["evidence_links"]):
+            warnings.append(source["task_id"] +
+                            ": conversion source changed, incomplete or conflicted; source remains visible")
+            continue
+        # A separately created record with the same ID must not cause a
+        # conversion to hide its source. Historical update events are allowed.
+        record_dir = data_dir / "work_archive" / "record_events"
+        existing_root = False
+        for path in record_dir.glob("*.json"):
+            try:
+                if path.stat().st_size > MAX_WORK_RECORD_BODY:
+                    raise ValueError("oversized record event")
+                candidate = validate_work_record_event(
+                    json.loads(path.read_text(encoding="utf-8-sig")))
+                if candidate["record_id"] == target["record_id"] and candidate["action"] == "create":
+                    existing_root = True
+                    break
+            except (OSError, ValueError, TypeError, UnicodeError, json.JSONDecodeError):
+                # Fail closed on suspect source files until a human reviews.
+                existing_root = True
+                break
+        if existing_root:
+            warnings.append(target["record_id"] + ": conversion record ID collision or unreadable data")
+            continue
+        active.append(event)
+    return active, warnings
+
+
+def append_task_record_conversion(data_dir: Path, event: dict) -> Path:
+    validate_task_record_conversion(event)
+    return _append_json_event(data_dir, event, TASK_RECORD_CONVERSION_DIR)
 
 
 def read_task_completion_activity(data_dir: Path, workspace: dict) -> list[dict]:
@@ -3503,10 +3698,12 @@ def handler_factory(data_dir: Path):
             action_preview = path == "/api/work-archive/actions/preview"
             action_create = path == "/api/work-archive/actions/create"
             action_link = path == "/api/work-archive/actions/link"
+            task_record_match = re.fullmatch(
+                r"/api/work-archive/tasks/(TASK-[A-Za-z0-9-]{1,50})/convert-to-record", path)
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
-            if not (creating_work_record or work_record_match or creating_inbox or inbox_ignore or creating_summary or summary_edit or action_preview or action_create or action_link or creating_task or creating_project or task_match or recurrence_match or project_match or
+            if not (creating_work_record or work_record_match or creating_inbox or inbox_ignore or creating_summary or summary_edit or action_preview or action_create or action_link or task_record_match or creating_task or creating_project or task_match or recurrence_match or project_match or
                     step_create_match or step_update_match or step_reorder_match or
                     step_documents_match or step_delete_match or step_convert_match or task_convert_match or applying_update or
                     documents_match or lifecycle_match or changing_retention or review_match):
@@ -3558,8 +3755,57 @@ def handler_factory(data_dir: Path):
             try:
                 archive_request = (creating_work_record or work_record_match or creating_inbox or
                                    inbox_ignore or creating_summary or summary_edit or
-                                   action_preview or action_create or action_link)
+                                   action_preview or action_create or action_link or task_record_match)
                 payload = self.read_payload(MAX_WORK_RECORD_BODY if archive_request else MAX_BODY)
+                if task_record_match:
+                    required = {"revision", "occurred_on", "content", "outcome",
+                                "duration_minutes", "confirmed_move"}
+                    if set(payload) != required or payload["confirmed_move"] is not True or (
+                            type(payload["revision"]) is not int or payload["revision"] < 1):
+                        raise ValueError("task conversion requires revision and explicit confirmation")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir, include_trashed=True,
+                                                   hide_work_record_sources=False)
+                        task = next((item for item in workspace["tasks"]
+                                     if item["task_id"] == task_record_match.group(1)), None)
+                        if task is None:
+                            return self.json_response(404, {"error": "source task not found"})
+                        active, conversion_warnings = active_task_record_conversions(
+                            data_dir, workspace["tasks"])
+                        if conversion_warnings or any(
+                                event["source"]["task_id"] == task["task_id"] for event in active):
+                            return self.json_response(409, {
+                                "error": "conversion already exists or needs review; refresh"
+                            })
+                        if task["revision"] != payload["revision"] or not task_record_source_allowed(task):
+                            return self.json_response(409, {
+                                "error": "only an unchanged standalone task can be converted"
+                            })
+                        new_record_id = "RECORD-" + uuid.uuid4().hex.upper()
+                        target = {
+                            "record_id": new_record_id, "content": payload["content"],
+                            "occurred_on": payload["occurred_on"],
+                            "project_id": task.get("project_id"),
+                            "outcome": payload["outcome"],
+                            "duration_minutes": payload["duration_minutes"],
+                            "evidence_links": list(task.get("document_links", []))
+                        }
+                        event = {
+                            "version": 1, "event_id": str(uuid.uuid4()),
+                            "action": "task_to_record", "actor": "user",
+                            "timestamp": utc_now(), "confirmed_move": True,
+                            "source": {
+                                "task_id": task["task_id"], "revision": task["revision"],
+                                "snapshot_sha256": task_record_source_hash(task)
+                            },
+                            "target": target,
+                        }
+                        append_task_record_conversion(data_dir, event)
+                    return self.json_response(201, {
+                        "saved": True, "task_id": task["task_id"],
+                        "record_id": new_record_id,
+                        "display_id": work_record_display_id(new_record_id, event["timestamp"])
+                    })
                 if action_preview:
                     with _write_lock:
                         workspace = read_workspace(data_dir)
