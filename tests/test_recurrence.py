@@ -209,6 +209,38 @@ class RecurrenceServerTests(unittest.TestCase):
             "title": "不允许的子任务", "parent_task_id": TASK_ID})[0], 400)
         self.assertEqual(self.task()["revision"], 2)
 
+    def test_future_cycle_cannot_be_completed_before_start(self):
+        future = (date.today() + timedelta(days=7)).isoformat()
+        path = "/api/tasks/" + TASK_ID
+        self.assertEqual(self.post(path + "/recurrence", {
+            "action": "configure", "revision": 1,
+            "recurrence": rule(start=future)})[0], 200)
+        self.assertIsNone(self.task()["recurrence_period_start"])
+        self.assertEqual(self.post(path + "/update", {
+            "title": "虚构周期任务", "status": "done",
+            "revision": 2, "confirmed_done": True})[0], 409)
+        self.assertEqual(self.task()["revision"], 2)
+
+    def test_finish_event_cannot_silently_mutate_history(self):
+        today = date.today().isoformat()
+        path = "/api/tasks/" + TASK_ID
+        self.assertEqual(self.post(path + "/recurrence", {
+            "action": "configure", "revision": 1,
+            "recurrence": rule(start=today)})[0], 200)
+        old_files = {p.name: p.read_bytes() for p in
+                     (self.data_dir / "events").glob("*.json")}
+        self.assertEqual(self.post(path + "/update", {
+            "title": "虚构周期任务", "status": "done",
+            "revision": 2, "confirmed_done": True})[0], 200)
+        self.assertTrue(all((self.data_dir / "events" / name).read_bytes() == body
+                            for name, body in old_files.items()))
+        events = [json.loads(p.read_text("utf-8")) for p in
+                  (self.data_dir / "events").glob("*.json")]
+        completed = [item for item in events if item["changes"].get("status") == "done"]
+        self.assertEqual(len(completed), 1)
+        self.assertTrue(completed[0]["confirmed_done"])
+        self.assertEqual(completed[0]["changes"]["recurrence_status_period"], today)
+
     def test_existing_step_prevents_recurring_configuration(self):
         path = "/api/tasks/" + TASK_ID
         self.assertEqual(self.post(path + "/steps", {"title": "已有步骤"})[0], 201)
