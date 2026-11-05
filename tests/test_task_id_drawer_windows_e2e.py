@@ -1050,6 +1050,55 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(source.read_bytes(), original)
 
 
+
+    def test_source_linked_weekly_analysis_and_featured_portfolio_copy_are_read_only(self):
+        """Windows real Chromium: source IDs survive clipboard handoff without extra events."""
+        record_id = "RECORD-" + "B" * 32
+        append_work_record_event(self.data_dir, {
+            "version": 1, "event_id": "handoff-chromium-record-0001",
+            "record_id": record_id, "action": "create", "actor": "user",
+            "timestamp": "2026-11-05T08:00:00Z",
+            "base_revision": 0,
+            "changes": {
+                "content": "虚构的跨部门工作会议已经召开",
+                "occurred_on": "2026-11-04",
+                "outcome": "提出进一步核对供应商数据接口",
+                "featured": True,
+                "evidence_links": [{
+                    "title": "虚构会议记录",
+                    "url": "https://drive.google.com/file/d/example/view"
+                }]
+            }
+        })
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "handoff-chromium-done-0001",
+            "task_id": self.task_id, "action": "update", "actor": "user",
+            "timestamp": "2026-11-05T08:00:00Z",
+            "base_revision": 1, "confirmed_done": True,
+            "changes": {"status": "done"}
+        })
+        original = self._file_hashes()
+        page = self._open_browser(open_detail=False)
+        page.locator("#open-create-record").click()
+        page.locator("#work-summary-period").select_option("weekly")
+        page.locator("#work-summary-date").fill("2026-11-05")
+        page.locator("#work-summary-copy-sources").click()
+        expect(page.locator("#work-summary-message")).to_contain_text("已复制含 1 条工作记录")
+        copied = page.evaluate("navigator.clipboard.readText()")
+        self.assertIn(record_id, copied)
+        self.assertIn("handoff-chromium-done-0001", copied)
+        self.assertIn("drive.google.com/file/d/example", copied)
+        self.assertIn("不得伪造耗时", copied)
+        self.assertEqual(original, self._file_hashes(), "copy must not write business data")
+
+        page.locator("#work-portfolio-copy").click()
+        expect(page.locator("#work-portfolio-message")).to_contain_text("已复制 1 条人工精选成果")
+        copied = page.evaluate("navigator.clipboard.readText()")
+        self.assertIn(record_id, copied)
+        self.assertIn("简历素材", copied)
+        self.assertIn("待补充/待核实", copied)
+        self.assertEqual(original, self._file_hashes(), "portfolio handoff is also read-only")
+
     def test_review_chatgpt_actions_requires_approval_and_preserves_source(self):
         """Real Chromium: structured import, duplicate review and single-event provenance."""
         source_id = "RECORD-" + "D" * 32

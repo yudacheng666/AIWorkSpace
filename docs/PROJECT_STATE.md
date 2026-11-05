@@ -1,5 +1,20 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-06：2.7.0 Draft PR #44 准确 SHA CI PASS；尚未发布
+
+- **准确代码/测试 SHA**：`26eeaef7b7030707ddf6e24a7992cd078b4e36e9`，GitHub Actions [#42126735310](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42126735310) **3/3 SUCCESS**。Ubuntu Python 243 tests（26 SKIP）、Windows Python 243 tests（24 SKIP）；Node 两端各 109 PASS/0 FAIL；Windows 原生 Chromium 更新/回滚 3 PASS，工作台 UI 21 PASS（含总结与成果库来源编号及证据剪贴板只读核验）。
+- **前次失败及处理**：第一轮新 Python 测试错误地仅要求提示出现字面词“不得”，而正确实现使用同义的“不要编造”；已改为检查明确的禁止虚构业绩提示；产品代码未因这条测试文案断言而改变。新精确 SHA 完整 CI 通过。
+- **现阶段链路**：#40（2.3 补记）→ #41（2.4 档案与来源总结底稿）→ #42（2.5 衍生待办）→ #43（2.6 历史误建任务转记录）→ #44（2.7 来源可追溯 ChatGPT 总结及成果材料交接），**五个 PR 均应保持 Draft**，待用户集中体验与明确合并授权。
+- **距离正式完成仍差**：真正的 ChatGPT 深度语义自动分析/职业报告应用内生成尚未建设；本机网页没有模型 API（按用户零付费要求，现为人工复制粘贴）；真实公司 Windows 8770、Google Drive 双电脑离线/重连、旧客户端兼容及生产迁移 NOT TESTED；main 仍正式 2.2.0，不能把 CI 当作已部署可体验。最后完整体验、回归、依赖顺序批准合并及发布仍待执行。
+
+## 2026-11-06：2.7.0 来源可追溯 AI 分析交接（新 Draft 候选）
+
+- **承接与规则**：继续从已在准确 SHA 测试通过的 Draft #43（2.6.0，产品 SHA `f24ba1a00087555c5b1541a9061aebbe7567dc3b`、Actions #42125093085 3/3 SUCCESS）开发；原链路 #40→#41→#42→#43 全部未合并，最新 main 仍正式 v2.2.0。新分支 `feat/20261106-work-analysis-handoff`，候选 VERSION 2.7.0。
+- **新增两个只读出口**：`GET /api/work-archive/analysis-context` 严格使用日/周/月已有 summary 底稿的相同 RECORD IDs 和人工确认完成 event IDs，附工作内容、成果/工时、来源任务和证据链接；`GET /api/work-archive/portfolio-context` 仅选人工 featured 成果，项目可筛选。冲突/缺失/无来源/超出 30000 字符等均拒绝，不沉默遗漏。
+- **界面**：工作总结增加「复制含来源的 ChatGPT 分析说明」，成果库增加项目范围和「复制成果证据供 ChatGPT 整理」。点击只读取本机数据、复制剪贴板，由用户主动粘贴给 ChatGPT 分析、核对并用现有手工总结保存流程回写；无内嵌 AI、无付费 API、无自动写事件、无伪造成果。
+- **代码与测试**：app.py、web/index.html、tests/test_work_analysis_handoff.py、tests/test_ui_shell.mjs 和 Windows 真实 Chromium E2E；需求、设计、决策、README 同步。**本阶段尚未完成准确 SHA 的 CI 验收，不可继承 2.6 PASS。**
+- **发布安全**：开发分支 / Draft、虚构测试数据，不合并 main、不操作真实 Drive、不开启后台服务或模型 API；公司 Windows 8770、双机离线/重连与真实业务材料仍 NOT TESTED。用户要求全部阶段完成后集中体验反馈。
+
 ## 2026-11-06：v2.6.0 Draft PR #43 已通过准确 SHA 自动化（待集中体验与授权合并）
 
 - **PR**：[Draft #43](https://github.com/yudacheng666/AIWorkSpace/pull/43)，依赖 #40→#41→#42；仍 **Open/Draft**，不合并、不部署。

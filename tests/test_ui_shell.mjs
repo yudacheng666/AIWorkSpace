@@ -60,7 +60,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
           "work-record-project", "work-record-task", "work-filter-project",
           "work-inbox-project", "work-summary-period", "work-summary-project",
           "work-link-target", "work-link-relation", "work-action-source",
-          "work-task-convert-source"]);
+          "work-task-convert-source", "work-portfolio-project"]);
         elements.set(id, node(selects.has(id) ? "select" : "div"));
       }
       return elements.get(id);
@@ -84,6 +84,12 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     if (path === "/api/work-records") return {ok: true, json: async () => ({records: work.records || [], task_completions: work.task_completions || [], warnings: []})};
     if (path === "/api/work-archive") return {ok: true, json: async () => ({
       inbox:work.inbox || [], summaries:work.summaries || [], warnings:[]})};
+    if (path.startsWith("/api/work-archive/analysis-context?")) return {
+      ok:work.analysis_error ? false : true,json:async()=>work.analysis_error
+        ? {error:work.analysis_error} : (work.analysis_context || {prompt:"来源分析说明",record_count:0,completion_count:0})};
+    if (path.startsWith("/api/work-archive/portfolio-context?")) return {
+      ok:work.portfolio_error ? false : true,json:async()=>work.portfolio_error
+        ? {error:work.portfolio_error} : (work.portfolio_context || {prompt:"成果来源说明",record_count:0})};
     if (path.startsWith("/api/work-archive/preview?")) return {
       ok:true,json:async()=>work.preview || {period:"daily",period_start:"2026-11-05",
         period_end:"2026-11-05",project_id:null,body:"工作总结底稿",
@@ -1639,4 +1645,38 @@ test("cancelled task-to-record conversion does not POST and leaves the unsaved d
   await h.el("work-task-convert-form").handlers.get("submit")[0]({preventDefault() {}});
   assert.equal(h.writes.length,0);
   assert.equal(h.el("work-task-convert-content").value,"已有的工作事实");
+});
+
+
+test("ChatGPT weekly analysis exports current source-linked context without writing or faking an AI backend", async () => {
+  const h=harness([],()=>true,[],[],null,{
+    analysis_context:{prompt:"来源分析：RECORD-AAAAAAAAAAAA，evt-00001",record_count:1,completion_count:1}
+  });
+  await h.api.refresh(true);
+  h.el("work-summary-period").value="weekly";
+  h.el("work-summary-date").value="2026-11-05";
+  h.el("work-summary-project").value="";
+  await h.el("work-summary-copy-sources").handlers.get("click")[0]();
+  assert.equal(h.copied.at(-1),"来源分析：RECORD-AAAAAAAAAAAA，evt-00001");
+  assert.match(h.el("work-summary-message").textContent,/已复制含 1 条工作记录与 1 条任务完成来源/);
+  assert.equal(h.writes.length,0, "analysis handoff must be strictly read-only");
+});
+
+test("featured achievement context copies only server-verified source data and surfaces conflict without writes", async () => {
+  const projectId="PROJECT-"+"F".repeat(32);
+  const h=harness([],()=>true,[{project_id:projectId,name:"虚构项目"}],[],null,{
+    portfolio_context:{prompt:"精选成果资料：RECORD-0001",record_count:1}
+  });
+  await h.api.refresh(true);
+  h.el("work-portfolio-project").value=projectId;
+  await h.el("work-portfolio-copy").handlers.get("click")[0]();
+  assert.equal(h.copied.at(-1),"精选成果资料：RECORD-0001");
+  assert.match(h.el("work-portfolio-message").textContent,/已复制 1 条人工精选成果/);
+  assert.equal(h.writes.length,0);
+  const bad=harness([],()=>true,[],[],null,{portfolio_error:"featured source conflicted"});
+  await bad.api.refresh(true);
+  await bad.el("work-portfolio-copy").handlers.get("click")[0]();
+  assert.equal(bad.copied.length,0);
+  assert.match(bad.el("work-portfolio-message").textContent,/未复制成果来源/);
+  assert.equal(bad.writes.length,0);
 });
