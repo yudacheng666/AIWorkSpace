@@ -2730,6 +2730,7 @@ def handler_factory(data_dir: Path):
         def do_POST(self):
             path = unquote(urlsplit(self.path).path)
             task_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/update", path)
+            recurrence_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/recurrence", path)
             documents_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/documents", path)
             step_documents_match = re.fullmatch(
                 r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/documents", path)
@@ -2749,7 +2750,7 @@ def handler_factory(data_dir: Path):
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
-            if not (creating_task or creating_project or task_match or project_match or
+            if not (creating_task or creating_project or task_match or recurrence_match or project_match or
                     step_create_match or step_update_match or step_reorder_match or
                     step_documents_match or step_delete_match or step_convert_match or task_convert_match or applying_update or
                     documents_match or lifecycle_match or changing_retention or review_match):
@@ -2840,6 +2841,59 @@ def handler_factory(data_dir: Path):
                         if action != "trash" and not task.get("trashed_at"):
                             return self.json_response(409, {"error": "task must be in trash first"})
                         append_task_lifecycle(data_dir, task, action)
+                    return self.json_response(200, {"saved": True, "action": action})
+
+                if recurrence_match:
+                    action = payload.get("action")
+                    allowed = ({"action", "revision", "recurrence"} if action == "configure"
+                               else {"action", "revision", "confirmed"})
+                    if action not in {"configure", "end", "resume"} or set(payload) != allowed:
+                        raise ValueError("invalid recurring-task operation")
+                    revision = payload["revision"]
+                    if type(revision) is not int or revision < 1:
+                        raise ValueError("invalid revision")
+                    if action != "configure" and payload["confirmed"] is not True:
+                        raise ValueError("ending or resuming recurrence requires confirmation")
+                    new_rule = validate_recurrence(payload["recurrence"]) if action == "configure" else None
+                    if new_rule and not new_rule["enabled"]:
+                        raise ValueError("configure must enable recurrence; use end to stop")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        task = next((t for t in workspace["tasks"]
+                                     if t["task_id"] == recurrence_match.group(1)), None)
+                        if task is None:
+                            return self.json_response(404, {"error": "task not found"})
+                        if (task["conflict"] or task["revision"] != revision or
+                                task.get("status_rollup_incomplete") or task.get("parent_missing") or
+                                task.get("parent_cycle") or task.get("trashed_at")):
+                            return self.json_response(409, {"error": "task changed or needs review; refresh"})
+                        current_rule = task.get("recurrence")
+                        if action == "configure":
+                            if (task.get("steps") or task.get("all_child_task_ids") or
+                                    task.get("step_order_incomplete") or task.get("step_order_conflict")):
+                                return self.json_response(409, {"error": "recurring task must not have steps or child tasks"})
+                            if current_rule == new_rule:
+                                return self.json_response(200, {"saved": False})
+                            changes = {"recurrence": new_rule, "status": "todo",
+                                       "recurrence_status_period": None}
+                        elif action == "end":
+                            if current_rule is None or not current_rule["enabled"]:
+                                return self.json_response(409, {"error": "recurrence already ended or not configured"})
+                            changes = {"recurrence": {**current_rule, "enabled": False}}
+                        else:
+                            if current_rule is None or current_rule["enabled"]:
+                                return self.json_response(409, {"error": "recurrence is not ended"})
+                            if (task.get("steps") or task.get("all_child_task_ids") or
+                                    task.get("step_order_incomplete") or task.get("step_order_conflict")):
+                                return self.json_response(409, {"error": "recurring task must not have steps or child tasks"})
+                            changes = {"recurrence": {**current_rule, "enabled": True},
+                                       "status": "todo", "recurrence_status_period": None}
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "task_id": task["task_id"], "action": "update",
+                                 "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": revision, "changes": changes}
+                        validate_event(event)
+                        append_event(data_dir, event)
                     return self.json_response(200, {"saved": True, "action": action})
 
                 if documents_match:
@@ -3007,6 +3061,8 @@ def handler_factory(data_dir: Path):
                             return self.json_response(409, {"error": "only a leaf task without steps or child tasks (including items in the recycle bin) can be converted; move or permanently remove its sub-items first"})
                         if source_task.get("parent_missing") or source_task.get("parent_cycle"):
                             return self.json_response(409, {"error": "source task parent relationship needs review"})
+                        if source_task.get("recurrence") is not None or target_parent.get("recurrence") is not None:
+                            return self.json_response(409, {"error": "recurring tasks cannot be converted into steps or host converted steps"})
                         if (target_parent.get("conflict") or target_parent.get("trashed_at") or
                                 target_parent.get("step_order_conflict") or target_parent.get("step_order_incomplete") or
                                 target_parent.get("status_rollup_incomplete") or
@@ -3062,6 +3118,8 @@ def handler_factory(data_dir: Path):
                             return self.json_response(404, {"error": "task not found"})
                         if task["conflict"]:
                             return self.json_response(409, {"error": "task has an unresolved conflict; refresh"})
+                        if task.get("recurrence") is not None:
+                            return self.json_response(409, {"error": "recurring task cannot have execution steps"})
                         if len(task.get("steps", [])) >= MAX_STEPS_PER_TASK:
                             return self.json_response(409, {"error": "task has reached the 100-step limit"})
                         step_id = f"STEP-{uuid.uuid4().hex.upper()}"
@@ -3289,9 +3347,18 @@ def handler_factory(data_dir: Path):
                         changes = {}
                         if title.strip() != current["title"]:
                             changes["title"] = title.strip()
-                        # Manual status must never be overwritten by the computed rollup on an unrelated edit.
-                        if status is not None and status != current.get("manual_status", current["status"]):
+                        # The previous cycle's manual status must not override today's status.
+                        if status is not None and current.get("recurrence_ended") and status != current["status"]:
+                            return self.json_response(409, {"error": "recurrence has ended; resume the cycle first"})
+                        if (status is not None and current.get("recurrence_active") and
+                                current.get("recurrence_period_start") is None):
+                            return self.json_response(409, {"error": "recurrence start date has not arrived"})
+                        if (status is not None and
+                                (status != current.get("manual_status", current["status"]) or
+                                 (current.get("recurrence_active") and status != current["status"]))):
                             changes["status"] = status
+                            if current.get("recurrence_active"):
+                                changes["recurrence_status_period"] = current["recurrence_period_start"]
                         if "parent_task_id" in payload:
                             parent_id = payload["parent_task_id"]
                             if parent_id != current.get("parent_task_id"):
