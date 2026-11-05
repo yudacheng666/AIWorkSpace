@@ -41,8 +41,7 @@ def task_event(eid, action, revision, changes, *, done=False):
 
 class WorkRecordValidationTests(unittest.TestCase):
     def test_fact_not_task_and_bad_fields_are_rejected(self):
-        self.assertIs(app.validate_work_record_event(work_event()),
-                      app.validate_work_record_event(work_event()))
+        self.assertEqual(app.validate_work_record_event(work_event()), work_event())
         for changes in (
             {"content": " ", "occurred_on": "2026-11-05"},
             {"content": "事实", "occurred_on": "2026-02-29"},
