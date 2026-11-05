@@ -720,6 +720,8 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
             for folder in ("events", "step_events") for path in (self.data_dir / folder).glob("*.json")
         }
 
+        page.locator("#task-detail-close").click()
+        expect(page.locator("#task-detail-drawer")).to_be_hidden()
         page.locator("#nav-calendar").click()
         expect(page.locator(".calendar-grid")).to_be_visible()
         expect(page.locator(".calendar-grid .calendar-step").filter(
