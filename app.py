@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import calendar
+import difflib
 import hashlib
 import json
 import os
@@ -367,10 +368,18 @@ def validate_event(value: object) -> dict:
                 raise ValueError("invalid lifecycle timestamp") from exc
         return value
     if set(changes) - {"title", "status", "project_id", "related_project_ids", "parent_task_id",
-                       "document_links", "recurrence", "recurrence_status_period", *TASK_MANAGEMENT_FIELDS}:
+                       "document_links", "recurrence", "recurrence_status_period", "source_work_record", *TASK_MANAGEMENT_FIELDS}:
         raise ValueError("unknown fields")
     if "document_links" in changes:
         validate_document_links(changes["document_links"])
+    if "source_work_record" in changes:
+        origin = changes["source_work_record"]
+        if (value["action"] != "create" or value["actor"] != "user" or
+                not isinstance(origin, dict) or set(origin) != {"record_id", "revision"} or
+                not isinstance(origin["record_id"], str) or
+                not WORK_RECORD_ID.fullmatch(origin["record_id"]) or
+                type(origin["revision"]) is not int or origin["revision"] < 1):
+            raise ValueError("work-sourced task requires a confirmed user create and source revision")
     if "recurrence" in changes:
         if changes["recurrence"] is not None:
             validate_recurrence(changes["recurrence"])
@@ -2143,6 +2152,114 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
             "source_completion_ids": [e["source_event_id"] for e in completed],
             "record_count": len(records), "completion_count": len(completed),
             "duration_minutes": duration}
+
+
+# No model is embedded in this application. Users may paste a structured
+# proposal created in ChatGPT; the local server still validates source and
+# current tasks, and only explicit user clicks write append-only events.
+MAX_ACTION_PROPOSALS = 5
+
+
+def normalize_action_title(title: str) -> str:
+    return re.sub(r"\s+", "", title).casefold()
+
+
+def validate_action_proposal_list(payload: object) -> dict:
+    if not isinstance(payload, dict) or set(payload) != {
+            "version", "record_id", "record_revision", "proposals"}:
+        raise ValueError("action proposals require version, source and proposals")
+    if payload["version"] != 1 or type(payload["version"]) is not int:
+        raise ValueError("unsupported action proposal version")
+    if (not isinstance(payload["record_id"], str) or
+            not WORK_RECORD_ID.fullmatch(payload["record_id"])):
+        raise ValueError("invalid action proposal source record")
+    if type(payload["record_revision"]) is not int or payload["record_revision"] < 1:
+        raise ValueError("invalid action proposal revision")
+    items = payload["proposals"]
+    if not isinstance(items, list) or not 1 <= len(items) <= MAX_ACTION_PROPOSALS:
+        raise ValueError("one to five action proposals required")
+    seen: set[str] = set()
+    for item in items:
+        if not isinstance(item, dict) or set(item) != {"title", "due_date"}:
+            raise ValueError("each action proposal requires title and due_date only")
+        title = item["title"]
+        if not isinstance(title, str) or not 1 <= len(title.strip()) <= 200:
+            raise ValueError("action title must be 1-200 characters")
+        if item["due_date"] is not None:
+            _archive_day(item["due_date"])
+        key = normalize_action_title(title)
+        if key in seen:
+            raise ValueError("duplicate titles in imported proposals")
+        seen.add(key)
+    return payload
+
+
+def require_action_record(data_dir: Path, record_id: str, revision: int) -> dict:
+    state = read_work_records(data_dir)
+    record = next((item for item in state["records"]
+                   if item["record_id"] == record_id), None)
+    if record is None:
+        raise LookupError("source work record was not found; synchronize and retry")
+    if record.get("conflict") or record["revision"] != revision:
+        raise LookupError("source work record changed or conflicted; reanalyze before saving")
+    return record
+
+
+def similar_action_tasks(title: str, project_id: str | None, workspace: dict) -> list[dict]:
+    """Advisory string matches only. Does not claim semantic duplicate detection."""
+    key = normalize_action_title(title)
+    matches = []
+    for task in workspace["tasks"]:
+        if (task.get("conflict") or task.get("trashed_at") or
+                task.get("project_id") != project_id):
+            continue
+        candidate = normalize_action_title(task["title"])
+        score = difflib.SequenceMatcher(None, key, candidate).ratio()
+        if score < 0.64:
+            continue
+        matches.append({
+            "task_id": task["task_id"], "title": task["title"],
+            "display_id": task.get("display_id", task["task_id"]),
+            "status": task["status"], "score": round(score, 3),
+            "match_type": "same_title" if key == candidate else "possibly_related",
+        })
+    matches.sort(key=lambda item: (-item["score"], item["task_id"]))
+    return matches[:10]
+
+
+def preview_action_proposals(data_dir: Path, workspace: dict, payload: dict) -> dict:
+    validate_action_proposal_list(payload)
+    record = require_action_record(data_dir, payload["record_id"],
+                                   payload["record_revision"])
+    project_id = record.get("project_id")
+    if project_id is not None:
+        project = next((p for p in workspace["projects"] if
+                        p["project_id"] == project_id and not p.get("conflict")), None)
+        if project is None:
+            raise LookupError("source project has not synchronized or is conflicted")
+    matches = []
+    for proposal in payload["proposals"]:
+        item = dict(proposal)
+        item["matches"] = similar_action_tasks(proposal["title"], project_id, workspace)
+        matches.append(item)
+    return {"record_id": record["record_id"], "record_revision": record["revision"],
+            "project_id": project_id, "proposals": matches,
+            "note": "标题相似度仅供人工查重，不代表已进行 AI 语义判断。"}
+
+
+def derived_action_labels(record: dict, workspace: dict) -> None:
+    existing = {(link["target_type"], link["target_id"])
+                for link in record.get("action_link_labels", [])}
+    for task in workspace["tasks"]:
+        origin = task.get("source_work_record")
+        if (not task.get("conflict") and not task.get("trashed_at") and
+                isinstance(origin, dict) and origin.get("record_id") == record["record_id"] and
+                ("task", task["task_id"]) not in existing):
+            record["action_link_labels"].append({
+                "target_type": "task", "target_id": task["task_id"],
+                "relation": "derived_action", "label": task["title"],
+                "origin": "task_create",
+            })
 
 
 def validate_setting_event(value: object) -> dict:
