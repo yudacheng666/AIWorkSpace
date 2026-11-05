@@ -4799,6 +4799,222 @@
       }
     }
 
+
+    function workActionSnapshot() {
+      return {record_id:$("work-action-source").value,
+              json:$("work-action-json").value};
+    }
+    const workActionWatcher = watchUnsavedEditor(
+      $("work-action-form"), workActionSnapshot, unsavedPersistentEditors);
+    let workActionBusy = false;
+    function resetWorkActionForm() {
+      workActionPreview = null;
+      $("work-action-source").value = "";
+      $("work-action-json").value = "";
+      $("work-action-list").replaceChildren();
+      $("work-action-message").textContent = "";
+      workActionWatcher.markClean();
+    }
+    function populateWorkActionSources() {
+      const select = $("work-action-source");
+      const previous = select.value;
+      select.replaceChildren();
+      const none = element("option", "", "请先选择来源工作记录");
+      none.value = "";
+      select.append(none);
+      for (const record of workRecords) {
+        if (record.conflict) continue;
+        const option = element("option", "", record.display_id + " · " +
+          (record.content || "").replace(/\s+/g, " ").slice(0, 42));
+        option.value = record.record_id;
+        select.append(option);
+      }
+      if (previous && !workRecords.some(item =>
+        item.record_id === previous && !item.conflict)) {
+        const missing = element("option", "", "原来源尚未同步或发生冲突");
+        missing.value = previous;
+        select.append(missing);
+      }
+      select.value = previous;
+    }
+    function selectedWorkActionRecord() {
+      const id = $("work-action-source").value;
+      return workRecords.find(item => item.record_id === id && !item.conflict);
+    }
+    async function copyActionAnalysisPrompt() {
+      const record = selectedWorkActionRecord();
+      if (!record) {
+        $("work-action-message").textContent = "请先选择一条有效的工作记录。";
+        return;
+      }
+      const relevant = current.filter(task => !task.conflict && !task.trashed_at &&
+        (task.project_id || null) === (record.project_id || null));
+      const taskContext = relevant.slice(0, 80).map(task => ({
+        task_id:task.task_id, title:task.title, status:task.status
+      }));
+      const sample = {version:1,record_id:record.record_id,
+        record_revision:record.revision,
+        proposals:[{title:"需要人工确认的后续待办名称",due_date:null}]};
+      const prompt = [
+        "请分析以下真实工作记录，仅识别尚未完成、确实需要后续处理的行动。",
+        "先对照已有任务避免重复；如果没有明确后续行动，请回答无需新建待办，不要编造。",
+        "若有建议，最多 5 条。日期不明确时 due_date 必须为 null，不得凭空补日期。",
+        "只输出可解析的 JSON 对象，不添加 Markdown 代码围栏、解释或未经允许的状态字段。",
+        "字段必须严格等于以下示例，并保持 record_id 和 record_revision 原值：",
+        JSON.stringify(sample, null, 2),
+        "以下是真实工作记录，请注意只按用户授权处理：",
+        JSON.stringify({record_id:record.record_id,record_revision:record.revision,
+          occurred_on:record.occurred_on,project_id:record.project_id,
+          content:record.content,outcome:record.outcome},null,2),
+        "现有同项目任务（仅供查重，不代表任务已完成）：",
+        JSON.stringify(taskContext,null,2),
+        relevant.length > 80 ? "注意：同项目任务超过 80 条，此列表不完整；需要补充查重。" : "",
+        "不得自动创建任务、修改任务状态、将事实伪称已确认完成。需要用户在工作台审核后逐条批准。"
+      ].join("\n\n");
+      try {
+        if (!globalThis.navigator?.clipboard?.writeText) throw Error("clipboard unavailable");
+        await globalThis.navigator.clipboard.writeText(prompt);
+        $("work-action-message").textContent = "已复制分析说明。请主动粘贴给 ChatGPT，再把返回的 JSON 粘贴到本页审核。";
+      } catch (error) {
+        $("work-action-message").textContent = "复制失败，请检查浏览器剪贴板权限。";
+      }
+    }
+    function readActionProposalInput() {
+      const value = $("work-action-json").value.trim();
+      if (!value) throw Error("请先粘贴 ChatGPT 返回的 JSON 建议。");
+      let payload;
+      try {payload = JSON.parse(value);}
+      catch (_) {throw Error("不是有效 JSON；请让 ChatGPT 仅输出 JSON，不带代码围栏。");}
+      if (!payload || typeof payload !== "object" || Array.isArray(payload))
+        throw Error("建议格式不正确。");
+      const record = selectedWorkActionRecord();
+      if (!record || payload.record_id !== record.record_id)
+        throw Error("建议来源与当前选中的工作记录不同，请检查编号。");
+      return payload;
+    }
+    function clearActionPreview(message = "") {
+      workActionPreview = null;
+      $("work-action-list").replaceChildren();
+      if (message) $("work-action-message").textContent = message;
+    }
+    function renderWorkActionPreview() {
+      const container = $("work-action-list");
+      container.replaceChildren();
+      if (!workActionPreview) return;
+      for (const proposed of workActionPreview.proposals) {
+        const row = element("article", "work-action-item");
+        row.append(element("strong", "", proposed.title));
+        row.append(element("p", "work-archive-hint",
+          "计划截止：" + (proposed.due_date || "待确认") + "；操作前会重新核对来源版本与现有任务。"));
+        const matches = proposed.matches || [];
+        if (matches.length) row.append(element("p", "work-action-duplicate",
+          "发现 " + matches.length + " 个标题相似的现有任务。以下结果仅是文字匹配，不代表 AI 已判断重复。"));
+        const options = element("div", "work-action-options");
+        for (const match of matches) {
+          const link = element("button", "", "关联已有：" + match.title +
+            "（" + (match.match_type === "same_title" ? "同名" : "可能相关") + "）");
+          link.type = "button";
+          link.addEventListener("click", () => applyWorkAction("link", proposed, match));
+          options.append(link);
+        }
+        if (!matches.some(match => match.match_type === "same_title")) {
+          const create = element("button", "", matches.length ? "核对后仍新建" : "确认新建待办");
+          create.type = "button";
+          create.addEventListener("click", () => applyWorkAction("create", proposed, null));
+          options.append(create);
+        } else {
+          row.append(element("p", "work-archive-hint",
+            "同项目已有同名任务，不能通过本功能重复创建；请选择关联已有任务。"));
+        }
+        row.append(options);
+        container.append(row);
+      }
+    }
+    async function previewWorkActions() {
+      if (isSaving || workActionBusy) return;
+      workActionBusy = true;
+      $("work-action-preview").disabled = true;
+      clearActionPreview();
+      try {
+        const payload = readActionProposalInput();
+        const response = await fetch("/api/work-archive/actions/preview", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body:JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok) throw Error(result.error || "HTTP " + response.status);
+        workActionPreview = result;
+        renderWorkActionPreview();
+        $("work-action-message").textContent = "已检查 " + result.proposals.length +
+          " 条建议。请逐条确认；预览没有写入任何任务。";
+      } catch (error) {
+        $("work-action-message").textContent = "无法审核建议：" + error.message;
+      } finally {
+        workActionBusy = false;
+        $("work-action-preview").disabled = false;
+      }
+    }
+    async function applyWorkAction(kind, proposed, match) {
+      if (isSaving || workActionBusy || !workActionPreview) return;
+      const preview = workActionPreview;
+      const msg = kind === "link"
+        ? "确认将这条工作记录关联到已有任务「" + match.title + "」？不会改变其状态。"
+        : "确认由这条工作记录新建待办「" + proposed.title +
+          "」？该任务将从待处理开始，不会直接完成。";
+      if (!window.confirm(msg)) return;
+      const path = kind === "link"
+        ? "/api/work-archive/actions/link" : "/api/work-archive/actions/create";
+      const payload = kind === "link"
+        ? {record_id:preview.record_id,record_revision:preview.record_revision,
+           task_id:match.task_id,confirmed_link:true}
+        : {record_id:preview.record_id,record_revision:preview.record_revision,
+           title:proposed.title,due_date:proposed.due_date,
+           confirmed_create:true,duplicate_reviewed:(proposed.matches || []).length > 0};
+      isSaving = true;
+      try {
+        const response = await fetch(path, {
+          method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok) throw Error(result.error || "HTTP " + response.status);
+        if (kind === "link" && result.revision !== undefined) {
+          // The source revision advanced because a single record-link event was appended.
+          // Only update our local pasted proposal snapshot after successful confirmation.
+          const currentJson = readActionProposalInput();
+          if (currentJson.record_revision === preview.record_revision) {
+            currentJson.record_revision = result.revision;
+            $("work-action-json").value = JSON.stringify(currentJson, null, 2);
+            workActionWatcher.check();
+          }
+        }
+        clearActionPreview();
+        await refresh(true);
+        await loadWorkRecords();
+        $("work-action-message").textContent = result.saved
+          ? (kind === "link" ? "已关联现有任务。历史工作记录仍保留。" :
+             "已新建待办。来源工作记录已追溯关联，任务保持待处理。")
+          : "这条关系之前已存在，无需重复写入。";
+      } catch (error) {
+        clearActionPreview("写入未成功：" + error.message +
+          "。没有自动重试；请刷新并重新核对来源和重复任务。");
+      } finally {
+        isSaving = false;
+      }
+    }
+    $("work-action-copy-prompt").addEventListener("click", copyActionAnalysisPrompt);
+    $("work-action-source").addEventListener("change", () =>
+      clearActionPreview("已切换来源，请核对粘贴的 JSON 中 record_id 和 revision。"));
+    $("work-action-form").addEventListener("submit", event => {
+      event.preventDefault();
+      previewWorkActions();
+    });
+    $("work-action-clear").addEventListener("click", () => {
+      if (isSaving || workActionBusy) return;
+      if (unsavedPersistentEditors.has($("work-action-form")) &&
+          !window.confirm("确定放弃尚未审核的待办建议吗？")) return;
+      resetWorkActionForm();
+    });
+
     const navBindings = [
       ["nav-overview", "overview", null],
       ["nav-worklog", "worklog", null],
