@@ -724,6 +724,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         expect(page.locator("#step-" + step_id)).to_be_visible()
         page.once("dialog", lambda dialog: dialog.accept())
         page.locator("#step-" + step_id).get_by_role("button", name="转为任务").click()
+        expect(page.locator("#step-" + step_id)).to_have_count(0)
         parent_state = {item["task_id"]: item for item in read_workspace(self.data_dir)["tasks"]}
         parent = parent_state[self.task_id]
         self.assertEqual(parent["steps"], [])
@@ -741,6 +742,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         selector.select_option(self.task_id)
         page.once("dialog", lambda dialog: dialog.accept())
         page.get_by_role("button", name="转为该任务的步骤").click()
+        expect(page.locator("#task-detail-drawer")).to_be_hidden()
 
         final = {item["task_id"]: item for item in read_workspace(self.data_dir)["tasks"]}
         parent = final[self.task_id]
