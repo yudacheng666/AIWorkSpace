@@ -1447,6 +1447,27 @@ class ServerTests(unittest.TestCase):
         })
         self.assertEqual(code, 409)
 
+
+
+    def test_deleting_a_converted_step_does_not_resurrect_its_source_task(self):
+        status, source = self.create_task({"title": "转换后再删除的末级任务"})
+        self.assertEqual(status, 201)
+        code, converted = self.post_json(f"/api/tasks/{source['task_id']}/convert-to-step", {
+            "revision": 1, "target_parent_task_id": "TASK-DEMO-001",
+            "target_step_order_revision": 0, "confirmed_move": True
+        })
+        self.assertEqual(code, 201)
+        code, deleted = self.post_json(
+            f"/api/tasks/TASK-DEMO-001/steps/{converted['step_id']}/delete",
+            {"revision": 1, "confirmed_delete": True})
+        self.assertEqual(code, 200)
+        self.assertTrue(deleted["deleted"])
+        workspace = read_workspace(self.data_dir)
+        self.assertNotIn(source["task_id"], {task["task_id"] for task in workspace["tasks"]})
+        parent = next(task for task in workspace["tasks"] if task["task_id"] == "TASK-DEMO-001")
+        self.assertEqual(parent["steps"], [])
+        self.assertEqual(len(list((self.data_dir / "conversion_events").glob("*.json"))), 1)
+
     def test_source_changed_after_conversion_keeps_source_and_hides_target(self):
         _, created = self.create_step(title="并发变更前的步骤")
         step_id = created["step_id"]
