@@ -1,5 +1,13 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-05：2.5.0 工作记录衍生待办审核候选开发（等待 CI）
+
+- 用户指示继续下一阶段文档、代码、测试，不在各子阶段反复人工体验。按 AGENTS.md 审计 main=2.2.0 / SHA 4bff94987a9cf45df2a3fd3acafdefb79bdedefd；PR #40、#41 均 Draft 未合并。此分支 feat/20261105-work-action-review 从 PR #41 精确 HEAD 3ee098df8798a0209b14a9338b2e237ea9b32b1c 派生。
+- 2.5.0 候选实现：工作记录选择与向 ChatGPT 复制分析上下文、严格 JSON 导入、候选建议预览及同项目文字相似查重、逐条明确新建待办或关联已有任务。后端创建任务采用一个 task create 事件，source_work_record:{record_id,revision} 可审计，status 默认 todo；已有任务关联采用工作记录 action_links 单次更新。
+- 增量测试：新 tests/test_work_action_review.py 的 API、schema、防重复、来源版本与原始事件保护；tests/test_ui_shell.mjs 补充人工审核/草稿/拒绝路径；Windows 真实 Chromium E2E 覆盖复制、JSON 预览、取消确认、用户新建及重复阻断。
+- **当前状态**：开发变更尚需在 GitHub Actions 准确 SHA 完整验证，不能挪用 2.4.0 CI 通过结果。候选 Draft，不合并 main、不安装公司 Windows 8770、不修改实际 Google Drive。多设备断网/重连、高风险误分类 task→record 原子转换以及 ChatGPT 连接器直写仍需后续专门验证。
+
+
 ## 2026-11-05：2.4.0 工作档案完整组合候选验收通过（Draft PR #41）
 
 - 用户指示“继续推进新文档的编写代码的开发和测试，等这个功能全都完成之后一起体验反馈”。本轮不要求用户分阶段下载或体验，先完成独立候选与准确 SHA CI。

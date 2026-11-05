@@ -98,3 +98,24 @@ work_archive 原有 record_events 外新增 inbox_events、summary_events。所�
 ### 7.4 模型与费用边界
 
 没有模型 API 的本机网页只做可解释的规则性提取、来源列表和文本底稿，不会自动识别会议意图、生成行动、后台写 ChatGPT，也不会自动编写简历。用户可以点击复制总结到 ChatGPT，由 ChatGPT 按授权读取 Google Drive 原始证据并分析，必要时将核对后的正文回写。不能把工具未执行的自动分析写成已完成。
+
+
+## 8. 2.5.0 事实记录衍生后续待办（人工审核闭环）
+
+### 8.1 流程
+
+工作记录页选择非冲突记录，点击“复制 ChatGPT 分析说明”，网页只将来源事实、日期、成果、稳定 RECORD ID/revision 及最多 80 项同项目任务标题/ID/状态放入剪贴板。用户主动在 ChatGPT 中要求提取未来行动，且只能返回 JSON，不自动创建或修改任何任务。
+
+建议格式仅允许：{"version":1,"record_id":"RECORD-<32HEX>","record_revision":1,"proposals":[{"title":"...", "due_date":null}]}。最多五条，可选日期为真实日历日。禁止任何额外 status/actor/confirmed_done 字段。回填严格 JSON 后点击“检查建议和重复任务（不写入）”，调用 POST /api/work-archive/actions/preview，由后端核对原记录 revision 和同项目当前任务。似乎重复的标题只提示“疑似相关”，不是经过模型判断；现有任务可以手动关联到原记录。
+
+### 8.2 明确授权的两个写入
+
+- POST /api/work-archive/actions/create：用户逐条确认、重复候选已核对、原 RECORD 仍然同 revision 后，生成新的 TASK-... create 事件，状态唯一为 todo；事件 changes 包含 source_work_record 对象，表示来源记录的稳定 ID/revision。一个文件完成创建及来源关系，避免两个对象双写造成一半成功。同项目已有相同标题一律拒绝从该入口再建；其他相近标题要求确认，来自同源的重复标题也拒绝。
+- POST /api/work-archive/actions/link：明确确认将已有任务作为源工作记录的 derived_action 关联，原记录 revision/目标项目/冲突检测后只追加一条 RECORD update(action_links) 事件，不改已有任务状态。重复关联无新写入。
+- GET /api/work-records 在只读投影中追加来源任务反向标签，任务原始数据流不复制回 RECORD，避免两个表同一关系被重复写入。
+
+所有 API 继续只接受本机安全 Host/Origin，错误状态 400/403/404/409，不删除、覆盖、猜测或擅自重试异常事件。项目与日期不明确不从 ChatGPT 语义自动补造，未核对数据保留草稿；真实多电脑未测试。
+
+### 8.3 延后项目
+
+任务误建工作事实→归档转换涉及隐藏原任务与回滚/复活安全，需单独追加式转换协议而不是两次无事务写入，本阶段不实施。跨项目语义查重、语义日报/周报、职业档案报告制作与 ChatGPT 连接器实时双向直写均待后续验收。用户仅在多个阶段完成后集中反馈。
