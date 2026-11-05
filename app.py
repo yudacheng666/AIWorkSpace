@@ -706,6 +706,15 @@ def resolve_conversion_events(tasks: list[dict], events: list[dict],
         if not reason and source_item is not None:
             if source_item.get("conflict") or source_item.get("trashed_at") or source_item.get("deleted_at"):
                 reason = "source is conflicted or deleted"
+            elif source["kind"] == "task" and (
+                    source_item.get("parent_missing") or source_item.get("parent_cycle")):
+                reason = "source task parent relationship needs review"
+            elif source["kind"] == "step" and (
+                    parent.get("conflict") or parent.get("trashed_at") or
+                    parent.get("status_rollup_incomplete") or parent.get("step_order_conflict") or
+                    parent.get("step_order_incomplete") or parent.get("parent_missing") or
+                    parent.get("parent_cycle") or parent.get("manual_status") == "done"):
+                reason = "source step parent is conflicted or unavailable"
             elif source_item.get("revision") < source["revision"]:
                 pending = True
             elif source_item.get("revision") > source["revision"]:
@@ -729,7 +738,9 @@ def resolve_conversion_events(tasks: list[dict], events: list[dict],
                     reason = "converted task target conflicts"
                 elif parent_task is None:
                     pending = True
-                elif parent_task.get("conflict") or parent_task.get("trashed_at"):
+                elif (parent_task.get("conflict") or parent_task.get("trashed_at") or
+                      parent_task.get("parent_missing") or parent_task.get("parent_cycle") or
+                      parent_task.get("manual_status") == "done"):
                     reason = "converted task parent is unavailable"
                 elif parent_id in consumed_tasks:
                     reason = "converted task parent was moved"
@@ -742,7 +753,10 @@ def resolve_conversion_events(tasks: list[dict], events: list[dict],
                     reason = "converted step target conflicts"
                 if target_parent is None:
                     pending = True
-                elif target_parent.get("conflict") or target_parent.get("trashed_at") or target_parent.get("step_order_conflict") or target_parent.get("step_order_incomplete"):
+                elif (target_parent.get("conflict") or target_parent.get("trashed_at") or
+                      target_parent.get("step_order_conflict") or target_parent.get("step_order_incomplete") or
+                      target_parent.get("status_rollup_incomplete") or target_parent.get("parent_missing") or
+                      target_parent.get("parent_cycle") or target_parent.get("manual_status") == "done"):
                     reason = "converted step parent is conflicted or unavailable"
                 elif target["task_id"] in consumed_tasks:
                     reason = "converted step parent was moved"
@@ -2728,7 +2742,8 @@ def handler_factory(data_dir: Path):
                             return self.json_response(404, {"error": "parent task not found"})
                         if (parent["conflict"] or parent.get("status_rollup_incomplete") or
                                 parent.get("step_order_conflict") or parent.get("step_order_incomplete") or
-                                parent.get("trashed_at") or parent.get("manual_status") == "done"):
+                                parent.get("trashed_at") or parent.get("parent_missing") or
+                                parent.get("parent_cycle") or parent.get("manual_status") == "done"):
                             return self.json_response(409, {"error": "parent task or step order needs review; refresh"})
                         step = next((item for item in parent.get("steps", [])
                                      if item["step_id"] == step_convert_match.group(2)), None)
@@ -2813,6 +2828,7 @@ def handler_factory(data_dir: Path):
                         if (target_parent.get("conflict") or target_parent.get("trashed_at") or
                                 target_parent.get("step_order_conflict") or target_parent.get("step_order_incomplete") or
                                 target_parent.get("status_rollup_incomplete") or
+                                target_parent.get("parent_missing") or target_parent.get("parent_cycle") or
                                 target_parent.get("manual_status") == "done"):
                             return self.json_response(409, {"error": "target parent or its step order needs review; refresh"})
                         if target_parent["step_order_revision"] != target_order_revision:
