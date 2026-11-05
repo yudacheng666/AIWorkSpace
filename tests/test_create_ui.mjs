@@ -613,9 +613,9 @@ test("M3.3 a conflicted step is frozen without freezing its sibling", () => {
   const conflictedForm = rows[0].children[1].children.find(item => item.className === "step-edit-form");
   const normalForm = rows[1].children[1].children.find(item => item.className === "step-edit-form");
   assert.equal(conflictedForm.children[0].children[0].disabled, true);
-  assert.equal(conflictedForm.children[2].disabled, true);
+  assert.equal(conflictedForm.children[3].disabled, true);
   assert.equal(normalForm.children[0].children[0].disabled, false);
-  assert.equal(normalForm.children[2].disabled, false);
+  assert.equal(normalForm.children[3].disabled, false);
 });
 
 test("M3.3 an order conflict disables reorder but leaves step editing available", () => {

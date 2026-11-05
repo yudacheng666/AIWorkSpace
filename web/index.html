@@ -69,6 +69,10 @@
     .step-edit-form { display: grid; grid-template-columns: minmax(160px, 1fr) 130px auto; align-items: end; gap: 9px; }
     .step-edit-form label { min-width: 0; font-size: 12px; }
     .step-edit-form input, .step-edit-form select { min-width: 0; padding: 8px 9px; font-size: 13px; }
+    .step-date-fields { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3,minmax(120px,1fr)); gap: 9px; }
+    .step-date-fields label { display: grid; gap: 4px; color: #667a92; }
+    .step-date-fields input { width: 100%; }
+    .step-actions .step-convert { color: #245f9e; border-color: #cbdcf0; background: #f7fbff; }
     .step-id { overflow-wrap: anywhere; }
     .step-actions { display: flex; gap: 5px; padding-top: 2px; }
     .step-actions button { border: 1px solid #dce4ee; color: #50677f; background: #fff; padding: 6px 9px; font-size: 12px; }
@@ -85,7 +89,11 @@
     .doc-panel-content[hidden] { display:none; }
     .step-add-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; margin-top: 12px; }
     .step-add-form input { min-width: 0; }
-    .child-tasks-panel { margin-top: 17px; padding-top: 15px; border-top: 1px solid #edf1f6; }
+    .child-tasks-panel, .task-conversion-panel { margin-top: 17px; padding-top: 15px; border-top: 1px solid #edf1f6; }
+    .task-conversion-panel { display:grid; gap:9px; }
+    .task-conversion-controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .task-conversion-controls select { min-width:min(260px,100%); flex:1; }
+    .task-conversion-note { margin:0; color:#8593a5; font-size:12px; line-height:1.5; }
     .step-empty, .step-order-warning, .step-conflict { color: #8593a5; font-size: 12px; margin: 10px 0 0; }
     .step-order-warning, .step-conflict { color: #976211; }
     .step-message { margin: 8px 0 0; font-size: 12px; }
@@ -94,6 +102,7 @@
       .step-actions { grid-column: 2; }
       .step-edit-form { grid-template-columns: 1fr 1fr; }
       .step-edit-form button { grid-column: 1 / -1; }
+      .step-date-fields { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 960px) {
       .task-meta { grid-template-columns: repeat(3, minmax(130px, 1fr)); }
@@ -492,6 +501,8 @@
     .calendar-day.is-today {background:#f2f7ff;}
     .calendar-date {display:inline-block;padding:2px 5px;border-radius:5px;color:#64748b;font-size:11px;font-weight:700;}
     .calendar-day.is-today .calendar-date {background:#2b64c8;color:white;}
+    .calendar-step { border-style:dashed; color:#526b89; background:#f7faff; }
+    .gantt-step-row .gantt-task-info { padding-left:16px; }
     .calendar-task {display:block;width:100%;margin-top:5px;padding:6px;border:0;border-left:3px solid #6f95d4;border-radius:5px;background:#f0f5ff;color:#365987;font-size:10px;text-align:left;line-height:1.4;overflow-wrap:anywhere;}
     .calendar-task:hover {background:#e1ecff;}
     .calendar-task.is-risk {border-left-color:#bc5551;background:#fff2f0;color:#a94743;}
@@ -1335,6 +1346,7 @@
 
     function stepRow(task, step, index, message) {
       const row = element("div", "step-row");
+      row.id = "step-" + step.step_id;
       row.append(element("span", "step-number", `${index + 1}.`));
       const content = element("div", "step-content");
       content.append(element("small", "step-id", step.step_id));
@@ -1362,10 +1374,26 @@
       }
       status.disabled = task.conflict || step.conflict;
       statusLabel.append(status);
+      const dateControls = {};
+      const dateFieldsContainer = element("div", "step-date-fields");
+      for (const [field, labelText] of [
+        ["planned_date", "计划执行日期"], ["due_date", "截止日期"], ["follow_up_date", "下次跟进日期"]
+      ]) {
+        const label = element("label", "", labelText);
+        const input = element("input");
+        input.type = "date";
+        input.value = step[field] || "";
+        input.disabled = task.conflict || step.conflict;
+        label.append(input);
+        dateFieldsContainer.append(label);
+        dateControls[field] = input;
+      }
       const save = element("button", "save", "保存步骤");
       save.type = "submit"; save.disabled = task.conflict || step.conflict;
-      form.append(titleLabel, statusLabel, save);
-      const stepDraftSnapshot = () => JSON.stringify([title.value, status.value]);
+      form.append(titleLabel, statusLabel, dateFieldsContainer, save);
+      const stepDraftSnapshot = () => JSON.stringify([
+        title.value, status.value, ...Object.keys(dateFields).map(field => dateControls[field].value)
+      ]);
       const stepDraftWatch = watchUnsavedEditor(form, stepDraftSnapshot);
       form.addEventListener("submit", async event => {
         event.preventDefault();
@@ -1382,13 +1410,19 @@
         const changes = {revision: step.revision};
         if (nextTitle !== step.title) changes.title = nextTitle;
         if (nextStatus !== step.status) changes.status = nextStatus;
+        for (const field of Object.keys(dateFields)) {
+          const value = dateControls[field].value || null;
+          if (value !== (step[field] || null)) changes[field] = value;
+        }
         if (completing) changes.confirmed_done = true;
-        if (!("title" in changes) && !("status" in changes)) {
+        if (!("title" in changes) && !("status" in changes) &&
+            !Object.keys(dateFields).some(field => field in changes)) {
           message.textContent = "步骤内容没有变化";
           return;
         }
         const draftAtSubmit = stepDraftSnapshot();
         isSaving = true; save.disabled = true; title.disabled = true; status.disabled = true;
+        Object.values(dateControls).forEach(input => {input.disabled = true;});
         message.className = "step-message"; message.textContent = "正在保存步骤…";
         try {
           const response = await fetch(
@@ -1408,6 +1442,7 @@
           save.disabled = task.conflict || step.conflict;
           title.disabled = task.conflict || step.conflict;
           status.disabled = task.conflict || step.conflict;
+          Object.values(dateControls).forEach(input => {input.disabled = task.conflict || step.conflict;});
         }
       });
       content.append(form, documentPanel(task, step));
@@ -1423,6 +1458,41 @@
       down.disabled = task.conflict || task.step_order_conflict ||
         task.step_order_incomplete || index === task.steps.length - 1;
       down.addEventListener("click", () => saveStepOrder(task, index, index + 1, message));
+      const convertStep = element("button", "step-convert", "转为任务");
+      convertStep.type = "button";
+      convertStep.disabled = task.conflict || step.conflict || task.status_rollup_incomplete || task.parent_missing || task.parent_cycle || task.manual_status === "done" ||
+        task.step_order_conflict || task.step_order_incomplete;
+      convertStep.title = "将此步骤移动为当前任务下的子任务，保留日期、状态和文档关联";
+      convertStep.addEventListener("click", async () => {
+        if (isSaving || convertStep.disabled || !confirmDiscardUnsaved()) return;
+        if (!window.confirm("将步骤「" + step.title +
+          "」转换为当前任务下的子任务？原步骤将不再显示，日期、状态和文档关联会保留，并分配新的任务编号；原步骤编号保留在转换历史中。")) return;
+        isSaving = true; convertStep.disabled = true;
+        message.className = "step-message"; message.textContent = "正在转换为任务…";
+        try {
+          const response = await fetch(
+            "/api/tasks/" + encodeURIComponent(task.task_id) + "/steps/" +
+            encodeURIComponent(step.step_id) + "/convert-to-task", {
+              method: "POST", headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({revision: step.revision, confirmed_move: true})
+            });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "转换失败");
+          await refresh(true);
+          const convertedTaskVisible = current.some(item => item.task_id === result.task_id);
+          const sourceStepVisible = current.some(item => item.task_id === task.task_id &&
+            (item.steps || []).some(candidate => candidate.step_id === step.step_id));
+          if (!convertedTaskVisible && sourceStepVisible) {
+            throw new Error("检测到其他设备同时修改了源步骤，原步骤已保留，本次转换未生效；请刷新并核查。");
+          }
+          message.textContent = convertedTaskVisible
+            ? "已转换为子任务：" + result.task_id
+            : "转换目标当前不可见，请检查回收站或同步状态。";
+        } catch (error) {
+          message.className = "step-message error";
+          message.textContent = "转换失败：" + error.message + "。原步骤保留，请刷新核查。";
+        } finally { isSaving = false; convertStep.disabled = task.conflict || step.conflict; }
+      });
       const removeStep = element("button", "step-delete", "删除");
       removeStep.type = "button";
       removeStep.disabled = task.conflict || step.conflict ||
@@ -1455,7 +1525,7 @@
             task.step_order_conflict || task.step_order_incomplete;
         }
       });
-      actions.append(up, down, removeStep);
+      actions.append(up, down, convertStep, removeStep);
       row.append(actions);
       if (step.conflict) {
         const candidates = (step.conflict_candidates || []).map(candidate => {
@@ -1543,6 +1613,87 @@
         } finally { isSaving = false; submit.disabled = task.conflict || steps.length >= 100; }
       });
       panel.append(addForm, message);
+      return panel;
+    }
+
+
+
+    function taskToStepPanel(task) {
+      const panel = element("section", "task-conversion-panel");
+      const head = element("div", "steps-head");
+      head.append(element("strong", "", "任务转换"));
+      panel.append(head);
+      const sourceIsLeaf = !task.conflict && !task.trashed_at &&
+        !(task.steps || []).length && !(task.all_child_task_ids || task.child_task_ids || []).length &&
+        !task.status_rollup_incomplete && !task.parent_missing && !task.parent_cycle;
+      const candidates = current.filter(parent => parent.task_id !== task.task_id &&
+        !parent.conflict && !parent.trashed_at && !parent.status_rollup_incomplete &&
+        !parent.parent_missing && !parent.parent_cycle &&
+        !parent.step_order_conflict && !parent.step_order_incomplete &&
+        parent.manual_status !== "done" && (parent.steps || []).length < 100);
+      const controls = element("div", "task-conversion-controls");
+      const select = element("select");
+      const placeholder = element("option", "", "选择要归属的上级任务…");
+      placeholder.value = ""; placeholder.selected = true;
+      select.append(placeholder);
+      for (const parent of candidates) {
+        const option = element("option", "", parent.title + " · " + taskDisplayId(parent));
+        option.value = parent.task_id;
+        select.append(option);
+      }
+      select.disabled = !sourceIsLeaf || !candidates.length;
+      const convert = element("button", "save", "转为该任务的步骤");
+      convert.type = "button";
+      convert.disabled = !sourceIsLeaf || !candidates.length;
+      controls.append(select, convert);
+      panel.append(controls);
+      const note = element("p", "task-conversion-note",
+        !sourceIsLeaf
+          ? "只有没有子任务、没有执行步骤且数据完整的末级任务可以转换；复杂任务请先处理其下级事项。"
+          : !candidates.length
+            ? "目前没有可选的上级任务。"
+            : "转换会移动任务，不会复制；日期、状态、文档链接及原任务的负责人、优先级和项目归属会保留在步骤记录中。");
+      panel.append(note);
+      convert.addEventListener("click", async () => {
+        if (isSaving || convert.disabled || !confirmDiscardUnsaved()) return;
+        const target = candidates.find(item => item.task_id === select.value);
+        if (!target) {
+          note.textContent = "请先选择一个有效的上级任务。";
+          return;
+        }
+        if (!window.confirm("将任务「" + task.title + "」移动为「" + target.title +
+          "」下的一个执行步骤？原任务将不再单独显示；日期、状态、文档链接和原任务属性会保留，并分配新的步骤编号；原任务编号保留在转换历史中。")) return;
+        isSaving = true; convert.disabled = true;
+        note.textContent = "正在转换为步骤…";
+        try {
+          const response = await fetch(
+            "/api/tasks/" + encodeURIComponent(task.task_id) + "/convert-to-step", {
+              method: "POST", headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({
+                revision: task.revision,
+                target_parent_task_id: target.task_id,
+                target_step_order_revision: target.step_order_revision || 0,
+                confirmed_move: true
+              })
+            });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "转换失败");
+          await refresh(true);
+          const updatedParent = current.find(item => item.task_id === target.task_id);
+          const convertedStepVisible = !!updatedParent &&
+            (updatedParent.steps || []).some(item => item.step_id === result.step_id);
+          const sourceTaskVisible = current.some(item => item.task_id === task.task_id);
+          if (!convertedStepVisible && sourceTaskVisible) {
+            throw new Error("检测到其他设备同时修改了源任务，原任务已保留，本次转换未生效；请刷新并核查。");
+          }
+          note.textContent = convertedStepVisible
+            ? "已转换为步骤：" + result.step_id
+            : "转换目标当前不可见，请检查回收站或同步状态。";
+        } catch (error) {
+          note.className = "task-conversion-note error";
+          note.textContent = "转换失败：" + error.message + "。原任务保留，请刷新核查。";
+        } finally { isSaving = false; convert.disabled = !sourceIsLeaf || !candidates.length; }
+      });
       return panel;
     }
 
@@ -1705,7 +1856,7 @@
       if (!children.length) childList.append(element("p", "step-empty",
         "暂无子任务。可在其他任务的详情中指定本任务为上级。"));
       childPanel.append(childList);
-      card.append(top, form, stepPanel(task), childPanel);
+      card.append(top, form, stepPanel(task), childPanel, taskToStepPanel(task));
       if (Array.isArray(task.document_links) && task.document_links.length) {
         card.append(legacyDocumentPanel(task));
       }
@@ -2307,10 +2458,45 @@
       box.append(element("h3", "", title + "（" + tasks.length + "）"));
       const inner = element("div", "view-extra-list");
       if (!tasks.length) inner.append(element("span", "board-empty", "无"));
-      else for (const task of tasks)
-        inner.append(detailOpenButton(task, "", (task.title || "未命名任务") + " · " + taskDisplayId(task)));
+      else for (const item of tasks)
+        inner.append(scheduleItemButton(item, "", (item.kind === "step" ? "步骤：" : "") +
+          (item.title || "未命名事项") + " · " + item.id));
       box.append(inner);
       return box;
+    }
+
+    function stepOpenButton(task, step, className, title) {
+      const button = element("button", className, title === undefined ? ("↳ " + step.title) : title);
+      button.type = "button";
+      button.title = step.step_id + " · 所属任务：" + task.title + " · 点击查看步骤";
+      button.addEventListener("click", () => {
+        openTaskDetail(task.task_id);
+        document.getElementById("step-" + step.step_id)?.scrollIntoView?.({block:"center"});
+      });
+      return button;
+    }
+
+    function scheduleItems(tasks) {
+      const items = [];
+      for (const task of tasks) {
+        items.push({kind:"task", task, title:task.title, id:taskDisplayId(task),
+          status:task.status, conflict:task.conflict, due_date:task.due_date,
+          planned_date:task.planned_date, follow_up_date:task.follow_up_date});
+        for (const step of task.steps || []) {
+          items.push({kind:"step", task, step, title:step.title, id:step.step_id,
+            status:step.status, conflict:step.conflict, due_date:step.due_date,
+            planned_date:step.planned_date, follow_up_date:step.follow_up_date});
+        }
+      }
+      return items;
+    }
+
+    function scheduleItemButton(item, className, title) {
+      if (item.kind === "step") {
+        const label = title === undefined ? ("↳ " + item.title) : title;
+        return stepOpenButton(item.task, item.step, className, label);
+      }
+      return detailOpenButton(item.task, className, title === undefined ? item.title : title);
     }
 
     function renderCalendarView(tasks, container) {
@@ -2321,11 +2507,12 @@
       const firstCell = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1 - offset);
       const isWeek = $("calendar-granularity").value === "week";
       const days = isWeek ? dateWindow(taskWeekCursor, 7) : dateWindow(firstCell, 42);
+      const items = scheduleItems(tasks);
       const byDay = new Map();
-      for (const task of tasks) {
-        if (!isoDayParts(task[field])) continue;
-        if (!byDay.has(task[field])) byDay.set(task[field], []);
-        byDay.get(task[field]).push(task);
+      for (const item of items) {
+        if (!isoDayParts(item[field])) continue;
+        if (!byDay.has(item[field])) byDay.set(item[field], []);
+        byDay.get(item[field]).push(item);
       }
       const weekHead = element("div", "calendar-weekdays" + (isWeek ? " is-week" : ""));
       for (const label of ["周一", "周二", "周三", "周四", "周五", "周六", "周日"])
@@ -2337,20 +2524,22 @@
         const outside = !isWeek && iso.slice(0, 7) !== selectedMonth;
         const cell = element("section", "calendar-day" +
           (outside ? " is-outside" : "") + (iso === today ? " is-today" : ""));
-        cell.title = iso + " · " + items.length + " 项" + dateFields[field] + "任务";
+        cell.title = iso + " · " + items.length + " 项" + dateFields[field] + "事项";
         cell.append(element("span", "calendar-date", String(Number(iso.slice(8)))));
-        for (const task of items) {
-          const button = detailOpenButton(task,
-            "calendar-task" + (task.conflict || task.status === "blocked" ? " is-risk" : ""), task.title);
-          button.title = taskDisplayId(task) + " · " + dateFields[field] + " " + iso;
+        for (const item of items) {
+          const button = scheduleItemButton(item,
+            (item.kind === "step" ? "calendar-task calendar-step" : "calendar-task") +
+            (item.conflict || item.status === "blocked" ? " is-risk" : ""));
+          button.title = item.id + " · " + (item.kind === "step" ? "步骤" : "任务") +
+            " · " + dateFields[field] + " " + iso;
           cell.append(button);
         }
         grid.append(cell);
       }
-      const undated = tasks.filter(t => !isoDayParts(t[field]));
+      const undated = items.filter(item => !isoDayParts(item[field]));
       container.replaceChildren(
-        element("p", "view-explainer", "当前显示" + dateFields[field] + "日期；三种日期独立，未填的不推算。" +
-          (isWeek ? "可按周导航查看当天任务。" : "跨月浅色日期用于对齐周次。")),
+        element("p", "view-explainer", "当前显示任务和步骤的" + dateFields[field] + "日期；三种日期独立，未填的不推算。" +
+          (isWeek ? "可按周导航查看当天事项。" : "跨月浅色日期用于对齐周次。")),
         weekHead, grid, undatedTaskPanel(undated, "未设置" + dateFields[field] + "日期")
       );
     }
@@ -2360,7 +2549,7 @@
       const today = localDayISO(new Date());
       const table = element("div", "gantt-table");
       const header = element("div", "gantt-row");
-      header.append(element("div", "gantt-task-info", "任务 / 日期"));
+      header.append(element("div", "gantt-task-info", "任务与步骤 / 日期"));
       const headerDays = element("div", "gantt-days");
       for (const iso of days) {
         const boundary = isoDayParts(iso).getDay() === 1 ? " is-week-start" : "";
@@ -2373,18 +2562,18 @@
       table.append(header);
 
       const invalid = [];
-      for (const task of tasks) {
-        const planned = isoDayParts(task.planned_date) ? task.planned_date : "";
-        const due = isoDayParts(task.due_date) ? task.due_date : "";
-        if (task.conflict || (!planned && !due) || (planned && due && planned > due)) {
-          invalid.push(task);
+      for (const item of scheduleItems(tasks)) {
+        const planned = isoDayParts(item.planned_date) ? item.planned_date : "";
+        const due = isoDayParts(item.due_date) ? item.due_date : "";
+        if (item.conflict || (!planned && !due) || (planned && due && planned > due)) {
+          invalid.push(item);
           continue;
         }
-        const row = element("div", "gantt-row");
+        const row = element("div", "gantt-row" + (item.kind === "step" ? " gantt-step-row" : ""));
         const meta = element("div", "gantt-task-info");
         meta.append(
-          detailOpenButton(task, "", task.title),
-          element("small", "", taskDisplayId(task) + (planned ? " · 计划 " + planned : "") +
+          scheduleItemButton(item, "", item.kind === "step" ? ("↳ " + item.title) : item.title),
+          element("small", "", item.id + (planned ? " · 计划 " + planned : "") +
             (due ? " · 截止 " + due : ""))
         );
         const cells = element("div", "gantt-days");
@@ -2406,7 +2595,7 @@
       scroll.append(table);
       container.replaceChildren(
         element("p", "view-explainer",
-          "蓝色表示计划执行日、橙色表示截止日；两日期之间仅展示日期窗口，不代表预计工期、工作量或依赖关系。存在冲突或日期矛盾的任务不强行绘制。"),
+          "蓝色表示计划执行日、橙色表示截止日；任务和步骤使用相同日期规则。两日期之间仅展示日期窗口，不代表预计工期、工作量或依赖关系。存在冲突或日期矛盾的事项不强行绘制。"),
         scroll, undatedTaskPanel(invalid, "未排期／日期或冲突需要核查")
       );
     }
