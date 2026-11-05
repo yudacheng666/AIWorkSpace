@@ -1413,6 +1413,50 @@ class ServerTests(unittest.TestCase):
                          ("采购", "high", "2026-11-12", "2026-11-14", "2026-11-15"))
         self.assertEqual(len(list((self.data_dir / "conversion_events").glob("*.json"))), 2)
 
+    def test_three_stage_conversion_chain_is_independent_of_sync_filename_order(self):
+        """A Drive replica can receive the third ledger record before the first."""
+        status, original = self.create_task({"title": "虚构三级迁移源任务"})
+        self.assertEqual(status, 201)
+        source_id = original["task_id"]
+        code, first = self.post_json(f"/api/tasks/{source_id}/convert-to-step", {
+            "revision": 1, "target_parent_task_id": "TASK-DEMO-001",
+            "target_step_order_revision": 0, "confirmed_move": True,
+        })
+        self.assertEqual(code, 201)
+        code, second = self.post_json(
+            f"/api/tasks/TASK-DEMO-001/steps/{first['step_id']}/convert-to-task",
+            {"revision": 1, "confirmed_move": True})
+        self.assertEqual(code, 201)
+        code, third = self.post_json(f"/api/tasks/{second['task_id']}/convert-to-step", {
+            "revision": 1, "target_parent_task_id": "TASK-DEMO-001",
+            "target_step_order_revision": 0, "confirmed_move": True,
+        })
+        self.assertEqual(code, 201)
+        directory = self.data_dir / "conversion_events"
+        events = list(directory.glob("*.json"))
+        self.assertEqual(len(events), 3)
+        # Relocate only fictional test fixtures, in reverse chronological
+        # lexical order, to model arbitrary Google Drive file synchronization.
+        for path in events:
+            item = json.loads(path.read_text(encoding="utf-8"))
+            source_item_id = item["source"]["item_id"]
+            order = ("03" if source_item_id == source_id else
+                     "02" if source_item_id == first["step_id"] else
+                     "01" if source_item_id == second["task_id"] else None)
+            self.assertIsNotNone(order)
+            path.rename(directory / ("synthetic_reverse_" + order + ".json"))
+        workspace = read_workspace(self.data_dir)
+        self.assertNotIn(source_id, {task["task_id"] for task in workspace["tasks"]})
+        self.assertNotIn(second["task_id"],
+                         {task["task_id"] for task in workspace["tasks"]})
+        parent = next(task for task in workspace["tasks"]
+                      if task["task_id"] == "TASK-DEMO-001")
+        self.assertEqual([step["step_id"] for step in parent["steps"]],
+                         [third["step_id"]],
+                         "all three dependent moves must activate regardless of file order")
+        self.assertFalse(any("source was created by a conversion that is not active" in warning
+                             for warning in workspace["warnings"]))
+
     def test_task_conversion_rejects_nonleaf_stale_order_and_completed_parent(self):
         status, source = self.create_task({"title": "有下级的任务"})
         self.assertEqual(status, 201)
