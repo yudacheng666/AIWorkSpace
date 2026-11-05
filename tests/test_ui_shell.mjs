@@ -14,7 +14,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
   function node(tag = "div") {
     const handlers = new Map();
     const item = {
-      tag, handlers, children: [], textContent: "", className: "", dataset: {},
+      tag, handlers, children: [], textContent: "", className: "",
       focus() {},
       disabled: false, hidden: false, multiple: false, selected: false,
       _value: "", attributes: new Map(),
