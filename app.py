@@ -2531,12 +2531,15 @@ def handler_factory(data_dir: Path):
             step_create_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps", path)
             step_update_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/update", path)
             step_reorder_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/reorder", path)
+            step_convert_match = re.fullmatch(
+                r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/convert-to-task", path)
+            task_convert_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/convert-to-step", path)
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
             if not (creating_task or creating_project or task_match or project_match or
                     step_create_match or step_update_match or step_reorder_match or
-                    step_documents_match or step_delete_match or applying_update or
+                    step_documents_match or step_delete_match or step_convert_match or task_convert_match or applying_update or
                     documents_match or lifecycle_match or changing_retention or review_match):
                 return self.json_response(404, {"error": "not found"})
             if not self.local_request_allowed():
@@ -2694,9 +2697,144 @@ def handler_factory(data_dir: Path):
                     return self.json_response(200, {"saved": True, "step_id": step["step_id"],
                                                     "deleted": True})
 
+                if step_convert_match:
+                    if set(payload) != {"revision", "confirmed_move"} or payload["confirmed_move"] is not True:
+                        raise ValueError("step conversion requires revision and explicit confirmation")
+                    revision = payload["revision"]
+                    if type(revision) is not int or revision < 1:
+                        raise ValueError("invalid step revision")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        parent = next((item for item in workspace["tasks"]
+                                       if item["task_id"] == step_convert_match.group(1)), None)
+                        if parent is None:
+                            return self.json_response(404, {"error": "parent task not found"})
+                        if (parent["conflict"] or parent.get("status_rollup_incomplete") or
+                                parent.get("step_order_conflict") or parent.get("step_order_incomplete") or
+                                parent.get("trashed_at")):
+                            return self.json_response(409, {"error": "parent task or step order needs review; refresh"})
+                        step = next((item for item in parent.get("steps", [])
+                                     if item["step_id"] == step_convert_match.group(2)), None)
+                        if step is None:
+                            return self.json_response(404, {"error": "step not found or already converted"})
+                        if step.get("conflict") or step.get("deleted_at") or step["revision"] != revision:
+                            return self.json_response(409, {"error": "step changed, deleted or conflicted; refresh"})
+                        snapshot = step_conversion_snapshot(parent, step)
+                        metadata = step.get("converted_task_metadata")
+                        if metadata:
+                            owner = metadata["owner"]
+                            priority = metadata["priority"]
+                            project_id = metadata["project_id"]
+                            related_ids = list(metadata["related_project_ids"])
+                        else:
+                            owner = None
+                            priority = "normal"
+                            project_id = parent.get("project_id")
+                            related_ids = list(parent.get("related_project_ids", []))
+                        validate_project_references(workspace, project_id, related_ids)
+                        existing_ids = {item["task_id"] for item in workspace["tasks"]}
+                        for _ in range(5):
+                            new_task_id = f"TASK-{uuid.uuid4().hex.upper()}"
+                            if new_task_id not in existing_ids:
+                                break
+                        else:
+                            return self.json_response(409, {"error": "unable to allocate unique task ID"})
+                        fields = {
+                            "title": step["title"], "status": step["status"],
+                            "parent_task_id": parent["task_id"], "project_id": project_id,
+                            "related_project_ids": related_ids, "owner": owner, "priority": priority,
+                            "document_links": list(step.get("document_links", [])),
+                        }
+                        fields.update({field: step.get(field) for field in DATE_FIELDS})
+                        event = {
+                            "version": 1, "event_id": str(uuid.uuid4()), "action": "step_to_task",
+                            "actor": "user", "timestamp": utc_now(), "confirmed_move": True,
+                            "source": {"kind": "step", "task_id": parent["task_id"],
+                                       "item_id": step["step_id"], "revision": revision,
+                                       "snapshot_sha256": _conversion_snapshot_hash(snapshot)},
+                            "target": {"kind": "task", "task_id": new_task_id,
+                                       "item_id": new_task_id, "position": None, "fields": fields},
+                        }
+                        append_conversion_event(data_dir, event)
+                    return self.json_response(201, {"saved": True, "conversion": "step_to_task",
+                                                    "task_id": new_task_id, "revision": 1})
+
+                if task_convert_match:
+                    allowed = {"revision", "target_parent_task_id",
+                               "target_step_order_revision", "confirmed_move"}
+                    if set(payload) != allowed or payload["confirmed_move"] is not True:
+                        raise ValueError("task conversion requires source revision, target parent/order revision and confirmation")
+                    revision = payload["revision"]
+                    target_parent_id = payload["target_parent_task_id"]
+                    target_order_revision = payload["target_step_order_revision"]
+                    if type(revision) is not int or revision < 1:
+                        raise ValueError("invalid task revision")
+                    if not isinstance(target_parent_id, str) or not TASK_ID.fullmatch(target_parent_id):
+                        raise ValueError("invalid target parent task_id")
+                    if type(target_order_revision) is not int or target_order_revision < 0:
+                        raise ValueError("invalid target step-order revision")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        source_task = next((item for item in workspace["tasks"]
+                                            if item["task_id"] == task_convert_match.group(1)), None)
+                        target_parent = next((item for item in workspace["tasks"]
+                                              if item["task_id"] == target_parent_id), None)
+                        if source_task is None:
+                            return self.json_response(404, {"error": "source task not found"})
+                        if target_parent is None:
+                            return self.json_response(404, {"error": "target parent task not found"})
+                        if source_task["task_id"] == target_parent["task_id"]:
+                            raise ValueError("a task cannot become its own step")
+                        if source_task.get("conflict") or source_task.get("trashed_at") or source_task.get("status_rollup_incomplete"):
+                            return self.json_response(409, {"error": "source task is conflicted, deleted or has incomplete progress"})
+                        if source_task["revision"] != revision:
+                            return self.json_response(409, {"error": "source task changed; refresh"})
+                        if source_task.get("steps") or source_task.get("child_task_ids"):
+                            return self.json_response(409, {"error": "only a leaf task without steps or child tasks can be converted; move its sub-items first"})
+                        if source_task.get("parent_missing") or source_task.get("parent_cycle"):
+                            return self.json_response(409, {"error": "source task parent relationship needs review"})
+                        if (target_parent.get("conflict") or target_parent.get("trashed_at") or
+                                target_parent.get("step_order_conflict") or target_parent.get("step_order_incomplete") or
+                                target_parent.get("status_rollup_incomplete")):
+                            return self.json_response(409, {"error": "target parent or its step order needs review; refresh"})
+                        if target_parent["step_order_revision"] != target_order_revision:
+                            return self.json_response(409, {"error": "target parent step order changed; refresh"})
+                        if len(target_parent.get("steps", [])) >= MAX_STEPS_PER_TASK:
+                            return self.json_response(409, {"error": "target parent has reached the 100-step limit"})
+                        snapshot = task_conversion_snapshot(source_task)
+                        new_step_id = f"STEP-{uuid.uuid4().hex.upper()}"
+                        metadata = {
+                            "owner": source_task.get("owner"), "priority": source_task.get("priority", "normal"),
+                            "project_id": source_task.get("project_id"),
+                            "related_project_ids": list(source_task.get("related_project_ids", [])),
+                            "original_parent_task_id": source_task.get("parent_task_id"),
+                        }
+                        fields = {
+                            "title": source_task["title"],
+                            "status": source_task.get("manual_status", source_task["status"]),
+                            "document_links": list(source_task.get("document_links", [])),
+                            "converted_task_metadata": metadata,
+                        }
+                        fields.update({field: source_task.get(field) for field in DATE_FIELDS})
+                        event = {
+                            "version": 1, "event_id": str(uuid.uuid4()), "action": "task_to_step",
+                            "actor": "user", "timestamp": utc_now(), "confirmed_move": True,
+                            "source": {"kind": "task", "task_id": source_task["task_id"],
+                                       "item_id": source_task["task_id"], "revision": revision,
+                                       "snapshot_sha256": _conversion_snapshot_hash(snapshot)},
+                            "target": {"kind": "step", "task_id": target_parent["task_id"],
+                                       "item_id": new_step_id,
+                                       "position": len(target_parent.get("steps", [])) + 1,
+                                       "fields": fields},
+                        }
+                        append_conversion_event(data_dir, event)
+                    return self.json_response(201, {"saved": True, "conversion": "task_to_step",
+                                                    "task_id": target_parent["task_id"],
+                                                    "step_id": new_step_id, "revision": 1})
+
                 if step_create_match:
-                    if set(payload) != {"title"}:
-                        raise ValueError("step create accepts only title")
+                    if set(payload) - {"title", *DATE_FIELDS} or "title" not in payload:
+                        raise ValueError("step create accepts title and optional calendar dates")
                     title = payload["title"]
                     if not isinstance(title, str) or not 1 <= len(title.strip()) <= 200:
                         raise ValueError("step title must be 1–200 characters")
@@ -2711,20 +2849,22 @@ def handler_factory(data_dir: Path):
                         if len(task.get("steps", [])) >= MAX_STEPS_PER_TASK:
                             return self.json_response(409, {"error": "task has reached the 100-step limit"})
                         step_id = f"STEP-{uuid.uuid4().hex.upper()}"
+                        changes = {"title": title.strip(),
+                                   "position": len(task.get("steps", [])) + 1}
+                        changes.update({field: payload.get(field) for field in DATE_FIELDS if field in payload})
                         event = {"version": 1, "event_id": str(uuid.uuid4()),
                                  "task_id": task["task_id"], "step_id": step_id,
                                  "action": "create", "actor": "user", "timestamp": utc_now(),
-                                 "base_revision": 0, "changes": {"title": title.strip(),
-                                              "position": len(task.get("steps", [])) + 1}}
+                                 "base_revision": 0, "changes": changes}
                         append_step_event(data_dir, event)
                     return self.json_response(201, {"saved": True, "task_id": task["task_id"],
                                                     "step_id": step_id, "revision": 1})
 
                 if step_update_match:
-                    allowed = {"title", "status", "revision", "confirmed_done"}
+                    allowed = {"title", "status", "revision", "confirmed_done", *DATE_FIELDS}
                     if set(payload) - allowed or "revision" not in payload:
-                        raise ValueError("step update requires revision and optional title/status")
-                    if not ({"title", "status"} & set(payload)):
+                        raise ValueError("step update requires revision and optional title/status/date fields")
+                    if not ({"title", "status", *DATE_FIELDS} & set(payload)):
                         raise ValueError("step update requires a changed field")
                     revision = payload["revision"]
                     if type(revision) is not int or revision < 1:
@@ -2759,6 +2899,9 @@ def handler_factory(data_dir: Path):
                             changes["title"] = payload["title"].strip()
                         if "status" in payload and payload["status"] != step["status"]:
                             changes["status"] = payload["status"]
+                        for field in DATE_FIELDS:
+                            if field in payload and payload[field] != step.get(field):
+                                changes[field] = payload[field]
                         if not changes:
                             return self.json_response(200, {"saved": False, "step_id": step["step_id"],
                                                             "revision": step["revision"]})
