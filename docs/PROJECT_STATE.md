@@ -1,5 +1,16 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-05：2.5.0 工作记录衍生待办审核候选 CI PASS（Draft PR #42）
+
+- 用户指示继续下一阶段文档、代码、测试，不在各子阶段反复人工体验。按 AGENTS.md 审计 main=2.2.0 / SHA 4bff94987a9cf45df2a3fd3acafdefb79bdedefd；PR #40、#41 均 Draft 未合并。此分支 feat/20261105-work-action-review 从 PR #41 精确 HEAD 3ee098df8798a0209b14a9338b2e237ea9b32b1c 派生。
+- 2.5.0 候选实现：工作记录选择与向 ChatGPT 复制分析上下文、严格 JSON 导入、候选建议预览及同项目文字相似查重、逐条明确新建待办或关联已有任务。后端创建任务采用一个 task create 事件，source_work_record:{record_id,revision} 可审计，status 默认 todo；已有任务关联采用工作记录 action_links 单次更新。
+- 增量测试：新 tests/test_work_action_review.py 的 API、schema、防重复、来源版本与原始事件保护；tests/test_ui_shell.mjs 补充人工审核/草稿/拒绝路径；Windows 真实 Chromium E2E 覆盖复制、JSON 预览、取消确认、用户新建及重复阻断。
+- **CI 验收**：准确产品/测试 SHA `7cb663881bc6c9b67f193cb0548ae0700831baba` 的 [GitHub Actions #42022478232](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42022478232) **3/3 SUCCESS**。Ubuntu Python 223 tests（24 预期 SKIP），Windows Python 223 tests（22 预期 SKIP），Node UI 每端 105 PASS/0 FAIL，Windows 真实 Chromium updater/rollback 3 PASS、工作台端到端 19 PASS。新增行为覆盖：错误 JSON/越权状态字段拒绝、只读分析预览、同名和疑似重复检查、显式用户新建/关联、旧 source revision 409、任务 provenance 单事件、取消不写入、原始业务事件字节不变、已衍生任务改名后仍防止原建议重复创建及草稿保护。
+- **初轮问题及修复**：初轮 Node 有 1 项提示文本断言失败（复制的 ChatGPT 说明缺少“不会自动”的直白表述），其余 Python 和 Windows Chromium 通过；已把明确说明补到产品提示，在新准确 SHA 上执行三组完整 CI，均 PASS，未让 Codex 重跑已由 Actions 证明的同环境测试。
+- **进一步加固**：审计发现仅依赖任务当前标题查重，会让已重命名的来源任务可能重复创建。新增只读遍历原始合法 task create 事件的同源同原始标题保护，以及对应 HTTP 回归；实际产品/测试 SHA 和 CI 已更新为最终加固版本。
+- **发布与未测范围**：正式 main 仍为 2.2.0；PR #40/#41/#42 均 Draft，不合并 main、不安装公司 Windows 8770、不改真实 Google Drive。高风险双设备断网/重连、历史误分类 task→record 的原子转换、ChatGPT 连接器真实双向写回仍为 NOT TESTED/NOT IMPLEMENTED。完成全部约定阶段后再统一人工体验。
+
+
 ## 2026-11-05：2.4.0 工作档案完整组合候选验收通过（Draft PR #41）
 
 - 用户指示“继续推进新文档的编写代码的开发和测试，等这个功能全都完成之后一起体验反馈”。本轮不要求用户分阶段下载或体验，先完成独立候选与准确 SHA CI。

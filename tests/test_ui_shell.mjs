@@ -59,7 +59,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
           "new-task-priority", "task-sort", "task-date-field", "calendar-granularity", "project-sort",
           "work-record-project", "work-record-task", "work-filter-project",
           "work-inbox-project", "work-summary-period", "work-summary-project",
-          "work-link-target", "work-link-relation"]);
+          "work-link-target", "work-link-relation", "work-action-source"]);
         elements.set(id, node(selects.has(id) ? "select" : "div"));
       }
       return elements.get(id);
@@ -98,7 +98,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, renderWorkOutcomes, populateWorkLinkTargets})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes,
@@ -1484,4 +1484,112 @@ test("work archive navigation protects all three unsaved editors", () => {
   assert.equal(h.api.setActivePage("tasks","all"),false);
   assert.equal(h.el("work-inbox-content").value,"未保存的临时笔记");
   assert.equal(confirmCalls,1);
+});
+
+
+test("ChatGPT action prompt uses only selected record and explicit same-project task candidates", async () => {
+  const rid = "RECORD-" + "A".repeat(32);
+  const record = {record_id:rid, revision:3, display_id:"R-261105-AAAAAAAAAAAA",
+    content:"供应商确认了本期报价，但后续还需核对质量协议",
+    occurred_on:"2026-11-04",project_id:null,outcome:"初步报价确定"};
+  const h = harness([sampleTask()],()=>true,[],[],null,{records:[record]});
+  await h.api.refresh(true);
+  await h.api.loadWorkRecords();
+  h.el("work-action-source").value = rid;
+  await h.api.copyActionAnalysisPrompt();
+  assert.equal(h.copied.length,1);
+  assert.match(h.copied[0],/供应商确认了本期报价/);
+  assert.match(h.copied[0],/工作记录/);
+  assert.match(h.copied[0],/record_revision/);
+  assert.match(h.copied[0],/任务/);
+  assert.match(h.copied[0],/不会自动/);
+  assert.equal(h.writes.length,0,"copy is a manual handoff and must never write events");
+});
+
+test("reviewing structured AI proposals remains read-only until an explicit user confirmation", async () => {
+  const rid="RECORD-"+"A".repeat(32);
+  const record={record_id:rid,revision:1,display_id:"R-261105-AAAAAAAAAAAA",
+    content:"原始会议已完成",occurred_on:"2026-11-04",project_id:null};
+  const work={records:[record]};
+  const review={record_id:rid,record_revision:1,project_id:null,proposals:[
+    {title:"安排虚构质量核查",due_date:null,matches:[]}]};
+  let allow=false;
+  const h=harness([],()=>allow,[],[],(path,body)=>{
+    if(path==="/api/work-archive/actions/preview")
+      return {ok:true,json:async()=>review};
+    return {ok:true,json:async()=>({saved:true,task_id:"TASK-NEW-ACTION"})};
+  },work);
+  await h.api.refresh(true);
+  await h.api.loadWorkRecords();
+  h.el("work-action-source").value=rid;
+  const json={version:1,record_id:rid,record_revision:1,
+    proposals:[{title:"安排虚构质量核查",due_date:null}]};
+  h.el("work-action-json").value=JSON.stringify(json);
+  await h.api.previewWorkActions();
+  assert.equal(h.writes.length,1);
+  assert.equal(h.writes[0].path,"/api/work-archive/actions/preview");
+  assert.equal(h.el("work-action-list").children.length,1);
+  assert.equal(h.el("work-action-list").children[0].children.at(-1).children[0].textContent,
+               "确认新建待办");
+  await h.api.applyWorkAction("create",review.proposals[0],null);
+  assert.equal(h.writes.length,1,"declining confirmation must not create a task");
+  allow=true;
+  await h.api.applyWorkAction("create",review.proposals[0],null);
+  assert.equal(h.writes.length,2);
+  assert.equal(h.writes[1].path,"/api/work-archive/actions/create");
+  assert.equal(h.writes[1].body.confirmed_create,true);
+  assert.equal(h.writes[1].body.duplicate_reviewed,false);
+  assert.ok(!("status" in h.writes[1].body),"AI imports cannot carry status=done");
+  assert.match(h.el("work-action-message").textContent,/已新建待办/);
+});
+
+test("matched AI suggestions offer existing-task linkage rather than duplicate creation", async () => {
+  const rid="RECORD-"+"A".repeat(32);
+  const task=sampleTask();
+  const matches=[{task_id:task.task_id,title:task.title,status:"doing",
+    match_type:"same_title",score:1}];
+  const review={record_id:rid,record_revision:1,project_id:null,
+    proposals:[{title:task.title,due_date:null,matches}]};
+  const work={records:[{record_id:rid,revision:1,display_id:"R-261105",
+    content:"需要关联旧任务",occurred_on:"2026-11-04",project_id:null}]};
+  const h=harness([task],()=>true,[],[],(path,body)=>{
+    if(path==="/api/work-archive/actions/preview")
+      return {ok:true,json:async()=>review};
+    if(path==="/api/work-archive/actions/link")
+      return {ok:true,json:async()=>({saved:true,revision:2})};
+    throw Error("Unexpected request: "+path);
+  },work);
+  await h.api.refresh(true);
+  await h.api.loadWorkRecords();
+  h.el("work-action-source").value=rid;
+  h.el("work-action-json").value=JSON.stringify({version:1,record_id:rid,
+    record_revision:1,proposals:[{title:task.title,due_date:null}]});
+  await h.api.previewWorkActions();
+  const row=h.el("work-action-list").children[0];
+  const allButtons=row.children.flatMap(child=>child.children || [])
+    .filter(child=>child.tag==="button");
+  assert.equal(allButtons.length,1);
+  assert.match(allButtons[0].textContent,/关联已有/);
+  await h.api.applyWorkAction("link",review.proposals[0],matches[0]);
+  assert.equal(h.writes[1].path,"/api/work-archive/actions/link");
+  assert.equal(h.writes[1].body.task_id,task.task_id);
+  assert.equal(h.writes[1].body.confirmed_link,true);
+  assert.equal(JSON.parse(h.el("work-action-json").value).record_revision,2,
+               "successful link revises only the source snapshot, retaining remaining proposals");
+});
+
+test("invalid JSON does not submit a proposal; unsaved analysis is protected on navigation", async () => {
+  const recordId="RECORD-"+"A".repeat(32);
+  const h=harness([],()=>false,[],[],null,{records:[{record_id:recordId,
+    content:"工作记录",revision:1,occurred_on:"2026-11-04",display_id:"R-TEST"}]});
+  await h.api.loadWorkRecords();
+  h.api.setActivePage("worklog");
+  h.el("work-action-source").value=recordId;
+  h.el("work-action-json").value="{bad json}";
+  h.el("work-action-form").handlers.get("input")[0]();
+  await h.api.previewWorkActions();
+  assert.match(h.el("work-action-message").textContent,/不是有效 JSON/);
+  assert.equal(h.writes.length,0);
+  assert.equal(h.api.setActivePage("tasks","all"),false);
+  assert.equal(h.el("work-action-json").value,"{bad json}");
 });

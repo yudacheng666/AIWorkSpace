@@ -175,3 +175,9 @@
 
 
 | D-20261105-WR-06（2.4.0 组合候选 CI 验收） | 产品与测试准确 SHA 2c16b37c02c4b566869ecd9a75ceaf10e73110e8 的 [Actions #42009472610](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42009472610) 为 3/3 SUCCESS：Ubuntu/Windows Python 各 215 tests（23/21 预期跳过），Node 各 101 PASS，Windows Chromium updater 3、工作台 UI E2E 18 PASS，覆盖工作记录来源去重、任务/步骤关联、来源总结、人工核对、证据及原业务事件不变。之前失败因缺省 action_links 的 None 处理和 Chromium textarea 断言错误；修复后在新 SHA 完整复验通过。 | 不沿用失败旧 SHA，也不让 Codex 重复同平台已通过的测试；公司 Windows 8770 和真实 Google Drive 双机离线/重连仍未测。用户要求完整功能后一次集中体验，PR #40/#41 继续 Draft，发布与部署待独立批准。 |
+
+
+| D-20261105-WR-07（事实记录衍生待办须人工审核） | 选择现有记录后由用户明确复制上下文到 ChatGPT、粘贴最多五条结构化 JSON 待办建议，本地服务只按严格 schema 和记录 revision 校验。预览查重仅读取同项目任务标题及字符相似度，不能宣称语义去重；用户必须逐条确认创建或关联现有任务。禁止任何带 done/actor 的建议直接写入。 | 无付费模型 API、未验证的无人值守连接器不能伪装为嵌入式 AI；避免事实记录被误写为任务完成状态，避免重复任务混乱。 |
+| D-20261105-WR-08（来源任务单事件与安全去重） | 新任务仅追加一条现有任务 create 事件，changes 内新增只允许 actor=user + create 的 source_work_record:{record_id,revision}，保留来源可追溯且不双写原记录；默认 todo；同项目同名拒绝，疑似重复需用户明确确认。已有任务关联则通过原记录 action_links 单事件修订，revision/409 保护不变。历史误建待办转换单独规划，不在此阶段采取“先创建记录再回收任务”的危险非原子流程。 | 跨设备 Drive 可能延迟/冲突；采用最小增量、追加和目标端溯源减少非原子写入及重复风险。 |
+
+| D-20261105-WR-09（2.5.0 候选测试与发布边界） | 准确产品/测试 SHA `7cb663881bc6c9b67f193cb0548ae0700831baba` 的 [GitHub Actions #42022478232](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42022478232) **3/3 SUCCESS**：Ubuntu/Windows Python 各 223 tests（24/22 预期跳过），Node UI 各 105 PASS，Windows Chromium 更新回滚 3 PASS、任务/工作档案端到端 19 PASS。初轮 Node 提示文案断言失败，修复后新 SHA 完整 CI 通过。新建议必须经过来源 revision、同项目查重与人工确认，任务创建只追加一个带 provenance 的 todo 事件。 | 自动化验收覆盖当前候选的独立测试目录，不把 CI 当成真实双机 Drive 同步；已加固已创建任务改名后仍从不可变 create 事件检查同源原始标题，避免重试重复创建。用户要求所有阶段完成后集中体验，因此 #40→#41→#42 依赖仍 Draft 未合并，不部署真实数据。 |
