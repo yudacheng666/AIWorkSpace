@@ -2,6 +2,8 @@
 
 > **2.3.0 候选（未发布）**：新增独立「工作记录」页面，直接补记没有预建待办的已做工作，区分发生日期与实际补录时间；可关联项目/现有任务、填写工作成果与耗时、编辑记录、按日期/项目/关键字查看工作轨迹。既有任务人工完成事件只读展示，记录与任务统计分开；保存于 data-dir/work_archive/record_events/，不改写历史 task/step/project 事件。详见 [工作记录设计](docs/WORK_RECORDS_DESIGN.md)。本分支未合并，main 当前仍为下述 2.2.0；公司工作台与真实 Google Drive 未修改。
 
+> **最终候选验收**：产品/测试 SHA `6e3287b567f565df7d8e385af6bcc6b7eebbc777` 的 [GitHub Actions #41987809633](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41987809633) 3/3 SUCCESS：Ubuntu/Windows Python 各 208 tests（22/20 预期跳过），Node 各 97 PASS，Windows Chromium updater 3 PASS、工作台 E2E 17 PASS。PR #40 保持 Draft，尚未合并发布或部署。
+
 > **当前正式版本 2.2.0（2026-11-05）**：按用户明确合并发布授权，先合并 [PR #37](https://github.com/yudacheng666/AIWorkSpace/pull/37)（步骤日期、日历/甘特及任务/步骤互转，merge `e6987a2a933d374346e3b70587c71933aca92ab2`），再合并 [PR #38](https://github.com/yudacheng666/AIWorkSpace/pull/38)（周期任务、当期人工完成、下期待办、彻底结束与恢复，merge `b8ae95699d442b2efc73798bf9bfb3b8c887a28e`）。`main/VERSION=2.2.0`，开放 PR=0。[合并后 main Actions #41978365376](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41978365376) **3/3 SUCCESS**：Ubuntu/Windows Python 各运行 198 tests（分别 21/19 预期跳过）、Node 各 93 PASS，Windows Chromium updater/rollback 3 PASS、工作台 UI E2E 16 PASS。
 
 > **部署与数据安全提醒**：本次仅正式发布 GitHub main 代码，未在公司 Windows 8770 自动安装，未修改实际 Google Drive 任务。真实两台电脑的 Drive 离线/重连同步仍 **NOT TESTED**。所有共享同一数据目录的电脑应先统一升级到 2.2.0 并备份，再使用新步骤日期、转换或周期事件；不要让旧版继续编辑同一目录。
