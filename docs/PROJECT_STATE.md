@@ -1,5 +1,14 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-05：2.3.0 工作记录补记与轨迹候选（开发与验证中）
+
+- **用户最新指示**：“按分析推进，做文档，开发，测试，汇报”。基于 main 精确 SHA 4bff94987a9cf45df2a3fd3acafdefb79bdedefd（正式 2.2.0，开始时开放 PR=0）创建 feat/20261105-work-records；原工作档案 PR #14 已关闭且未合并，不恢复旧代码。
+- **已实施范围**：顶部补记工作、侧栏工作记录页、内容与发生日期、可选项目/任务、成果、分钟数、按日期/项目/关键字的工作轨迹和修订入口。work_archive/record_events 独立追加式事件流，短编号 R-、精确 revision、同一 revision 并发冲突冻结、外部无效事件提示。旧任务人工确认完成事件只读投影，不生成重复记录或覆盖任务状态。
+- **设计与测试**：新增 docs/WORK_RECORDS_DESIGN.md；同步更新 REQUIREMENTS/DECISIONS/README；专项 tests/test_work_records.py，扩展 Node 任务壳回归。GitHub Actions Ubuntu/Windows Python+Node 与真实 Windows Chromium 为候选验收门槛，最终测试 SHA 和运行回执待实际结果填入，不预写 PASS。
+- **风险与边界**：原任务/project/step JSON 未迁移，工作事实不伪装成 done；测试仅使用虚构事件数据。不使用模型 API；阶段 2 的多对多关联、阶段 3 的日周月总结/职业档案暂未实施。没有在真实 Windows 8770 安装，没有写入公司 Google Drive 真实资料。两电脑离线、重连与混用版本仍 NOT TESTED；共享 data-dir 应先统一更新后使用新格式。
+- **发布审批**：用户指令仅含文档、开发、测试、汇报，未明确要求合并或部署；候选以独立 PR 验证，继续保留 main 2.2.0，等待发布确认。
+
+
 ## 2026-11-05：2.2.0 已正式发布 — 步骤排期互转 + 周期任务
 
 - **用户授权**：明确要求“合并发布”。按 AGENTS.md 审计所有开放 PR，仅 #37（2.1.0 步骤日期/任务与步骤互转）和依赖它的 #38（2.2.0 周期任务）；无其他开放 PR。合并顺序先 #37 后 #38，不跳过依赖，不重复合并已吸收变更。
