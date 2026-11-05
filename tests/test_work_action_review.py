@@ -182,6 +182,27 @@ class ActionHTTPTests(unittest.TestCase):
                             for link in source["action_link_labels"]))
         self.assertEqual(app.read_workspace(self.dir)["tasks"][0]["status"], "todo")
 
+    def test_renaming_a_generated_task_does_not_allow_retrying_the_old_proposal(self):
+        code, saved = self.call("POST", "/api/work-archive/actions/create",
+                                self.confirm("安排设备出厂验收"))
+        self.assertEqual(code, 201, saved)
+        task_id = saved["task_id"]
+        app.append_event(self.dir, {
+            "version": 1, "event_id": "actions-retitle-task-0001",
+            "task_id": task_id, "action": "update", "actor": "user",
+            "timestamp": STAMP, "base_revision": 1,
+            "changes": {"title": "现在使用的完全不同的任务名称"}
+        })
+        task = next(t for t in app.read_workspace(self.dir)["tasks"]
+                    if t["task_id"] == task_id)
+        self.assertEqual(task["title"], "现在使用的完全不同的任务名称")
+        self.assertTrue(app.already_created_from_work_record(
+            self.dir, RECORD, "安排设备出厂验收"))
+        self.assertEqual(self.call("POST", "/api/work-archive/actions/create",
+                                   self.confirm("安排设备出厂验收"))[0], 409)
+        self.assertEqual(len(list((self.dir / "events").glob("*.json"))), 3,
+                         "original action plus rename, never a second task")
+
     def test_possible_duplicate_must_be_reviewed_and_exact_title_blocked(self):
         exact = self.confirm("跟进虚构供应商报价", reviewed=True)
         code, result = self.call("POST", "/api/work-archive/actions/create", exact)
