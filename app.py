@@ -659,7 +659,24 @@ def resolve_conversion_events(tasks: list[dict], events: list[dict],
     hidden_target_tasks: set[str] = set()
     hidden_target_steps: set[tuple[str, str]] = set()
     consumed_tasks: set[str] = set()
-    for event in sorted(events, key=lambda item: (item["timestamp"], item["event_id"])):
+    remaining = list(events)
+    ordered_events: list[dict] = []
+    while remaining:
+        ready = []
+        for candidate in remaining:
+            candidate_source = candidate["source"]
+            candidate_key = (candidate_source["kind"], candidate_source["task_id"],
+                             candidate_source["item_id"])
+            origin_id = target_origin.get(candidate_key)
+            if origin_id is None or origin_id in status_by_id:
+                ready.append(candidate)
+        if not ready:
+            ordered_events.extend(remaining)
+            break
+        for candidate in ready:
+            ordered_events.append(candidate)
+            remaining.remove(candidate)
+    for event in ordered_events:
         source, target = event["source"], event["target"]
         source_key = (source["kind"], source["task_id"], source["item_id"])
         target_key = (target["kind"], target["task_id"], target["item_id"])
