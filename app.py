@@ -674,6 +674,10 @@ def resolve_conversion_events(tasks: list[dict], events: list[dict],
     consumed_tasks: set[str] = set()
     remaining = list(events)
     ordered_events: list[dict] = []
+    ordered_ids: set[str] = set()
+    # Topological order is based on the conversion dependency graph, not the
+    # order in which independently synchronized ledger filenames are listed.
+    # A later conversion may consume an item created by an earlier conversion.
     while remaining:
         ready = []
         for candidate in remaining:
@@ -681,13 +685,16 @@ def resolve_conversion_events(tasks: list[dict], events: list[dict],
             candidate_key = (candidate_source["kind"], candidate_source["task_id"],
                              candidate_source["item_id"])
             origin_id = target_origin.get(candidate_key)
-            if origin_id is None or origin_id in status_by_id:
+            if origin_id is None or origin_id in ordered_ids:
                 ready.append(candidate)
         if not ready:
+            # Cyclic or unresolved conversion origins must never activate. The
+            # normal 'source origin is not active' check will quarantine them.
             ordered_events.extend(remaining)
             break
         for candidate in ready:
             ordered_events.append(candidate)
+            ordered_ids.add(candidate["event_id"])
             remaining.remove(candidate)
     for event in ordered_events:
         source, target = event["source"], event["target"]
