@@ -1,5 +1,12 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-06：v2.6.0 Draft PR #43 已通过准确 SHA 自动化（待集中体验与授权合并）
+
+- **PR**：[Draft #43](https://github.com/yudacheng666/AIWorkSpace/pull/43)，依赖 #40→#41→#42；仍 **Open/Draft**，不合并、不部署。
+- **产品与测试 SHA**：`f24ba1a00087555c5b1541a9061aebbe7567dc3b`，[GitHub Actions #42125093085](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42125093085) **3/3 SUCCESS**。Ubuntu Python 237 tests（25 预期 SKIP），Windows Python 237 tests（23 预期 SKIP），Node 每平台 107 PASS/0 FAIL，Windows 真实 Chromium 更新回滚 3 PASS、工作台 E2E 20 PASS（含 task→record 人工确认、取消不写入、单事件、旧任务原文件字节保留及晚到编辑冻结转换）。
+- **失败处理**：首次新增 Node 测试的 VM 导出字符串含非法换行，已修；新增转换表单未加入页面导航草稿保护，在测试捕获后已修；上述准确 SHA 全套重测通过。旧失败 SHA 不能代替最终证据，Codex 不重复跑同环境。
+- **仍未验收**：公司 Windows 8770、真实 Google Drive 双电脑断网/重连及版本混用、生产数据迁移和外部自动 AI 分析。正式 main 仍为 2.2.0。用户要求工作记录各阶段完成后一并集中体验，待后续授权再按 #40→#41→#42→#43 顺序审核合并。
+
 ## 2026-11-06：2.6.0 误建任务转为事实工作记录（累计候选，尚未合并）
 
 - **开发前检查**：已按 AGENTS.md 读取 README、REQUIREMENTS、PROJECT_STATE、DECISIONS、WORK_RECORDS_DESIGN 并核对当前 main SHA \`4bff94987a9cf45df2a3fd3acafdefb79bdedefd\`、正式 VERSION 2.2.0、现有 Draft PR #40（2.3）→ #41（2.4）→ #42（2.5）与精确 Actions 证据；三项尚未合并，用户要求全部阶段完工再集中体验。
