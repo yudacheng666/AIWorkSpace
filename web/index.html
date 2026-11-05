@@ -4869,7 +4869,7 @@
         "现有同项目任务（仅供查重，不代表任务已完成）：",
         JSON.stringify(taskContext,null,2),
         relevant.length > 80 ? "注意：同项目任务超过 80 条，此列表不完整；需要补充查重。" : "",
-        "不得自动创建任务、修改任务状态、将事实伪称已确认完成。需要用户在工作台审核后逐条批准。"
+        "此流程不会自动创建任务，也不会改变任务状态或将事实伪称已确认完成。必须由用户在工作台审核后逐条批准。"
       ].join("\n\n");
       try {
         if (!globalThis.navigator?.clipboard?.writeText) throw Error("clipboard unavailable");
