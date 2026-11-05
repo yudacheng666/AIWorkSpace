@@ -1,5 +1,8 @@
 # AIWorkSpace
 
+> **2.4.0 工作档案组合候选（未发布）**：继承 PR #40 的事后补记和工作轨迹，继续实现原文收件箱、来源防重复整理、多任务及步骤关联、Google Drive 证据引用、任务详情反向查询、用户精选成果，以及日报/周报/月报的有来源底稿、人工修改、保存和审计。网页不内嵌 AI、不调用付费 API，用户可以主动复制总结底稿给 ChatGPT 分析。所有数据写在独立 work_archive 事件目录，原任务文件不改写；尚未部署真实 Windows 8770 或访问真实 Google Drive。PR #41 依赖 PR #40，代码和测试需以候选准确 SHA 的 Actions 为准；统一体验后再审批合并。
+
+
 > **2.3.0 候选（未发布）**：新增独立「工作记录」页面，直接补记没有预建待办的已做工作，区分发生日期与实际补录时间；可关联项目/现有任务、填写工作成果与耗时、编辑记录、按日期/项目/关键字查看工作轨迹。既有任务人工完成事件只读展示，记录与任务统计分开；保存于 data-dir/work_archive/record_events/，不改写历史 task/step/project 事件。详见 [工作记录设计](docs/WORK_RECORDS_DESIGN.md)。本分支未合并，main 当前仍为下述 2.2.0；公司工作台与真实 Google Drive 未修改。
 
 > **最终候选验收**：产品/测试 SHA `6e3287b567f565df7d8e385af6bcc6b7eebbc777` 的 [GitHub Actions #41987809633](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41987809633) 3/3 SUCCESS：Ubuntu/Windows Python 各 208 tests（22/20 预期跳过），Node 各 97 PASS，Windows Chromium updater 3 PASS、工作台 E2E 17 PASS。PR #40 保持 Draft，尚未合并发布或部署。

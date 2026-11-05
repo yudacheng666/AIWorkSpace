@@ -1,5 +1,14 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-05：2.4.0 工作档案完整组合候选（Draft PR #41）
+
+- 用户指示“继续推进新文档的编写代码的开发和测试，等这个功能全都完成之后一起体验反馈”。本轮不要求用户分阶段下载或体验，先完成独立候选与准确 SHA CI。
+- 正式 main 基线为 2.2.0 / SHA 4bff94987a9cf45df2a3fd3acafdefb79bdedefd。已通过测试的工作记录 PR #40 HEAD 63455d03e9c7af73154fcee538c2775aa76bcfe6 保持 Draft；后续分支 feat/20261105-work-archive-completion 从其 HEAD 创建，在 Draft PR #41 集成。
+- 新产品逻辑：原文待整理收件箱及同来源去重、同条工作记录多任务/步骤进展与成果关联、受限制的 Google Drive 证据 URL、精选成果库、任务详情关联记录反查、日报周报月报的来源底稿与 SUMMARY 追加事件（含来源验证、修订及人工核对）。
+- 测试文件增加 tests/test_work_archive_complete.py、现有 Node UI 专项与真实 Windows Chromium 完整路径。准确 SHA 的 Actions 结果是实际验收依据；不能沿用 PR #40 的 CI 冒充 PR #41 的通过。
+- 工作台无内嵌 AI，也不会后台自动分析或替用户完成任务。真实 Windows 8770 和 Google Drive 公司数据不操作；两台电脑离线/重连及混合版本 NOT TESTED。任何合并、正式更新及真实数据操作等待用户另行授权。
+
+
 ## 2026-11-05：2.3.0 工作记录补记与轨迹候选（最终准确 SHA CI 已通过，待审批合并）
 
 - **用户最新指示**：“按分析推进，做文档，开发，测试，汇报”。基于 main 精确 SHA `4bff94987a9cf45df2a3fd3acafdefb79bdedefd`（正式 2.2.0，开发开始时开放 PR=0）创建 `feat/20261105-work-records`；历史工作档案 PR #14 已关闭且未合并，仅参考其 M0 设计，不恢复旧代码。
