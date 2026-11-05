@@ -30,6 +30,8 @@ TASK_ID = re.compile(r"^TASK-[A-Za-z0-9-]{1,50}$")
 PROJECT_ID = re.compile(r"^PROJECT-[A-F0-9]{32}$")
 STEP_ID = re.compile(r"^STEP-[A-F0-9]{32}$")
 WORK_RECORD_ID = re.compile(r"^RECORD-[A-F0-9]{32}$")
+INBOX_ID = re.compile(r"^INBOX-[A-F0-9]{32}$")
+SUMMARY_ID = re.compile(r"^SUMMARY-[A-F0-9]{32}$")
 EVENT_ID = re.compile(r"^[A-Za-z0-9-]{8,80}$")
 STATUSES = {"todo", "doing", "blocked", "done"}
 TASK_LIFECYCLE_ACTIONS = {"trash", "restore", "purge"}
@@ -1589,9 +1591,12 @@ def append_step_event(data_dir: Path, event: dict) -> Path:
 
 
 WORK_RECORD_FIELDS = {"content", "occurred_on", "project_id", "task_id",
-                      "outcome", "duration_minutes"}
+                      "outcome", "duration_minutes", "action_links", "featured",
+                      "source_inbox_id", "evidence_links"}
 WORK_RECORD_DEFAULTS = {"project_id": None, "task_id": None,
-                        "outcome": None, "duration_minutes": None}
+                        "outcome": None, "duration_minutes": None,
+                        "action_links": [], "featured": False, "source_inbox_id": None,
+                        "evidence_links": []}
 
 
 def validate_work_record_event(value: object) -> dict:
@@ -1655,6 +1660,39 @@ def validate_work_record_event(value: object) -> dict:
         minutes = changes["duration_minutes"]
         if type(minutes) is not int or not 1 <= minutes <= 1440:
             raise ValueError("duration_minutes must be between 1 and 1440")
+    if "featured" in changes and type(changes["featured"]) is not bool:
+        raise ValueError("featured must be true or false")
+    if "source_inbox_id" in changes:
+        source = changes["source_inbox_id"]
+        if source is not None and (not isinstance(source, str) or not INBOX_ID.fullmatch(source)):
+            raise ValueError("invalid source inbox ID")
+        if value["action"] != "create":
+            raise ValueError("source inbox association is immutable")
+    if "evidence_links" in changes:
+        validate_document_links(changes["evidence_links"])
+    if "action_links" in changes:
+        links = changes["action_links"]
+        if not isinstance(links, list) or len(links) > 20:
+            raise ValueError("action_links must be a list of up to 20 associations")
+        signatures = set()
+        for link in links:
+            if not isinstance(link, dict):
+                raise ValueError("invalid work association")
+            kind = link.get("target_type")
+            if kind == "task":
+                if set(link) != {"target_type", "target_id", "relation"} or not isinstance(link.get("target_id"), str) or not TASK_ID.fullmatch(link["target_id"]):
+                    raise ValueError("invalid task work association")
+            elif kind == "step":
+                if set(link) != {"target_type", "target_id", "task_id", "relation"} or not isinstance(link.get("target_id"), str) or not STEP_ID.fullmatch(link["target_id"]) or not isinstance(link.get("task_id"), str) or not TASK_ID.fullmatch(link["task_id"]):
+                    raise ValueError("invalid step work association")
+            else:
+                raise ValueError("invalid work association type")
+            if link.get("relation") not in {"progress_on", "derived_action", "result_of"}:
+                raise ValueError("invalid work association relation")
+            signature = (kind, link["target_id"])
+            if signature in signatures:
+                raise ValueError("duplicate work association")
+            signatures.add(signature)
     return value
 
 
@@ -1793,14 +1831,318 @@ def read_task_completion_activity(data_dir: Path, workspace: dict) -> list[dict]
     return result
 
 
-def validate_work_record_links(payload: dict, workspace: dict) -> None:
-    """A local edit cannot silently reference an unresolved or conflicting object."""
+def validate_work_record_links(payload: dict, workspace: dict, previous: dict | None = None) -> None:
+    """Reject new unresolved links; preserve historic links on unrelated edits."""
     projects = {p["project_id"]: p for p in workspace["projects"]}
     tasks = {t["task_id"]: t for t in workspace["tasks"]}
     for key, values in (("project_id", projects), ("task_id", tasks)):
         target = payload.get(key)
-        if target is not None and (target not in values or values[target].get("conflict")):
-            raise LookupError(key + " not synchronized or has a conflict")
+        if target is not None and (target not in values or values[target].get("conflict") or
+                                   values[target].get("trashed_at")):
+            if previous is None or target != previous.get(key):
+                raise LookupError(key + " not synchronized or has a conflict")
+    before = previous.get("action_links", []) if previous else []
+    for link in payload.get("action_links", []):
+        if link in before:
+            continue
+        task = tasks.get(link["target_id"] if link["target_type"] == "task" else link["task_id"])
+        if task is None or task.get("conflict") or task.get("trashed_at"):
+            raise LookupError("linked task is missing, deleted or conflicted")
+        if link["target_type"] == "step" and not any(
+                step["step_id"] == link["target_id"] and not step.get("conflict")
+                for step in task.get("steps", [])):
+            raise LookupError("linked step has not synchronized or is conflicted")
+
+
+def label_work_associations(record: dict, workspace: dict) -> None:
+    tasks = {t["task_id"]: t for t in workspace["tasks"]}
+    record["action_link_labels"] = []
+    for link in record.get("action_links", []):
+        task = tasks.get(link["target_id"] if link["target_type"] == "task" else link["task_id"])
+        if link["target_type"] == "task":
+            label = task.get("title") if task and not task.get("conflict") else None
+        else:
+            step = next((step for step in task.get("steps", [])
+                         if step["step_id"] == link["target_id"]), None) if task else None
+            label = ((task.get("title", "") + " / " + step["title"])
+                     if task and step and not step.get("conflict") and not task.get("conflict") else None)
+        record["action_link_labels"].append({**link, "label": label or "关联对象未同步或已转换"})
+
+
+
+
+# Work-archive inbox and review summaries deliberately have separate, append-only
+# event streams. The web UI does not call an AI model; summaries are transparent
+# source-linked drafts for the user or connected ChatGPT to refine.
+ARCHIVE_KIND_META = {
+    "inbox": (INBOX_ID, "inbox_id", "work_archive/inbox_events"),
+    "summary": (SUMMARY_ID, "summary_id", "work_archive/summary_events"),
+}
+
+
+def _archive_day(value: object, nullable: bool = False) -> None:
+    if nullable and value is None:
+        return
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        raise ValueError("work archive requires YYYY-MM-DD")
+    try:
+        date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError("invalid work archive calendar date") from exc
+
+
+def validate_work_archive_event(value: object, kind: str) -> dict:
+    pattern, id_field, _ = ARCHIVE_KIND_META[kind]
+    allowed = {"version", "event_id", id_field, "action", "actor",
+               "timestamp", "base_revision", "changes"}
+    if not isinstance(value, dict) or set(value) != allowed or value.get("version") != 1:
+        raise ValueError("invalid work archive event envelope")
+    if not isinstance(value.get("event_id"), str) or not EVENT_ID.fullmatch(value["event_id"]):
+        raise ValueError("invalid archive event ID")
+    if not isinstance(value.get(id_field), str) or not pattern.fullmatch(value[id_field]):
+        raise ValueError("invalid work archive object ID")
+    if value.get("actor") not in {"user", "chatgpt"}:
+        raise ValueError("invalid archive actor")
+    stamp = value.get("timestamp")
+    if not isinstance(stamp, str):
+        raise ValueError("timestamp required")
+    try:
+        if datetime.fromisoformat(stamp.replace("Z", "+00:00")).tzinfo is None:
+            raise ValueError("timezone required")
+    except ValueError as exc:
+        raise ValueError("invalid archive timestamp") from exc
+    revision = value.get("base_revision")
+    if type(revision) is not int or revision < 0:
+        raise ValueError("invalid archive base revision")
+    changes = value.get("changes")
+    if not isinstance(changes, dict) or not changes:
+        raise ValueError("archive changes required")
+    action = value.get("action")
+    if kind == "inbox":
+        if action == "create":
+            if revision != 0 or not {"content", "occurred_on"} <= set(changes) or (
+                    set(changes) - {"content", "occurred_on", "project_id"}):
+                raise ValueError("inbox creation requires content and occurred_on")
+            content = changes["content"]
+            if not isinstance(content, str) or not 1 <= len(content.strip()) <= 8000:
+                raise ValueError("inbox text length 1-8000")
+            _archive_day(changes["occurred_on"], nullable=True)
+            project = changes.get("project_id")
+            if project is not None and (not isinstance(project, str) or
+                                        not PROJECT_ID.fullmatch(project)):
+                raise ValueError("invalid inbox project")
+        elif action == "dismiss":
+            if revision != 1 or value["actor"] != "user" or changes != {"ignored": True}:
+                raise ValueError("inbox dismiss requires explicit user revision")
+        else:
+            raise ValueError("invalid inbox action")
+    else:
+        if action == "create":
+            required = {"period", "period_start", "period_end", "project_id",
+                        "body", "source_record_ids", "source_completion_ids", "confirmed"}
+            if revision != 0 or set(changes) != required:
+                raise ValueError("summary creation requires all fields")
+            if changes["period"] not in {"daily", "weekly", "monthly"}:
+                raise ValueError("invalid summary period")
+            _archive_day(changes["period_start"])
+            _archive_day(changes["period_end"])
+            if (date.fromisoformat(changes["period_start"]) >
+                    date.fromisoformat(changes["period_end"])):
+                raise ValueError("summary period dates reversed")
+            project = changes["project_id"]
+            if project is not None and (not isinstance(project, str) or
+                                        not PROJECT_ID.fullmatch(project)):
+                raise ValueError("invalid summary project")
+            for key, pattern in (("source_record_ids", WORK_RECORD_ID),
+                                 ("source_completion_ids", EVENT_ID)):
+                ids = changes[key]
+                if not isinstance(ids, list) or len(ids) > 250 or any(
+                        not isinstance(item, str) or not pattern.fullmatch(item) for item in ids
+                ) or len(ids) != len(set(ids)):
+                    raise ValueError("invalid summary source IDs")
+        elif action == "update":
+            if revision < 1 or set(changes) - {"body", "confirmed"}:
+                raise ValueError("invalid summary update fields")
+        else:
+            raise ValueError("invalid summary action")
+        if "body" in changes and (not isinstance(changes["body"], str) or
+                                  not 1 <= len(changes["body"].strip()) <= 12000):
+            raise ValueError("summary body length 1-12000")
+        if "confirmed" in changes and type(changes["confirmed"]) is not bool:
+            raise ValueError("confirmed must be boolean")
+        if changes.get("confirmed") is True and value["actor"] != "user":
+            raise ValueError("summary confirmation requires user action")
+    return value
+
+
+def read_work_archive_events(data_dir: Path, kind: str) -> dict:
+    """Project independent inbox/summary events without guessing conflict winners."""
+    _, id_field, folder = ARCHIVE_KIND_META[kind]
+    directory = data_dir / folder
+    if not directory.exists():
+        return {"items": [], "warnings": []}
+    roots: dict[str, list[dict]] = defaultdict(list)
+    updates: dict[str, list[dict]] = defaultdict(list)
+    event_ids: dict[str, dict] = {}
+    duplicates: set[str] = set()
+    warnings: list[str] = []
+    for path in sorted(directory.glob("*.json")):
+        if not path.is_file():
+            continue
+        try:
+            if path.stat().st_size > MAX_WORK_RECORD_BODY:
+                raise ValueError("archive event file too large")
+            event = validate_work_archive_event(
+                json.loads(path.read_text(encoding="utf-8-sig")), kind)
+            existing = event_ids.get(event["event_id"])
+            if existing is not None:
+                if existing == event:
+                    warnings.append(path.name + ": duplicate archive event ignored")
+                    continue
+                duplicates.update({existing[id_field], event[id_field]})
+                warnings.append(path.name + ": archive event ID collision")
+            else:
+                event_ids[event["event_id"]] = event
+            (roots if event["action"] == "create" else updates)[event[id_field]].append(event)
+        except (ValueError, OSError, TypeError, UnicodeError, json.JSONDecodeError) as exc:
+            warnings.append(path.name + ": " + str(exc))
+    items = []
+    for object_id in sorted(set(roots) | set(updates)):
+        creation = roots[object_id]
+        if len(creation) != 1:
+            warnings.append(object_id + ": archive creation missing or conflicting")
+            if creation:
+                items.append({id_field: object_id, "conflict": True, "revision": 0})
+            continue
+        root = creation[0]
+        item = {id_field: object_id, **root["changes"], "created_at": root["timestamp"],
+                "updated_at": root["timestamp"], "revision": 1, "conflict": False}
+        if kind == "inbox":
+            item.setdefault("project_id", None)
+            item["ignored"] = False
+        by_revision: dict[int, list[dict]] = defaultdict(list)
+        for event in updates[object_id]:
+            by_revision[event["base_revision"]].append(event)
+        while item["revision"] in by_revision:
+            variants = by_revision.pop(item["revision"])
+            if len(variants) != 1:
+                item["conflict"] = True
+                warnings.append(object_id + ": concurrent archive edits")
+                break
+            item.update(variants[0]["changes"])
+            item["revision"] += 1
+            item["updated_at"] = variants[0]["timestamp"]
+        if by_revision:
+            item["conflict"] = True
+            warnings.append(object_id + ": missing or out-of-order archive updates")
+        if object_id in duplicates:
+            item["conflict"] = True
+            warnings.append(object_id + ": duplicate archive event ID")
+        items.append(item)
+    items.sort(key=lambda item: (item.get("created_at", ""), item[id_field]), reverse=True)
+    return {"items": items, "warnings": warnings}
+
+
+def append_work_archive_event(data_dir: Path, kind: str, event: dict) -> Path:
+    validate_work_archive_event(event, kind)
+    return _append_json_event(data_dir, event, ARCHIVE_KIND_META[kind][2])
+
+
+def read_work_inbox(data_dir: Path, records: list[dict] | None = None) -> dict:
+    result = read_work_archive_events(data_dir, "inbox")
+    if records is None:
+        records = read_work_records(data_dir)["records"]
+    links: dict[str, list[dict]] = defaultdict(list)
+    for record in records:
+        if record.get("source_inbox_id"):
+            links[record["source_inbox_id"]].append(record)
+    for item in result["items"]:
+        attached = links.get(item["inbox_id"], [])
+        if attached:
+            item["processed_record_id"] = attached[0]["record_id"] if len(attached) == 1 else None
+            if len(attached) != 1 or attached[0].get("conflict"):
+                item["conflict"] = True
+                result["warnings"].append(item["inbox_id"] + ": duplicate or conflicted source links")
+    return result
+
+
+def work_review_period(period: str, day: str) -> tuple[str, str]:
+    if period not in {"daily", "weekly", "monthly"}:
+        raise ValueError("invalid work review period")
+    _archive_day(day)
+    start = date.fromisoformat(day)
+    if period == "daily":
+        end = start
+    elif period == "weekly":
+        start -= timedelta(days=start.weekday())
+        end = start + timedelta(days=6)
+    else:
+        end = start.replace(day=calendar.monthrange(start.year, start.month)[1])
+        start = start.replace(day=1)
+    return start.isoformat(), end.isoformat()
+
+
+def preview_work_review(data_dir: Path, workspace: dict, period: str,
+                        day: str, project_id: str | None = None) -> dict:
+    """Source-linked deterministic review. No AI calls, no implicit data writes."""
+    start, end = work_review_period(period, day)
+    if project_id is not None:
+        if not PROJECT_ID.fullmatch(project_id):
+            raise ValueError("invalid summary project")
+        project = next((p for p in workspace["projects"]
+                        if p["project_id"] == project_id and not p.get("conflict")), None)
+        if project is None:
+            raise LookupError("summary project not synchronized")
+    else:
+        project = None
+    state = read_work_records(data_dir)
+    if state["warnings"]:
+        raise LookupError("work record source has unresolved warnings; check before summarizing")
+    records = sorted((r for r in state["records"] if not r.get("conflict")
+                      and start <= r["occurred_on"] <= end
+                      and (project_id is None or r.get("project_id") == project_id)),
+                     key=lambda item: (item["occurred_on"], item["record_id"]))
+    completed = []
+    for event in read_task_completion_activity(data_dir, workspace):
+        # Completion timestamps are UTC for a deterministic cloud-safe summary.
+        stamp = datetime.fromisoformat(event["occurred_at"].replace("Z", "+00:00"))
+        completion_day = stamp.astimezone(timezone.utc).date().isoformat()
+        if start <= completion_day <= end and (project_id is None or event.get("project_id") == project_id):
+            completed.append(event)
+    if len(records) > 250 or len(completed) > 250:
+        raise ValueError("too many work sources in this period; narrow project or date")
+    duration = sum(r.get("duration_minutes") or 0 for r in records)
+    heading = {"daily": "日报", "weekly": "周报", "monthly": "月报"}[period]
+    lines = ["# " + heading + "（来源整理底稿，非 AI 自动分析）",
+             "期间：" + start + " 至 " + end,
+             "项目：" + (project["name"] if project else "全部项目"),
+             "工作记录：" + str(len(records)) + " 条；任务人工完成：" +
+             str(len(completed)) + " 次；已填耗时：" + str(duration) + " 分钟",
+             "",
+             "## 已发生工作"]
+    for record in records:
+        lines.append("- [" + record["occurred_on"] + "] " +
+                     record["content"].replace("\n", " ").strip())
+        if record.get("outcome"):
+            lines.append("  成果：" + record["outcome"].replace("\n", " ").strip())
+    if not records:
+        lines.append("- 无工作记录")
+    lines.append("")
+    lines.append("## 已确认完成的任务")
+    for event in completed:
+        lines.append("- [" + event["occurred_at"][:10] + " UTC] " + event["task_title"])
+    if not completed:
+        lines.append("- 无已确认完成事件")
+    lines.extend(["", "## 本期复盘与后续行动（请本人或 ChatGPT 核实后填写）", ""])
+    body = "\n".join(lines)
+    if len(body) > 12000:
+        raise ValueError("review source text exceeds 12000 characters; narrow scope")
+    return {"period": period, "period_start": start, "period_end": end,
+            "project_id": project_id, "body": body,
+            "source_record_ids": [r["record_id"] for r in records],
+            "source_completion_ids": [e["source_event_id"] for e in completed],
+            "record_count": len(records), "completion_count": len(completed),
+            "duration_minutes": duration}
 
 
 def validate_setting_event(value: object) -> dict:
@@ -2933,8 +3275,32 @@ def handler_factory(data_dir: Path):
                         project = projects.get(item.get("project_id"))
                         item["task_title"] = task["title"] if task and not task.get("conflict") else None
                         item["project_name"] = project["name"] if project and not project.get("conflict") else None
+                        label_work_associations(item, workspace)
                     state["task_completions"] = read_task_completion_activity(data_dir, workspace)
                 return self.json_response(200, state)
+            if path == "/api/work-archive":
+                with _write_lock:
+                    record_state = read_work_records(data_dir)
+                    inbox = read_work_inbox(data_dir, record_state["records"])
+                    summaries = read_work_archive_events(data_dir, "summary")
+                    return self.json_response(200, {
+                        "inbox": inbox["items"], "summaries": summaries["items"],
+                        "warnings": record_state["warnings"] + inbox["warnings"] + summaries["warnings"]
+                    })
+            if path == "/api/work-archive/preview":
+                query = parse_qs(urlsplit(self.path).query)
+                try:
+                    period = query.get("period", [""])[0]
+                    day = query.get("day", [""])[0]
+                    project_id = query.get("project_id", [""])[0] or None
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        preview = preview_work_review(data_dir, workspace, period, day, project_id)
+                    return self.json_response(200, preview)
+                except LookupError as exc:
+                    return self.json_response(409, {"error": str(exc)})
+                except (ValueError, TypeError) as exc:
+                    return self.json_response(400, {"error": str(exc)})
             if path == "/api/reviews":
                 with _write_lock:
                     workspace = read_workspace(data_dir, include_trashed=True)
@@ -2984,10 +3350,14 @@ def handler_factory(data_dir: Path):
             task_convert_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/convert-to-step", path)
             work_record_match = re.fullmatch(r"/api/work-records/(RECORD-[A-F0-9]{32})/update", path)
             creating_work_record = path == "/api/work-records"
+            creating_inbox = path == "/api/work-archive/inbox"
+            inbox_ignore = re.fullmatch(r"/api/work-archive/inbox/(INBOX-[A-F0-9]{32})/ignore", path)
+            creating_summary = path == "/api/work-archive/summaries"
+            summary_edit = re.fullmatch(r"/api/work-archive/summaries/(SUMMARY-[A-F0-9]{32})/update", path)
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
-            if not (creating_work_record or work_record_match or creating_task or creating_project or task_match or recurrence_match or project_match or
+            if not (creating_work_record or work_record_match or creating_inbox or inbox_ignore or creating_summary or summary_edit or creating_task or creating_project or task_match or recurrence_match or project_match or
                     step_create_match or step_update_match or step_reorder_match or
                     step_documents_match or step_delete_match or step_convert_match or task_convert_match or applying_update or
                     documents_match or lifecycle_match or changing_retention or review_match):
@@ -3037,7 +3407,89 @@ def handler_factory(data_dir: Path):
                         _update_lock.release()
 
             try:
-                payload = self.read_payload(MAX_WORK_RECORD_BODY if creating_work_record or work_record_match else MAX_BODY)
+                archive_request = (creating_work_record or work_record_match or creating_inbox or
+                                   inbox_ignore or creating_summary or summary_edit)
+                payload = self.read_payload(MAX_WORK_RECORD_BODY if archive_request else MAX_BODY)
+                if creating_inbox:
+                    if set(payload) - {"content", "occurred_on", "project_id"} or (
+                            not {"content", "occurred_on"} <= set(payload)):
+                        raise ValueError("invalid work inbox input")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        validate_work_record_links({"project_id": payload.get("project_id")}, workspace)
+                        iid = "INBOX-" + uuid.uuid4().hex.upper()
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "inbox_id": iid, "action": "create", "actor": "user",
+                                 "timestamp": utc_now(), "base_revision": 0,
+                                 "changes": {key: payload[key] for key in payload}}
+                        append_work_archive_event(data_dir, "inbox", event)
+                    return self.json_response(201, {"saved": True, "inbox_id": iid, "revision": 1})
+                if inbox_ignore:
+                    if set(payload) != {"revision", "confirmed_ignore"} or (
+                            type(payload["revision"]) is not int or
+                            payload["confirmed_ignore"] is not True):
+                        raise ValueError("ignoring inbox requires explicit user confirmation")
+                    with _write_lock:
+                        state = read_work_inbox(data_dir)
+                        old = next((x for x in state["items"] if x["inbox_id"] == inbox_ignore.group(1)), None)
+                        if old is None:
+                            return self.json_response(404, {"error": "inbox item not found"})
+                        if old["conflict"] or old["revision"] != payload["revision"] or (
+                                old.get("ignored") or old.get("processed_record_id")):
+                            return self.json_response(409, {"error": "inbox item already handled or conflicted"})
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "inbox_id": old["inbox_id"], "action": "dismiss", "actor": "user",
+                                 "timestamp": utc_now(), "base_revision": old["revision"],
+                                 "changes": {"ignored": True}}
+                        append_work_archive_event(data_dir, "inbox", event)
+                    return self.json_response(200, {"saved": True, "revision": old["revision"] + 1})
+                if creating_summary:
+                    required = {"period", "day", "project_id", "body", "confirmed",
+                                "source_record_ids", "source_completion_ids"}
+                    if set(payload) != required:
+                        raise ValueError("invalid work summary input")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        preview = preview_work_review(data_dir, workspace, payload["period"],
+                                                      payload["day"], payload["project_id"])
+                        if (payload["source_record_ids"] != preview["source_record_ids"] or
+                                payload["source_completion_ids"] != preview["source_completion_ids"]):
+                            return self.json_response(409, {"error": "summary sources changed; regenerate"})
+                        sid = "SUMMARY-" + uuid.uuid4().hex.upper()
+                        changes = {key: preview[key] for key in (
+                            "period", "period_start", "period_end", "project_id",
+                            "source_record_ids", "source_completion_ids")}
+                        changes["body"] = payload["body"]
+                        changes["confirmed"] = payload["confirmed"]
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "summary_id": sid, "action": "create", "actor": "user",
+                                 "timestamp": utc_now(), "base_revision": 0, "changes": changes}
+                        append_work_archive_event(data_dir, "summary", event)
+                    return self.json_response(201, {"saved": True, "summary_id": sid, "revision": 1})
+                if summary_edit:
+                    if (set(payload) - {"revision", "body", "confirmed"} or
+                            "revision" not in payload or
+                            type(payload["revision"]) is not int or
+                            not (set(payload) & {"body", "confirmed"})):
+                        raise ValueError("summary update requires revision and changed content")
+                    with _write_lock:
+                        state = read_work_archive_events(data_dir, "summary")
+                        prior = next((x for x in state["items"]
+                                      if x["summary_id"] == summary_edit.group(1)), None)
+                        if prior is None:
+                            return self.json_response(404, {"error": "summary not found"})
+                        if prior["conflict"] or prior["revision"] != payload["revision"]:
+                            return self.json_response(409, {"error": "summary changed or has conflict"})
+                        changes = {key: value for key, value in payload.items()
+                                   if key != "revision" and value != prior.get(key)}
+                        if not changes:
+                            return self.json_response(200, {"saved": False, "revision": prior["revision"]})
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "summary_id": prior["summary_id"], "action": "update",
+                                 "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": prior["revision"], "changes": changes}
+                        append_work_archive_event(data_dir, "summary", event)
+                    return self.json_response(200, {"saved": True, "revision": prior["revision"] + 1})
                 if creating_work_record or work_record_match:
                     allowed = WORK_RECORD_FIELDS | ({"revision"} if work_record_match else set())
                     if set(payload) - allowed:
@@ -3055,6 +3507,12 @@ def handler_factory(data_dir: Path):
                             new_id = "RECORD-" + uuid.uuid4().hex.upper()
                             revision = 0
                             action = "create"
+                            source_id = changes.get("source_inbox_id")
+                            if source_id:
+                                inbox = read_work_inbox(data_dir, state["records"])
+                                source = next((i for i in inbox["items"] if i["inbox_id"] == source_id), None)
+                                if source is None or source.get("ignored") or source.get("conflict") or source.get("processed_record_id"):
+                                    return self.json_response(409, {"error": "inbox source is not available"})
                         else:
                             new_id = work_record_match.group(1)
                             prior = next((r for r in state["records"]
@@ -3072,9 +3530,10 @@ def handler_factory(data_dir: Path):
                             revision = prior["revision"]
                             action = "update"
                         # Merge existing associations before checking, for partial updates.
-                        links = {key: changes.get(key, prior.get(key) if work_record_match else None)
-                                 for key in ("project_id", "task_id")}
-                        validate_work_record_links(links, workspace)
+                        links = {key: changes.get(key, prior.get(key) if work_record_match else
+                                                          ([] if key == "action_links" else None))
+                                 for key in ("project_id", "task_id", "action_links")}
+                        validate_work_record_links(links, workspace, prior if work_record_match else None)
                         event = {"version": 1, "event_id": str(uuid.uuid4()),
                                  "record_id": new_id, "action": action, "actor": "user",
                                  "timestamp": utc_now(), "base_revision": revision,

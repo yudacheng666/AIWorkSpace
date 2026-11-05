@@ -697,7 +697,22 @@
     .work-entry-empty {padding:30px;text-align:center;color:#718197;font-size:13px}
     .secondary-action {background:#fff;color:#285baf;border:1px solid #bcd0e6;border-radius:8px;padding:9px 13px;font-weight:650}
     @media(max-width:1100px) {.work-meta {grid-template-columns:repeat(2,minmax(130px,1fr))}.work-filters {grid-template-columns:repeat(2,minmax(120px,1fr))}}
+    .work-archive-row{display:flex;align-items:end;flex-wrap:wrap;gap:10px;margin:10px 0}
+    .work-archive-row label{display:grid;gap:5px;flex:1;min-width:130px;font-size:12px;color:#53677f}
+    .work-archive-row input,.work-archive-row select,.work-archive-row textarea,.work-archive-textarea{
+      font:inherit;padding:9px;border:1px solid #d7e0ed;border-radius:8px;color:#30445f;background:white;min-width:0}
+    .work-archive-row button,.work-entry-link button,.work-inbox-item button,.work-summary-item button{
+      border:1px solid #cad8e8;border-radius:8px;background:#fff;padding:8px 12px;color:#285baf;font-weight:600}
+    .work-archive-textarea{width:100%;min-height:160px;resize:vertical}
+    .work-archive-hint{font-size:12px;color:#6c7f92;line-height:1.65}
+    .work-archive-tags{display:flex;gap:6px;flex-wrap:wrap;margin:7px 0}
+    .work-archive-tag{border-radius:20px;background:#edf3fa;color:#3c6081;padding:5px 9px;font-size:12px}
+    .work-archive-tag button{border:0;background:transparent;color:#99553d;cursor:pointer}
+    .work-inbox-item,.work-summary-item,.work-featured-item{border:1px solid #e3eaf2;padding:12px;border-radius:9px;margin:8px 0}
+    .work-inbox-item p,.work-summary-item p,.work-featured-item p{white-space:pre-wrap;margin:5px 0 9px;overflow-wrap:anywhere}
+    .work-check{display:flex;gap:8px;align-items:center;font-size:12px;color:#526a82}
     @media(max-width:640px) {.work-card {padding:16px}.work-meta,.work-filters {grid-template-columns:1fr}.secondary-action {padding:8px 10px}}
+
   </style>
 </head>
 <body>
@@ -861,6 +876,28 @@
           <label for="work-record-outcome">工作成果（可选）
             <textarea id="work-record-outcome" maxlength="2000" rows="2" placeholder="例如：解决交期争议；不能确定的结果可留空。"></textarea>
           </label>
+          <label class="work-check"><input type="checkbox" id="work-record-featured"> 归入我的成果库（可用于未来项目总结和职业档案）</label>
+          <div class="work-archive-row">
+            <label>关联任务或步骤
+              <select id="work-link-target"><option value="">选择关联对象（可选）</option></select>
+            </label>
+            <label>关联类型
+              <select id="work-link-relation"><option value="progress_on">这项工作的进展</option><option value="result_of">这项工作的成果</option><option value="derived_action">由记录产生的后续行动</option></select>
+            </label>
+            <button type="button" id="work-link-add">添加关联</button>
+          </div>
+          <div class="work-archive-tags" id="work-link-list" aria-live="polite"></div>
+          <div class="work-archive-row">
+            <label>Google Drive 证据名称（可选）
+              <input id="work-evidence-title" maxlength="120" placeholder="如：会议纪要">
+            </label>
+            <label>文件链接
+              <input id="work-evidence-url" type="url" maxlength="2048" placeholder="https://drive.google.com/...">
+            </label>
+            <button type="button" id="work-evidence-add">关联证据</button>
+          </div>
+          <div class="work-archive-tags" id="work-evidence-list" aria-live="polite"></div>
+          <p class="work-archive-hint">关联只记录引用，不自动将任务设为已完成；Google Drive 文件权限保持原状。</p>
           <div class="work-form-actions">
             <button type="submit" class="save" id="work-record-submit">保存记录</button>
             <button type="button" id="work-record-cancel">清空 / 取消编辑</button>
@@ -890,6 +927,51 @@
         <div class="work-timeline" id="work-record-list" aria-live="polite">
           <div class="work-entry-empty">进入此页后读取工作记录…</div>
         </div>
+      </section>
+      <section class="work-card" aria-labelledby="work-inbox-heading">
+        <h2 id="work-inbox-heading">待整理收件箱 <span class="inbox-total" id="work-inbox-count"></span></h2>
+        <p class="work-archive-hint">暂存原始工作笔记。整理成正式记录后自动标记已整理，不重复创建任务；此处不运行后台 AI。</p>
+        <form id="work-inbox-form">
+          <label for="work-inbox-content">临时笔记 / 语音转文字内容</label>
+          <textarea id="work-inbox-content" class="work-archive-textarea" maxlength="8000" rows="3" required placeholder="直接记录事情原文，稍后再整理。"></textarea>
+          <div class="work-archive-row">
+            <label>发生日期（不确定可留空）<input id="work-inbox-date" type="date"></label>
+            <label>项目（可选）<select id="work-inbox-project"><option value="">未归类</option></select></label>
+            <button type="submit" id="work-inbox-submit">暂存原始笔记</button>
+          </div>
+        </form>
+        <p id="work-inbox-message" role="status" aria-live="polite"></p>
+        <div id="work-inbox-list" aria-live="polite"></div>
+      </section>
+      <section class="work-card" aria-labelledby="work-summary-heading">
+        <h2 id="work-summary-heading">工作总结</h2>
+        <p class="work-archive-hint">先根据真实记录生成可核对的底稿，再本人修改，或复制给 ChatGPT 分析。此处不会自行生成未经核实的业绩。</p>
+        <form id="work-summary-form">
+          <div class="work-archive-row">
+            <label>总结周期
+              <select id="work-summary-period"><option value="daily">日报</option><option value="weekly">周报</option><option value="monthly">月报</option></select>
+            </label>
+            <label>包含日期<input id="work-summary-date" type="date" required></label>
+            <label>项目范围<select id="work-summary-project"><option value="">全部项目</option></select></label>
+            <button type="button" id="work-summary-generate">生成来源底稿</button>
+          </div>
+          <label for="work-summary-body">总结正文（可编辑）</label>
+          <textarea id="work-summary-body" class="work-archive-textarea" maxlength="12000" placeholder="先选择周期并生成底稿，再核实和补充。" required></textarea>
+          <div class="work-archive-row">
+            <label class="work-check"><input type="checkbox" id="work-summary-confirm"> 我已核对内容，可用于正式总结</label>
+            <button type="button" id="work-summary-copy">复制供 ChatGPT 分析</button>
+            <button type="submit" id="work-summary-save">保存总结</button>
+            <button type="button" id="work-summary-cancel">清空 / 退出编辑</button>
+          </div>
+        </form>
+        <p id="work-summary-message" role="status" aria-live="polite"></p>
+        <h3>历史总结</h3>
+        <div id="work-summary-list" aria-live="polite"></div>
+      </section>
+      <section class="work-card" aria-labelledby="work-outcomes-heading">
+        <h2 id="work-outcomes-heading">个人成果库</h2>
+        <p class="work-archive-hint">从已核实的工作记录中选出有代表性的成果，保留日期、项目、原始记录和证据引用，便于以后编写项目总结或简历。</p>
+        <div id="work-outcomes-list" aria-live="polite"></div>
       </section>
     </section>
     <section id="page-overview" class="workspace-page is-active">
@@ -1101,6 +1183,7 @@
             <button type="button" id="task-detail-id" title="点击复制任务编号">任务编号</button>
             <button type="button" id="task-id-copy" aria-label="复制任务编号" title="复制任务编号">⧉</button>
             <span id="task-id-feedback" class="drawer-id-copy-feedback" role="status" aria-live="polite"></span>
+            <button type="button" id="task-work-history" class="secondary-action">关联工作记录</button>
           </div>
         </div>
         <button type="button" class="icon-button" id="task-detail-close" aria-label="关闭任务详情">×</button>
@@ -1131,6 +1214,14 @@
     let workRecords = [];
     let workTaskCompletions = [];
     let editingRecordId = "";
+    let workDraftLinks = [];
+    let workDraftEvidence = [];
+    let workSourceInboxId = "";
+    let workFocusedTaskId = "";
+    let workInboxItems = [];
+    let workSummaryItems = [];
+    let workSummaryPreview = null;
+    let editingSummaryId = "";
     let taskViewMode = "list";
     let taskMonthCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     let taskTimelineCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -1176,6 +1267,7 @@
       form.addEventListener("input", update);
       form.addEventListener("change", update);
       return {
+        check: update,
         // Advance the clean baseline to the exact state persisted by the
         // successful request. If the live form changed while saving, update()
         // keeps that newer draft dirty instead of comparing against stale data.
@@ -1189,7 +1281,7 @@
     // Browser-level reload/close/navigation protection complements in-page
     // confirmations. Never prompt when all task/step drafts are clean.
     window.addEventListener("beforeunload", event => {
-      if (!unsavedTaskEditors.size && !unsavedPersistentEditors.size &&
+      if (!isSaving && !unsavedTaskEditors.size && !unsavedPersistentEditors.size &&
           !unsavedProjectEditors.size) return;
       event.preventDefault();
       event.returnValue = "";
@@ -3257,9 +3349,13 @@
         $("work-record-message").textContent = "工作记录正在保存，请稍后再切换页面。";
         return false;
       }
-      if (activePage==="worklog" && page!=="worklog" && unsavedPersistentEditors.has($("work-record-form"))) {
-        if (!window.confirm("工作记录存在未保存内容，离开将丢弃草稿。确定继续吗？")) return false;
+      if (activePage==="worklog" && page!=="worklog" &&
+          ["work-record-form","work-inbox-form","work-summary-form"].some(id =>
+            unsavedPersistentEditors.has($(id)))) {
+        if (!window.confirm("工作档案存在未保存内容，离开将丢弃草稿。确定继续吗？")) return false;
         resetWorkRecordForm();
+        resetWorkInboxForm();
+        resetWorkSummary();
       }
       activePage = page;
       if (page === "tasks") taskViewMode = taskViewModes.includes(mode) ? mode : "list";
@@ -3287,7 +3383,7 @@
       renderTaskList();
       if (page === "trash") loadTrash();
       if (page === "reviews") loadNotifications();
-      if (page === "worklog") loadWorkRecords();
+      if (page === "worklog") { loadWorkRecords(); loadWorkArchive(); }
       return true;
     }
 
@@ -3324,6 +3420,8 @@
                      document.activeElement?.closest("#create-task") ||
                      document.activeElement?.closest("#create-project") ||
                      document.activeElement?.closest("#work-record-form") ||
+                     document.activeElement?.closest("#work-inbox-form") ||
+                     document.activeElement?.closest("#work-summary-form") ||
                      document.activeElement?.closest("#work-record-filters"))) return;
       setRefreshStatus("正在读取…");
       try {
@@ -3348,7 +3446,10 @@
         const filterProject = $("work-filter-project").value;
         projectOptions($("work-record-project"), workProject);
         projectOptions($("work-filter-project"), filterProject);
+        projectOptions($("work-inbox-project"), $("work-inbox-project").value);
+        projectOptions($("work-summary-project"), $("work-summary-project").value);
         fillWorkTaskOptions($("work-record-task").value);
+        populateWorkLinkTargets();
         renderProjects();
         refreshOverviewControls();
         renderTaskList();
@@ -3373,7 +3474,7 @@
         }
         setRefreshStatus(`上次刷新 ${new Date().toLocaleTimeString()}`);
         if (activePage === "reviews") loadNotifications();
-        if (activePage === "worklog") loadWorkRecords();
+        if (activePage === "worklog") { loadWorkRecords(); loadWorkArchive(); }
       } catch (error) {
         setRefreshStatus(`读取失败：${error.message}`);
       }
@@ -3921,10 +4022,129 @@
 
 
 
+    const workLinkRelationLabels = {
+      progress_on:"进展", result_of:"成果", derived_action:"后续行动"
+    };
+    function workLinkLabel(link) {
+      const taskId = link.target_type === "task" ? link.target_id : link.task_id;
+      const task = current.find(item => item.task_id === taskId);
+      if (!task) return "关联对象未同步或已转换";
+      if (link.target_type === "task") return task.title;
+      const step = (task.steps || []).find(item => item.step_id === link.target_id);
+      return step ? task.title + " / " + step.title : "关联步骤未同步或已转换";
+    }
+    function populateWorkLinkTargets() {
+      const select = $("work-link-target");
+      const selected = select.value;
+      select.replaceChildren();
+      const empty = element("option", "", "选择任务或步骤");
+      empty.value = "";
+      select.append(empty);
+      for (const task of current) {
+        if (task.conflict || task.trashed_at) continue;
+        const option = element("option", "", "任务 · " + task.title);
+        option.value = "task:" + task.task_id;
+        select.append(option);
+        for (const step of task.steps || []) {
+          if (step.conflict) continue;
+          const child = element("option", "", "步骤 · " + task.title + " / " + step.title);
+          child.value = "step:" + task.task_id + ":" + step.step_id;
+          select.append(child);
+        }
+      }
+      select.value = selected || "";
+    }
+    function renderWorkDraftLinks() {
+      const list = $("work-link-list");
+      list.replaceChildren();
+      for (const link of workDraftLinks) {
+        const chip = element("span", "work-archive-tag",
+          (workLinkRelationLabels[link.relation] || "关联") + " · " + workLinkLabel(link) + " ");
+        const remove = element("button", "", "×");
+        remove.type = "button";
+        remove.title = "移除这条关联";
+        remove.addEventListener("click", () => {
+          if (isSaving) return;
+          workDraftLinks = workDraftLinks.filter(item =>
+            !(item.target_type === link.target_type && item.target_id === link.target_id));
+          renderWorkDraftLinks();
+          workDraftWatcher.check();
+        });
+        chip.append(remove);
+        list.append(chip);
+      }
+    }
+    function renderWorkDraftEvidence() {
+      const list = $("work-evidence-list");
+      list.replaceChildren();
+      for (const doc of workDraftEvidence) {
+        const chip = element("span", "work-archive-tag", doc.title + " ");
+        const remove = element("button", "", "×");
+        remove.type = "button";
+        remove.title = "移除文件引用";
+        remove.addEventListener("click", () => {
+          if (isSaving) return;
+          workDraftEvidence = workDraftEvidence.filter(item => item.url !== doc.url);
+          renderWorkDraftEvidence();
+          workDraftWatcher.check();
+        });
+        chip.append(remove);
+        list.append(chip);
+      }
+    }
+    $("work-link-add").addEventListener("click", () => {
+      if (isSaving) return;
+      const target = $("work-link-target").value;
+      if (!target) return;
+      const parts = target.split(":");
+      let link;
+      if (parts[0] === "task" && parts.length === 2) {
+        link = {target_type:"task", target_id:parts[1], relation:$("work-link-relation").value};
+      } else if (parts[0] === "step" && parts.length === 3) {
+        link = {target_type:"step", task_id:parts[1],
+          target_id:parts[2], relation:$("work-link-relation").value};
+      } else return;
+      if (workDraftLinks.length >= 20) {
+        $("work-record-message").textContent = "每条工作记录最多关联 20 个任务或步骤。";
+        return;
+      }
+      if (workDraftLinks.some(item => item.target_type === link.target_type &&
+                                    item.target_id === link.target_id)) {
+        $("work-record-message").textContent = "此任务或步骤已关联，不重复添加。";
+        return;
+      }
+      workDraftLinks.push(link);
+      $("work-link-target").value = "";
+      renderWorkDraftLinks();
+      workDraftWatcher.check();
+    });
+    $("work-evidence-add").addEventListener("click", () => {
+      if (isSaving) return;
+      const title = $("work-evidence-title").value.trim();
+      const url = $("work-evidence-url").value.trim();
+      if (!title || !/^https:\/\/(drive\.google\.com|docs\.google\.com)\//.test(url)) {
+        $("work-record-message").textContent = "请填写文件名称和有效 Google Drive / Docs HTTPS 链接。";
+        return;
+      }
+      if (workDraftEvidence.length >= 20 || workDraftEvidence.some(doc => doc.url === url)) {
+        $("work-record-message").textContent = "证据引用重复或已达到 20 条上限。";
+        return;
+      }
+      workDraftEvidence.push({title, url});
+      $("work-evidence-title").value = "";
+      $("work-evidence-url").value = "";
+      renderWorkDraftEvidence();
+      workDraftWatcher.check();
+    });
+
     function workFormSnapshot() {
       return {content: $("work-record-content").value, occurred_on: $("work-record-date").value,
         project_id: $("work-record-project").value, task_id: $("work-record-task").value,
-        outcome: $("work-record-outcome").value, duration_minutes: $("work-record-minutes").value};
+        outcome: $("work-record-outcome").value, duration_minutes: $("work-record-minutes").value,
+        featured: $("work-record-featured").checked, action_links: workDraftLinks.map(link => ({...link})),
+        evidence_links: workDraftEvidence.map(doc => ({...doc})),
+        source_inbox_id:workSourceInboxId,
+        evidence_title:$("work-evidence-title").value, evidence_url:$("work-evidence-url").value};
     }
 
     $("work-record-date").value = localDayISO(new Date());
@@ -3958,6 +4178,16 @@
       $("work-record-minutes").value = "";
       $("work-record-project").value = "";
       $("work-record-task").value = "";
+      $("work-record-featured").checked = false;
+      $("work-evidence-title").value = "";
+      $("work-evidence-url").value = "";
+      $("work-link-target").value = "";
+      $("work-link-relation").value = "progress_on";
+      workDraftLinks = [];
+      workDraftEvidence = [];
+      workSourceInboxId = "";
+      renderWorkDraftLinks();
+      renderWorkDraftEvidence();
       $("work-record-submit").textContent = "保存记录";
       workDraftWatcher.markClean();
       $("work-record-message").textContent = "";
@@ -3977,14 +4207,19 @@
         kind: "record", day: record.occurred_on, timestamp: record.created_at,
         sourceId: record.record_id, projectId: record.project_id, record,
         search: [record.content, record.outcome, record.project_name, record.task_title,
-                 record.display_id].join(" ").toLocaleLowerCase()
+                 record.display_id, ...(record.action_link_labels || []).map(link => link.label)]
+                 .join(" ").toLocaleLowerCase()
       })).concat(workTaskCompletions.map(item => ({
         kind: "completion", day: localActivityDay(item.occurred_at),
         timestamp: item.occurred_at, sourceId: item.source_event_id,
         projectId: item.project_id, item,
         search: [item.task_title, item.task_id].join(" ").toLocaleLowerCase()
       }))).filter(item => (!from || item.day >= from) && (!to || item.day <= to)
-        && (!project || item.projectId === project) && (!keyword || item.search.includes(keyword)));
+        && (!project || item.projectId === project) && (!keyword || item.search.includes(keyword))
+        && (!workFocusedTaskId || (item.kind === "completion" ? item.item.task_id === workFocusedTaskId
+          : item.record.task_id === workFocusedTaskId ||
+            (item.record.action_links || []).some(link =>
+              (link.target_type === "task" ? link.target_id : link.task_id) === workFocusedTaskId))));
       entries.sort((a, b) => (b.day || "").localeCompare(a.day || "")
         || (b.timestamp || "").localeCompare(a.timestamp || "")
         || a.sourceId.localeCompare(b.sourceId));
@@ -4018,8 +4253,23 @@
           if (record.task_id) meta.append(element("span", "",
             "任务：" + (record.task_title || "关联任务尚未同步")));
           if (record.duration_minutes) meta.append(element("span", "", "耗时：" + record.duration_minutes + " 分钟"));
+          if (record.featured) meta.append(element("span", "", "已收录成果库"));
+          for (const link of record.action_link_labels || []) {
+            meta.append(element("span", "", (workLinkRelationLabels[link.relation] || "关联") + "：" + link.label));
+          }
           meta.append(element("span", "", "录入：" + localActivityDay(record.created_at)));
           row.append(meta);
+          if (record.evidence_links?.length) {
+            const docs = element("div", "work-archive-tags");
+            for (const doc of record.evidence_links) {
+              const anchor = element("a", "work-archive-tag", "证据：" + doc.title);
+              anchor.href = doc.url;
+              anchor.target = "_blank";
+              anchor.rel = "noopener noreferrer";
+              docs.append(anchor);
+            }
+            row.append(docs);
+          }
           const footer = element("div", "work-entry-footer");
           const edit = element("button", "", record.conflict ? "存在冲突，暂不可编辑" : "编辑记录");
           edit.type = "button";
@@ -4053,6 +4303,7 @@
         workRecords = state.records || [];
         workTaskCompletions = state.task_completions || [];
         renderWorkRecords();
+        renderWorkOutcomes();
         if (state.warnings?.length) {
           $("work-record-count").textContent += " · " + state.warnings.length + " 条数据提醒";
         }
@@ -4074,6 +4325,15 @@
       $("work-record-minutes").value = record.duration_minutes == null ? "" : String(record.duration_minutes);
       $("work-record-project").value = record.project_id || "";
       fillWorkTaskOptions(record.task_id || "");
+      $("work-record-featured").checked = !!record.featured;
+      workDraftLinks = (record.action_links || []).map(link => ({...link}));
+      workDraftEvidence = (record.evidence_links || []).map(doc => ({...doc}));
+      workSourceInboxId = "";
+      $("work-evidence-title").value = "";
+      $("work-evidence-url").value = "";
+      $("work-link-target").value = "";
+      renderWorkDraftLinks();
+      renderWorkDraftEvidence();
       $("work-record-submit").textContent = "保存修改";
       workDraftWatcher.markClean();
       $("work-record-message").textContent = "正在编辑 " + record.display_id + "；原始记录会保留。";
@@ -4093,12 +4353,19 @@
         $("work-record-message").textContent = "原记录需要刷新或核查，未写入。";
         return;
       }
+      if (snapshot.evidence_title.trim() || snapshot.evidence_url.trim()) {
+        $("work-record-message").textContent = "还有未添加的证据链接，请先点击「关联证据」。";
+        return;
+      }
       const payload = {
         content: snapshot.content.trim(), occurred_on: snapshot.occurred_on,
         project_id: snapshot.project_id || null, task_id: snapshot.task_id || null,
         outcome: snapshot.outcome.trim() || null,
-        duration_minutes: snapshot.duration_minutes ? Number(snapshot.duration_minutes) : null
+        duration_minutes: snapshot.duration_minutes ? Number(snapshot.duration_minutes) : null,
+        action_links:snapshot.action_links, featured:snapshot.featured,
+        evidence_links:snapshot.evidence_links
       };
+      if (!record && snapshot.source_inbox_id) payload.source_inbox_id = snapshot.source_inbox_id;
       if (record) payload.revision = record.revision;
       isSaving = true;
       $("work-record-submit").disabled = true;
@@ -4125,6 +4392,7 @@
             ? "已保存工作记录 " + result.display_id : "内容未变化，无需保存。";
         }
         await loadWorkRecords();
+        await loadWorkArchive();
       } catch (error) {
         $("work-record-message").textContent = "保存未成功：" + error.message + "。草稿已保留，请核查后重试。";
       } finally {
@@ -4141,6 +4409,7 @@
       resetWorkRecordForm();
     });
     $("work-filter-reset").addEventListener("click", () => {
+      workFocusedTaskId = "";
       $("work-filter-keyword").value = "";
       $("work-filter-from").value = "";
       $("work-filter-to").value = "";
@@ -4156,6 +4425,334 @@
       if (!setActivePage("worklog")) return;
       $("work-record-content").focus();
     });
+    $("task-work-history").addEventListener("click", () => {
+      const taskId = activeDetailTaskId;
+      if (!taskId || !closeTaskDetail()) return;
+      workFocusedTaskId = taskId;
+      if (!setActivePage("worklog")) return;
+      renderWorkRecords();
+    });
+
+
+    function renderWorkOutcomes() {
+      const container = $("work-outcomes-list");
+      container.replaceChildren();
+      const featured = workRecords.filter(record => record.featured && !record.conflict);
+      if (!featured.length) {
+        container.append(element("p", "work-archive-hint", "还没有选入成果库的工作记录。可编辑某条已完成的工作记录，勾选「归入我的成果库」。"));
+        return;
+      }
+      for (const record of featured) {
+        const card = element("article", "work-featured-item");
+        card.append(element("strong", "", record.occurred_on + " · " + record.display_id));
+        card.append(element("p", "", record.outcome || record.content));
+        if (record.project_name) card.append(element("p", "work-archive-hint", "项目：" + record.project_name));
+        const evidence = record.evidence_links || [];
+        if (evidence.length) card.append(element("p", "work-archive-hint",
+          "已关联证据：" + evidence.map(doc => doc.title).join("、")));
+        const edit = element("button", "", "查看原工作记录");
+        edit.type = "button";
+        edit.addEventListener("click", () => editWorkRecord(record.record_id));
+        card.append(edit);
+        container.append(card);
+      }
+    }
+
+    function workInboxSnapshot() {
+      return {content:$("work-inbox-content").value, occurred_on:$("work-inbox-date").value,
+        project_id:$("work-inbox-project").value};
+    }
+    const workInboxWatcher = watchUnsavedEditor($("work-inbox-form"), workInboxSnapshot, unsavedPersistentEditors);
+    function resetWorkInboxForm() {
+      $("work-inbox-content").value = "";
+      $("work-inbox-date").value = "";
+      $("work-inbox-project").value = "";
+      workInboxWatcher.markClean();
+    }
+    function renderWorkInbox() {
+      const container = $("work-inbox-list");
+      container.replaceChildren();
+      const pending = workInboxItems.filter(item =>
+        !item.ignored && !item.processed_record_id && !item.conflict);
+      $("work-inbox-count").textContent = pending.length + " 条待整理";
+      if (!workInboxItems.length) {
+        container.append(element("p", "work-archive-hint", "暂无原始笔记。"));
+        return;
+      }
+      for (const item of workInboxItems) {
+        const card = element("article", "work-inbox-item");
+        const status = item.conflict ? "需要核查" :
+          item.processed_record_id ? "已整理" : item.ignored ? "已忽略" : "待整理";
+        card.append(element("strong", "", status + " · " + localActivityDay(item.created_at)));
+        card.append(element("p", "", item.content || "创建记录尚未同步"));
+        if (!item.ignored && !item.processed_record_id && !item.conflict) {
+          const use = element("button", "", "整理成工作记录");
+          use.type = "button";
+          use.addEventListener("click", () => {
+            if (isSaving) return;
+            if (unsavedPersistentEditors.has($("work-record-form")) &&
+                !window.confirm("当前工作记录尚未保存，确定舍弃草稿并整理这条笔记吗？")) return;
+            resetWorkRecordForm();
+            $("work-record-content").value = item.content || "";
+            $("work-record-date").value = item.occurred_on || localDayISO(new Date());
+            $("work-record-project").value = item.project_id || "";
+            workSourceInboxId = item.inbox_id;
+            workDraftWatcher.check();
+            $("work-record-message").textContent = "已将原始笔记填入工作记录；核对后保存才算整理完成，不会自动创建任务。";
+            $("work-record-content").focus();
+          });
+          card.append(use);
+          const ignore = element("button", "", "忽略笔记");
+          ignore.type = "button";
+          ignore.addEventListener("click", async () => {
+            if (isSaving || !window.confirm("确认忽略这条原始笔记吗？历史仍会保留。")) return;
+            isSaving = true;
+            try {
+              const response = await fetch("/api/work-archive/inbox/" + item.inbox_id + "/ignore", {
+                method:"POST",headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({revision:item.revision,confirmed_ignore:true})
+              });
+              const reply = await response.json();
+              if (!response.ok) throw new Error(reply.error || "HTTP " + response.status);
+              await loadWorkArchive();
+            } catch (error) {
+              $("work-inbox-message").textContent = "忽略失败：" + error.message;
+            } finally {
+              isSaving = false;
+            }
+          });
+          card.append(ignore);
+        }
+        container.append(card);
+      }
+    }
+    async function saveWorkInbox(event) {
+      event.preventDefault();
+      if (isSaving) return;
+      const snapshot = workInboxSnapshot();
+      if (!snapshot.content.trim()) {
+        $("work-inbox-message").textContent = "请先输入真实工作内容。";
+        return;
+      }
+      isSaving = true;
+      $("work-inbox-submit").disabled = true;
+      try {
+        const response = await fetch("/api/work-archive/inbox", {
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({content:snapshot.content.trim(),
+            occurred_on:snapshot.occurred_on || null,project_id:snapshot.project_id || null})
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "HTTP " + response.status);
+        const changed = JSON.stringify(workInboxSnapshot()) !== JSON.stringify(snapshot);
+        if (changed) workInboxWatcher.markClean(snapshot);
+        else resetWorkInboxForm();
+        $("work-inbox-message").textContent = changed
+          ? "原笔记已保存；保存期间继续输入的内容已作为新草稿保留。"
+          : "原始笔记已暂存，可以稍后整理。";
+        await loadWorkArchive();
+      } catch (error) {
+        $("work-inbox-message").textContent = "暂存失败：" + error.message + "。原文已保留。";
+      } finally {
+        isSaving = false;
+        $("work-inbox-submit").disabled = false;
+      }
+    }
+    $("work-inbox-form").addEventListener("submit", saveWorkInbox);
+
+    function workSummarySnapshot() {
+      return {period:$("work-summary-period").value, day:$("work-summary-date").value,
+        project_id:$("work-summary-project").value, body:$("work-summary-body").value,
+        confirmed:$("work-summary-confirm").checked};
+    }
+    $("work-summary-date").value = localDayISO(new Date());
+    const workSummaryWatcher = watchUnsavedEditor($("work-summary-form"), workSummarySnapshot, unsavedPersistentEditors);
+    function resetWorkSummary() {
+      editingSummaryId = "";
+      workSummaryPreview = null;
+      $("work-summary-period").value = "daily";
+      $("work-summary-date").value = localDayISO(new Date());
+      $("work-summary-project").value = "";
+      $("work-summary-body").value = "";
+      $("work-summary-confirm").checked = false;
+      $("work-summary-period").disabled = false;
+      $("work-summary-date").disabled = false;
+      $("work-summary-project").disabled = false;
+      $("work-summary-generate").disabled = false;
+      $("work-summary-save").textContent = "保存总结";
+      workSummaryWatcher.markClean();
+    }
+    async function generateWorkSummary() {
+      if (isSaving) return;
+      if (editingSummaryId) {
+        $("work-summary-message").textContent = "正在修改旧总结，请先保存或退出编辑，再生成新的底稿。";
+        return;
+      }
+      const snapshot = workSummarySnapshot();
+      if (!snapshot.day) {
+        $("work-summary-message").textContent = "请选择要总结的日期。";
+        return;
+      }
+      try {
+        const qs = "?period=" + encodeURIComponent(snapshot.period) +
+          "&day=" + encodeURIComponent(snapshot.day) +
+          "&project_id=" + encodeURIComponent(snapshot.project_id);
+        const response = await fetch("/api/work-archive/preview" + qs, {cache:"no-store"});
+        const reply = await response.json();
+        if (!response.ok) throw new Error(reply.error || "HTTP " + response.status);
+        workSummaryPreview = reply;
+        $("work-summary-body").value = reply.body;
+        $("work-summary-confirm").checked = false;
+        workSummaryWatcher.check();
+        $("work-summary-message").textContent = "已生成来源底稿：" + reply.record_count +
+          " 条工作记录、" + reply.completion_count + " 次人工完成。请核对，再编辑或复制分析。";
+      } catch (error) {
+        $("work-summary-message").textContent = "不能生成底稿：" + error.message;
+      }
+    }
+    function editWorkSummary(id) {
+      if (isSaving) return;
+      const summary = workSummaryItems.find(item => item.summary_id === id);
+      if (!summary || summary.conflict) return;
+      if (unsavedPersistentEditors.has($("work-summary-form")) &&
+          !window.confirm("当前总结尚未保存，确定舍弃草稿并编辑其他总结吗？")) return;
+      editingSummaryId = id;
+      workSummaryPreview = null;
+      $("work-summary-period").value = summary.period;
+      $("work-summary-date").value = summary.period_start;
+      $("work-summary-project").value = summary.project_id || "";
+      $("work-summary-body").value = summary.body || "";
+      $("work-summary-confirm").checked = !!summary.confirmed;
+      $("work-summary-period").disabled = true;
+      $("work-summary-date").disabled = true;
+      $("work-summary-project").disabled = true;
+      $("work-summary-generate").disabled = true;
+      $("work-summary-save").textContent = "保存修订";
+      workSummaryWatcher.markClean();
+      $("work-summary-message").textContent = "正在修订已有总结；修改会追加历史事件，不覆盖旧版本。";
+      $("work-summary-body").focus();
+    }
+    function renderWorkSummaries() {
+      const container = $("work-summary-list");
+      container.replaceChildren();
+      if (!workSummaryItems.length) {
+        container.append(element("p", "work-archive-hint", "尚无保存的工作总结。"));
+        return;
+      }
+      for (const summary of workSummaryItems) {
+        const card = element("article", "work-summary-item");
+        if (!summary.period) {
+          card.append(element("p", "", "总结事件存在冲突，需要核查。"));
+          container.append(card);
+          continue;
+        }
+        const title = ({daily:"日报",weekly:"周报",monthly:"月报"}[summary.period] || "总结");
+        card.append(element("strong", "", title + " · " + summary.period_start +
+          " 至 " + summary.period_end + (summary.confirmed ? " · 已核对" : " · 草稿")));
+        card.append(element("p", "", (summary.body || "").slice(0,260) +
+          ((summary.body || "").length > 260 ? "…" : "")));
+        const edit = element("button", "", summary.conflict ? "存在冲突，禁止修改" : "打开 / 修订");
+        edit.type = "button";
+        edit.disabled = !!summary.conflict;
+        edit.addEventListener("click", () => editWorkSummary(summary.summary_id));
+        card.append(edit);
+        container.append(card);
+      }
+    }
+    async function saveWorkSummary(event) {
+      event.preventDefault();
+      if (isSaving) return;
+      const snapshot = workSummarySnapshot();
+      if (!snapshot.body.trim()) {
+        $("work-summary-message").textContent = "总结正文不能为空。";
+        return;
+      }
+      const prior = editingSummaryId
+        ? workSummaryItems.find(item => item.summary_id === editingSummaryId) : null;
+      if (editingSummaryId && (!prior || prior.conflict)) {
+        $("work-summary-message").textContent = "需要先刷新并核查原总结。";
+        return;
+      }
+      if (!prior && (!workSummaryPreview ||
+          workSummaryPreview.period !== snapshot.period ||
+          snapshot.day < workSummaryPreview.period_start ||
+          snapshot.day > workSummaryPreview.period_end ||
+          (workSummaryPreview.project_id || "") !== snapshot.project_id)) {
+        $("work-summary-message").textContent = "总结范围已改变，请重新生成来源底稿。";
+        return;
+      }
+      const payload = prior
+        ? {revision:prior.revision,body:snapshot.body,confirmed:snapshot.confirmed}
+        : {period:snapshot.period,day:snapshot.day,
+           project_id:snapshot.project_id || null,body:snapshot.body,
+           confirmed:snapshot.confirmed,
+           source_record_ids:workSummaryPreview.source_record_ids,
+           source_completion_ids:workSummaryPreview.source_completion_ids};
+      const path = prior ? "/api/work-archive/summaries/" + prior.summary_id + "/update"
+        : "/api/work-archive/summaries";
+      isSaving = true;
+      $("work-summary-save").disabled = true;
+      $("work-summary-cancel").disabled = true;
+      try {
+        const response = await fetch(path, {
+          method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "HTTP " + response.status);
+        const changed = JSON.stringify(workSummarySnapshot()) !== JSON.stringify(snapshot);
+        if (changed) workSummaryWatcher.markClean(snapshot);
+        else resetWorkSummary();
+        $("work-summary-message").textContent = changed
+          ? "已保存提交内容；保存期间的新修改仍是未保存草稿。"
+          : "总结已保存并保留原始来源和修订历史。";
+        await loadWorkArchive();
+      } catch (error) {
+        $("work-summary-message").textContent = "保存失败：" + error.message + "。草稿仍保留。";
+      } finally {
+        isSaving = false;
+        $("work-summary-save").disabled = false;
+        $("work-summary-cancel").disabled = false;
+      }
+    }
+    $("work-summary-form").addEventListener("submit", saveWorkSummary);
+    $("work-summary-generate").addEventListener("click", generateWorkSummary);
+    $("work-summary-cancel").addEventListener("click", () => {
+      if (isSaving) return;
+      if (unsavedPersistentEditors.has($("work-summary-form")) &&
+          !window.confirm("确定放弃尚未保存的总结吗？")) return;
+      resetWorkSummary();
+    });
+    $("work-summary-copy").addEventListener("click", async () => {
+      const body = $("work-summary-body").value.trim();
+      if (!body) {
+        $("work-summary-message").textContent = "请先生成或输入总结正文。";
+        return;
+      }
+      try {
+        if (!globalThis.navigator?.clipboard?.writeText) throw new Error("clipboard unavailable");
+        await globalThis.navigator.clipboard.writeText(body);
+        $("work-summary-message").textContent = "已复制。你可以在 ChatGPT 对话中粘贴并要求进一步分析。";
+      } catch (_) {
+        $("work-summary-message").textContent = "复制失败，请手动选择总结内容。";
+      }
+    });
+    async function loadWorkArchive() {
+      try {
+        const response = await fetch("/api/work-archive", {cache:"no-store"});
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const result = await response.json();
+        workInboxItems = result.inbox || [];
+        workSummaryItems = result.summaries || [];
+        renderWorkInbox();
+        renderWorkSummaries();
+        if (result.warnings?.length) {
+          $("work-inbox-message").textContent = "有 " + result.warnings.length +
+            " 条档案数据提醒，冲突项不允许直接编辑。";
+        }
+      } catch (error) {
+        $("work-inbox-message").textContent = "档案数据暂时无法读取：" + error.message;
+      }
+    }
 
     const navBindings = [
       ["nav-overview", "overview", null],

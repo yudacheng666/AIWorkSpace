@@ -75,3 +75,26 @@ occurred_on 为用户指定的工作发生日，不应被 timestamp（补记日�
 ## 6. 测试门槛
 
 以准确 SHA 的 GitHub Actions Ubuntu/Windows Python + Node UI + Windows 真实 Chromium 为默认验收。专项覆盖：创建、回填过去日期、修改版本冲突、错误 schema 与未知 envelope 字段、部分同步、重复事件、关联缺失、原有任务字节不变、无任务状态字段、任务人工完成只读轨迹、普通失败/409 草稿不丢失、保存期间新输入保留及离页保护。真正的两电脑 Google Drive 离线/重连及真实工作台更新不属于云端 CI 的已覆盖范围，必须明示 NOT TESTED。未经用户合并发布授权，不合并 main、不碰真实工作台数据。
+
+
+## 7. 完整闭环增量设计（2.4.0 候选）
+
+原工作记录字段 project_id 和 task_id 继续兼容、不迁移。新字段 action_links 是 0–20 项列表，记录 target_type（task/step）、target_id、relation（progress_on/result_of/derived_action），步骤还要保留 task_id。历史关联永远保存原始 ID；任务/步骤转换后显示“未同步或已转换”，不以相似标题推断新对象。evidence_links 延续系统的 Google Drive/Docs HTTPS 文档白名单和标题校验；featured 是用户主动精选成果标识，不表示 AI 已评估绩效。
+
+### 7.1 记录来源与幂等
+
+work_archive/inbox_events 存储独立 INBOX-32HEX 事件。create 保存内容、发生日（可空）和项目（可空），dismiss 仅在用户明确确认后可写 ignored=true。把一条原文整理成正式工作记录时，先填入现有工作记录表单，再在成功创建的单条 RECORD 事件中固化不可修改的 source_inbox_id。显示“已整理”根据已有 RECORD 读取计算，不额外写一条收件箱 processed 事件。后端拒绝重复使用已处理/冲突/忽略来源；两个 RECORD 竞争占用同一来源时标示冲突，保留原始历史。
+
+### 7.2 日、周、月报
+
+GET /api/work-archive/preview 接受 period、day、project_id 参数，严格处理日历边界（周一至周日、自然月），只读返回整理底稿、来源 record IDs、人工完成 event IDs、填报耗时等；保存不会自动发生。已确认任务完成事件按 UTC 日历日，工作记录按发生日 occurred_on 统计。正文明确标记“来源整理底稿，非 AI 自动分析”，由用户/ChatGPT 主动核对润色。来源异常、超长或不存在则拒绝而非静默遗漏。
+
+POST /api/work-archive/summaries 创建 SUMMARY-32HEX 独立追加事件，包含原来源、period、start/end、项目、用户编辑的 body 和 confirmed。后台重新按当前事件重算来源，提交的两个 ID 清单必须完全一致，否则 409；后续 POST /api/work-archive/summaries/SUMMARY-ID/update 只允许以准确 revision 更新 body/confirmed，保留历史。confirmed 只表示已核对总结，与 task done 无关。
+
+### 7.3 数据和交互
+
+work_archive 原有 record_events 外新增 inbox_events、summary_events。所有新目录位于 data-dir 而不是程序安装目录，不修改原 events/project_events/step_events。网页工作记录页扩展收件箱、总结、成果区，任务详情增加工作记录反向入口；三个表单都遵守草稿与保存中防离开规则。数据损坏、重复 ID 或同 revision 并发时冻结，保留原文件。共享数据目录的所有设备须升级到兼容版本再开始使用；真实双机同步/离线/重连未验收，不宣称通过。
+
+### 7.4 模型与费用边界
+
+没有模型 API 的本机网页只做可解释的规则性提取、来源列表和文本底稿，不会自动识别会议意图、生成行动、后台写 ChatGPT，也不会自动编写简历。用户可以点击复制总结到 ChatGPT，由 ChatGPT 按授权读取 Google Drive 原始证据并分析，必要时将核对后的正文回写。不能把工具未执行的自动分析写成已完成。

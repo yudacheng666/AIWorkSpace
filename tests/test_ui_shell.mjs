@@ -16,7 +16,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     const item = {
       tag, handlers, children: [], textContent: "", className: "",
       focus() {},
-      disabled: false, hidden: false, multiple: false, selected: false,
+      disabled: false, hidden: false, multiple: false, selected: false, checked: false,
       _value: "", attributes: new Map(),
       append(...children) { this.children.push(...children); },
       replaceChildren(...children) { this.children = children; },
@@ -57,7 +57,9 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
         const selects = new Set(["overview-owner", "query-project", "query-owner",
           "query-status", "query-date-field", "new-task-project", "new-task-related",
           "new-task-priority", "task-sort", "task-date-field", "calendar-granularity", "project-sort",
-          "work-record-project", "work-record-task", "work-filter-project"]);
+          "work-record-project", "work-record-task", "work-filter-project",
+          "work-inbox-project", "work-summary-period", "work-summary-project",
+          "work-link-target", "work-link-relation"]);
         elements.set(id, node(selects.has(id) ? "select" : "div"));
       }
       return elements.get(id);
@@ -79,6 +81,12 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     }
     if (path === "/api/trash") return {ok: true, json: async () => ({tasks: [], retention_days: 30, warnings: []})};
     if (path === "/api/work-records") return {ok: true, json: async () => ({records: work.records || [], task_completions: work.task_completions || [], warnings: []})};
+    if (path === "/api/work-archive") return {ok: true, json: async () => ({
+      inbox:work.inbox || [], summaries:work.summaries || [], warnings:[]})};
+    if (path.startsWith("/api/work-archive/preview?")) return {
+      ok:true,json:async()=>work.preview || {period:"daily",period_start:"2026-11-05",
+        period_end:"2026-11-05",project_id:null,body:"工作总结底稿",
+        source_record_ids:[],source_completion_ids:[],record_count:0,completion_count:0}};
     if (path === "/api/reviews") return {ok: true, json: async () => ({
       items: reviews, summary: {
         open_count: reviews.filter(item => ["pending","authorized","stale","failed","conflict"].includes(item.status)).length,
@@ -90,7 +98,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, renderWorkOutcomes, populateWorkLinkTargets})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes,
@@ -1378,4 +1386,102 @@ test("work record save preserves edits typed while the request is in flight", as
   assert.equal(h.api.setActivePage("tasks", "all"), false,
     "the preserved draft remains protected after the first save completes");
   assert.equal(confirmCalls, 1);
+});
+
+
+test("work archive creates multiple task and step links with evidence while keeping a record separate from tasks", async () => {
+  const stepId = "STEP-" + "B".repeat(32);
+  const task = {...sampleTask(), steps:[{step_id:stepId,title:"核对交期",revision:1,status:"todo"}]};
+  const h = harness([task]);
+  await h.api.refresh(true);
+  h.api.setActivePage("worklog");
+  h.api.populateWorkLinkTargets();
+  h.el("work-record-content").value = "处理临时交期问题";
+  h.el("work-record-date").value = "2026-11-04";
+  h.el("work-record-featured").checked = true;
+  h.el("work-link-target").value = "task:" + task.task_id;
+  h.el("work-link-relation").value = "progress_on";
+  h.el("work-link-add").handlers.get("click")[0]();
+  h.el("work-link-target").value = "step:" + task.task_id + ":" + stepId;
+  h.el("work-link-relation").value = "result_of";
+  h.el("work-link-add").handlers.get("click")[0]();
+  h.el("work-evidence-title").value = "虚构会议纪要";
+  h.el("work-evidence-url").value = "https://drive.google.com/file/d/fake/view";
+  h.el("work-evidence-add").handlers.get("click")[0]();
+  await h.api.saveWorkRecord({preventDefault() {}});
+  assert.equal(h.writes.length,1);
+  const saved = h.writes[0].body;
+  assert.equal(h.writes[0].path,"/api/work-records");
+  assert.equal(saved.action_links.length,2);
+  assert.equal(saved.action_links[0].target_type,"task");
+  assert.equal(saved.action_links[1].target_type,"step");
+  assert.equal(saved.action_links[1].relation,"result_of");
+  assert.equal(saved.evidence_links[0].title,"虚构会议纪要");
+  assert.equal(saved.featured,true);
+  assert.ok(!("status" in saved));
+});
+
+test("inbox raw note remains separate until user explicitly converts it to a work record", async () => {
+  const inboxId = "INBOX-" + "B".repeat(32);
+  const work = {inbox:[]};
+  const h = harness([],()=>true,[],[],(path,body)=>{
+    if(path === "/api/work-archive/inbox") {
+      work.inbox.push({inbox_id:inboxId,content:body.content,occurred_on:body.occurred_on,
+        revision:1,created_at:"2026-11-05T10:00:00Z",ignored:false,conflict:false});
+      return {ok:true,json:async()=>({saved:true,inbox_id:inboxId})};
+    }
+    return {ok:true,json:async()=>({saved:true,display_id:"R-261105-EXAMPLE"})};
+  },work);
+  h.api.setActivePage("worklog");
+  h.el("work-inbox-content").value = "临时会议讨论了流程问题";
+  h.el("work-inbox-date").value = "2026-11-03";
+  await h.api.saveWorkInbox({preventDefault() {}});
+  assert.equal(h.writes.length,1);
+  assert.equal(h.writes[0].path,"/api/work-archive/inbox");
+  assert.equal(h.el("work-inbox-count").textContent,"1 条待整理");
+  const card = h.el("work-inbox-list").children[0];
+  const convert = card.children.find(child=>child.tag === "button" && child.textContent === "整理成工作记录");
+  assert.ok(convert);
+  convert.handlers.get("click")[0]();
+  assert.equal(h.el("work-record-content").value,"临时会议讨论了流程问题");
+  assert.equal(h.el("work-record-date").value,"2026-11-03");
+  assert.equal(h.writes.length,1,"conversion preview does not silently write a task or record");
+  await h.api.saveWorkRecord({preventDefault() {}});
+  assert.equal(h.writes[1].path,"/api/work-records");
+  assert.equal(h.writes[1].body.source_inbox_id,inboxId);
+});
+
+test("review generator submits source IDs and explicit confirmation without invoking an AI API", async () => {
+  const recordId = "RECORD-" + "A".repeat(32);
+  const preview = {period:"weekly",period_start:"2026-11-02",period_end:"2026-11-08",
+    project_id:null,body:"# 周报（来源整理底稿）\n已记录工作事实",
+    source_record_ids:[recordId],source_completion_ids:["demo-done-0001"],
+    record_count:1,completion_count:1};
+  const h = harness([],()=>true,[],[],null,{preview});
+  h.api.setActivePage("worklog");
+  h.el("work-summary-period").value = "weekly";
+  h.el("work-summary-date").value = "2026-11-05";
+  await h.api.generateWorkSummary();
+  assert.equal(h.el("work-summary-body").value,preview.body);
+  assert.equal(h.writes.length,0,"read-only generation never writes events");
+  h.el("work-summary-body").value += "\n本人确认本周已经处理风险";
+  h.el("work-summary-confirm").checked = true;
+  await h.api.saveWorkSummary({preventDefault() {}});
+  assert.equal(h.writes.length,1);
+  assert.equal(h.writes[0].path,"/api/work-archive/summaries");
+  assert.deepEqual(h.writes[0].body.source_record_ids,[recordId]);
+  assert.deepEqual(h.writes[0].body.source_completion_ids,["demo-done-0001"]);
+  assert.equal(h.writes[0].body.confirmed,true);
+  assert.match(h.writes[0].body.body,/本人确认/);
+});
+
+test("work archive navigation protects all three unsaved editors", () => {
+  let confirmCalls = 0;
+  const h = harness([],()=>{confirmCalls++;return false;});
+  h.api.setActivePage("worklog");
+  h.el("work-inbox-content").value = "未保存的临时笔记";
+  h.el("work-inbox-form").handlers.get("input")[0]();
+  assert.equal(h.api.setActivePage("tasks","all"),false);
+  assert.equal(h.el("work-inbox-content").value,"未保存的临时笔记");
+  assert.equal(confirmCalls,1);
 });
