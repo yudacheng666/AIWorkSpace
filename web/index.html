@@ -4427,6 +4427,327 @@
       renderWorkRecords();
     });
 
+
+    function renderWorkOutcomes() {
+      const container = $("work-outcomes-list");
+      container.replaceChildren();
+      const featured = workRecords.filter(record => record.featured && !record.conflict);
+      if (!featured.length) {
+        container.append(element("p", "work-archive-hint", "还没有选入成果库的工作记录。可编辑某条已完成的工作记录，勾选「归入我的成果库」。"));
+        return;
+      }
+      for (const record of featured) {
+        const card = element("article", "work-featured-item");
+        card.append(element("strong", "", record.occurred_on + " · " + record.display_id));
+        card.append(element("p", "", record.outcome || record.content));
+        if (record.project_name) card.append(element("p", "work-archive-hint", "项目：" + record.project_name));
+        const evidence = record.evidence_links || [];
+        if (evidence.length) card.append(element("p", "work-archive-hint",
+          "已关联证据：" + evidence.map(doc => doc.title).join("、")));
+        const edit = element("button", "", "查看原工作记录");
+        edit.type = "button";
+        edit.addEventListener("click", () => editWorkRecord(record.record_id));
+        card.append(edit);
+        container.append(card);
+      }
+    }
+
+    function workInboxSnapshot() {
+      return {content:$("work-inbox-content").value, occurred_on:$("work-inbox-date").value,
+        project_id:$("work-inbox-project").value};
+    }
+    const workInboxWatcher = watchUnsavedEditor($("work-inbox-form"), workInboxSnapshot, unsavedPersistentEditors);
+    function resetWorkInboxForm() {
+      $("work-inbox-content").value = "";
+      $("work-inbox-date").value = "";
+      $("work-inbox-project").value = "";
+      workInboxWatcher.markClean();
+    }
+    function renderWorkInbox() {
+      const container = $("work-inbox-list");
+      container.replaceChildren();
+      const pending = workInboxItems.filter(item =>
+        !item.ignored && !item.processed_record_id && !item.conflict);
+      $("work-inbox-count").textContent = pending.length + " 条待整理";
+      if (!workInboxItems.length) {
+        container.append(element("p", "work-archive-hint", "暂无原始笔记。"));
+        return;
+      }
+      for (const item of workInboxItems) {
+        const card = element("article", "work-inbox-item");
+        const status = item.conflict ? "需要核查" :
+          item.processed_record_id ? "已整理" : item.ignored ? "已忽略" : "待整理";
+        card.append(element("strong", "", status + " · " + localActivityDay(item.created_at)));
+        card.append(element("p", "", item.content || "创建记录尚未同步"));
+        if (!item.ignored && !item.processed_record_id && !item.conflict) {
+          const use = element("button", "", "整理成工作记录");
+          use.type = "button";
+          use.addEventListener("click", () => {
+            if (isSaving) return;
+            if (unsavedPersistentEditors.has($("work-record-form")) &&
+                !window.confirm("当前工作记录尚未保存，确定舍弃草稿并整理这条笔记吗？")) return;
+            resetWorkRecordForm();
+            $("work-record-content").value = item.content || "";
+            $("work-record-date").value = item.occurred_on || localDayISO(new Date());
+            $("work-record-project").value = item.project_id || "";
+            workSourceInboxId = item.inbox_id;
+            workDraftWatcher.check();
+            $("work-record-message").textContent = "已将原始笔记填入工作记录；核对后保存才算整理完成，不会自动创建任务。";
+            $("work-record-content").focus();
+          });
+          card.append(use);
+          const ignore = element("button", "", "忽略笔记");
+          ignore.type = "button";
+          ignore.addEventListener("click", async () => {
+            if (isSaving || !window.confirm("确认忽略这条原始笔记吗？历史仍会保留。")) return;
+            isSaving = true;
+            try {
+              const response = await fetch("/api/work-archive/inbox/" + item.inbox_id + "/ignore", {
+                method:"POST",headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({revision:item.revision,confirmed_ignore:true})
+              });
+              const reply = await response.json();
+              if (!response.ok) throw new Error(reply.error || "HTTP " + response.status);
+              await loadWorkArchive();
+            } catch (error) {
+              $("work-inbox-message").textContent = "忽略失败：" + error.message;
+            } finally {
+              isSaving = false;
+            }
+          });
+          card.append(ignore);
+        }
+        container.append(card);
+      }
+    }
+    async function saveWorkInbox(event) {
+      event.preventDefault();
+      if (isSaving) return;
+      const snapshot = workInboxSnapshot();
+      if (!snapshot.content.trim()) {
+        $("work-inbox-message").textContent = "请先输入真实工作内容。";
+        return;
+      }
+      isSaving = true;
+      $("work-inbox-submit").disabled = true;
+      try {
+        const response = await fetch("/api/work-archive/inbox", {
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({content:snapshot.content.trim(),
+            occurred_on:snapshot.occurred_on || null,project_id:snapshot.project_id || null})
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "HTTP " + response.status);
+        const changed = JSON.stringify(workInboxSnapshot()) !== JSON.stringify(snapshot);
+        if (changed) workInboxWatcher.markClean(snapshot);
+        else resetWorkInboxForm();
+        $("work-inbox-message").textContent = changed
+          ? "原笔记已保存；保存期间继续输入的内容已作为新草稿保留。"
+          : "原始笔记已暂存，可以稍后整理。";
+        await loadWorkArchive();
+      } catch (error) {
+        $("work-inbox-message").textContent = "暂存失败：" + error.message + "。原文已保留。";
+      } finally {
+        isSaving = false;
+        $("work-inbox-submit").disabled = false;
+      }
+    }
+    $("work-inbox-form").addEventListener("submit", saveWorkInbox);
+
+    function workSummarySnapshot() {
+      return {period:$("work-summary-period").value, day:$("work-summary-date").value,
+        project_id:$("work-summary-project").value, body:$("work-summary-body").value,
+        confirmed:$("work-summary-confirm").checked};
+    }
+    $("work-summary-date").value = localDayISO(new Date());
+    const workSummaryWatcher = watchUnsavedEditor($("work-summary-form"), workSummarySnapshot, unsavedPersistentEditors);
+    function resetWorkSummary() {
+      editingSummaryId = "";
+      workSummaryPreview = null;
+      $("work-summary-period").value = "daily";
+      $("work-summary-date").value = localDayISO(new Date());
+      $("work-summary-project").value = "";
+      $("work-summary-body").value = "";
+      $("work-summary-confirm").checked = false;
+      $("work-summary-period").disabled = false;
+      $("work-summary-date").disabled = false;
+      $("work-summary-project").disabled = false;
+      $("work-summary-generate").disabled = false;
+      $("work-summary-save").textContent = "保存总结";
+      workSummaryWatcher.markClean();
+    }
+    async function generateWorkSummary() {
+      if (isSaving) return;
+      if (editingSummaryId) {
+        $("work-summary-message").textContent = "正在修改旧总结，请先保存或退出编辑，再生成新的底稿。";
+        return;
+      }
+      const snapshot = workSummarySnapshot();
+      if (!snapshot.day) {
+        $("work-summary-message").textContent = "请选择要总结的日期。";
+        return;
+      }
+      try {
+        const qs = "?period=" + encodeURIComponent(snapshot.period) +
+          "&day=" + encodeURIComponent(snapshot.day) +
+          "&project_id=" + encodeURIComponent(snapshot.project_id);
+        const response = await fetch("/api/work-archive/preview" + qs, {cache:"no-store"});
+        const reply = await response.json();
+        if (!response.ok) throw new Error(reply.error || "HTTP " + response.status);
+        workSummaryPreview = reply;
+        $("work-summary-body").value = reply.body;
+        $("work-summary-confirm").checked = false;
+        workSummaryWatcher.check();
+        $("work-summary-message").textContent = "已生成来源底稿：" + reply.record_count +
+          " 条工作记录、" + reply.completion_count + " 次人工完成。请核对，再编辑或复制分析。";
+      } catch (error) {
+        $("work-summary-message").textContent = "不能生成底稿：" + error.message;
+      }
+    }
+    function editWorkSummary(id) {
+      if (isSaving) return;
+      const summary = workSummaryItems.find(item => item.summary_id === id);
+      if (!summary || summary.conflict) return;
+      if (unsavedPersistentEditors.has($("work-summary-form")) &&
+          !window.confirm("当前总结尚未保存，确定舍弃草稿并编辑其他总结吗？")) return;
+      editingSummaryId = id;
+      workSummaryPreview = null;
+      $("work-summary-period").value = summary.period;
+      $("work-summary-date").value = summary.period_start;
+      $("work-summary-project").value = summary.project_id || "";
+      $("work-summary-body").value = summary.body || "";
+      $("work-summary-confirm").checked = !!summary.confirmed;
+      $("work-summary-period").disabled = true;
+      $("work-summary-date").disabled = true;
+      $("work-summary-project").disabled = true;
+      $("work-summary-generate").disabled = true;
+      $("work-summary-save").textContent = "保存修订";
+      workSummaryWatcher.markClean();
+      $("work-summary-message").textContent = "正在修订已有总结；修改会追加历史事件，不覆盖旧版本。";
+      $("work-summary-body").focus();
+    }
+    function renderWorkSummaries() {
+      const container = $("work-summary-list");
+      container.replaceChildren();
+      if (!workSummaryItems.length) {
+        container.append(element("p", "work-archive-hint", "尚无保存的工作总结。"));
+        return;
+      }
+      for (const summary of workSummaryItems) {
+        const card = element("article", "work-summary-item");
+        if (!summary.period) {
+          card.append(element("p", "", "总结事件存在冲突，需要核查。"));
+          container.append(card);
+          continue;
+        }
+        const title = ({daily:"日报",weekly:"周报",monthly:"月报"}[summary.period] || "总结");
+        card.append(element("strong", "", title + " · " + summary.period_start +
+          " 至 " + summary.period_end + (summary.confirmed ? " · 已核对" : " · 草稿")));
+        card.append(element("p", "", (summary.body || "").slice(0,260) +
+          ((summary.body || "").length > 260 ? "…" : "")));
+        const edit = element("button", "", summary.conflict ? "存在冲突，禁止修改" : "打开 / 修订");
+        edit.type = "button";
+        edit.disabled = !!summary.conflict;
+        edit.addEventListener("click", () => editWorkSummary(summary.summary_id));
+        card.append(edit);
+        container.append(card);
+      }
+    }
+    async function saveWorkSummary(event) {
+      event.preventDefault();
+      if (isSaving) return;
+      const snapshot = workSummarySnapshot();
+      if (!snapshot.body.trim()) {
+        $("work-summary-message").textContent = "总结正文不能为空。";
+        return;
+      }
+      const prior = editingSummaryId
+        ? workSummaryItems.find(item => item.summary_id === editingSummaryId) : null;
+      if (editingSummaryId && (!prior || prior.conflict)) {
+        $("work-summary-message").textContent = "需要先刷新并核查原总结。";
+        return;
+      }
+      if (!prior && (!workSummaryPreview ||
+          workSummaryPreview.period !== snapshot.period ||
+          snapshot.day < workSummaryPreview.period_start ||
+          snapshot.day > workSummaryPreview.period_end ||
+          (workSummaryPreview.project_id || "") !== snapshot.project_id)) {
+        $("work-summary-message").textContent = "总结范围已改变，请重新生成来源底稿。";
+        return;
+      }
+      const payload = prior
+        ? {revision:prior.revision,body:snapshot.body,confirmed:snapshot.confirmed}
+        : {period:snapshot.period,day:snapshot.day,
+           project_id:snapshot.project_id || null,body:snapshot.body,
+           confirmed:snapshot.confirmed,
+           source_record_ids:workSummaryPreview.source_record_ids,
+           source_completion_ids:workSummaryPreview.source_completion_ids};
+      const path = prior ? "/api/work-archive/summaries/" + prior.summary_id + "/update"
+        : "/api/work-archive/summaries";
+      isSaving = true;
+      $("work-summary-save").disabled = true;
+      $("work-summary-cancel").disabled = true;
+      try {
+        const response = await fetch(path, {
+          method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "HTTP " + response.status);
+        const changed = JSON.stringify(workSummarySnapshot()) !== JSON.stringify(snapshot);
+        if (changed) workSummaryWatcher.markClean(snapshot);
+        else resetWorkSummary();
+        $("work-summary-message").textContent = changed
+          ? "已保存提交内容；保存期间的新修改仍是未保存草稿。"
+          : "总结已保存并保留原始来源和修订历史。";
+        await loadWorkArchive();
+      } catch (error) {
+        $("work-summary-message").textContent = "保存失败：" + error.message + "。草稿仍保留。";
+      } finally {
+        isSaving = false;
+        $("work-summary-save").disabled = false;
+        $("work-summary-cancel").disabled = false;
+      }
+    }
+    $("work-summary-form").addEventListener("submit", saveWorkSummary);
+    $("work-summary-generate").addEventListener("click", generateWorkSummary);
+    $("work-summary-cancel").addEventListener("click", () => {
+      if (isSaving) return;
+      if (unsavedPersistentEditors.has($("work-summary-form")) &&
+          !window.confirm("确定放弃尚未保存的总结吗？")) return;
+      resetWorkSummary();
+    });
+    $("work-summary-copy").addEventListener("click", async () => {
+      const body = $("work-summary-body").value.trim();
+      if (!body) {
+        $("work-summary-message").textContent = "请先生成或输入总结正文。";
+        return;
+      }
+      try {
+        if (!globalThis.navigator?.clipboard?.writeText) throw new Error("clipboard unavailable");
+        await globalThis.navigator.clipboard.writeText(body);
+        $("work-summary-message").textContent = "已复制。你可以在 ChatGPT 对话中粘贴并要求进一步分析。";
+      } catch (_) {
+        $("work-summary-message").textContent = "复制失败，请手动选择总结内容。";
+      }
+    });
+    async function loadWorkArchive() {
+      try {
+        const response = await fetch("/api/work-archive", {cache:"no-store"});
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const result = await response.json();
+        workInboxItems = result.inbox || [];
+        workSummaryItems = result.summaries || [];
+        renderWorkInbox();
+        renderWorkSummaries();
+        if (result.warnings?.length) {
+          $("work-inbox-message").textContent = "有 " + result.warnings.length +
+            " 条档案数据提醒，冲突项不允许直接编辑。";
+        }
+      } catch (error) {
+        $("work-inbox-message").textContent = "档案数据暂时无法读取：" + error.message;
+      }
+    }
+
     const navBindings = [
       ["nav-overview", "overview", null],
       ["nav-worklog", "worklog", null],
