@@ -30,6 +30,8 @@ TASK_ID = re.compile(r"^TASK-[A-Za-z0-9-]{1,50}$")
 PROJECT_ID = re.compile(r"^PROJECT-[A-F0-9]{32}$")
 STEP_ID = re.compile(r"^STEP-[A-F0-9]{32}$")
 WORK_RECORD_ID = re.compile(r"^RECORD-[A-F0-9]{32}$")
+INBOX_ID = re.compile(r"^INBOX-[A-F0-9]{32}$")
+SUMMARY_ID = re.compile(r"^SUMMARY-[A-F0-9]{32}$")
 EVENT_ID = re.compile(r"^[A-Za-z0-9-]{8,80}$")
 STATUSES = {"todo", "doing", "blocked", "done"}
 TASK_LIFECYCLE_ACTIONS = {"trash", "restore", "purge"}
@@ -1589,9 +1591,11 @@ def append_step_event(data_dir: Path, event: dict) -> Path:
 
 
 WORK_RECORD_FIELDS = {"content", "occurred_on", "project_id", "task_id",
-                      "outcome", "duration_minutes"}
+                      "outcome", "duration_minutes", "action_links", "featured",
+                      "source_inbox_id"}
 WORK_RECORD_DEFAULTS = {"project_id": None, "task_id": None,
-                        "outcome": None, "duration_minutes": None}
+                        "outcome": None, "duration_minutes": None,
+                        "action_links": [], "featured": False, "source_inbox_id": None}
 
 
 def validate_work_record_event(value: object) -> dict:
@@ -1655,6 +1659,37 @@ def validate_work_record_event(value: object) -> dict:
         minutes = changes["duration_minutes"]
         if type(minutes) is not int or not 1 <= minutes <= 1440:
             raise ValueError("duration_minutes must be between 1 and 1440")
+    if "featured" in changes and type(changes["featured"]) is not bool:
+        raise ValueError("featured must be true or false")
+    if "source_inbox_id" in changes:
+        source = changes["source_inbox_id"]
+        if source is not None and (not isinstance(source, str) or not INBOX_ID.fullmatch(source)):
+            raise ValueError("invalid source inbox ID")
+        if value["action"] != "create":
+            raise ValueError("source inbox association is immutable")
+    if "action_links" in changes:
+        links = changes["action_links"]
+        if not isinstance(links, list) or len(links) > 20:
+            raise ValueError("action_links must be a list of up to 20 associations")
+        signatures = set()
+        for link in links:
+            if not isinstance(link, dict):
+                raise ValueError("invalid work association")
+            kind = link.get("target_type")
+            if kind == "task":
+                if set(link) != {"target_type", "target_id", "relation"} or not isinstance(link.get("target_id"), str) or not TASK_ID.fullmatch(link["target_id"]):
+                    raise ValueError("invalid task work association")
+            elif kind == "step":
+                if set(link) != {"target_type", "target_id", "task_id", "relation"} or not isinstance(link.get("target_id"), str) or not STEP_ID.fullmatch(link["target_id"]) or not isinstance(link.get("task_id"), str) or not TASK_ID.fullmatch(link["task_id"]):
+                    raise ValueError("invalid step work association")
+            else:
+                raise ValueError("invalid work association type")
+            if link.get("relation") not in {"progress_on", "derived_action", "result_of"}:
+                raise ValueError("invalid work association relation")
+            signature = (kind, link["target_id"])
+            if signature in signatures:
+                raise ValueError("duplicate work association")
+            signatures.add(signature)
     return value
 
 
@@ -1793,14 +1828,43 @@ def read_task_completion_activity(data_dir: Path, workspace: dict) -> list[dict]
     return result
 
 
-def validate_work_record_links(payload: dict, workspace: dict) -> None:
-    """A local edit cannot silently reference an unresolved or conflicting object."""
+def validate_work_record_links(payload: dict, workspace: dict, previous: dict | None = None) -> None:
+    """Reject new unresolved links; preserve historic links on unrelated edits."""
     projects = {p["project_id"]: p for p in workspace["projects"]}
     tasks = {t["task_id"]: t for t in workspace["tasks"]}
     for key, values in (("project_id", projects), ("task_id", tasks)):
         target = payload.get(key)
-        if target is not None and (target not in values or values[target].get("conflict")):
-            raise LookupError(key + " not synchronized or has a conflict")
+        if target is not None and (target not in values or values[target].get("conflict") or
+                                   values[target].get("trashed_at")):
+            if previous is None or target != previous.get(key):
+                raise LookupError(key + " not synchronized or has a conflict")
+    before = previous.get("action_links", []) if previous else []
+    for link in payload.get("action_links", []):
+        if link in before:
+            continue
+        task = tasks.get(link["target_id"] if link["target_type"] == "task" else link["task_id"])
+        if task is None or task.get("conflict") or task.get("trashed_at"):
+            raise LookupError("linked task is missing, deleted or conflicted")
+        if link["target_type"] == "step" and not any(
+                step["step_id"] == link["target_id"] and not step.get("conflict")
+                for step in task.get("steps", [])):
+            raise LookupError("linked step has not synchronized or is conflicted")
+
+
+def label_work_associations(record: dict, workspace: dict) -> None:
+    tasks = {t["task_id"]: t for t in workspace["tasks"]}
+    record["action_link_labels"] = []
+    for link in record.get("action_links", []):
+        task = tasks.get(link["target_id"] if link["target_type"] == "task" else link["task_id"])
+        if link["target_type"] == "task":
+            label = task.get("title") if task and not task.get("conflict") else None
+        else:
+            step = next((step for step in task.get("steps", [])
+                         if step["step_id"] == link["target_id"]), None) if task else None
+            label = ((task.get("title", "") + " / " + step["title"])
+                     if task and step and not step.get("conflict") and not task.get("conflict") else None)
+        record["action_link_labels"].append({**link, "label": label or "关联对象未同步或已转换"})
+
 
 
 def validate_setting_event(value: object) -> dict:
@@ -2933,6 +2997,7 @@ def handler_factory(data_dir: Path):
                         project = projects.get(item.get("project_id"))
                         item["task_title"] = task["title"] if task and not task.get("conflict") else None
                         item["project_name"] = project["name"] if project and not project.get("conflict") else None
+                        label_work_associations(item, workspace)
                     state["task_completions"] = read_task_completion_activity(data_dir, workspace)
                 return self.json_response(200, state)
             if path == "/api/reviews":
@@ -3073,8 +3138,8 @@ def handler_factory(data_dir: Path):
                             action = "update"
                         # Merge existing associations before checking, for partial updates.
                         links = {key: changes.get(key, prior.get(key) if work_record_match else None)
-                                 for key in ("project_id", "task_id")}
-                        validate_work_record_links(links, workspace)
+                                 for key in ("project_id", "task_id", "action_links")}
+                        validate_work_record_links(links, workspace, prior if work_record_match else None)
                         event = {"version": 1, "event_id": str(uuid.uuid4()),
                                  "record_id": new_id, "action": action, "actor": "user",
                                  "timestamp": utc_now(), "base_revision": revision,
