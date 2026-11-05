@@ -864,7 +864,8 @@ def read_projects(data_dir: Path) -> dict:
     return {"projects": projects, "warnings": warnings}
 
 
-def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
+def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
+               conversions: list[dict] | None = None) -> None:
     """Attach ordered, independently versioned steps to tasks without rewriting history."""
     directory = data_dir / "step_events"
     by_step: dict[str, list[dict]] = defaultdict(list)
@@ -899,6 +900,26 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
             except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
                 warnings.append(f"{path.name}: {exc}")
 
+    for conversion in conversions or []:
+        if conversion["action"] != "task_to_step":
+            continue
+        target = conversion["target"]
+        if conversion["event_id"] in seen:
+            conversion["_conversion_conflict"] = True
+            warnings.append(f"{conversion['event_id']}: conversion event ID collides with a step event")
+        fields = target["fields"]
+        root_changes = {"title": fields["title"], "position": target["position"],
+                        "status": fields["status"],
+                        "document_links": fields.get("document_links", []),
+                        "converted_task_metadata": fields.get("converted_task_metadata")}
+        root_changes.update({field: fields.get(field) for field in DATE_FIELDS})
+        by_step[target["item_id"]].append({
+            "version": 1, "event_id": conversion["event_id"],
+            "task_id": target["task_id"], "step_id": target["item_id"],
+            "action": "create", "actor": "user", "timestamp": conversion["timestamp"],
+            "base_revision": 0, "changes": root_changes, "_conversion_root": True,
+        })
+
     steps_by_task: dict[str, list[dict]] = defaultdict(list)
     steps_by_id: dict[str, dict] = {}
     for step_id, events in by_step.items():
@@ -919,6 +940,8 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
                     "created_at": task_root.get("timestamp", ""),
                     "created_position": task_root["changes"].get("position"),
                     "document_links": [], "deleted_at": None,
+                    "due_date": None, "planned_date": None, "follow_up_date": None,
+                    "converted_task_metadata": None,
                 }
                 steps_by_task[task_id].append(placeholder)
                 steps_by_id.setdefault(step_id, placeholder)
@@ -927,12 +950,18 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str]) -> None:
             root = roots[0]
             step = {
                 "task_id": root["task_id"], "step_id": step_id,
-                "title": root["changes"]["title"].strip(), "status": "todo",
+                "title": root["changes"]["title"].strip(),
+                "status": root["changes"].get("status", "todo"),
                 "revision": 1, "conflict": False,
                 "conflict_fields": [], "conflict_candidates": [],
                 "created_at": root.get("timestamp", ""),
                 "created_position": root["changes"].get("position"),
-                "document_links": [], "deleted_at": None,
+                "document_links": root["changes"].get("document_links", []),
+                "due_date": root["changes"].get("due_date"),
+                "planned_date": root["changes"].get("planned_date"),
+                "follow_up_date": root["changes"].get("follow_up_date"),
+                "converted_task_metadata": root["changes"].get("converted_task_metadata"),
+                "deleted_at": None,
             }
             if len(task_ids) != 1:
                 step["conflict"] = True
@@ -1093,13 +1122,14 @@ def read_workspace(data_dir: Path, include_trashed: bool = False) -> dict:
     updated: dict[str, list[dict]] = defaultdict(list)
     purged_ids: set[str] = set()
     warnings: list[str] = []
+    conversions = read_conversion_events(data_dir, warnings)
     seen: dict[str, dict] = {}
     duplicate_conflicts: dict[str, list[dict]] = defaultdict(list)
     project_state = read_projects(data_dir)
     if not event_dir.exists():
         tasks: list[dict] = []
         warnings.extend(project_state["warnings"])
-        read_steps(data_dir, tasks, warnings)
+        read_steps(data_dir, tasks, warnings, conversions)
         return {"tasks": tasks, "projects": project_state["projects"], "warnings": warnings}
 
     for path in sorted(event_dir.glob("*.json")):
@@ -1128,6 +1158,21 @@ def read_workspace(data_dir: Path, include_trashed: bool = False) -> dict:
                 purged_ids.add(event["task_id"])
         except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
             warnings.append(f"{path.name}: {exc}")
+
+    for conversion in conversions:
+        if conversion["action"] != "step_to_task":
+            continue
+        target_id = conversion["target"]["item_id"]
+        if conversion["event_id"] in seen:
+            conversion["_conversion_conflict"] = True
+            warnings.append(f"{conversion['event_id']}: conversion event ID collides with a task event")
+        root = {
+            "version": 1, "event_id": conversion["event_id"], "task_id": target_id,
+            "action": "create", "actor": "user", "timestamp": conversion["timestamp"],
+            "base_revision": 0, "changes": dict(conversion["target"]["fields"]),
+            "_conversion_root": True,
+        }
+        created[target_id].append(root)
 
     tasks: list[dict] = []
     for task_id in sorted(set(created) | set(updated)):
@@ -1250,7 +1295,23 @@ def read_workspace(data_dir: Path, include_trashed: bool = False) -> dict:
         task["related_project_names"] = related_names
         if task["project_missing"]:
             warnings.append(f"{task['task_id']}: referenced project has not synced or is unavailable")
-    read_steps(data_dir, tasks, warnings)
+    read_steps(data_dir, tasks, warnings, conversions)
+    resolve_task_hierarchy(tasks, warnings)
+    hidden_tasks, hidden_steps, hidden_target_tasks, hidden_target_steps = resolve_conversion_events(
+        tasks, conversions, warnings
+    )
+    hidden_tasks |= hidden_target_tasks
+    tasks = [task for task in tasks if task["task_id"] not in hidden_tasks]
+    for task in tasks:
+        task["steps"] = [
+            step for step in task.get("steps", [])
+            if (task["task_id"], step["step_id"]) not in hidden_steps
+            and (task["task_id"], step["step_id"]) not in hidden_target_steps
+        ]
+        for index, step in enumerate(task["steps"], start=1):
+            step["position"] = index
+        task["status"] = task.get("manual_status", task["status"])
+        resolve_step_status(task)
     resolve_task_hierarchy(tasks, warnings)
     warnings.extend(project_state["warnings"])
     if not include_trashed:
