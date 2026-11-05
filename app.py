@@ -29,6 +29,7 @@ ROOT = Path(__file__).resolve().parent
 TASK_ID = re.compile(r"^TASK-[A-Za-z0-9-]{1,50}$")
 PROJECT_ID = re.compile(r"^PROJECT-[A-F0-9]{32}$")
 STEP_ID = re.compile(r"^STEP-[A-F0-9]{32}$")
+WORK_RECORD_ID = re.compile(r"^RECORD-[A-F0-9]{32}$")
 EVENT_ID = re.compile(r"^[A-Za-z0-9-]{8,80}$")
 STATUSES = {"todo", "doing", "blocked", "done"}
 TASK_LIFECYCLE_ACTIONS = {"trash", "restore", "purge"}
@@ -1585,6 +1586,211 @@ def append_step_event(data_dir: Path, event: dict) -> Path:
 
 
 
+
+WORK_RECORD_FIELDS = {"content", "occurred_on", "project_id", "task_id",
+                      "outcome", "duration_minutes"}
+WORK_RECORD_DEFAULTS = {"project_id": None, "task_id": None,
+                        "outcome": None, "duration_minutes": None}
+
+
+def validate_work_record_event(value: object) -> dict:
+    """A recorded fact is not a task: it has a date, but no todo/done lifecycle."""
+    if not isinstance(value, dict) or value.get("version") != 1:
+        raise ValueError("work record version must be 1")
+    if (not isinstance(value.get("event_id"), str)
+            or not EVENT_ID.fullmatch(value["event_id"])):
+        raise ValueError("invalid work record event_id")
+    if (not isinstance(value.get("record_id"), str)
+            or not WORK_RECORD_ID.fullmatch(value["record_id"])):
+        raise ValueError("invalid work record ID")
+    if value.get("action") not in {"create", "update"}:
+        raise ValueError("invalid work record action")
+    if value.get("actor") not in {"user", "chatgpt"}:
+        raise ValueError("invalid work record actor")
+    stamp = value.get("timestamp")
+    if not isinstance(stamp, str):
+        raise ValueError("work record timestamp required")
+    try:
+        if datetime.fromisoformat(stamp.replace("Z", "+00:00")).tzinfo is None:
+            raise ValueError("work record timestamp requires timezone")
+    except ValueError as exc:
+        raise ValueError("invalid work record timestamp") from exc
+    revision = value.get("base_revision")
+    if type(revision) is not int or revision < 0:
+        raise ValueError("invalid work record revision")
+    changes = value.get("changes")
+    if not isinstance(changes, dict) or not changes or set(changes) - WORK_RECORD_FIELDS:
+        raise ValueError("invalid work record fields")
+    if value["action"] == "create":
+        if revision != 0 or not {"content", "occurred_on"} <= set(changes):
+            raise ValueError("work record creation requires content and occurred_on")
+    elif revision == 0:
+        raise ValueError("work record update requires an existing revision")
+    if "content" in changes:
+        text = changes["content"]
+        if not isinstance(text, str) or not 1 <= len(text.strip()) <= 4000:
+            raise ValueError("work record content length must be 1-4000")
+    if "occurred_on" in changes:
+        day = changes["occurred_on"]
+        if not isinstance(day, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
+            raise ValueError("work record occurred_on must be YYYY-MM-DD")
+        try:
+            date.fromisoformat(day)
+        except ValueError as exc:
+            raise ValueError("invalid work record calendar date") from exc
+    for field, pattern in (("project_id", PROJECT_ID), ("task_id", TASK_ID)):
+        if field in changes and changes[field] is not None:
+            if not isinstance(changes[field], str) or not pattern.fullmatch(changes[field]):
+                raise ValueError("invalid work record " + field)
+    if "outcome" in changes and changes["outcome"] is not None:
+        val = changes["outcome"]
+        if not isinstance(val, str) or len(val.strip()) > 2000:
+            raise ValueError("work outcome must be at most 2000 characters")
+    if "duration_minutes" in changes and changes["duration_minutes"] is not None:
+        minutes = changes["duration_minutes"]
+        if type(minutes) is not int or not 1 <= minutes <= 1440:
+            raise ValueError("duration_minutes must be between 1 and 1440")
+    return value
+
+
+def work_record_display_id(record_id: str, created_at: str) -> str:
+    """Capture-date code stays stable when the occurred_on date is corrected."""
+    match = re.match(r"^(\d{4})-(\d{2})-(\d{2})", created_at)
+    day = "".join(match.groups())[2:] if match else "000000"
+    return "R-" + day + "-" + record_id[7:19]
+
+
+def read_work_records(data_dir: Path) -> dict:
+    """Reduce independent append-only files; fail closed on conflicting revisions."""
+    directory = data_dir / "work_archive" / "record_events"
+    if not directory.exists():
+        return {"records": [], "warnings": []}
+    roots: dict[str, list[dict]] = defaultdict(list)
+    updates: dict[str, list[dict]] = defaultdict(list)
+    seen: dict[str, dict] = {}
+    collisions: dict[str, set[str]] = defaultdict(set)
+    warnings: list[str] = []
+    for path in sorted(directory.glob("*.json")):
+        if not path.is_file():
+            continue
+        try:
+            if path.stat().st_size > MAX_BODY:
+                raise ValueError("file too large")
+            event = validate_work_record_event(json.loads(path.read_text(encoding="utf-8-sig")))
+            old = seen.get(event["event_id"])
+            if old is not None:
+                if old == event:
+                    warnings.append(path.name + ": identical work record event duplicated; ignored")
+                    continue
+                collisions[event["event_id"]].update({old["record_id"], event["record_id"]})
+                warnings.append(path.name + ": conflicting work record event_id")
+            else:
+                seen[event["event_id"]] = event
+            (roots if event["action"] == "create" else updates)[event["record_id"]].append(event)
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
+            warnings.append(path.name + ": " + str(exc))
+    records: list[dict] = []
+    compromised = set().union(*collisions.values()) if collisions else set()
+    for record_id in sorted(set(roots) | set(updates)):
+        creation = roots[record_id]
+        if len(creation) != 1:
+            warnings.append(record_id + ": work record creation missing or conflicting")
+            if creation:
+                records.append({"record_id": record_id, "revision": 0, "conflict": True,
+                                "content": "工作记录创建存在冲突", "occurred_on": "",
+                                "display_id": "R-待核查-" + record_id[7:19]})
+            continue
+        root = creation[0]
+        record = {**WORK_RECORD_DEFAULTS, **root["changes"],
+                  "record_id": record_id, "created_at": root["timestamp"],
+                  "updated_at": root["timestamp"],
+                  "actor": root["actor"], "revision": 1, "conflict": False,
+                  "display_id": work_record_display_id(record_id, root["timestamp"])}
+        by_revision: dict[int, list[dict]] = defaultdict(list)
+        for event in updates[record_id]:
+            by_revision[event["base_revision"]].append(event)
+        while record["revision"] in by_revision:
+            candidates = by_revision.pop(record["revision"])
+            if len(candidates) != 1:
+                record["conflict"] = True
+                warnings.append(record_id + ": concurrent work record edits")
+                break
+            record.update(candidates[0]["changes"])
+            record["updated_at"] = candidates[0]["timestamp"]
+            record["revision"] += 1
+        if by_revision:
+            record["conflict"] = True
+            warnings.append(record_id + ": work record edits missing or out of order")
+        if record_id in compromised:
+            record["conflict"] = True
+            warnings.append(record_id + ": conflicting work record event ID")
+        records.append(record)
+    used_codes: dict[str, str] = {}
+    for record in records:
+        code = record["display_id"]
+        if code in used_codes and used_codes[code] != record["record_id"]:
+            record["conflict"] = True
+            for other in records:
+                if other["display_id"] == code:
+                    other["conflict"] = True
+            warnings.append(code + ": work record display ID collision")
+        used_codes[code] = record["record_id"]
+    records.sort(key=lambda item: (item.get("occurred_on") or "",
+                                   item.get("created_at") or "", item["record_id"]), reverse=True)
+    return {"records": records, "warnings": warnings}
+
+
+def append_work_record_event(data_dir: Path, event: dict) -> Path:
+    validate_work_record_event(event)
+    return _append_json_event(data_dir, event, "work_archive/record_events")
+
+
+def read_task_completion_activity(data_dir: Path, workspace: dict) -> list[dict]:
+    """Show existing explicitly completed tasks once; never create synthetic log files."""
+    tasks = {t["task_id"]: t for t in workspace["tasks"]
+             if not t.get("conflict") and not t.get("trashed_at")}
+    directory = data_dir / "events"
+    events: dict[str, dict] = {}
+    collisions: set[str] = set()
+    if not directory.exists():
+        return []
+    for path in sorted(directory.glob("*.json")):
+        try:
+            if not path.is_file() or path.stat().st_size > MAX_BODY:
+                continue
+            event = validate_event(json.loads(path.read_text(encoding="utf-8-sig")))
+        except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError):
+            continue
+        eid = event["event_id"]
+        if eid in events and events[eid] != event:
+            collisions.add(eid)
+        else:
+            events[eid] = event
+    result = []
+    for eid, event in events.items():
+        task = tasks.get(event["task_id"])
+        if (eid in collisions or not task or event["action"] != "update"
+                or event["changes"].get("status") != "done"
+                or event.get("confirmed_done") is not True):
+            continue
+        result.append({"source_event_id": eid, "task_id": task["task_id"],
+                       "task_title": task["title"], "project_id": task.get("project_id"),
+                       "occurred_at": event["timestamp"],
+                       "recurrence_period": event["changes"].get("recurrence_status_period")})
+    result.sort(key=lambda item: (item["occurred_at"], item["source_event_id"]), reverse=True)
+    return result
+
+
+def validate_work_record_links(payload: dict, workspace: dict) -> None:
+    """A local edit cannot silently reference an unresolved or conflicting object."""
+    projects = {p["project_id"]: p for p in workspace["projects"]}
+    tasks = {t["task_id"]: t for t in workspace["tasks"]}
+    for key, values in (("project_id", projects), ("task_id", tasks)):
+        target = payload.get(key)
+        if target is not None and (target not in values or values[target].get("conflict")):
+            raise LookupError(key + " not synchronized or has a conflict")
+
+
 def validate_setting_event(value: object) -> dict:
     """Validate the shared retention settings event schema for review discovery."""
     if (not isinstance(value, dict) or value.get("version") != 1 or
@@ -2704,6 +2910,19 @@ def handler_factory(data_dir: Path):
                 workspace["review_summary"] = review_register["summary"]
                 workspace["review_warnings"] = review_register["warnings"]
                 return self.json_response(200, workspace)
+            if path == "/api/work-records":
+                with _write_lock:
+                    state = read_work_records(data_dir)
+                    workspace = read_workspace(data_dir)
+                    tasks = {t["task_id"]: t for t in workspace["tasks"]}
+                    projects = {p["project_id"]: p for p in workspace["projects"]}
+                    for item in state["records"]:
+                        task = tasks.get(item.get("task_id"))
+                        project = projects.get(item.get("project_id"))
+                        item["task_title"] = task["title"] if task and not task.get("conflict") else None
+                        item["project_name"] = project["name"] if project and not project.get("conflict") else None
+                    state["task_completions"] = read_task_completion_activity(data_dir, workspace)
+                return self.json_response(200, state)
             if path == "/api/reviews":
                 with _write_lock:
                     workspace = read_workspace(data_dir, include_trashed=True)
@@ -2751,10 +2970,12 @@ def handler_factory(data_dir: Path):
             step_convert_match = re.fullmatch(
                 r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/convert-to-task", path)
             task_convert_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/convert-to-step", path)
+            work_record_match = re.fullmatch(r"/api/work-records/(RECORD-[A-F0-9]{32})/update", path)
+            creating_work_record = path == "/api/work-records"
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
-            if not (creating_task or creating_project or task_match or recurrence_match or project_match or
+            if not (creating_work_record or work_record_match or creating_task or creating_project or task_match or recurrence_match or project_match or
                     step_create_match or step_update_match or step_reorder_match or
                     step_documents_match or step_delete_match or step_convert_match or task_convert_match or applying_update or
                     documents_match or lifecycle_match or changing_retention or review_match):
@@ -2805,6 +3026,54 @@ def handler_factory(data_dir: Path):
 
             try:
                 payload = self.read_payload()
+                if creating_work_record or work_record_match:
+                    allowed = WORK_RECORD_FIELDS | ({"revision"} if work_record_match else set())
+                    if set(payload) - allowed:
+                        raise ValueError("unknown work record fields")
+                    if creating_work_record and not {"content", "occurred_on"} <= set(payload):
+                        raise ValueError("work record content and occurred_on are required")
+                    if work_record_match and (type(payload.get("revision")) is not int
+                                              or payload["revision"] < 1):
+                        raise ValueError("invalid work record revision")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        state = read_work_records(data_dir)
+                        changes = {key: val for key, val in payload.items() if key != "revision"}
+                        if creating_work_record:
+                            new_id = "RECORD-" + uuid.uuid4().hex.upper()
+                            revision = 0
+                            action = "create"
+                        else:
+                            new_id = work_record_match.group(1)
+                            prior = next((r for r in state["records"]
+                                          if r["record_id"] == new_id), None)
+                            if prior is None:
+                                return self.json_response(404, {"error": "work record not found"})
+                            if prior["conflict"] or prior["revision"] != payload["revision"]:
+                                return self.json_response(409, {"error": "work record changed or conflicted; refresh"})
+                            changes = {key: val for key, val in changes.items()
+                                       if val != prior.get(key)}
+                            if not changes:
+                                return self.json_response(200, {
+                                    "saved": False, "record_id": new_id,
+                                    "display_id": prior["display_id"], "revision": prior["revision"]})
+                            revision = prior["revision"]
+                            action = "update"
+                        # Merge existing associations before checking, for partial updates.
+                        links = {key: changes.get(key, prior.get(key) if work_record_match else None)
+                                 for key in ("project_id", "task_id")}
+                        validate_work_record_links(links, workspace)
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "record_id": new_id, "action": action, "actor": "user",
+                                 "timestamp": utc_now(), "base_revision": revision,
+                                 "changes": changes}
+                        append_work_record_event(data_dir, event)
+                    return self.json_response(201 if creating_work_record else 200, {
+                        "saved": True, "record_id": new_id,
+                        "display_id": work_record_display_id(new_id, event["timestamp"])
+                                      if creating_work_record else prior["display_id"],
+                        "revision": revision + 1})
+
                 if review_match:
                     with _write_lock:
                         code, result = perform_review_action(
@@ -3393,6 +3662,8 @@ def handler_factory(data_dir: Path):
                         validate_event(event)
                         append_event(data_dir, event)
                     return self.json_response(200, {"saved": True, "task_id": task_match.group(1)})
+            except LookupError as exc:
+                return self.json_response(409, {"error": str(exc)})
             except (ValueError, TypeError, UnicodeError, json.JSONDecodeError) as exc:
                 code = 415 if str(exc) == "JSON required" else 400
                 return self.json_response(code, {"error": str(exc)})
