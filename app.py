@@ -1773,6 +1773,13 @@ def read_task_completion_activity(data_dir: Path, workspace: dict) -> list[dict]
                 or event["changes"].get("status") != "done"
                 or event.get("confirmed_done") is not True):
             continue
+        if not isinstance(event.get("timestamp"), str):
+            continue
+        try:
+            if datetime.fromisoformat(event["timestamp"].replace("Z", "+00:00")).tzinfo is None:
+                continue
+        except ValueError:
+            continue
         result.append({"source_event_id": eid, "task_id": task["task_id"],
                        "task_title": task["title"], "project_id": task.get("project_id"),
                        "occurred_at": event["timestamp"],
