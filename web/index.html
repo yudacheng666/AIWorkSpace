@@ -2421,10 +2421,12 @@
     }
 
     function taskEffectiveDate(task, field) {
-      // For current active cycles, the anchored start is their virtual scheduled day.
-      // Original task date fields and the event history remain untouched.
-      if (task.recurrence_active && (field === "due_date" || field === "planned_date"))
+      // Each cycle occupies its own date window: plan at period start,
+      // due at period end. No original task date or event is overwritten.
+      if (task.recurrence_active && field === "planned_date")
         return task.recurrence_period_start || "";
+      if (task.recurrence_active && field === "due_date")
+        return task.recurrence_period_end || "";
       return task[field] || "";
     }
 
