@@ -732,7 +732,7 @@ def resolve_conversion_events(tasks: list[dict], events: list[dict],
                     parent.get("conflict") or parent.get("trashed_at") or
                     parent.get("status_rollup_incomplete") or parent.get("step_order_conflict") or
                     parent.get("step_order_incomplete") or parent.get("parent_missing") or
-                    parent.get("parent_cycle") or parent.get("manual_status") == "done"):
+                    parent.get("parent_cycle")):
                 reason = "source step parent is conflicted or unavailable"
             elif source_item.get("revision") < source["revision"]:
                 pending = True
@@ -759,8 +759,7 @@ def resolve_conversion_events(tasks: list[dict], events: list[dict],
                 elif parent_task is None:
                     pending = True
                 elif (parent_task.get("conflict") or parent_task.get("trashed_at") or
-                      parent_task.get("parent_missing") or parent_task.get("parent_cycle") or
-                      parent_task.get("manual_status") == "done"):
+                      parent_task.get("parent_missing") or parent_task.get("parent_cycle")):
                     reason = "converted task parent is unavailable"
                 elif parent_id in consumed_tasks:
                     reason = "converted task parent was moved"
@@ -778,7 +777,7 @@ def resolve_conversion_events(tasks: list[dict], events: list[dict],
                 elif (target_parent.get("conflict") or target_parent.get("trashed_at") or
                       target_parent.get("step_order_conflict") or target_parent.get("step_order_incomplete") or
                       target_parent.get("status_rollup_incomplete") or target_parent.get("parent_missing") or
-                      target_parent.get("parent_cycle") or target_parent.get("manual_status") == "done"):
+                      target_parent.get("parent_cycle")):
                     reason = "converted step parent is conflicted or unavailable"
                 elif target["task_id"] in consumed_tasks:
                     reason = "converted step parent was moved"
