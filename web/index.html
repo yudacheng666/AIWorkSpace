@@ -1183,6 +1183,7 @@
             <button type="button" id="task-detail-id" title="点击复制任务编号">任务编号</button>
             <button type="button" id="task-id-copy" aria-label="复制任务编号" title="复制任务编号">⧉</button>
             <span id="task-id-feedback" class="drawer-id-copy-feedback" role="status" aria-live="polite"></span>
+            <button type="button" id="task-work-history" class="secondary-action">关联工作记录</button>
           </div>
         </div>
         <button type="button" class="icon-button" id="task-detail-close" aria-label="关闭任务详情">×</button>
@@ -1213,6 +1214,14 @@
     let workRecords = [];
     let workTaskCompletions = [];
     let editingRecordId = "";
+    let workDraftLinks = [];
+    let workDraftEvidence = [];
+    let workSourceInboxId = "";
+    let workFocusedTaskId = "";
+    let workInboxItems = [];
+    let workSummaryItems = [];
+    let workSummaryPreview = null;
+    let editingSummaryId = "";
     let taskViewMode = "list";
     let taskMonthCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     let taskTimelineCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -1258,6 +1267,7 @@
       form.addEventListener("input", update);
       form.addEventListener("change", update);
       return {
+        check: update,
         // Advance the clean baseline to the exact state persisted by the
         // successful request. If the live form changed while saving, update()
         // keeps that newer draft dirty instead of comparing against stale data.
@@ -3430,7 +3440,10 @@
         const filterProject = $("work-filter-project").value;
         projectOptions($("work-record-project"), workProject);
         projectOptions($("work-filter-project"), filterProject);
+        projectOptions($("work-inbox-project"), $("work-inbox-project").value);
+        projectOptions($("work-summary-project"), $("work-summary-project").value);
         fillWorkTaskOptions($("work-record-task").value);
+        populateWorkLinkTargets();
         renderProjects();
         refreshOverviewControls();
         renderTaskList();
@@ -4006,7 +4019,11 @@
     function workFormSnapshot() {
       return {content: $("work-record-content").value, occurred_on: $("work-record-date").value,
         project_id: $("work-record-project").value, task_id: $("work-record-task").value,
-        outcome: $("work-record-outcome").value, duration_minutes: $("work-record-minutes").value};
+        outcome: $("work-record-outcome").value, duration_minutes: $("work-record-minutes").value,
+        featured: $("work-record-featured").checked, action_links: workDraftLinks.map(link => ({...link})),
+        evidence_links: workDraftEvidence.map(doc => ({...doc})),
+        source_inbox_id:workSourceInboxId,
+        evidence_title:$("work-evidence-title").value, evidence_url:$("work-evidence-url").value};
     }
 
     $("work-record-date").value = localDayISO(new Date());
@@ -4040,6 +4057,16 @@
       $("work-record-minutes").value = "";
       $("work-record-project").value = "";
       $("work-record-task").value = "";
+      $("work-record-featured").checked = false;
+      $("work-evidence-title").value = "";
+      $("work-evidence-url").value = "";
+      $("work-link-target").value = "";
+      $("work-link-relation").value = "progress_on";
+      workDraftLinks = [];
+      workDraftEvidence = [];
+      workSourceInboxId = "";
+      renderWorkDraftLinks();
+      renderWorkDraftEvidence();
       $("work-record-submit").textContent = "保存记录";
       workDraftWatcher.markClean();
       $("work-record-message").textContent = "";
@@ -4156,6 +4183,15 @@
       $("work-record-minutes").value = record.duration_minutes == null ? "" : String(record.duration_minutes);
       $("work-record-project").value = record.project_id || "";
       fillWorkTaskOptions(record.task_id || "");
+      $("work-record-featured").checked = !!record.featured;
+      workDraftLinks = (record.action_links || []).map(link => ({...link}));
+      workDraftEvidence = (record.evidence_links || []).map(doc => ({...doc}));
+      workSourceInboxId = "";
+      $("work-evidence-title").value = "";
+      $("work-evidence-url").value = "";
+      $("work-link-target").value = "";
+      renderWorkDraftLinks();
+      renderWorkDraftEvidence();
       $("work-record-submit").textContent = "保存修改";
       workDraftWatcher.markClean();
       $("work-record-message").textContent = "正在编辑 " + record.display_id + "；原始记录会保留。";
@@ -4175,12 +4211,19 @@
         $("work-record-message").textContent = "原记录需要刷新或核查，未写入。";
         return;
       }
+      if (snapshot.evidence_title.trim() || snapshot.evidence_url.trim()) {
+        $("work-record-message").textContent = "还有未添加的证据链接，请先点击「关联证据」。";
+        return;
+      }
       const payload = {
         content: snapshot.content.trim(), occurred_on: snapshot.occurred_on,
         project_id: snapshot.project_id || null, task_id: snapshot.task_id || null,
         outcome: snapshot.outcome.trim() || null,
-        duration_minutes: snapshot.duration_minutes ? Number(snapshot.duration_minutes) : null
+        duration_minutes: snapshot.duration_minutes ? Number(snapshot.duration_minutes) : null,
+        action_links:snapshot.action_links, featured:snapshot.featured,
+        evidence_links:snapshot.evidence_links
       };
+      if (!record && snapshot.source_inbox_id) payload.source_inbox_id = snapshot.source_inbox_id;
       if (record) payload.revision = record.revision;
       isSaving = true;
       $("work-record-submit").disabled = true;
@@ -4207,6 +4250,7 @@
             ? "已保存工作记录 " + result.display_id : "内容未变化，无需保存。";
         }
         await loadWorkRecords();
+        await loadWorkArchive();
       } catch (error) {
         $("work-record-message").textContent = "保存未成功：" + error.message + "。草稿已保留，请核查后重试。";
       } finally {
@@ -4223,6 +4267,7 @@
       resetWorkRecordForm();
     });
     $("work-filter-reset").addEventListener("click", () => {
+      workFocusedTaskId = "";
       $("work-filter-keyword").value = "";
       $("work-filter-from").value = "";
       $("work-filter-to").value = "";
@@ -4237,6 +4282,13 @@
     $("open-create-record").addEventListener("click", () => {
       if (!setActivePage("worklog")) return;
       $("work-record-content").focus();
+    });
+    $("task-work-history").addEventListener("click", () => {
+      const taskId = activeDetailTaskId;
+      if (!taskId || !closeTaskDetail()) return;
+      workFocusedTaskId = taskId;
+      if (!setActivePage("worklog")) return;
+      renderWorkRecords();
     });
 
     const navBindings = [
