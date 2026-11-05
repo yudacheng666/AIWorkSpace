@@ -4016,6 +4016,121 @@
 
 
 
+    const workLinkRelationLabels = {
+      progress_on:"进展", result_of:"成果", derived_action:"后续行动"
+    };
+    function workLinkLabel(link) {
+      const taskId = link.target_type === "task" ? link.target_id : link.task_id;
+      const task = current.find(item => item.task_id === taskId);
+      if (!task) return "关联对象未同步或已转换";
+      if (link.target_type === "task") return task.title;
+      const step = (task.steps || []).find(item => item.step_id === link.target_id);
+      return step ? task.title + " / " + step.title : "关联步骤未同步或已转换";
+    }
+    function populateWorkLinkTargets() {
+      const select = $("work-link-target");
+      const selected = select.value;
+      select.replaceChildren();
+      const empty = element("option", "", "选择任务或步骤");
+      empty.value = "";
+      select.append(empty);
+      for (const task of current) {
+        if (task.conflict || task.trashed_at) continue;
+        const option = element("option", "", "任务 · " + task.title);
+        option.value = "task:" + task.task_id;
+        select.append(option);
+        for (const step of task.steps || []) {
+          if (step.conflict) continue;
+          const child = element("option", "", "步骤 · " + task.title + " / " + step.title);
+          child.value = "step:" + task.task_id + ":" + step.step_id;
+          select.append(child);
+        }
+      }
+      select.value = selected || "";
+    }
+    function renderWorkDraftLinks() {
+      const list = $("work-link-list");
+      list.replaceChildren();
+      for (const link of workDraftLinks) {
+        const chip = element("span", "work-archive-tag",
+          (workLinkRelationLabels[link.relation] || "关联") + " · " + workLinkLabel(link) + " ");
+        const remove = element("button", "", "×");
+        remove.type = "button";
+        remove.title = "移除这条关联";
+        remove.addEventListener("click", () => {
+          if (isSaving) return;
+          workDraftLinks = workDraftLinks.filter(item =>
+            !(item.target_type === link.target_type && item.target_id === link.target_id));
+          renderWorkDraftLinks();
+          workDraftWatcher.check();
+        });
+        chip.append(remove);
+        list.append(chip);
+      }
+    }
+    function renderWorkDraftEvidence() {
+      const list = $("work-evidence-list");
+      list.replaceChildren();
+      for (const doc of workDraftEvidence) {
+        const chip = element("span", "work-archive-tag", doc.title + " ");
+        const remove = element("button", "", "×");
+        remove.type = "button";
+        remove.title = "移除文件引用";
+        remove.addEventListener("click", () => {
+          if (isSaving) return;
+          workDraftEvidence = workDraftEvidence.filter(item => item.url !== doc.url);
+          renderWorkDraftEvidence();
+          workDraftWatcher.check();
+        });
+        chip.append(remove);
+        list.append(chip);
+      }
+    }
+    $("work-link-add").addEventListener("click", () => {
+      if (isSaving) return;
+      const target = $("work-link-target").value;
+      if (!target) return;
+      const parts = target.split(":");
+      let link;
+      if (parts[0] === "task" && parts.length === 2) {
+        link = {target_type:"task", target_id:parts[1], relation:$("work-link-relation").value};
+      } else if (parts[0] === "step" && parts.length === 3) {
+        link = {target_type:"step", task_id:parts[1],
+          target_id:parts[2], relation:$("work-link-relation").value};
+      } else return;
+      if (workDraftLinks.length >= 20) {
+        $("work-record-message").textContent = "每条工作记录最多关联 20 个任务或步骤。";
+        return;
+      }
+      if (workDraftLinks.some(item => item.target_type === link.target_type &&
+                                    item.target_id === link.target_id)) {
+        $("work-record-message").textContent = "此任务或步骤已关联，不重复添加。";
+        return;
+      }
+      workDraftLinks.push(link);
+      $("work-link-target").value = "";
+      renderWorkDraftLinks();
+      workDraftWatcher.check();
+    });
+    $("work-evidence-add").addEventListener("click", () => {
+      if (isSaving) return;
+      const title = $("work-evidence-title").value.trim();
+      const url = $("work-evidence-url").value.trim();
+      if (!title || !/^https:\/\/(drive\.google\.com|docs\.google\.com)\//.test(url)) {
+        $("work-record-message").textContent = "请填写文件名称和有效 Google Drive / Docs HTTPS 链接。";
+        return;
+      }
+      if (workDraftEvidence.length >= 20 || workDraftEvidence.some(doc => doc.url === url)) {
+        $("work-record-message").textContent = "证据引用重复或已达到 20 条上限。";
+        return;
+      }
+      workDraftEvidence.push({title, url});
+      $("work-evidence-title").value = "";
+      $("work-evidence-url").value = "";
+      renderWorkDraftEvidence();
+      workDraftWatcher.check();
+    });
+
     function workFormSnapshot() {
       return {content: $("work-record-content").value, occurred_on: $("work-record-date").value,
         project_id: $("work-record-project").value, task_id: $("work-record-task").value,
