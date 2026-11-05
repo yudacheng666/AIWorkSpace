@@ -2711,7 +2711,7 @@ def handler_factory(data_dir: Path):
                             return self.json_response(404, {"error": "parent task not found"})
                         if (parent["conflict"] or parent.get("status_rollup_incomplete") or
                                 parent.get("step_order_conflict") or parent.get("step_order_incomplete") or
-                                parent.get("trashed_at")):
+                                parent.get("trashed_at") or parent.get("manual_status") == "done"):
                             return self.json_response(409, {"error": "parent task or step order needs review; refresh"})
                         step = next((item for item in parent.get("steps", [])
                                      if item["step_id"] == step_convert_match.group(2)), None)
@@ -2795,7 +2795,8 @@ def handler_factory(data_dir: Path):
                             return self.json_response(409, {"error": "source task parent relationship needs review"})
                         if (target_parent.get("conflict") or target_parent.get("trashed_at") or
                                 target_parent.get("step_order_conflict") or target_parent.get("step_order_incomplete") or
-                                target_parent.get("status_rollup_incomplete")):
+                                target_parent.get("status_rollup_incomplete") or
+                                target_parent.get("manual_status") == "done"):
                             return self.json_response(409, {"error": "target parent or its step order needs review; refresh"})
                         if target_parent["step_order_revision"] != target_order_revision:
                             return self.json_response(409, {"error": "target parent step order changed; refresh"})
