@@ -2894,7 +2894,8 @@ def handler_factory(data_dir: Path):
                         step_id = f"STEP-{uuid.uuid4().hex.upper()}"
                         changes = {"title": title.strip(),
                                    "position": len(task.get("steps", [])) + 1}
-                        changes.update({field: payload.get(field) for field in DATE_FIELDS if field in payload})
+                        changes.update({field: (payload.get(field) or None)
+                                        for field in DATE_FIELDS if field in payload})
                         event = {"version": 1, "event_id": str(uuid.uuid4()),
                                  "task_id": task["task_id"], "step_id": step_id,
                                  "action": "create", "actor": "user", "timestamp": utc_now(),
@@ -2943,8 +2944,9 @@ def handler_factory(data_dir: Path):
                         if "status" in payload and payload["status"] != step["status"]:
                             changes["status"] = payload["status"]
                         for field in DATE_FIELDS:
-                            if field in payload and payload[field] != step.get(field):
-                                changes[field] = payload[field]
+                            value = payload.get(field) or None
+                            if field in payload and value != step.get(field):
+                                changes[field] = value
                         if not changes:
                             return self.json_response(200, {"saved": False, "step_id": step["step_id"],
                                                             "revision": step["revision"]})
