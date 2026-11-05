@@ -730,6 +730,16 @@ class ServerTests(unittest.TestCase):
         except HTTPError as error:
             return error.code, json.load(error)
 
+    def post_json(self, path, body):
+        request = Request(self.base + path,
+                          data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
+                          method="POST", headers={"Content-Type": "application/json"})
+        try:
+            with urlopen(request, timeout=3) as reply:
+                return reply.status, json.load(reply)
+        except HTTPError as error:
+            return error.code, json.load(error)
+
     def create_task(self, body, extra_headers=None, content_type="application/json"):
         headers = {"Content-Type": content_type}
         headers.update(extra_headers or {})
@@ -1291,6 +1301,166 @@ class ServerTests(unittest.TestCase):
         status, _ = self.create_step()
         self.assertEqual(status, 409)
         self.assertEqual(len(list((self.data_dir / "step_events").glob("*.json"))), before)
+
+
+
+    def test_step_dates_validate_and_persist_like_task_calendar_fields(self):
+        status, created = self.post_json("/api/tasks/TASK-DEMO-001/steps", {
+            "title": "有日期的步骤", "planned_date": "2026-11-06",
+            "due_date": "2026-11-09", "follow_up_date": "2026-11-10"
+        })
+        self.assertEqual(status, 201)
+        step_id = created["step_id"]
+        task = read_workspace(self.data_dir)["tasks"][0]
+        step = next(item for item in task["steps"] if item["step_id"] == step_id)
+        self.assertEqual((step["planned_date"], step["due_date"], step["follow_up_date"]),
+                         ("2026-11-06", "2026-11-09", "2026-11-10"))
+        before = len(list((self.data_dir / "step_events").glob("*.json")))
+        code, result = self.update_step(step_id, {
+            "revision": 1, "planned_date": "2026-11-07", "due_date": None
+        })
+        self.assertEqual((code, result["revision"]), (200, 2))
+        updated = next(item for item in read_workspace(self.data_dir)["tasks"][0]["steps"]
+                       if item["step_id"] == step_id)
+        self.assertEqual((updated["planned_date"], updated["due_date"], updated["follow_up_date"]),
+                         ("2026-11-07", None, "2026-11-10"))
+        self.assertEqual(len(list((self.data_dir / "step_events").glob("*.json"))), before + 1)
+        count = len(list((self.data_dir / "step_events").glob("*.json")))
+        code, _ = self.update_step(step_id, {"revision": 2, "due_date": "2026-02-30"})
+        self.assertEqual(code, 400)
+        self.assertEqual(len(list((self.data_dir / "step_events").glob("*.json"))), count)
+        code, _ = self.update_step(step_id, {"revision": 1, "due_date": "2026-11-12"})
+        self.assertEqual(code, 409)
+
+    def test_step_to_task_conversion_moves_once_and_preserves_dates_documents_and_history(self):
+        link = {"title": "虚构步骤附件", "url": "https://drive.google.com/file/d/Abc_123/view"}
+        status, created = self.post_json("/api/tasks/TASK-DEMO-001/steps", {
+            "title": "升级为子任务", "planned_date": "2026-11-06",
+            "due_date": "2026-11-08", "follow_up_date": "2026-11-09"
+        })
+        self.assertEqual(status, 201)
+        step_id = created["step_id"]
+        append_step_event(self.data_dir, step_event(
+            "convert-step-fields", step_id=step_id, action="update", revision=1,
+            changes={"status": "doing", "document_links": [link]}, actor="user"))
+        original_task_bytes = {
+            path.name: path.read_bytes() for path in (self.data_dir / "events").glob("*.json")
+        }
+        original_step_bytes = {
+            path.name: path.read_bytes() for path in (self.data_dir / "step_events").glob("*.json")
+        }
+        code, result = self.post_json(
+            f"/api/tasks/TASK-DEMO-001/steps/{step_id}/convert-to-task",
+            {"revision": 2, "confirmed_move": True})
+        self.assertEqual(code, 201)
+        self.assertEqual(result["conversion"], "step_to_task")
+        workspace = read_workspace(self.data_dir)
+        parent = next(item for item in workspace["tasks"] if item["task_id"] == "TASK-DEMO-001")
+        child = next(item for item in workspace["tasks"] if item["task_id"] == result["task_id"])
+        self.assertEqual(parent["steps"], [])
+        self.assertEqual(child["parent_task_id"], parent["task_id"])
+        self.assertEqual((child["title"], child["status"], child["planned_date"],
+                          child["due_date"], child["follow_up_date"]),
+                         ("升级为子任务", "doing", "2026-11-06", "2026-11-08", "2026-11-09"))
+        self.assertEqual(child["document_links"], [link])
+        self.assertIn(child["task_id"], parent["child_task_ids"])
+        self.assertEqual(len(list((self.data_dir / "conversion_events").glob("*.json"))), 1)
+        self.assertEqual({path.name: path.read_bytes() for path in (self.data_dir / "events").glob("*.json")},
+                         original_task_bytes)
+        self.assertEqual({path.name: path.read_bytes() for path in (self.data_dir / "step_events").glob("*.json")},
+                         original_step_bytes)
+        self.assertEqual(self.post_json(
+            f"/api/tasks/TASK-DEMO-001/steps/{step_id}/convert-to-task",
+            {"revision": 2, "confirmed_move": True})[0], 404)
+        self.assertEqual(len(list((self.data_dir / "conversion_events").glob("*.json"))), 1)
+
+    def test_task_to_step_and_back_preserves_task_fields_and_conversion_chain(self):
+        status, created = self.create_task({
+            "title": "待转换末级任务", "owner": "采购", "priority": "high",
+            "planned_date": "2026-11-12", "due_date": "2026-11-14",
+            "follow_up_date": "2026-11-15"
+        })
+        self.assertEqual(status, 201)
+        source_id = created["task_id"]
+        code, result = self.post_json(f"/api/tasks/{source_id}/convert-to-step", {
+            "revision": 1, "target_parent_task_id": "TASK-DEMO-001",
+            "target_step_order_revision": 0, "confirmed_move": True
+        })
+        self.assertEqual(code, 201)
+        first = read_workspace(self.data_dir)
+        self.assertNotIn(source_id, {task["task_id"] for task in first["tasks"]})
+        parent = next(task for task in first["tasks"] if task["task_id"] == "TASK-DEMO-001")
+        step = next(step for step in parent["steps"] if step["step_id"] == result["step_id"])
+        self.assertEqual((step["title"], step["status"], step["planned_date"],
+                          step["due_date"], step["follow_up_date"]),
+                         ("待转换末级任务", "todo", "2026-11-12", "2026-11-14", "2026-11-15"))
+        self.assertEqual(step["converted_task_metadata"]["owner"], "采购")
+        self.assertEqual(step["converted_task_metadata"]["priority"], "high")
+
+        code, promoted = self.post_json(
+            f"/api/tasks/TASK-DEMO-001/steps/{result['step_id']}/convert-to-task",
+            {"revision": 1, "confirmed_move": True})
+        self.assertEqual(code, 201)
+        final = read_workspace(self.data_dir)
+        self.assertNotIn(source_id, {task["task_id"] for task in final["tasks"]})
+        self.assertNotIn(result["step_id"], {
+            step["step_id"] for task in final["tasks"] for step in task["steps"]
+        })
+        restored = next(task for task in final["tasks"] if task["task_id"] == promoted["task_id"])
+        self.assertEqual(restored["parent_task_id"], "TASK-DEMO-001")
+        self.assertEqual((restored["owner"], restored["priority"], restored["planned_date"],
+                          restored["due_date"], restored["follow_up_date"]),
+                         ("采购", "high", "2026-11-12", "2026-11-14", "2026-11-15"))
+        self.assertEqual(len(list((self.data_dir / "conversion_events").glob("*.json"))), 2)
+
+    def test_task_conversion_rejects_nonleaf_stale_order_and_completed_parent(self):
+        status, source = self.create_task({"title": "有下级的任务"})
+        self.assertEqual(status, 201)
+        self.assertEqual(self.create_step(task_id=source["task_id"])[0], 201)
+        code, _ = self.post_json(f"/api/tasks/{source['task_id']}/convert-to-step", {
+            "revision": 1, "target_parent_task_id": "TASK-DEMO-001",
+            "target_step_order_revision": 0, "confirmed_move": True
+        })
+        self.assertEqual(code, 409)
+
+        status, leaf = self.create_task({"title": "目标顺序过期的末级任务"})
+        self.assertEqual(status, 201)
+        code, _ = self.post_json(f"/api/tasks/{leaf['task_id']}/convert-to-step", {
+            "revision": 1, "target_parent_task_id": "TASK-DEMO-001",
+            "target_step_order_revision": 99, "confirmed_move": True
+        })
+        self.assertEqual(code, 409)
+        self.assertEqual(len(list((self.data_dir / "conversion_events").glob("*.json"))), 0)
+
+        append_event(self.data_dir, event(
+            "complete-parent-manually", task_id="TASK-COMPLETE-PARENT",
+            changes={"title": "已人工完成的父任务", "status": "done"},
+            actor="user", confirmed_done=True))
+        status, movable = self.create_task({"title": "不能移动到已完成父任务"})
+        self.assertEqual(status, 201)
+        code, _ = self.post_json(f"/api/tasks/{movable['task_id']}/convert-to-step", {
+            "revision": 1, "target_parent_task_id": "TASK-COMPLETE-PARENT",
+            "target_step_order_revision": 0, "confirmed_move": True
+        })
+        self.assertEqual(code, 409)
+
+    def test_source_changed_after_conversion_keeps_source_and_hides_target(self):
+        _, created = self.create_step(title="并发变更前的步骤")
+        step_id = created["step_id"]
+        code, result = self.post_json(
+            f"/api/tasks/TASK-DEMO-001/steps/{step_id}/convert-to-task",
+            {"revision": 1, "confirmed_move": True})
+        self.assertEqual(code, 201)
+        append_step_event(self.data_dir, step_event(
+            "late-step-edit-after-convert", step_id=step_id, action="update",
+            revision=1, changes={"title": "另一设备的迟到修改"}, actor="user"))
+        workspace = read_workspace(self.data_dir)
+        parent = next(task for task in workspace["tasks"] if task["task_id"] == "TASK-DEMO-001")
+        self.assertEqual(parent["steps"][0]["title"], "另一设备的迟到修改")
+        self.assertNotIn(result["task_id"], {task["task_id"] for task in workspace["tasks"]})
+        self.assertTrue(any("source changed after conversion" in warning
+                            for warning in workspace["warnings"]))
+
 
     def test_webpage_and_api_available(self):
         with urlopen(self.base + "/", timeout=3) as response:
