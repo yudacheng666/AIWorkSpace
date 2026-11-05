@@ -889,3 +889,46 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
                          "opening and refreshing the inbox must not change the invalid source event")
         self.assertFalse((self.data_dir / "review_events").exists(),
                          "the read-only mailbox must not create review audit writes")
+
+
+    def test_work_record_backdated_capture_edit_and_task_history_protection(self):
+        page = self._open_browser(open_detail=False)
+        original_task_event = self.data_dir / "events" / "evt_v201-chromium-create-001.json"
+        original_bytes = original_task_event.read_bytes()
+
+        page.locator("#open-create-record").click()
+        expect(page.locator("#page-worklog h1")).to_have_text("工作记录")
+        page.locator("#work-record-content").fill("虚构的临时采购交期沟通")
+        page.locator("#work-record-date").fill("2026-10-29")
+        page.locator("#work-record-outcome").fill("交期已经确认")
+        page.locator("#work-record-minutes").fill("40")
+        page.locator("#work-record-task").select_option(self.task_id)
+        page.locator("#work-record-submit").click()
+        expect(page.locator("#work-record-message")).to_contain_text("已保存工作记录", timeout=10000)
+        expect(page.locator(".work-entry-content")).to_contain_text("虚构的临时采购交期沟通")
+        expect(page.locator(".work-entry-date")).to_have_text("2026-10-29")
+        self.assertIn("1 条工作记录", page.locator("#work-record-count").inner_text())
+        self.assertEqual(original_task_event.read_bytes(), original_bytes)
+        directory = self.data_dir / "work_archive" / "record_events"
+        files = sorted(directory.glob("*.json"))
+        self.assertEqual(len(files), 1)
+        first_event = json.loads(files[0].read_text(encoding="utf-8"))
+        self.assertNotIn("status", first_event["changes"])
+        self.assertEqual(first_event["changes"]["occurred_on"], "2026-10-29")
+        self.assertEqual(first_event["changes"]["task_id"], self.task_id)
+        first_bytes = files[0].read_bytes()
+        short_code = page.locator(".work-entry-meta span").first.inner_text()
+
+        page.locator(".work-entry-footer button").first.click()
+        expect(page.locator("#work-record-submit")).to_have_text("保存修改")
+        page.locator("#work-record-content").fill("修正后的虚构交期沟通内容")
+        page.locator("#work-record-date").fill("2026-10-28")
+        page.locator("#work-record-submit").click()
+        expect(page.locator("#work-record-message")).to_contain_text("已保存工作记录", timeout=10000)
+        expect(page.locator(".work-entry-content")).to_contain_text("修正后的虚构交期沟通内容")
+        expect(page.locator(".work-entry-date")).to_have_text("2026-10-28")
+        self.assertEqual(short_code, page.locator(".work-entry-meta span").first.inner_text(),
+                         "correcting work occurrence must never change its record code")
+        self.assertEqual(len(list(directory.glob("*.json"))), 2)
+        self.assertEqual(files[0].read_bytes(), first_bytes, "original record must remain byte-for-byte")
+        self.assertEqual(original_task_event.read_bytes(), original_bytes)
