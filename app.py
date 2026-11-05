@@ -3275,6 +3275,29 @@ def handler_factory(data_dir: Path):
                         label_work_associations(item, workspace)
                     state["task_completions"] = read_task_completion_activity(data_dir, workspace)
                 return self.json_response(200, state)
+            if path == "/api/work-archive":
+                with _write_lock:
+                    record_state = read_work_records(data_dir)
+                    inbox = read_work_inbox(data_dir, record_state["records"])
+                    summaries = read_work_archive_events(data_dir, "summary")
+                    return self.json_response(200, {
+                        "inbox": inbox["items"], "summaries": summaries["items"],
+                        "warnings": record_state["warnings"] + inbox["warnings"] + summaries["warnings"]
+                    })
+            if path == "/api/work-archive/preview":
+                query = parse_qs(urlsplit(self.path).query)
+                try:
+                    period = query.get("period", [""])[0]
+                    day = query.get("day", [""])[0]
+                    project_id = query.get("project_id", [""])[0] or None
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        preview = preview_work_review(data_dir, workspace, period, day, project_id)
+                    return self.json_response(200, preview)
+                except LookupError as exc:
+                    return self.json_response(409, {"error": str(exc)})
+                except (ValueError, TypeError) as exc:
+                    return self.json_response(400, {"error": str(exc)})
             if path == "/api/reviews":
                 with _write_lock:
                     workspace = read_workspace(data_dir, include_trashed=True)
@@ -3324,10 +3347,14 @@ def handler_factory(data_dir: Path):
             task_convert_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/convert-to-step", path)
             work_record_match = re.fullmatch(r"/api/work-records/(RECORD-[A-F0-9]{32})/update", path)
             creating_work_record = path == "/api/work-records"
+            creating_inbox = path == "/api/work-archive/inbox"
+            inbox_ignore = re.fullmatch(r"/api/work-archive/inbox/(INBOX-[A-F0-9]{32})/ignore", path)
+            creating_summary = path == "/api/work-archive/summaries"
+            summary_edit = re.fullmatch(r"/api/work-archive/summaries/(SUMMARY-[A-F0-9]{32})/update", path)
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
-            if not (creating_work_record or work_record_match or creating_task or creating_project or task_match or recurrence_match or project_match or
+            if not (creating_work_record or work_record_match or creating_inbox or inbox_ignore or creating_summary or summary_edit or creating_task or creating_project or task_match or recurrence_match or project_match or
                     step_create_match or step_update_match or step_reorder_match or
                     step_documents_match or step_delete_match or step_convert_match or task_convert_match or applying_update or
                     documents_match or lifecycle_match or changing_retention or review_match):
@@ -3377,7 +3404,89 @@ def handler_factory(data_dir: Path):
                         _update_lock.release()
 
             try:
-                payload = self.read_payload(MAX_WORK_RECORD_BODY if creating_work_record or work_record_match else MAX_BODY)
+                archive_request = (creating_work_record or work_record_match or creating_inbox or
+                                   inbox_ignore or creating_summary or summary_edit)
+                payload = self.read_payload(MAX_WORK_RECORD_BODY if archive_request else MAX_BODY)
+                if creating_inbox:
+                    if set(payload) - {"content", "occurred_on", "project_id"} or (
+                            not {"content", "occurred_on"} <= set(payload)):
+                        raise ValueError("invalid work inbox input")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        validate_work_record_links({"project_id": payload.get("project_id")}, workspace)
+                        iid = "INBOX-" + uuid.uuid4().hex.upper()
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "inbox_id": iid, "action": "create", "actor": "user",
+                                 "timestamp": utc_now(), "base_revision": 0,
+                                 "changes": {key: payload[key] for key in payload}}
+                        append_work_archive_event(data_dir, "inbox", event)
+                    return self.json_response(201, {"saved": True, "inbox_id": iid, "revision": 1})
+                if inbox_ignore:
+                    if set(payload) != {"revision", "confirmed_ignore"} or (
+                            type(payload["revision"]) is not int or
+                            payload["confirmed_ignore"] is not True):
+                        raise ValueError("ignoring inbox requires explicit user confirmation")
+                    with _write_lock:
+                        state = read_work_inbox(data_dir)
+                        old = next((x for x in state["items"] if x["inbox_id"] == inbox_ignore.group(1)), None)
+                        if old is None:
+                            return self.json_response(404, {"error": "inbox item not found"})
+                        if old["conflict"] or old["revision"] != payload["revision"] or (
+                                old.get("ignored") or old.get("processed_record_id")):
+                            return self.json_response(409, {"error": "inbox item already handled or conflicted"})
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "inbox_id": old["inbox_id"], "action": "dismiss", "actor": "user",
+                                 "timestamp": utc_now(), "base_revision": old["revision"],
+                                 "changes": {"ignored": True}}
+                        append_work_archive_event(data_dir, "inbox", event)
+                    return self.json_response(200, {"saved": True, "revision": old["revision"] + 1})
+                if creating_summary:
+                    required = {"period", "day", "project_id", "body", "confirmed",
+                                "source_record_ids", "source_completion_ids"}
+                    if set(payload) != required:
+                        raise ValueError("invalid work summary input")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        preview = preview_work_review(data_dir, workspace, payload["period"],
+                                                      payload["day"], payload["project_id"])
+                        if (payload["source_record_ids"] != preview["source_record_ids"] or
+                                payload["source_completion_ids"] != preview["source_completion_ids"]):
+                            return self.json_response(409, {"error": "summary sources changed; regenerate"})
+                        sid = "SUMMARY-" + uuid.uuid4().hex.upper()
+                        changes = {key: preview[key] for key in (
+                            "period", "period_start", "period_end", "project_id",
+                            "source_record_ids", "source_completion_ids")}
+                        changes["body"] = payload["body"]
+                        changes["confirmed"] = payload["confirmed"]
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "summary_id": sid, "action": "create", "actor": "user",
+                                 "timestamp": utc_now(), "base_revision": 0, "changes": changes}
+                        append_work_archive_event(data_dir, "summary", event)
+                    return self.json_response(201, {"saved": True, "summary_id": sid, "revision": 1})
+                if summary_edit:
+                    if (set(payload) - {"revision", "body", "confirmed"} or
+                            "revision" not in payload or
+                            type(payload["revision"]) is not int or
+                            not (set(payload) & {"body", "confirmed"})):
+                        raise ValueError("summary update requires revision and changed content")
+                    with _write_lock:
+                        state = read_work_archive_events(data_dir, "summary")
+                        prior = next((x for x in state["items"]
+                                      if x["summary_id"] == summary_edit.group(1)), None)
+                        if prior is None:
+                            return self.json_response(404, {"error": "summary not found"})
+                        if prior["conflict"] or prior["revision"] != payload["revision"]:
+                            return self.json_response(409, {"error": "summary changed or has conflict"})
+                        changes = {key: value for key, value in payload.items()
+                                   if key != "revision" and value != prior.get(key)}
+                        if not changes:
+                            return self.json_response(200, {"saved": False, "revision": prior["revision"]})
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "summary_id": prior["summary_id"], "action": "update",
+                                 "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": prior["revision"], "changes": changes}
+                        append_work_archive_event(data_dir, "summary", event)
+                    return self.json_response(200, {"saved": True, "revision": prior["revision"] + 1})
                 if creating_work_record or work_record_match:
                     allowed = WORK_RECORD_FIELDS | ({"revision"} if work_record_match else set())
                     if set(payload) - allowed:
@@ -3395,6 +3504,12 @@ def handler_factory(data_dir: Path):
                             new_id = "RECORD-" + uuid.uuid4().hex.upper()
                             revision = 0
                             action = "create"
+                            source_id = changes.get("source_inbox_id")
+                            if source_id:
+                                inbox = read_work_inbox(data_dir, state["records"])
+                                source = next((i for i in inbox["items"] if i["inbox_id"] == source_id), None)
+                                if source is None or source.get("ignored") or source.get("conflict") or source.get("processed_record_id"):
+                                    return self.json_response(409, {"error": "inbox source is not available"})
                         else:
                             new_id = work_record_match.group(1)
                             prior = next((r for r in state["records"]
