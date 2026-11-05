@@ -1281,7 +1281,7 @@
     // Browser-level reload/close/navigation protection complements in-page
     // confirmations. Never prompt when all task/step drafts are clean.
     window.addEventListener("beforeunload", event => {
-      if (!unsavedTaskEditors.size && !unsavedPersistentEditors.size &&
+      if (!isSaving && !unsavedTaskEditors.size && !unsavedPersistentEditors.size &&
           !unsavedProjectEditors.size) return;
       event.preventDefault();
       event.returnValue = "";
@@ -3349,9 +3349,13 @@
         $("work-record-message").textContent = "工作记录正在保存，请稍后再切换页面。";
         return false;
       }
-      if (activePage==="worklog" && page!=="worklog" && unsavedPersistentEditors.has($("work-record-form"))) {
-        if (!window.confirm("工作记录存在未保存内容，离开将丢弃草稿。确定继续吗？")) return false;
+      if (activePage==="worklog" && page!=="worklog" &&
+          ["work-record-form","work-inbox-form","work-summary-form"].some(id =>
+            unsavedPersistentEditors.has($(id)))) {
+        if (!window.confirm("工作档案存在未保存内容，离开将丢弃草稿。确定继续吗？")) return false;
         resetWorkRecordForm();
+        resetWorkInboxForm();
+        resetWorkSummary();
       }
       activePage = page;
       if (page === "tasks") taskViewMode = taskViewModes.includes(mode) ? mode : "list";
@@ -3379,7 +3383,7 @@
       renderTaskList();
       if (page === "trash") loadTrash();
       if (page === "reviews") loadNotifications();
-      if (page === "worklog") loadWorkRecords();
+      if (page === "worklog") { loadWorkRecords(); loadWorkArchive(); }
       return true;
     }
 
@@ -3416,6 +3420,8 @@
                      document.activeElement?.closest("#create-task") ||
                      document.activeElement?.closest("#create-project") ||
                      document.activeElement?.closest("#work-record-form") ||
+                     document.activeElement?.closest("#work-inbox-form") ||
+                     document.activeElement?.closest("#work-summary-form") ||
                      document.activeElement?.closest("#work-record-filters"))) return;
       setRefreshStatus("正在读取…");
       try {
@@ -3468,7 +3474,7 @@
         }
         setRefreshStatus(`上次刷新 ${new Date().toLocaleTimeString()}`);
         if (activePage === "reviews") loadNotifications();
-        if (activePage === "worklog") loadWorkRecords();
+        if (activePage === "worklog") { loadWorkRecords(); loadWorkArchive(); }
       } catch (error) {
         setRefreshStatus(`读取失败：${error.message}`);
       }
