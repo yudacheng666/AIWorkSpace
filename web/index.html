@@ -3253,6 +3253,10 @@
       if (activeDetailTaskId && !closeTaskDetail()) return false;
       if (unsavedTaskEditors.size && !confirmDiscardUnsaved()) return false;
       if (activePage==="projects" && page!=="projects" && !confirmProjectDrafts()) return false;
+      if (activePage==="worklog" && page!=="worklog" && isSaving) {
+        $("work-record-message").textContent = "工作记录正在保存，请稍后再切换页面。";
+        return false;
+      }
       if (activePage==="worklog" && page!=="worklog" && unsavedPersistentEditors.has($("work-record-form"))) {
         if (!window.confirm("工作记录存在未保存内容，离开将丢弃草稿。确定继续吗？")) return false;
         resetWorkRecordForm();
@@ -4098,6 +4102,7 @@
       if (record) payload.revision = record.revision;
       isSaving = true;
       $("work-record-submit").disabled = true;
+      $("work-record-cancel").disabled = true;
       try {
         const endpoint = record ? "/api/work-records/" + encodeURIComponent(record.record_id) + "/update"
                                 : "/api/work-records";
@@ -4106,15 +4111,26 @@
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "HTTP " + response.status);
-        resetWorkRecordForm();
-        $("work-record-message").textContent = result.saved
-          ? "已保存工作记录 " + result.display_id : "内容未变化，无需保存。";
+        const changedDuringSave = JSON.stringify(workFormSnapshot()) !== JSON.stringify(snapshot);
+        if (changedDuringSave) {
+          // Keep edits typed while the request was in flight. The submitted
+          // snapshot is now the saved baseline; the newer form remains dirty.
+          workDraftWatcher.markClean(snapshot);
+          $("work-record-message").textContent = result.saved
+            ? "已保存本次提交；保存期间的新输入仍保留为未保存草稿。"
+            : "提交内容未变化；保存期间的新输入仍保留为未保存草稿。";
+        } else {
+          resetWorkRecordForm();
+          $("work-record-message").textContent = result.saved
+            ? "已保存工作记录 " + result.display_id : "内容未变化，无需保存。";
+        }
         await loadWorkRecords();
       } catch (error) {
         $("work-record-message").textContent = "保存未成功：" + error.message + "。草稿已保留，请核查后重试。";
       } finally {
         isSaving = false;
         $("work-record-submit").disabled = false;
+        $("work-record-cancel").disabled = false;
       }
     }
 
