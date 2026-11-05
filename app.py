@@ -749,6 +749,39 @@ def resolve_conversion_events(tasks: list[dict], events: list[dict],
                             else step_conversion_snapshot(parent, source_item))
                 if _conversion_snapshot_hash(snapshot) != source["snapshot_sha256"]:
                     reason = "source fingerprint changed"
+        if not reason and not pending and source_item is not None:
+            # Conversion ledgers may arrive through Google Drive independently
+            # of the local API. A valid source hash alone must not authorize
+            # invented target content, changed completion status, or dropped
+            # document links. Verify the portable fields against the source.
+            fields = target["fields"]
+            expected_status = (source_item.get("manual_status", source_item["status"])
+                               if source["kind"] == "task" else source_item["status"])
+            expected = {"title": source_item["title"],
+                        "status": expected_status,
+                        "document_links": source_item.get("document_links", [])}
+            expected.update({field: source_item.get(field) for field in DATE_FIELDS})
+            if any(fields.get(field) != value for field, value in expected.items()):
+                reason = "conversion target content differs from its source"
+            elif source["kind"] == "task":
+                expected_metadata = {
+                    "owner": source_item.get("owner"),
+                    "priority": source_item.get("priority", "normal"),
+                    "project_id": source_item.get("project_id"),
+                    "related_project_ids": list(source_item.get("related_project_ids", [])),
+                    "original_parent_task_id": source_item.get("parent_task_id"),
+                }
+                if fields.get("converted_task_metadata") != expected_metadata:
+                    reason = "conversion target metadata differs from its source"
+            else:
+                metadata = source_item.get("converted_task_metadata")
+                if metadata:
+                    for key in ("owner", "priority", "project_id", "related_project_ids"):
+                        if fields.get(key) != metadata[key]:
+                            reason = "conversion target metadata differs from its source"
+                            break
+                elif fields.get("owner") is not None or fields.get("priority", "normal") != "normal":
+                    reason = "conversion target metadata differs from its source"
         if not reason and not pending and source_item is not None and source["kind"] == "task":
             if (source_item.get("steps") or source_item.get("all_child_task_ids") or
                     source_item.get("child_task_ids") or source_item.get("status_rollup_incomplete") ):
