@@ -1413,6 +1413,59 @@ class ServerTests(unittest.TestCase):
                          ("采购", "high", "2026-11-12", "2026-11-14", "2026-11-15"))
         self.assertEqual(len(list((self.data_dir / "conversion_events").glob("*.json"))), 2)
 
+    def test_tampered_conversion_ledger_cannot_invent_content_or_completion(self):
+        """A synced ledger must not change title/status/documents without matching source."""
+        _, created = self.create_step(title="虚构可信源步骤")
+        code, converted = self.post_json(
+            f"/api/tasks/TASK-DEMO-001/steps/{created['step_id']}/convert-to-task",
+            {"revision": 1, "confirmed_move": True})
+        self.assertEqual(code, 201)
+        ledger = next((self.data_dir / "conversion_events").glob("*.json"))
+        record = json.loads(ledger.read_text(encoding="utf-8"))
+        record["target"]["fields"]["title"] = "伪造的非源标题"
+        record["target"]["fields"]["status"] = "done"
+        ledger.write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
+        workspace = read_workspace(self.data_dir)
+        parent = next(item for item in workspace["tasks"]
+                      if item["task_id"] == "TASK-DEMO-001")
+        self.assertEqual([step["step_id"] for step in parent["steps"]],
+                         [created["step_id"]],
+                         "tampering must preserve the original source step")
+        self.assertNotIn(converted["task_id"],
+                         {item["task_id"] for item in workspace["tasks"]},
+                         "tampered target task must not become visible")
+        self.assertTrue(any("target content differs from its source" in warning
+                            for warning in workspace["warnings"]))
+
+        # The same guard applies to the opposite direction and forbids a
+        # fabricated confirmed completion from a former uncompleted task.
+        record["target"]["fields"]["title"] = "虚构可信源步骤"
+        record["target"]["fields"]["status"] = "todo"
+        ledger.write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
+        self.assertIn(converted["task_id"],
+                      {item["task_id"] for item in read_workspace(self.data_dir)["tasks"]})
+
+    def test_task_to_step_tampered_metadata_cannot_change_ownership(self):
+        status, source = self.create_task({"title": "保留原负责人", "owner": "原负责人",
+                                           "priority": "high"})
+        self.assertEqual(status, 201)
+        code, moved = self.post_json(f"/api/tasks/{source['task_id']}/convert-to-step", {
+            "revision": 1, "target_parent_task_id": "TASK-DEMO-001",
+            "target_step_order_revision": 0, "confirmed_move": True,
+        })
+        self.assertEqual(code, 201)
+        ledger = next((self.data_dir / "conversion_events").glob("*.json"))
+        record = json.loads(ledger.read_text(encoding="utf-8"))
+        record["target"]["fields"]["converted_task_metadata"]["owner"] = "未经授权改写的负责人"
+        ledger.write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
+        workspace = read_workspace(self.data_dir)
+        self.assertIn(source["task_id"], {task["task_id"] for task in workspace["tasks"]})
+        parent = next(task for task in workspace["tasks"]
+                      if task["task_id"] == "TASK-DEMO-001")
+        self.assertNotIn(moved["step_id"], {step["step_id"] for step in parent["steps"]})
+        self.assertTrue(any("target metadata differs from its source" in warning
+                            for warning in workspace["warnings"]))
+
     def test_three_stage_conversion_chain_is_independent_of_sync_filename_order(self):
         """A Drive replica can receive the third ledger record before the first."""
         status, original = self.create_task({"title": "虚构三级迁移源任务"})
