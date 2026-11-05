@@ -1,5 +1,16 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-05：2.3.0 工作记录补记与轨迹候选（最终准确 SHA CI 已通过，待审批合并）
+
+- **用户最新指示**：“按分析推进，做文档，开发，测试，汇报”。基于 main 精确 SHA `4bff94987a9cf45df2a3fd3acafdefb79bdedefd`（正式 2.2.0，开发开始时开放 PR=0）创建 `feat/20261105-work-records`；历史工作档案 PR #14 已关闭且未合并，仅参考其 M0 设计，不恢复旧代码。
+- **产品实现**：顶部「＋ 补记工作」、侧栏「工作记录」页面；工作内容和实际发生日期必填（可回填），系统另存实际录入时间；项目/已有任务/成果/分钟数可选。支持按发生日期、项目、关键词筛选、修改历史记录、短编号 R-、草稿保护。工作事实不设置 todo/doing/blocked/done。
+- **数据安全**：独立 `data-dir/work_archive/record_events/` 追加式 JSON；内部 RECORD ID 与短显示编号分离；严格 schema（拒绝未知事件字段及任何任务状态字段）、原子文件发布、revision/409、并发冲突冻结。任务已确认完成事件只读投影，不复制成工作记录、不改变任务/步骤/项目历史。更新期间用户继续输入的新草稿以已提交快照为基线保留；保存中阻止离页并禁用取消，避免静默丢失。旧任务/project/step 原始数据未迁移或改写。
+- **设计与文档**：新增 `docs/WORK_RECORDS_DESIGN.md`；同步更新 `REQUIREMENTS.md`、`DECISIONS.md`、`PROJECT_STATE.md` 和 README。第一阶段不含自动 AI 总结、历史误分类批量转换、多对多步骤关联和职业档案，留待后续阶段；不使用付费模型 API。
+- **最终产品/测试 SHA**：`6e3287b567f565df7d8e385af6bcc6b7eebbc777`。GitHub Actions [#41987809633](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41987809633) **3/3 SUCCESS**：Ubuntu Python 208 tests（22 预期 SKIP）、Windows Python 208 tests（20 预期 SKIP），两端 Node 各 **97 PASS / 0 FAIL**；Windows 原生 Chromium updater/rollback **3 PASS**、工作台 UI E2E **17 PASS**。新增回归覆盖事件顶层未知字段/状态字段拒绝、保存期间继续输入保留草稿、阻止保存中离页、补记过去日期、编辑后原事件字节不变。准确 SHA 上无失败。
+- **测试去重与修复经过**：初始候选 SHA `fcced72f3088b02f131953b3ff2e6b1256b0eaad` 的 [Actions #41983154279](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41983154279) 曾 3/3 SUCCESS；代码复审另发现保存中的草稿竞争窗口和事件 envelope 未拒绝未知字段，因此增加修复与专项测试，并在最终 SHA 重新运行完整 CI。只报告最终准确 SHA 作为交付验收，不再重复 Codex 全套自动化。
+- **风险与边界**：测试仅用虚构数据。真实两电脑 Google Drive 离线/重连、并发及版本混用仍 **NOT TESTED**；公司 Windows 8770 未安装，未修改真实 Google Drive 工作资料。所有共享 data-dir 客户端必须统一升级后再创建新格式记录。
+- **发布审批**：用户本次只授权设计、文档、开发、测试和汇报，未授权合并或部署；[PR #40](https://github.com/yudacheng666/AIWorkSpace/pull/40) 保持 Draft，正式 `main/VERSION=2.2.0` 不变，等待单独发布授权。
+
 ## 2026-11-05：2.2.0 已正式发布 — 步骤排期互转 + 周期任务
 
 - **用户授权**：明确要求“合并发布”。按 AGENTS.md 审计所有开放 PR，仅 #37（2.1.0 步骤日期/任务与步骤互转）和依赖它的 #38（2.2.0 周期任务）；无其他开放 PR。合并顺序先 #37 后 #38，不跳过依赖，不重复合并已吸收变更。

@@ -8,13 +8,14 @@ const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8")
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(scriptMatch, "the production page must contain its inline script");
 
-function harness(tasks = [], confirm = () => true, projects = [], reviews = [], onPost = null) {
+function harness(tasks = [], confirm = () => true, projects = [], reviews = [], onPost = null, work = {}) {
   const elements = new Map();
   const writes = [];
   function node(tag = "div") {
     const handlers = new Map();
     const item = {
       tag, handlers, children: [], textContent: "", className: "",
+      focus() {},
       disabled: false, hidden: false, multiple: false, selected: false,
       _value: "", attributes: new Map(),
       append(...children) { this.children.push(...children); },
@@ -55,7 +56,8 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
       if (!elements.has(id)) {
         const selects = new Set(["overview-owner", "query-project", "query-owner",
           "query-status", "query-date-field", "new-task-project", "new-task-related",
-          "new-task-priority", "task-sort", "task-date-field", "calendar-granularity", "project-sort"]);
+          "new-task-priority", "task-sort", "task-date-field", "calendar-granularity", "project-sort",
+          "work-record-project", "work-record-task", "work-filter-project"]);
         elements.set(id, node(selects.has(id) ? "select" : "div"));
       }
       return elements.get(id);
@@ -76,6 +78,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
       return {ok: true, json: async () => ({version: "1.0.0", build_short: "abcdef0"})};
     }
     if (path === "/api/trash") return {ok: true, json: async () => ({tasks: [], retention_days: 30, warnings: []})};
+    if (path === "/api/work-records") return {ok: true, json: async () => ({records: work.records || [], task_completions: work.task_completions || [], warnings: []})};
     if (path === "/api/reviews") return {ok: true, json: async () => ({
       items: reviews, summary: {
         open_count: reviews.filter(item => ["pending","authorized","stale","failed","conflict"].includes(item.status)).length,
@@ -87,7 +90,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes,
@@ -1277,4 +1280,102 @@ test("step-only aggregate follows the same safety gate and unreliable parents st
   const cycle={...parent,parent_cycle:true};
   const cycleRow=page.api.taskSummaryRow(cycle);
   assert.equal(taskQuickControl(cycleRow,"status").trigger.disabled,true);
+});
+
+
+test("work record quick capture is separate from task creation and includes historical date", async () => {
+  const h = harness();
+  assert.equal(h.api.setActivePage("worklog"), true);
+  await h.api.loadWorkRecords();
+  h.el("work-record-content").value = "今天临时完成采购沟通";
+  h.el("work-record-date").value = "2026-10-29";
+  h.el("work-record-outcome").value = "交期确认";
+  h.el("work-record-minutes").value = "45";
+  await h.api.saveWorkRecord({preventDefault() {}});
+  assert.equal(h.writes.length, 1);
+  assert.equal(h.writes[0].path, "/api/work-records");
+  assert.equal(h.writes[0].body.occurred_on, "2026-10-29");
+  assert.equal(h.writes[0].body.duration_minutes, 45);
+  assert.equal(h.writes[0].body.outcome, "交期确认");
+  assert.ok(!("status" in h.writes[0].body));
+  assert.equal(h.el("work-record-content").value, "");
+  assert.equal(h.el("work-record-submit").disabled, false);
+});
+
+test("work timeline combines manual facts and read-only confirmed task completions without duplicate POST", async () => {
+  const recordId = "RECORD-" + "A".repeat(32);
+  const h = harness([sampleTask()], () => true, [], [], null, {
+    records: [{record_id: recordId, display_id:"R-261105-AAAAAAAAAAAA",
+      content:"供应商电话沟通", occurred_on:"2026-11-04", created_at:"2026-11-05T10:00:00Z",
+      outcome:"确认交期", duration_minutes:30, project_id:null, task_id:null,
+      conflict:false, revision:1}],
+    task_completions: [{source_event_id:"done-00000001", task_id:"TASK-UI-V2-001",
+      task_title:"虚构演示任务：整理项目资料", project_id:null, occurred_at:"2026-11-05T10:00:00Z"}]
+  });
+  h.api.setActivePage("worklog");
+  await h.api.loadWorkRecords();
+  assert.equal(h.el("work-record-list").children.length, 2);
+  assert.match(h.el("work-record-count").textContent, /1 条工作记录 · 1 次任务完成/);
+  assert.equal(h.writes.length, 0);
+  h.el("work-filter-keyword").value = "电话沟通";
+  h.api.renderWorkRecords();
+  assert.equal(h.el("work-record-list").children.length, 1);
+  h.el("work-filter-keyword").value = "";
+  h.el("work-filter-from").value = "2026-11-05";
+  h.api.renderWorkRecords();
+  assert.equal(h.el("work-record-list").children.length, 1);
+  h.el("work-filter-from").value = "";
+  h.api.editWorkRecord(recordId);
+  assert.equal(h.el("work-record-content").value, "供应商电话沟通");
+  assert.equal(h.el("work-record-submit").textContent, "保存修改");
+  h.el("work-record-content").value = "修改后的真实工作记录";
+  await h.api.saveWorkRecord({preventDefault() {}});
+  assert.equal(h.writes.length, 1);
+  assert.equal(h.writes[0].path, "/api/work-records/" + recordId + "/update");
+  assert.equal(h.writes[0].body.revision, 1);
+});
+
+test("work record save conflicts preserve current text and do not mutate tasks", async () => {
+  const recordId = "RECORD-" + "B".repeat(32);
+  const h = harness([sampleTask()], () => true, [], [], async () => ({
+    ok: false, json: async () => ({error:"work record changed or conflicted; refresh"})
+  }), {records:[{record_id:recordId, display_id:"R-261105-BBBBBBBBBBBB",
+    content:"原工作内容", occurred_on:"2026-11-05", created_at:"2026-11-05T09:00:00Z",
+    conflict:false, revision:2}]});
+  await h.api.loadWorkRecords();
+  h.api.editWorkRecord(recordId);
+  h.el("work-record-content").value = "尚未保存的修正";
+  await h.api.saveWorkRecord({preventDefault() {}});
+  assert.equal(h.el("work-record-content").value, "尚未保存的修正");
+  assert.match(h.el("work-record-message").textContent, /保存未成功/);
+  assert.equal(h.writes.length, 1);
+  assert.equal(h.writes[0].body.revision, 2);
+});
+
+test("work record save preserves edits typed while the request is in flight", async () => {
+  let resolvePost;
+  let confirmCalls = 0;
+  const h = harness([], () => {confirmCalls++; return false;}, [], [], () =>
+    new Promise(resolve => {resolvePost = resolve;}));
+  h.api.setActivePage("worklog");
+  await h.api.loadWorkRecords();
+  h.el("work-record-content").value = "先提交的工作事实";
+  h.el("work-record-date").value = "2026-11-04";
+  h.el("work-record-form").handlers.get("input")[0]();
+  const pending = h.api.saveWorkRecord({preventDefault() {}});
+  assert.equal(h.el("work-record-cancel").disabled, true,
+    "cancel cannot reset the submitted form while the write is pending");
+  assert.equal(typeof resolvePost, "function");
+  h.el("work-record-content").value = "保存期间继续输入的新草稿";
+  h.el("work-record-form").handlers.get("input")[0]();
+  assert.equal(h.api.setActivePage("tasks", "all"), false,
+    "navigation waits until the in-flight write completes");
+  resolvePost({ok:true, json:async()=>({saved:true, display_id:"R-261105-AAAAAAAAAAAA"})});
+  await pending;
+  assert.equal(h.el("work-record-content").value, "保存期间继续输入的新草稿");
+  assert.match(h.el("work-record-message").textContent, /新输入仍保留为未保存草稿/);
+  assert.equal(h.el("work-record-cancel").disabled, false);
+  assert.equal(h.api.setActivePage("tasks", "all"), false,
+    "the preserved draft remains protected after the first save completes");
+  assert.equal(confirmCalls, 1);
 });

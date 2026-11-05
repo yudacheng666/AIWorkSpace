@@ -667,6 +667,37 @@
     .recurrence-controls button {min-height:34px}
     .recurrence-warning {font-size:12px;color:#775622;margin:8px 0 0}
     .task-recurrence-note {font-size:11px;color:#35678e;display:block;margin-top:3px}
+
+    /* Work records: an intentionally small, task-free historical work timeline. */
+    .work-card {background:#fff;border:1px solid #dfe7f1;border-radius:14px;padding:20px 22px;margin-top:20px}
+    .work-card h2 {margin:0 0 12px;color:#283f5e;font-size:16px}
+    .work-record-form {display:grid;gap:12px}
+    .work-record-form textarea {width:100%;min-height:92px;resize:vertical}
+    .work-record-form label,.work-filters label {display:grid;gap:6px;color:#53677f;font-size:12px;font-weight:600}
+    .work-record-form textarea,.work-record-form input,.work-record-form select,
+    .work-filters input,.work-filters select {font:inherit;font-size:13px;min-width:0;padding:9px 10px;border:1px solid #d7e0ed;border-radius:8px;background:#fff;color:#30445f}
+    .work-meta {display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:12px}
+    .work-form-actions {display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+    .work-form-actions button,.work-filters button {border:1px solid #d7e0ed;background:#fff;color:#35577a;padding:9px 15px;font-weight:600}
+    .work-form-actions .save {background:#285baf;border-color:#285baf;color:white}
+    .work-form-actions button:disabled {opacity:.6;cursor:wait}
+    .work-hint {color:#75869c;font-size:12px;line-height:1.7}
+    .work-filters {display:grid;grid-template-columns:minmax(160px,1.5fr) repeat(3,minmax(120px,1fr)) auto;gap:10px;align-items:end}
+    .work-timeline {display:grid;gap:10px;margin-top:15px}
+    .work-entry {border:1px solid #e4ebf4;border-radius:10px;padding:15px 17px;background:#fff}
+    .work-entry-head {display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:center}
+    .work-entry-date {font-size:13px;font-weight:700;color:#365574}
+    .work-entry-kind {font-size:11px;color:#60758c;background:#edf3fa;padding:3px 9px;border-radius:30px}
+    .work-entry-content {white-space:pre-wrap;overflow-wrap:anywhere;color:#324861;line-height:1.65;margin:10px 0 5px;font-size:14px}
+    .work-entry-meta {display:flex;align-items:center;flex-wrap:wrap;gap:7px 16px;color:#77869a;font-size:11px}
+    .work-entry-outcome {font-size:12px;color:#4d6980;margin:8px 0 0;white-space:pre-wrap}
+    .work-entry-footer {margin-top:9px}
+    .work-entry-footer button {border:1px solid #dfe7f1;background:#fff;padding:5px 12px;color:#35577a;font-size:12px}
+    .work-entry-conflict {border-color:#e5b99a;background:#fffbf5}
+    .work-entry-empty {padding:30px;text-align:center;color:#718197;font-size:13px}
+    .secondary-action {background:#fff;color:#285baf;border:1px solid #bcd0e6;border-radius:8px;padding:9px 13px;font-weight:650}
+    @media(max-width:1100px) {.work-meta {grid-template-columns:repeat(2,minmax(130px,1fr))}.work-filters {grid-template-columns:repeat(2,minmax(120px,1fr))}}
+    @media(max-width:640px) {.work-card {padding:16px}.work-meta,.work-filters {grid-template-columns:1fr}.secondary-action {padding:8px 10px}}
   </style>
 </head>
 <body>
@@ -680,6 +711,7 @@
     <div class="sidebar-section-label">工作台</div>
     <nav class="side-nav" aria-label="工作台导航">
       <button type="button" class="nav-item is-active" id="nav-overview"><span class="nav-icon">▦</span><span>工作总览</span></button>
+      <button type="button" class="nav-item" id="nav-worklog"><span class="nav-icon">▤</span><span>工作记录</span></button>
       <button type="button" class="nav-item" id="nav-tasks"><span class="nav-icon">☷</span><span>全部任务</span></button>
       <button type="button" class="nav-item" id="nav-board"><span class="nav-icon">▥</span><span>状态看板</span></button>
       <button type="button" class="nav-item" id="nav-calendar"><span class="nav-icon">▦</span><span>任务日历</span></button>
@@ -715,6 +747,7 @@
           <span class="search-shortcut" aria-hidden="true">Enter</span>
         </form>
         <button type="button" class="icon-button refresh-top" id="refresh" title="刷新任务">↻</button>
+        <button type="button" class="secondary-action" id="open-create-record">＋ 补记工作</button>
         <button type="button" class="primary-action" id="open-create-task"><span aria-hidden="true">＋</span> 新建任务</button>
       </div>
     </header>
@@ -800,6 +833,64 @@
         </div>
       </section>
       <p id="review-message" class="inbox-feedback" role="status" aria-live="polite"></p>
+    </section>
+    <section id="page-worklog" class="workspace-page" hidden>
+      <div class="page-heading">
+        <div><h1>工作记录</h1><p class="subtitle">做过的临时工作直接补记；历史事实无需先建立待办任务。</p></div>
+      </div>
+      <section class="work-card" aria-labelledby="work-create-heading">
+        <h2 id="work-create-heading">补记已做工作</h2>
+        <form class="work-record-form" id="work-record-form">
+          <label for="work-record-content">实际做了什么（必填）
+            <textarea id="work-record-content" maxlength="4000" required placeholder="例如：上午与供应商沟通交期，确认计划维持不变。"></textarea>
+          </label>
+          <div class="work-meta">
+            <label for="work-record-date">实际发生日期
+              <input id="work-record-date" type="date" required>
+            </label>
+            <label for="work-record-project">关联项目（可选）
+              <select id="work-record-project"><option value="">未关联项目</option></select>
+            </label>
+            <label for="work-record-task">关联已有任务（可选）
+              <select id="work-record-task"><option value="">未关联任务</option></select>
+            </label>
+            <label for="work-record-minutes">耗时（分钟，可选）
+              <input id="work-record-minutes" type="number" min="1" max="1440" step="1" placeholder="例如：60">
+            </label>
+          </div>
+          <label for="work-record-outcome">工作成果（可选）
+            <textarea id="work-record-outcome" maxlength="2000" rows="2" placeholder="例如：解决交期争议；不能确定的结果可留空。"></textarea>
+          </label>
+          <div class="work-form-actions">
+            <button type="submit" class="save" id="work-record-submit">保存记录</button>
+            <button type="button" id="work-record-cancel">清空 / 取消编辑</button>
+            <span class="work-hint">发生日期可以补填过去日期；实际录入时间由系统另行保存。</span>
+          </div>
+        </form>
+        <p class="message" id="work-record-message" role="status" aria-live="polite"></p>
+      </section>
+      <section class="work-card" aria-labelledby="work-timeline-heading">
+        <h2 id="work-timeline-heading">工作轨迹 <span class="inbox-total" id="work-record-count"></span></h2>
+        <div class="work-filters" id="work-record-filters">
+          <label for="work-filter-keyword">内容搜索
+            <input id="work-filter-keyword" type="search" placeholder="工作内容、成果、任务">
+          </label>
+          <label for="work-filter-from">开始日期
+            <input id="work-filter-from" type="date">
+          </label>
+          <label for="work-filter-to">结束日期
+            <input id="work-filter-to" type="date">
+          </label>
+          <label for="work-filter-project">所属项目
+            <select id="work-filter-project"><option value="">全部项目</option></select>
+          </label>
+          <button type="button" id="work-filter-reset">清除筛选</button>
+        </div>
+        <p class="work-hint">工作记录与已明确确认完成的任务分别展示，不把两者简单相加为“完成任务”。</p>
+        <div class="work-timeline" id="work-record-list" aria-live="polite">
+          <div class="work-entry-empty">进入此页后读取工作记录…</div>
+        </div>
+      </section>
     </section>
     <section id="page-overview" class="workspace-page is-active">
     <div class="page-heading">
@@ -1037,6 +1128,9 @@
     let activeDetailTaskId = "";
     let activePage = "overview";
     let notificationItems = [];
+    let workRecords = [];
+    let workTaskCompletions = [];
+    let editingRecordId = "";
     let taskViewMode = "list";
     let taskMonthCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     let taskTimelineCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -3149,7 +3243,8 @@
       projects: {title: "项目管理", nav: "nav-projects"},
       trash: {title: "回收站", nav: "nav-trash"},
       reviews: {title: "通知信箱", nav: "nav-reviews"},
-      settings: {title: "系统设置", nav: "nav-settings"}
+      settings: {title: "系统设置", nav: "nav-settings"},
+      worklog: {title: "工作记录", nav: "nav-worklog"}
     };
 
     function setActivePage(page, view, mode) {
@@ -3158,14 +3253,22 @@
       if (activeDetailTaskId && !closeTaskDetail()) return false;
       if (unsavedTaskEditors.size && !confirmDiscardUnsaved()) return false;
       if (activePage==="projects" && page!=="projects" && !confirmProjectDrafts()) return false;
+      if (activePage==="worklog" && page!=="worklog" && isSaving) {
+        $("work-record-message").textContent = "工作记录正在保存，请稍后再切换页面。";
+        return false;
+      }
+      if (activePage==="worklog" && page!=="worklog" && unsavedPersistentEditors.has($("work-record-form"))) {
+        if (!window.confirm("工作记录存在未保存内容，离开将丢弃草稿。确定继续吗？")) return false;
+        resetWorkRecordForm();
+      }
       activePage = page;
       if (page === "tasks") taskViewMode = taskViewModes.includes(mode) ? mode : "list";
-      for (const id of ["overview", "tasks", "projects", "trash", "reviews", "settings"]) {
+      for (const id of ["overview", "tasks", "projects", "trash", "reviews", "settings", "worklog"]) {
         $("page-" + id).hidden = id !== page;
         $("page-" + id).className = "workspace-page" + (id === page ? " is-active" : "");
       }
       for (const id of ["nav-overview", "nav-tasks", "nav-board", "nav-calendar", "nav-gantt",
-                        "nav-projects", "nav-trash", "nav-reviews", "nav-settings", "nav-today", "nav-followup", "nav-due", "nav-risk"]) {
+                        "nav-projects", "nav-trash", "nav-reviews", "nav-settings", "nav-worklog", "nav-today", "nav-followup", "nav-due", "nav-risk"]) {
         const button = $(id);
         button.className = "nav-item";
       }
@@ -3184,6 +3287,7 @@
       renderTaskList();
       if (page === "trash") loadTrash();
       if (page === "reviews") loadNotifications();
+      if (page === "worklog") loadWorkRecords();
       return true;
     }
 
@@ -3218,7 +3322,9 @@
                      document.activeElement?.closest(".task") ||
                      document.activeElement?.closest(".project-card") ||
                      document.activeElement?.closest("#create-task") ||
-                     document.activeElement?.closest("#create-project"))) return;
+                     document.activeElement?.closest("#create-project") ||
+                     document.activeElement?.closest("#work-record-form") ||
+                     document.activeElement?.closest("#work-record-filters"))) return;
       setRefreshStatus("正在读取…");
       try {
         const response = await fetch("/api/tasks", {cache: "no-store"});
@@ -3238,6 +3344,11 @@
         projectOptions(createProjectSelect, priorProject);
         projectOptions(createRelatedSelect, priorRelated, true);
         parentTaskOptions(createParentSelect, priorParent);
+        const workProject = $("work-record-project").value;
+        const filterProject = $("work-filter-project").value;
+        projectOptions($("work-record-project"), workProject);
+        projectOptions($("work-filter-project"), filterProject);
+        fillWorkTaskOptions($("work-record-task").value);
         renderProjects();
         refreshOverviewControls();
         renderTaskList();
@@ -3262,6 +3373,7 @@
         }
         setRefreshStatus(`上次刷新 ${new Date().toLocaleTimeString()}`);
         if (activePage === "reviews") loadNotifications();
+        if (activePage === "worklog") loadWorkRecords();
       } catch (error) {
         setRefreshStatus(`读取失败：${error.message}`);
       }
@@ -3808,8 +3920,246 @@
     }
 
 
+
+    function workFormSnapshot() {
+      return {content: $("work-record-content").value, occurred_on: $("work-record-date").value,
+        project_id: $("work-record-project").value, task_id: $("work-record-task").value,
+        outcome: $("work-record-outcome").value, duration_minutes: $("work-record-minutes").value};
+    }
+
+    $("work-record-date").value = localDayISO(new Date());
+    const workDraftWatcher = watchUnsavedEditor($("work-record-form"), workFormSnapshot, unsavedPersistentEditors);
+
+    function fillWorkTaskOptions(selectedId = "") {
+      const select = $("work-record-task");
+      select.replaceChildren();
+      const none = element("option", "", "未关联任务");
+      none.value = "";
+      select.append(none);
+      for (const task of current) {
+        if (task.conflict || task.trashed_at) continue;
+        const option = element("option", "", task.title + " · " + taskDisplayId(task));
+        option.value = task.task_id;
+        select.append(option);
+      }
+      if (selectedId && !current.some(task => task.task_id === selectedId && !task.conflict && !task.trashed_at)) {
+        const missing = element("option", "", "原关联任务未同步 / 不可编辑");
+        missing.value = selectedId;
+        select.append(missing);
+      }
+      select.value = selectedId;
+    }
+
+    function resetWorkRecordForm() {
+      editingRecordId = "";
+      $("work-record-content").value = "";
+      $("work-record-date").value = localDayISO(new Date());
+      $("work-record-outcome").value = "";
+      $("work-record-minutes").value = "";
+      $("work-record-project").value = "";
+      $("work-record-task").value = "";
+      $("work-record-submit").textContent = "保存记录";
+      workDraftWatcher.markClean();
+      $("work-record-message").textContent = "";
+    }
+
+    function localActivityDay(timestamp) {
+      const instant = new Date(timestamp);
+      return Number.isFinite(instant.getTime()) ? localDayISO(instant) : "";
+    }
+
+    function renderWorkRecords() {
+      const keyword = $("work-filter-keyword").value.trim().toLocaleLowerCase();
+      const from = $("work-filter-from").value;
+      const to = $("work-filter-to").value;
+      const project = $("work-filter-project").value;
+      const entries = workRecords.map(record => ({
+        kind: "record", day: record.occurred_on, timestamp: record.created_at,
+        sourceId: record.record_id, projectId: record.project_id, record,
+        search: [record.content, record.outcome, record.project_name, record.task_title,
+                 record.display_id].join(" ").toLocaleLowerCase()
+      })).concat(workTaskCompletions.map(item => ({
+        kind: "completion", day: localActivityDay(item.occurred_at),
+        timestamp: item.occurred_at, sourceId: item.source_event_id,
+        projectId: item.project_id, item,
+        search: [item.task_title, item.task_id].join(" ").toLocaleLowerCase()
+      }))).filter(item => (!from || item.day >= from) && (!to || item.day <= to)
+        && (!project || item.projectId === project) && (!keyword || item.search.includes(keyword)));
+      entries.sort((a, b) => (b.day || "").localeCompare(a.day || "")
+        || (b.timestamp || "").localeCompare(a.timestamp || "")
+        || a.sourceId.localeCompare(b.sourceId));
+      const records = entries.filter(item => item.kind === "record").length;
+      const completions = entries.length - records;
+      $("work-record-count").textContent = records + " 条工作记录 · " + completions + " 次任务完成";
+      const container = $("work-record-list");
+      container.replaceChildren();
+      if (!entries.length) {
+        container.append(element("div", "work-entry-empty", "暂无符合条件的工作记录。可以在上方补记。"));
+        return;
+      }
+      for (const entry of entries) {
+        const row = element("article", "work-entry");
+        const header = element("div", "work-entry-head");
+        header.append(element("span", "work-entry-date", entry.day || "日期未知"));
+        header.append(element("span", "work-entry-kind",
+          entry.kind === "record" ? "工作记录" : "已确认任务完成"));
+        row.append(header);
+        if (entry.kind === "record") {
+          const record = entry.record;
+          if (row.dataset) row.dataset.recordId = record.record_id;
+          else row.recordId = record.record_id;
+          if (record.conflict) row.className += " work-entry-conflict";
+          row.append(element("p", "work-entry-content", record.content));
+          if (record.outcome) row.append(element("p", "work-entry-outcome", "成果：" + record.outcome));
+          const meta = element("div", "work-entry-meta");
+          meta.append(element("span", "", record.display_id));
+          if (record.project_id) meta.append(element("span", "",
+            "项目：" + (record.project_name || "关联项目尚未同步")));
+          if (record.task_id) meta.append(element("span", "",
+            "任务：" + (record.task_title || "关联任务尚未同步")));
+          if (record.duration_minutes) meta.append(element("span", "", "耗时：" + record.duration_minutes + " 分钟"));
+          meta.append(element("span", "", "录入：" + localActivityDay(record.created_at)));
+          row.append(meta);
+          const footer = element("div", "work-entry-footer");
+          const edit = element("button", "", record.conflict ? "存在冲突，暂不可编辑" : "编辑记录");
+          edit.type = "button";
+          edit.disabled = !!record.conflict;
+          edit.addEventListener("click", () => editWorkRecord(record.record_id));
+          footer.append(edit);
+          row.append(footer);
+        } else {
+          const activity = entry.item;
+          row.append(element("p", "work-entry-content", activity.task_title));
+          const meta = element("div", "work-entry-meta");
+          meta.append(element("span", "", "来自任务人工完成事件，不额外生成工作记录"));
+          if (activity.recurrence_period) meta.append(element("span", "", "周期：" + activity.recurrence_period));
+          row.append(meta);
+          const footer = element("div", "work-entry-footer");
+          const open = element("button", "", "查看任务");
+          open.type = "button";
+          open.addEventListener("click", () => openTaskDetail(activity.task_id));
+          footer.append(open);
+          row.append(footer);
+        }
+        container.append(row);
+      }
+    }
+
+    async function loadWorkRecords() {
+      try {
+        const response = await fetch("/api/work-records", {cache:"no-store"});
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const state = await response.json();
+        workRecords = state.records || [];
+        workTaskCompletions = state.task_completions || [];
+        renderWorkRecords();
+        if (state.warnings?.length) {
+          $("work-record-count").textContent += " · " + state.warnings.length + " 条数据提醒";
+        }
+      } catch (error) {
+        $("work-record-list").replaceChildren(
+          element("div", "work-entry-empty", "工作记录暂时无法读取：" + error.message));
+      }
+    }
+
+    function editWorkRecord(id) {
+      const record = workRecords.find(item => item.record_id === id);
+      if (!record || record.conflict) return;
+      if (unsavedPersistentEditors.has($("work-record-form"))
+          && !window.confirm("当前补记内容尚未保存，确定放弃并编辑其他记录吗？")) return;
+      editingRecordId = id;
+      $("work-record-content").value = record.content || "";
+      $("work-record-date").value = record.occurred_on || localDayISO(new Date());
+      $("work-record-outcome").value = record.outcome || "";
+      $("work-record-minutes").value = record.duration_minutes == null ? "" : String(record.duration_minutes);
+      $("work-record-project").value = record.project_id || "";
+      fillWorkTaskOptions(record.task_id || "");
+      $("work-record-submit").textContent = "保存修改";
+      workDraftWatcher.markClean();
+      $("work-record-message").textContent = "正在编辑 " + record.display_id + "；原始记录会保留。";
+      $("work-record-content").focus();
+    }
+
+    async function saveWorkRecord(event) {
+      event.preventDefault();
+      if (isSaving) return;
+      const snapshot = workFormSnapshot();
+      if (!snapshot.content.trim() || !snapshot.occurred_on) {
+        $("work-record-message").textContent = "请填写工作内容和发生日期。";
+        return;
+      }
+      const record = editingRecordId ? workRecords.find(item => item.record_id === editingRecordId) : null;
+      if (editingRecordId && (!record || record.conflict)) {
+        $("work-record-message").textContent = "原记录需要刷新或核查，未写入。";
+        return;
+      }
+      const payload = {
+        content: snapshot.content.trim(), occurred_on: snapshot.occurred_on,
+        project_id: snapshot.project_id || null, task_id: snapshot.task_id || null,
+        outcome: snapshot.outcome.trim() || null,
+        duration_minutes: snapshot.duration_minutes ? Number(snapshot.duration_minutes) : null
+      };
+      if (record) payload.revision = record.revision;
+      isSaving = true;
+      $("work-record-submit").disabled = true;
+      $("work-record-cancel").disabled = true;
+      try {
+        const endpoint = record ? "/api/work-records/" + encodeURIComponent(record.record_id) + "/update"
+                                : "/api/work-records";
+        const response = await fetch(endpoint, {
+          method:"POST", headers: {"Content-Type":"application/json"}, body:JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "HTTP " + response.status);
+        const changedDuringSave = JSON.stringify(workFormSnapshot()) !== JSON.stringify(snapshot);
+        if (changedDuringSave) {
+          // Keep edits typed while the request was in flight. The submitted
+          // snapshot is now the saved baseline; the newer form remains dirty.
+          workDraftWatcher.markClean(snapshot);
+          $("work-record-message").textContent = result.saved
+            ? "已保存本次提交；保存期间的新输入仍保留为未保存草稿。"
+            : "提交内容未变化；保存期间的新输入仍保留为未保存草稿。";
+        } else {
+          resetWorkRecordForm();
+          $("work-record-message").textContent = result.saved
+            ? "已保存工作记录 " + result.display_id : "内容未变化，无需保存。";
+        }
+        await loadWorkRecords();
+      } catch (error) {
+        $("work-record-message").textContent = "保存未成功：" + error.message + "。草稿已保留，请核查后重试。";
+      } finally {
+        isSaving = false;
+        $("work-record-submit").disabled = false;
+        $("work-record-cancel").disabled = false;
+      }
+    }
+
+    $("work-record-form").addEventListener("submit", saveWorkRecord);
+    $("work-record-cancel").addEventListener("click", () => {
+      if (unsavedPersistentEditors.has($("work-record-form")) &&
+          !window.confirm("确定放弃未保存的工作记录内容吗？")) return;
+      resetWorkRecordForm();
+    });
+    $("work-filter-reset").addEventListener("click", () => {
+      $("work-filter-keyword").value = "";
+      $("work-filter-from").value = "";
+      $("work-filter-to").value = "";
+      $("work-filter-project").value = "";
+      renderWorkRecords();
+    });
+    for (const id of ["work-filter-keyword", "work-filter-from",
+                       "work-filter-to", "work-filter-project"]) {
+      $(id).addEventListener("input", renderWorkRecords);
+      $(id).addEventListener("change", renderWorkRecords);
+    }
+    $("open-create-record").addEventListener("click", () => {
+      if (!setActivePage("worklog")) return;
+      $("work-record-content").focus();
+    });
+
     const navBindings = [
       ["nav-overview", "overview", null],
+      ["nav-worklog", "worklog", null],
       ["nav-tasks", "tasks", "all", "list"],
       ["nav-board", "tasks", "all", "board"],
       ["nav-calendar", "tasks", "all", "calendar"],
