@@ -1,6 +1,6 @@
 # AIWorkSpace
 
-> **2.1.0 候选（2026-11-05）**：执行步骤新增计划日期、截止日期、下次跟进日期，并进入日历和甘特图；步骤可提升为当前任务的子任务，末级任务可移动为用户指定父任务的步骤。转换采用独立追加式事务记录，保留原事件历史与字段；末级任务转换限制、跨设备版本兼容和失败恢复须通过准确 SHA 的 Linux/Windows/Chromium 验收。当前正式版仍为 **2.0.13**。
+> **2.1.0 候选已通过完整 CI，待用户合并批准（2026-11-05）**：[PR #37](https://github.com/yudacheng666/AIWorkSpace/pull/37) 为执行步骤增加与任务一致的计划、截止、跟进日期，并在日历和甘特图展示；支持步骤→子任务、末级任务→其他任务步骤的双向移动，保留原始事件与转换链。最终产品/测试 SHA `a77bec7df2ce9098a72d3462179fcd9518a4a1b1` 的 [Actions #41966545453](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41966545453) **3/3 SUCCESS**：Ubuntu/Windows Python 各执行 186 tests（含预期跳过）、Node 各 93 PASS，Windows Chromium 更新/回滚 3 PASS、工作台 UI 15 PASS。新增反向同步顺序、多次转换链、伪造完成状态/标题/负责人防篡改测试。**当前正式 main 仍为 2.0.13**；所有共享 Drive 数据目录的电脑须先统一升级到 2.1.0，才应使用转换功能；尚未做真实双电脑同步验收或实际部署。
 
 > **当前正式版本 2.0.13（2026-11-04）**：[PR #36](https://github.com/yudacheng666/AIWorkSpace/pull/36) 已在用户批准后标准合并，merge SHA `0bd1c811417e7c5251138f3dedd12c793890b090`、`main/VERSION=2.0.13`。任务列表有子任务或执行步骤的派生任务只允许明确确认完成，或从已人工完成状态明确重新打开并恢复下级自动计算；普通任务与优先级快捷切换不变。产品/测试准确 SHA `b37330e24019a743630b8604ead37ec17ec17587` 的 [PR Actions #41821750877](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41821750877) 及合并后的 [main Actions #41822077475](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41822077475) **均 3/3 SUCCESS**：Ubuntu/Windows Python 各执行 176 tests（含预期 SKIP）、Node 各 89 PASS，Windows 真实 Chromium updater 3 PASS、工作台 UI 14 PASS。开放 PR=0；公司电脑 8770 和真实 Google Drive 未升级或改动。
 

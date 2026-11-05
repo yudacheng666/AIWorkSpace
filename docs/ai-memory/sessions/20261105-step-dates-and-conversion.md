@@ -6,30 +6,39 @@
 
 ## 基线
 - 仓库：yudacheng666/AIWorkSpace
-- main 基线：\`2c1a50e32fa068db274d4fef18898f07f59984a5\`
+- main 基线：`2c1a50e32fa068db274d4fef18898f07f59984a5`
 - 正式版本：2.0.13
-- 开发分支：\`feat/20261105-step-dates-and-conversion\`
+- 开发分支：`feat/20261105-step-dates-and-conversion`
 - 候选版本：2.1.0
 
 ## 设计约束
-- 步骤沿用任务现有的 \`planned_date\`、\`due_date\`、\`follow_up_date\` 三种日期（YYYY-MM-DD），不新增时分秒字段。
+- 步骤沿用任务现有的 `planned_date`、`due_date`、`follow_up_date` 三种日期（YYYY-MM-DD），不新增时分秒字段。
 - 日历显示任务和步骤的三种日期；甘特图与任务一致，只绘制计划执行日期至截止日期；跟进日期不构成甘特窗口。
 - 步骤→任务：新建任务 ID，成为当前所属任务的子任务；保留标题、状态、日期、文档链接。若步骤此前来自任务转换，恢复步骤元数据中的负责人、优先级、项目关联；普通步骤继承当前父任务项目关联。
 - 任务→步骤：用户必须选择目标父任务；新建步骤 ID。仅允许末级任务，无子任务（包括回收站子任务）、无活动步骤且状态/父子关系无冲突；复杂任务必须先处理下级事项。
-- 转换为移动，不复制或改写源 task/step 事件。通过一个追加式 \`conversion_events\` 文件作为提交记录，包含 source revision 和 SHA-256 指纹；投影端验证后隐藏源、显示目标。同步不完整时隐藏目标并保留源；源并发变化时不覆盖，隐藏目标并警告；转换链按依赖顺序解析。
+- 转换为移动，不复制或改写源 task/step 事件。通过一个追加式 `conversion_events` 文件作为提交记录，包含 source revision 和 SHA-256 指纹；投影端验证后隐藏源、显示目标。同步不完整时隐藏目标并保留源；源并发变化时不覆盖，隐藏目标并警告；转换链按依赖顺序解析。
 - 转换目标被删除/永久清空后，源不复活；源在转换后被并发删除/修改则进入核查，不覆盖另一端。
 - 转换后重算父子任务/步骤状态汇总；不允许移入已人工完成、冲突、回收站、父子关系异常或步骤顺序异常的父任务。
 - 所有共享同一 Google Drive 数据目录的电脑必须先更新至 2.1.0；旧版不识别新步骤日期事件和转换日志，不能交替编辑。
 
 ## 已提交改动
-- \`app.py\`：步骤日期事件 schema、转换事务验证/读取/投影、两种转换 API、源/目标指纹与 revision 检查、回收站子任务防护、目标删除处理。
-- \`web/index.html\`：步骤日期编辑、步骤转换按钮、任务目标父级选择、日历和甘特图显示步骤。
-- \`tests/test_app.py\`：日期验证、两种转换/往返、末级约束、过期顺序 revision、源并发变化、转换目标删除。
-- \`tests/test_ui_shell.mjs\`：日期输入、日历/甘特步骤行、两种转换控件。
-- \`tests/test_task_id_drawer_windows_e2e.py\`：真实 Chromium 步骤日期保存、日历/甘特显示、步骤→任务→步骤往返、原事件流字节不变。
+- `app.py`：步骤日期事件 schema、转换事务验证/读取/投影、两种转换 API、源/目标指纹与 revision 检查、回收站子任务防护、目标删除处理。
+- `web/index.html`：步骤日期编辑、步骤转换按钮、任务目标父级选择、日历和甘特图显示步骤。
+- `tests/test_app.py`：日期验证、两种转换/往返、末级约束、过期顺序 revision、源并发变化、转换目标删除。
+- `tests/test_ui_shell.mjs`：日期输入、日历/甘特步骤行、两种转换控件。
+- `tests/test_task_id_drawer_windows_e2e.py`：真实 Chromium 步骤日期保存、日历/甘特显示、步骤→任务→步骤往返、原事件流字节不变。
 
 ## 待验证
 - 需要准确 SHA 的 GitHub Actions Ubuntu/Windows Python+Node、Windows Chromium 全量 CI。
 - 失败先定位并修复；每次修改后对最新 SHA 重跑。
 - 用户本轮要求执行，但未批准合并；测试通过后汇报 PR 与证据，等待合并批准。
 - 不部署公司电脑 8770，不读取或修改真实 Google Drive 工作数据。
+
+## 2026-11-05 验收与缺陷修复回写
+- 本轮由 ChatGPT 直接在当前对话通过 GitHub 维护 PR #37；**未转 Work**，未合并 main。
+- 修正 Node 测试对新增步骤日期字段的 DOM 位置索引、跨 VM 数组值比较和转换按钮索引；Windows Chromium 真实 E2E 等待日期事件落盘并在导航日历前关闭详情抽屉，避免误报。
+- 修复转换日志的依赖排序：按已排序的转换事件 ID 拓扑解析，而非按文件名；新增三阶段任务→步骤→任务→步骤的乱序文件测试。
+- 新增转换目标一致性保护：ledger 中 title/status/document_links/日期及原任务负责人、优先级和项目关联必须能由源快照核验，阻止篡改日志绕过正常完成确认或修改内容；新增两项篡改测试。
+- 最终产品/测试 SHA：`a77bec7df2ce9098a72d3462179fcd9518a4a1b1`。
+- [Actions #41966545453](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41966545453)：3/3 SUCCESS。Ubuntu/Windows Python 各 186 tests（含预期 SKIP）、Node 各 93 PASS；Windows updater/rollback Chromium 3 PASS，工作台 UI E2E 15 PASS。
+- 当前 PR #37 候选 VERSION 2.1.0，正式 main 仍为 2.0.13；**用户尚未批准合并**。未升级公司 Windows 8770，未读取/修改真实 Google Drive 任务数据。真实双电脑 Drive 同步/离线并发演练 NOT TESTED；所有共用数据目录的客户端必须先统一升级到 2.1.0 才能使用转换功能。
