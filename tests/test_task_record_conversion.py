@@ -125,9 +125,10 @@ class TaskRecordConversionTests(unittest.TestCase):
         self.assertEqual(app.read_work_records(self.data_dir)["records"], [])
 
     def test_duplicate_and_corrupt_conversion_cannot_hide_source(self):
-        app.append_task_record_conversion(self.data_dir, conversion(self.current_task()))
+        source = self.current_task()
+        app.append_task_record_conversion(self.data_dir, conversion(source))
         app.append_task_record_conversion(self.data_dir, conversion(
-            self.current_task(), record_id="RECORD-" + "F" * 32,
+            source, record_id="RECORD-" + "F" * 32,
             event_id="task-convert-0002"))
         self.assertEqual(len(app.read_workspace(self.data_dir)["tasks"]), 1)
         self.assertEqual(app.read_work_records(self.data_dir)["records"], [])
