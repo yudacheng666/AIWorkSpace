@@ -1596,8 +1596,12 @@ WORK_RECORD_DEFAULTS = {"project_id": None, "task_id": None,
 
 def validate_work_record_event(value: object) -> dict:
     """A recorded fact is not a task: it has a date, but no todo/done lifecycle."""
+    allowed = {"version", "event_id", "record_id", "action", "actor",
+               "timestamp", "base_revision", "changes"}
     if not isinstance(value, dict) or value.get("version") != 1:
         raise ValueError("work record version must be 1")
+    if set(value) != allowed:
+        raise ValueError("unknown or missing work record event fields")
     if (not isinstance(value.get("event_id"), str)
             or not EVENT_ID.fullmatch(value["event_id"])):
         raise ValueError("invalid work record event_id")
