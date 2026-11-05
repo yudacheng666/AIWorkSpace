@@ -119,3 +119,7 @@ work_archive 原有 record_events 外新增 inbox_events、summary_events。所�
 ### 8.3 延后项目
 
 任务误建工作事实→归档转换涉及隐藏原任务与回滚/复活安全，需单独追加式转换协议而不是两次无事务写入，本阶段不实施。跨项目语义查重、语义日报/周报、职业档案报告制作与 ChatGPT 连接器实时双向直写均待后续验收。用户仅在多个阶段完成后集中反馈。
+
+### 8.4 阶段 2.5 自动化证据
+
+准确产品/测试 SHA `1502c02dbb8fc2d742698e369bb72ff83378bcca` 的 [GitHub Actions #42021765613](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42021765613) 3/3 SUCCESS，Ubuntu/Windows Python 222 项（含设计性 SKIP）、Node 每端 105 PASS、Windows Chromium 更新/回滚 3 PASS 和 UI E2E 19 PASS。所有测试使用虚构临时目录，包含取消确认、人工审核与同名重复阻断、source_work_record 单事件、原始任务/工作记录不覆盖；没有替用户验证公司 Windows 8770、跨电脑 Drive 离线同步或真实 ChatGPT 自动化写回。
