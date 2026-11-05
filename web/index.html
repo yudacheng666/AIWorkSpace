@@ -501,6 +501,8 @@
     .calendar-day.is-today {background:#f2f7ff;}
     .calendar-date {display:inline-block;padding:2px 5px;border-radius:5px;color:#64748b;font-size:11px;font-weight:700;}
     .calendar-day.is-today .calendar-date {background:#2b64c8;color:white;}
+    .calendar-step { border-style:dashed; color:#526b89; background:#f7faff; }
+    .gantt-step-row .gantt-task-info { padding-left:16px; }
     .calendar-task {display:block;width:100%;margin-top:5px;padding:6px;border:0;border-left:3px solid #6f95d4;border-radius:5px;background:#f0f5ff;color:#365987;font-size:10px;text-align:left;line-height:1.4;overflow-wrap:anywhere;}
     .calendar-task:hover {background:#e1ecff;}
     .calendar-task.is-risk {border-left-color:#bc5551;background:#fff2f0;color:#a94743;}
@@ -2438,10 +2440,42 @@
       box.append(element("h3", "", title + "（" + tasks.length + "）"));
       const inner = element("div", "view-extra-list");
       if (!tasks.length) inner.append(element("span", "board-empty", "无"));
-      else for (const task of tasks)
-        inner.append(detailOpenButton(task, "", (task.title || "未命名任务") + " · " + taskDisplayId(task)));
+      else for (const item of tasks)
+        inner.append(scheduleItemButton(item, "", (item.kind === "step" ? "步骤：" : "") +
+          (item.title || "未命名事项") + " · " + item.id));
       box.append(inner);
       return box;
+    }
+
+    function stepOpenButton(task, step, className, title) {
+      const button = element("button", className, title === undefined ? ("↳ " + step.title) : title);
+      button.type = "button";
+      button.title = step.step_id + " · 所属任务：" + task.title + " · 点击查看步骤";
+      button.addEventListener("click", () => openTaskDetail(task.task_id));
+      return button;
+    }
+
+    function scheduleItems(tasks) {
+      const items = [];
+      for (const task of tasks) {
+        items.push({kind:"task", task, title:task.title, id:taskDisplayId(task),
+          status:task.status, conflict:task.conflict, due_date:task.due_date,
+          planned_date:task.planned_date, follow_up_date:task.follow_up_date});
+        for (const step of task.steps || []) {
+          items.push({kind:"step", task, step, title:step.title, id:step.step_id,
+            status:step.status, conflict:step.conflict, due_date:step.due_date,
+            planned_date:step.planned_date, follow_up_date:step.follow_up_date});
+        }
+      }
+      return items;
+    }
+
+    function scheduleItemButton(item, className, title) {
+      if (item.kind === "step") {
+        const label = title === undefined ? ("↳ " + item.title) : title;
+        return stepOpenButton(item.task, item.step, className, label);
+      }
+      return detailOpenButton(item.task, className, title === undefined ? item.title : title);
     }
 
     function renderCalendarView(tasks, container) {
@@ -2452,11 +2486,12 @@
       const firstCell = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1 - offset);
       const isWeek = $("calendar-granularity").value === "week";
       const days = isWeek ? dateWindow(taskWeekCursor, 7) : dateWindow(firstCell, 42);
+      const items = scheduleItems(tasks);
       const byDay = new Map();
-      for (const task of tasks) {
-        if (!isoDayParts(task[field])) continue;
-        if (!byDay.has(task[field])) byDay.set(task[field], []);
-        byDay.get(task[field]).push(task);
+      for (const item of items) {
+        if (!isoDayParts(item[field])) continue;
+        if (!byDay.has(item[field])) byDay.set(item[field], []);
+        byDay.get(item[field]).push(item);
       }
       const weekHead = element("div", "calendar-weekdays" + (isWeek ? " is-week" : ""));
       for (const label of ["周一", "周二", "周三", "周四", "周五", "周六", "周日"])
@@ -2468,20 +2503,22 @@
         const outside = !isWeek && iso.slice(0, 7) !== selectedMonth;
         const cell = element("section", "calendar-day" +
           (outside ? " is-outside" : "") + (iso === today ? " is-today" : ""));
-        cell.title = iso + " · " + items.length + " 项" + dateFields[field] + "任务";
+        cell.title = iso + " · " + items.length + " 项" + dateFields[field] + "事项";
         cell.append(element("span", "calendar-date", String(Number(iso.slice(8)))));
-        for (const task of items) {
-          const button = detailOpenButton(task,
-            "calendar-task" + (task.conflict || task.status === "blocked" ? " is-risk" : ""), task.title);
-          button.title = taskDisplayId(task) + " · " + dateFields[field] + " " + iso;
+        for (const item of items) {
+          const button = scheduleItemButton(item,
+            (item.kind === "step" ? "calendar-task calendar-step" : "calendar-task") +
+            (item.conflict || item.status === "blocked" ? " is-risk" : ""));
+          button.title = item.id + " · " + (item.kind === "step" ? "步骤" : "任务") +
+            " · " + dateFields[field] + " " + iso;
           cell.append(button);
         }
         grid.append(cell);
       }
-      const undated = tasks.filter(t => !isoDayParts(t[field]));
+      const undated = items.filter(item => !isoDayParts(item[field]));
       container.replaceChildren(
-        element("p", "view-explainer", "当前显示" + dateFields[field] + "日期；三种日期独立，未填的不推算。" +
-          (isWeek ? "可按周导航查看当天任务。" : "跨月浅色日期用于对齐周次。")),
+        element("p", "view-explainer", "当前显示任务和步骤的" + dateFields[field] + "日期；三种日期独立，未填的不推算。" +
+          (isWeek ? "可按周导航查看当天事项。" : "跨月浅色日期用于对齐周次。")),
         weekHead, grid, undatedTaskPanel(undated, "未设置" + dateFields[field] + "日期")
       );
     }
@@ -2491,7 +2528,7 @@
       const today = localDayISO(new Date());
       const table = element("div", "gantt-table");
       const header = element("div", "gantt-row");
-      header.append(element("div", "gantt-task-info", "任务 / 日期"));
+      header.append(element("div", "gantt-task-info", "任务与步骤 / 日期"));
       const headerDays = element("div", "gantt-days");
       for (const iso of days) {
         const boundary = isoDayParts(iso).getDay() === 1 ? " is-week-start" : "";
@@ -2504,18 +2541,18 @@
       table.append(header);
 
       const invalid = [];
-      for (const task of tasks) {
-        const planned = isoDayParts(task.planned_date) ? task.planned_date : "";
-        const due = isoDayParts(task.due_date) ? task.due_date : "";
-        if (task.conflict || (!planned && !due) || (planned && due && planned > due)) {
-          invalid.push(task);
+      for (const item of scheduleItems(tasks)) {
+        const planned = isoDayParts(item.planned_date) ? item.planned_date : "";
+        const due = isoDayParts(item.due_date) ? item.due_date : "";
+        if (item.conflict || (!planned && !due) || (planned && due && planned > due)) {
+          invalid.push(item);
           continue;
         }
-        const row = element("div", "gantt-row");
+        const row = element("div", "gantt-row" + (item.kind === "step" ? " gantt-step-row" : ""));
         const meta = element("div", "gantt-task-info");
         meta.append(
-          detailOpenButton(task, "", task.title),
-          element("small", "", taskDisplayId(task) + (planned ? " · 计划 " + planned : "") +
+          scheduleItemButton(item, "", item.kind === "step" ? ("↳ " + item.title) : item.title),
+          element("small", "", item.id + (planned ? " · 计划 " + planned : "") +
             (due ? " · 截止 " + due : ""))
         );
         const cells = element("div", "gantt-days");
@@ -2537,7 +2574,7 @@
       scroll.append(table);
       container.replaceChildren(
         element("p", "view-explainer",
-          "蓝色表示计划执行日、橙色表示截止日；两日期之间仅展示日期窗口，不代表预计工期、工作量或依赖关系。存在冲突或日期矛盾的任务不强行绘制。"),
+          "蓝色表示计划执行日、橙色表示截止日；任务和步骤使用相同日期规则。两日期之间仅展示日期窗口，不代表预计工期、工作量或依赖关系。存在冲突或日期矛盾的事项不强行绘制。"),
         scroll, undatedTaskPanel(invalid, "未排期／日期或冲突需要核查")
       );
     }
