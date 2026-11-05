@@ -932,3 +932,69 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(len(list(directory.glob("*.json"))), 2)
         self.assertEqual(files[0].read_bytes(), first_bytes, "original record must remain byte-for-byte")
         self.assertEqual(original_task_event.read_bytes(), original_bytes)
+
+
+    def test_work_archive_inbox_to_multi_linked_record_summary_and_task_backlink(self):
+        """Full user path in real Windows Chromium, no real company data."""
+        step_id = "STEP-" + "F" * 32
+        append_step_event(self.data_dir, {
+            "version": 1, "event_id": "work-archive-step-create-001",
+            "task_id": self.task_id, "step_id": step_id,
+            "action": "create", "actor": "user",
+            "timestamp": "2026-11-04T09:00:00Z",
+            "base_revision": 0, "changes": {"title": "虚构交期核对", "position": 1}
+        })
+        source = self.data_dir / "events" / "evt_v201-chromium-create-001.json"
+        original = source.read_bytes()
+        page = self._open_browser(open_detail=False)
+        page.locator("#nav-worklog").click()
+        expect(page.locator("#page-worklog h1")).to_have_text("工作记录")
+
+        page.locator("#work-inbox-content").fill("临时沟通发现设备交期问题")
+        page.locator("#work-inbox-date").fill("2026-11-03")
+        page.locator("#work-inbox-submit").click()
+        expect(page.locator("#work-inbox-count")).to_have_text("1 条待整理", timeout=10000)
+        page.get_by_role("button", name="整理成工作记录").first.click()
+        expect(page.locator("#work-record-content")).to_have_value("临时沟通发现设备交期问题")
+        expect(page.locator("#work-record-date")).to_have_value("2026-11-03")
+
+        page.locator("#work-link-target").select_option("step:" + self.task_id + ":" + step_id)
+        page.locator("#work-link-relation").select_option("result_of")
+        page.locator("#work-link-add").click()
+        page.locator("#work-link-target").select_option("task:" + self.task_id)
+        page.locator("#work-link-add").click()
+        page.locator("#work-record-outcome").fill("确认了后续核对流程")
+        page.locator("#work-record-featured").check()
+        page.locator("#work-evidence-title").fill("虚构项目记录")
+        page.locator("#work-evidence-url").fill("https://drive.google.com/file/d/fictional/view")
+        page.locator("#work-evidence-add").click()
+        page.locator("#work-record-submit").click()
+        expect(page.locator("#work-record-message")).to_contain_text("已保存工作记录", timeout=10000)
+        expect(page.locator("#work-inbox-count")).to_have_text("0 条待整理")
+        expect(page.locator("#work-outcomes-list .work-featured-item")).to_have_count(1)
+        self.assertEqual(source.read_bytes(), original, "archiving never edits original task data")
+        records = list((self.data_dir / "work_archive" / "record_events").glob("*.json"))
+        self.assertEqual(len(records), 1)
+        event = json.loads(records[0].read_text("utf-8"))
+        self.assertEqual(len(event["changes"]["action_links"]), 2)
+        self.assertNotIn("status", event["changes"])
+        self.assertEqual(event["changes"]["source_inbox_id"][:6], "INBOX-")
+
+        page.locator("#work-summary-period").select_option("weekly")
+        page.locator("#work-summary-date").fill("2026-11-05")
+        page.locator("#work-summary-generate").click()
+        expect(page.locator("#work-summary-body")).to_contain_text("临时沟通发现设备交期问题")
+        page.locator("#work-summary-confirm").check()
+        page.locator("#work-summary-save").click()
+        expect(page.locator("#work-summary-message")).to_contain_text("总结已保存", timeout=10000)
+        expect(page.locator("#work-summary-list .work-summary-item")).to_have_count(1)
+        saved = list((self.data_dir / "work_archive" / "summary_events").glob("*.json"))
+        self.assertEqual(len(saved), 1)
+        self.assertEqual(source.read_bytes(), original)
+
+        page.locator("#nav-tasks").click()
+        page.locator(".task-summary .task-summary-title").first.click()
+        page.locator("#task-work-history").click()
+        expect(page.locator("#page-worklog h1")).to_have_text("工作记录")
+        expect(page.locator(".work-entry-content")).to_contain_text("临时沟通发现设备交期问题")
+        self.assertEqual(source.read_bytes(), original)
