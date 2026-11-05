@@ -1460,7 +1460,7 @@
       down.addEventListener("click", () => saveStepOrder(task, index, index + 1, message));
       const convertStep = element("button", "step-convert", "转为任务");
       convertStep.type = "button";
-      convertStep.disabled = task.conflict || step.conflict || task.status_rollup_incomplete || task.manual_status === "done" ||
+      convertStep.disabled = task.conflict || step.conflict || task.status_rollup_incomplete || task.parent_missing || task.parent_cycle || task.manual_status === "done" ||
         task.step_order_conflict || task.step_order_incomplete;
       convertStep.title = "将此步骤移动为当前任务下的子任务，保留日期、状态和文档关联";
       convertStep.addEventListener("click", async () => {
@@ -1620,6 +1620,7 @@
         !task.status_rollup_incomplete && !task.parent_missing && !task.parent_cycle;
       const candidates = current.filter(parent => parent.task_id !== task.task_id &&
         !parent.conflict && !parent.trashed_at && !parent.status_rollup_incomplete &&
+        !parent.parent_missing && !parent.parent_cycle &&
         !parent.step_order_conflict && !parent.step_order_incomplete &&
         parent.manual_status !== "done" && (parent.steps || []).length < 100);
       const controls = element("div", "task-conversion-controls");
