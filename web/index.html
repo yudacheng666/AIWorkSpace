@@ -1012,7 +1012,8 @@
           <textarea id="work-summary-body" class="work-archive-textarea" maxlength="12000" placeholder="先选择周期并生成底稿，再核实和补充。" required></textarea>
           <div class="work-archive-row">
             <label class="work-check"><input type="checkbox" id="work-summary-confirm"> 我已核对内容，可用于正式总结</label>
-            <button type="button" id="work-summary-copy">复制供 ChatGPT 分析</button>
+            <button type="button" id="work-summary-copy">复制当前总结正文</button>
+            <button type="button" id="work-summary-copy-sources">复制含来源的 ChatGPT 分析说明</button>
             <button type="submit" id="work-summary-save">保存总结</button>
             <button type="button" id="work-summary-cancel">清空 / 退出编辑</button>
           </div>
@@ -1024,6 +1025,14 @@
       <section class="work-card" aria-labelledby="work-outcomes-heading">
         <h2 id="work-outcomes-heading">个人成果库</h2>
         <p class="work-archive-hint">从已核实的工作记录中选出有代表性的成果，保留日期、项目、原始记录和证据引用，便于以后编写项目总结或简历。</p>
+        <div class="work-archive-row">
+          <label for="work-portfolio-project">成果项目范围
+            <select id="work-portfolio-project"><option value="">全部项目</option></select>
+          </label>
+          <button type="button" id="work-portfolio-copy">复制成果证据供 ChatGPT 整理</button>
+        </div>
+        <p class="work-archive-hint">此按钮只复制已人工标记为精选的记录及证据引用；不会自动生成履历或改变任务完成状态。</p>
+        <p id="work-portfolio-message" role="status" aria-live="polite"></p>
         <div id="work-outcomes-list" aria-live="polite"></div>
       </section>
     </section>
@@ -3506,6 +3515,7 @@
         projectOptions($("work-filter-project"), filterProject);
         projectOptions($("work-inbox-project"), $("work-inbox-project").value);
         projectOptions($("work-summary-project"), $("work-summary-project").value);
+        projectOptions($("work-portfolio-project"), $("work-portfolio-project").value);
         fillWorkTaskOptions($("work-record-task").value);
         populateTaskRecordSources();
         populateWorkLinkTargets();
@@ -4812,6 +4822,51 @@
         $("work-summary-message").textContent = "复制失败，请手动选择总结内容。";
       }
     });
+
+    async function copyWorkAnalysisSources() {
+      const snapshot = workSummarySnapshot();
+      if (!snapshot.day) {
+        $("work-summary-message").textContent = "请先选择要分析的日期。";
+        return;
+      }
+      try {
+        const qs = "?period=" + encodeURIComponent(snapshot.period) +
+          "&day=" + encodeURIComponent(snapshot.day) +
+          "&project_id=" + encodeURIComponent(snapshot.project_id);
+        const response = await fetch("/api/work-archive/analysis-context" + qs,
+                                     {cache:"no-store"});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "HTTP " + response.status);
+        if (!globalThis.navigator?.clipboard?.writeText) throw new Error("clipboard unavailable");
+        await globalThis.navigator.clipboard.writeText(result.prompt);
+        $("work-summary-message").textContent = "已复制含 " + result.record_count +
+          " 条工作记录与 " + result.completion_count +
+          " 条任务完成来源的分析说明。请粘贴到 ChatGPT 核对分析，再人工修改并保存总结；未自动发送或写入任务。";
+      } catch (error) {
+        $("work-summary-message").textContent = "未复制来源分析说明：" + error.message +
+          "。原始记录未改变。";
+      }
+    }
+    $("work-summary-copy-sources").addEventListener("click", copyWorkAnalysisSources);
+
+    async function copyWorkPortfolioSources() {
+      const projectId = $("work-portfolio-project").value;
+      try {
+        const response = await fetch("/api/work-archive/portfolio-context?project_id=" +
+            encodeURIComponent(projectId), {cache:"no-store"});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "HTTP " + response.status);
+        if (!globalThis.navigator?.clipboard?.writeText) throw new Error("clipboard unavailable");
+        await globalThis.navigator.clipboard.writeText(result.prompt);
+        $("work-portfolio-message").textContent = "已复制 " + result.record_count +
+          " 条人工精选成果及其稳定来源编号。可粘贴到 ChatGPT 整理业绩或简历素材；本机未生成未经确认的成果。";
+      } catch (error) {
+        $("work-portfolio-message").textContent = "未复制成果来源：" + error.message +
+          "。请先核查来源或在工作记录中标记精选成果。";
+      }
+    }
+    $("work-portfolio-copy").addEventListener("click", copyWorkPortfolioSources);
+
     async function loadWorkArchive() {
       try {
         const response = await fetch("/api/work-archive", {cache:"no-store"});
