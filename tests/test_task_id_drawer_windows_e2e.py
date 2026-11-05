@@ -983,7 +983,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.locator("#work-summary-period").select_option("weekly")
         page.locator("#work-summary-date").fill("2026-11-05")
         page.locator("#work-summary-generate").click()
-        expect(page.locator("#work-summary-body")).to_contain_text("临时沟通发现设备交期问题")
+        expect(page.locator("#work-summary-body")).to_have_value(re.compile("临时沟通发现设备交期问题"))
         page.locator("#work-summary-confirm").check()
         page.locator("#work-summary-save").click()
         expect(page.locator("#work-summary-message")).to_contain_text("总结已保存", timeout=10000)

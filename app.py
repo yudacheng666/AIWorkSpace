@@ -3530,7 +3530,8 @@ def handler_factory(data_dir: Path):
                             revision = prior["revision"]
                             action = "update"
                         # Merge existing associations before checking, for partial updates.
-                        links = {key: changes.get(key, prior.get(key) if work_record_match else None)
+                        links = {key: changes.get(key, prior.get(key) if work_record_match else
+                                                          ([] if key == "action_links" else None))
                                  for key in ("project_id", "task_id", "action_links")}
                         validate_work_record_links(links, workspace, prior if work_record_match else None)
                         event = {"version": 1, "event_id": str(uuid.uuid4()),
