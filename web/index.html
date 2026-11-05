@@ -1616,7 +1616,7 @@
       head.append(element("strong", "", "任务转换"));
       panel.append(head);
       const sourceIsLeaf = !task.conflict && !task.trashed_at &&
-        !(task.steps || []).length && !(task.child_task_ids || []).length &&
+        !(task.steps || []).length && !(task.all_child_task_ids || task.child_task_ids || []).length &&
         !task.status_rollup_incomplete && !task.parent_missing && !task.parent_cycle;
       const candidates = current.filter(parent => parent.task_id !== task.task_id &&
         !parent.conflict && !parent.trashed_at && !parent.status_rollup_incomplete &&
