@@ -426,7 +426,7 @@ test("step date controls save all three task-equivalent date fields at the step 
   task.steps=[step];
   const page=harness([task]);
   const line=page.api.stepRow(task,step,0,page.el("step-message"));
-  const form=line.children[0].children[0];
+  const form=line.children[1].children.find(x=>x.className==="step-edit-form");
   const dates=form.children.find(x=>x.className==="step-date-fields");
   assert.ok(dates);
   assert.equal(dates.children.length,3);
@@ -452,7 +452,7 @@ test("calendar and Gantt include step schedule items with the same date semantic
   task.steps=[step];
   const page=harness([task]);
   const items=page.api.scheduleItems([task]);
-  assert.deepEqual(items.map(x=>x.kind),["task","step"]);
+  assert.deepEqual(Array.from(items, x=>x.kind),["task","step"]);
   const calendar=page.el("calendar-test");
   page.api.renderCalendarView([task],calendar);
   const grid=calendar.children[2];
@@ -501,7 +501,7 @@ test("step-to-task action is explicit, preserves the step revision and requires 
   task.steps=[step];
   const page=harness([task]);
   const line=page.api.stepRow(task,step,0,page.el("step-message"));
-  const convert=line.children[1].children[2];
+  const convert=line.children[2].children.find(x=>x.className==="step-convert");
   assert.equal(convert.textContent,"转为任务");
   await convert.handlers.get("click")[0]();
   assert.equal(page.writes.length,1);
