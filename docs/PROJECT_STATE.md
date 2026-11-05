@@ -1,5 +1,15 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-05：2.2.0 已正式发布 — 步骤排期互转 + 周期任务
+
+- **用户授权**：明确要求“合并发布”。按 AGENTS.md 审计所有开放 PR，仅 #37（2.1.0 步骤日期/任务与步骤互转）和依赖它的 #38（2.2.0 周期任务）；无其他开放 PR。合并顺序先 #37 后 #38，不跳过依赖，不重复合并已吸收变更。
+- **精确合并**：[PR #37](https://github.com/yudacheng666/AIWorkSpace/pull/37) 由 HEAD `735bc71e940b60e0055a33dffc9e0ba381705ac5` 正常 Merge 至 main，merge SHA `e6987a2a933d374346e3b70587c71933aca92ab2`（main/VERSION=2.1.0）；[PR #38](https://github.com/yudacheng666/AIWorkSpace/pull/38) 从旧依赖分支调整 base 至 main，确认无冲突并从 Draft 转 Ready 后正常 Merge，HEAD `dce8bafb05fba51355b3cbe54c6268e6faae8b4a`，merge SHA `b8ae95699d442b2efc73798bf9bfb3b8c887a28e`，main/VERSION=2.2.0。再次核实两 PR merged，开放 PR=0。
+- **候选 CI 证据**：#37 HEAD 的 [Actions #41967001515](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41967001515) 3/3 SUCCESS；#38 产品/测试 SHA `f0c47fe536d2696f27175e8b9413049ee4945c15` 的 [Actions #41977504669](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41977504669) 3/3 SUCCESS；#38 后续 HEAD 与产品/测试 SHA 的差异仅为 README.md、PROJECT_STATE.md、DECISIONS.md 三份 Markdown 记忆文档。
+- **合并后 main 回归**：2.1.0 合并 SHA `e6987a2a933d374346e3b70587c71933aca92ab2` 对应 [Actions #41978238908](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41978238908) 3/3 SUCCESS；2.2.0 合并 SHA `b8ae95699d442b2efc73798bf9bfb3b8c887a28e` 对应 [Actions #41978365376](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41978365376) **3/3 SUCCESS**。2.2.0 主分支 Ubuntu/Windows Python 各运行 198 tests（分别 21/19 预期 SKIP），Node 各 93 PASS，Windows 原生 Chromium 更新/回滚 3 PASS，工作台 E2E 16 PASS。
+- **发布内容**：执行步骤日期进入日历、甘特图；步骤与末级任务互转并保护原始事件；周期任务按固定开始日每 N 天/周/月/年重复，本期明确完成显示已完成、下期计算恢复待办，用户可明确“彻底结束循环”后再次“恢复循环”。当前周期计划/截止分别取周期开始/结束日，历史完成事件不覆盖；第一版周期任务限定无步骤/子任务的末级任务。
+- **部署及风险边界**：仅 GitHub 正式 main 发布；未自动更新公司 Windows 8770，未修改真实 Google Drive 工作台任务数据。真实两电脑 Google Drive 离线—重连、版本混用、并发数据同步 **NOT TESTED**；使用 2.1/2.2 新事件与转换操作前，应先让所有共享同一 Drive 数据目录的客户端统一升级至 2.2.0，备份数据，避免旧版写入。用户本次“合并发布”不等于授权实际本机部署或直接更改真实事件。
+- **下一步**：实际使用前先备份，并在所有共享数据目录的电脑统一升级；对复杂转换/周期任务至少补充真实 Drive 离线/重连增量验收，不重复运行已在 CI 同准确 SHA 通过的全套自动化。
+
 ## 2026-11-05：2.2.0 周期性任务候选开发（未合并）
 
 - **需求**：可设置每天／每周／每月／每年重复与间隔，本周期人工确认完成后列入已完成；下一周期在读取时重新显示为待办；明确确认彻底结束后不再重复，后续可以恢复原循环。
