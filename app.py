@@ -150,12 +150,14 @@ def resolve_task_hierarchy(tasks: list[dict], warnings: list[str]) -> None:
     """Read-only parent rollup. No synthetic events or revision changes."""
     by_id = {task["task_id"]: task for task in tasks}
     children_by_parent: dict[str, list[dict]] = defaultdict(list)
+    all_children_by_parent: dict[str, list[dict]] = defaultdict(list)
     for task in tasks:
         task.setdefault("parent_task_id", None)
         task["parent_missing"] = False
         task["parent_cycle"] = False
         task["status_rollup_incomplete"] = False
         task["child_task_ids"] = []
+        task["all_child_task_ids"] = []
         task["parent_title"] = None
     for task in tasks:
         parent_id = task["parent_task_id"]
@@ -167,6 +169,7 @@ def resolve_task_hierarchy(tasks: list[dict], warnings: list[str]) -> None:
             warnings.append(f'{task["task_id"]}: linked parent task unavailable')
             continue
         task["parent_title"] = parent.get("title")
+        all_children_by_parent[parent_id].append(task)
         if not task.get("trashed_at"):
             children_by_parent[parent_id].append(task)
 
@@ -189,6 +192,9 @@ def resolve_task_hierarchy(tasks: list[dict], warnings: list[str]) -> None:
         visiting.pop()
         resolved.add(tid)
         task["child_task_ids"] = [child["task_id"] for child in children]
+        task["all_child_task_ids"] = sorted(
+            child["task_id"] for child in all_children_by_parent.get(tid, [])
+        )
         steps = task.get("steps", [])
         incomplete = (task.get("conflict") or task.get("step_order_conflict") or
                       task.get("step_order_incomplete") or
@@ -465,6 +471,7 @@ def task_conversion_snapshot(task: dict) -> dict:
         "parent_task_id": task.get("parent_task_id"),
         "document_links": list(task.get("document_links", [])),
         "child_task_ids": sorted(task.get("child_task_ids", [])),
+        "all_child_task_ids": sorted(task.get("all_child_task_ids", task.get("child_task_ids", []))),
         "step_ids": [step["step_id"] for step in task.get("steps", [])],
         "trashed_at": task.get("trashed_at"),
     }
@@ -725,7 +732,8 @@ def resolve_conversion_events(tasks: list[dict], events: list[dict],
                 if _conversion_snapshot_hash(snapshot) != source["snapshot_sha256"]:
                     reason = "source fingerprint changed"
         if not reason and not pending and source_item is not None and source["kind"] == "task":
-            if source_item.get("steps") or source_item.get("child_task_ids") or source_item.get("status_rollup_incomplete"):
+            if (source_item.get("steps") or source_item.get("all_child_task_ids") or
+                    source_item.get("child_task_ids") or source_item.get("status_rollup_incomplete") ):
                 reason = "task is no longer a simple leaf task"
         if not reason and not pending:
             if target["kind"] == "task":
@@ -2821,8 +2829,9 @@ def handler_factory(data_dir: Path):
                             return self.json_response(409, {"error": "source task is conflicted, deleted or has incomplete progress"})
                         if source_task["revision"] != revision:
                             return self.json_response(409, {"error": "source task changed; refresh"})
-                        if source_task.get("steps") or source_task.get("child_task_ids"):
-                            return self.json_response(409, {"error": "only a leaf task without steps or child tasks can be converted; move its sub-items first"})
+                        if (source_task.get("steps") or source_task.get("all_child_task_ids") or
+                                source_task.get("child_task_ids")):
+                            return self.json_response(409, {"error": "only a leaf task without steps or child tasks (including items in the recycle bin) can be converted; move or permanently remove its sub-items first"})
                         if source_task.get("parent_missing") or source_task.get("parent_cycle"):
                             return self.json_response(409, {"error": "source task parent relationship needs review"})
                         if (target_parent.get("conflict") or target_parent.get("trashed_at") or
