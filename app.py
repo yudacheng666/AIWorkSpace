@@ -3393,6 +3393,7 @@ def handler_factory(data_dir: Path):
                         item["task_title"] = task["title"] if task and not task.get("conflict") else None
                         item["project_name"] = project["name"] if project and not project.get("conflict") else None
                         label_work_associations(item, workspace)
+                        derived_action_labels(item, workspace)
                     state["task_completions"] = read_task_completion_activity(data_dir, workspace)
                 return self.json_response(200, state)
             if path == "/api/work-archive":
@@ -3471,10 +3472,13 @@ def handler_factory(data_dir: Path):
             inbox_ignore = re.fullmatch(r"/api/work-archive/inbox/(INBOX-[A-F0-9]{32})/ignore", path)
             creating_summary = path == "/api/work-archive/summaries"
             summary_edit = re.fullmatch(r"/api/work-archive/summaries/(SUMMARY-[A-F0-9]{32})/update", path)
+            action_preview = path == "/api/work-archive/actions/preview"
+            action_create = path == "/api/work-archive/actions/create"
+            action_link = path == "/api/work-archive/actions/link"
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
-            if not (creating_work_record or work_record_match or creating_inbox or inbox_ignore or creating_summary or summary_edit or creating_task or creating_project or task_match or recurrence_match or project_match or
+            if not (creating_work_record or work_record_match or creating_inbox or inbox_ignore or creating_summary or summary_edit or action_preview or action_create or action_link or creating_task or creating_project or task_match or recurrence_match or project_match or
                     step_create_match or step_update_match or step_reorder_match or
                     step_documents_match or step_delete_match or step_convert_match or task_convert_match or applying_update or
                     documents_match or lifecycle_match or changing_retention or review_match):
@@ -3525,8 +3529,112 @@ def handler_factory(data_dir: Path):
 
             try:
                 archive_request = (creating_work_record or work_record_match or creating_inbox or
-                                   inbox_ignore or creating_summary or summary_edit)
+                                   inbox_ignore or creating_summary or summary_edit or
+                                   action_preview or action_create or action_link)
                 payload = self.read_payload(MAX_WORK_RECORD_BODY if archive_request else MAX_BODY)
+                if action_preview:
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        review = preview_action_proposals(data_dir, workspace, payload)
+                    return self.json_response(200, review)
+                if action_create:
+                    fields = {"record_id", "record_revision", "title", "due_date",
+                              "confirmed_create", "duplicate_reviewed"}
+                    if set(payload) != fields or payload["confirmed_create"] is not True or (
+                            type(payload["duplicate_reviewed"]) is not bool):
+                        raise ValueError("action create requires explicit user approval and all fields")
+                    validate_action_proposal_list({
+                        "version": 1, "record_id": payload["record_id"],
+                        "record_revision": payload["record_revision"],
+                        "proposals": [{"title": payload["title"], "due_date": payload["due_date"]}]
+                    })
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        proposal = preview_action_proposals(data_dir, workspace, {
+                            "version": 1, "record_id": payload["record_id"],
+                            "record_revision": payload["record_revision"],
+                            "proposals": [{"title": payload["title"], "due_date": payload["due_date"]}]
+                        })
+                        matches = proposal["proposals"][0]["matches"]
+                        if any(item["match_type"] == "same_title" for item in matches):
+                            return self.json_response(409, {
+                                "error": "a task with the same title already exists in this project; link it instead",
+                                "matches": matches
+                            })
+                        if matches and not payload["duplicate_reviewed"]:
+                            return self.json_response(409, {
+                                "error": "similar tasks exist; review first before creating another task",
+                                "matches": matches
+                            })
+                        for task in workspace["tasks"]:
+                            origin = task.get("source_work_record")
+                            if (isinstance(origin, dict) and
+                                    origin.get("record_id") == payload["record_id"] and
+                                    normalize_action_title(task["title"]) ==
+                                    normalize_action_title(payload["title"])):
+                                return self.json_response(409, {
+                                    "error": "this work record already created the proposed task"
+                                })
+                        task_id = "TASK-" + uuid.uuid4().hex.upper()
+                        changes = {"title": payload["title"].strip(), "status": "todo",
+                                   "source_work_record": {
+                                       "record_id": payload["record_id"],
+                                       "revision": payload["record_revision"]
+                                   }}
+                        if proposal["project_id"]:
+                            changes["project_id"] = proposal["project_id"]
+                        if payload["due_date"]:
+                            changes["due_date"] = payload["due_date"]
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "task_id": task_id, "action": "create", "actor": "user",
+                                 "timestamp": utc_now(), "base_revision": 0, "changes": changes}
+                        append_event(data_dir, event)
+                    return self.json_response(201, {
+                        "saved": True, "task_id": task_id,
+                        "display_id": display_task_id(task_id, event["timestamp"]),
+                        "revision": 1, "record_id": payload["record_id"]
+                    })
+                if action_link:
+                    fields = {"record_id", "record_revision", "task_id", "confirmed_link"}
+                    if set(payload) != fields or payload["confirmed_link"] is not True or (
+                            not isinstance(payload["task_id"], str) or
+                            not TASK_ID.fullmatch(payload["task_id"])):
+                        raise ValueError("link requires source revision, task and explicit approval")
+                    with _write_lock:
+                        record = require_action_record(data_dir, payload["record_id"],
+                                                       payload["record_revision"])
+                        workspace = read_workspace(data_dir)
+                        task = next((item for item in workspace["tasks"]
+                                     if item["task_id"] == payload["task_id"]), None)
+                        if (task is None or task.get("conflict") or task.get("trashed_at") or
+                                task.get("project_id") != record.get("project_id")):
+                            return self.json_response(409, {
+                                "error": "target task missing, conflicted or outside the source project"
+                            })
+                        origin = task.get("source_work_record")
+                        previous = record.get("action_links", [])
+                        if any(link["target_type"] == "task" and
+                               link["target_id"] == task["task_id"] for link in previous) or (
+                                isinstance(origin, dict) and
+                                origin.get("record_id") == record["record_id"]):
+                            return self.json_response(200, {"saved": False, "revision": record["revision"]})
+                        if len(previous) >= 20:
+                            raise ValueError("work record already has 20 associations")
+                        links = [*previous, {"target_type": "task", "target_id": task["task_id"],
+                                             "relation": "derived_action"}]
+                        validate_work_record_links(
+                            {"project_id": record.get("project_id"),
+                             "task_id": record.get("task_id"), "action_links": links},
+                            workspace, record
+                        )
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "record_id": record["record_id"], "action": "update",
+                                 "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": record["revision"],
+                                 "changes": {"action_links": links}}
+                        append_work_record_event(data_dir, event)
+                    return self.json_response(200, {"saved": True,
+                                                    "revision": record["revision"] + 1})
                 if creating_inbox:
                     if set(payload) - {"content", "occurred_on", "project_id"} or (
                             not {"content", "occurred_on"} <= set(payload)):
