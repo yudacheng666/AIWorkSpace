@@ -934,6 +934,56 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(original_task_event.read_bytes(), original_bytes)
 
 
+
+    def test_task_to_work_record_ui_is_confirmed_atomic_and_keeps_task_history(self):
+        """Real Chromium: cancellation must not write, one confirmed conversion does."""
+        page = self._open_browser(open_detail=False)
+        source = self.data_dir / "events" / "evt_v201-chromium-create-001.json"
+        original = source.read_bytes()
+        page.locator("#open-create-record").click()
+        expect(page.locator("#work-task-convert-source option")).to_have_count(2)
+        page.locator("#work-task-convert-source").select_option(self.task_id)
+        page.locator("#work-task-convert-date").fill("2026-10-27")
+        page.locator("#work-task-convert-content").fill("这项工作实际上已经发生")
+        page.locator("#work-task-convert-outcome").fill("虚构需求已确认")
+        page.locator("#work-task-convert-minutes").fill("25")
+
+        page.once("dialog", lambda dialog: dialog.dismiss())
+        page.locator("#work-task-convert-submit").click()
+        self.assertFalse((self.data_dir / "work_archive" / "task_record_events").exists())
+        self.assertEqual(source.read_bytes(), original)
+        expect(page.locator("#work-task-convert-content")).to_have_value("这项工作实际上已经发生")
+
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator("#work-task-convert-submit").click()
+        expect(page.locator("#work-task-convert-message")).to_contain_text(
+            "转换成功", timeout=12000)
+        expect(page.locator("#work-record-list .work-entry")).to_have_count(1)
+        expect(page.locator(".work-entry-content")).to_have_text("这项工作实际上已经发生")
+        expect(page.locator(".work-entry-meta")).to_contain_text("从原任务转换")
+        self.assertEqual(source.read_bytes(), original)
+        ledger = list((self.data_dir / "work_archive" / "task_record_events").glob("*.json"))
+        self.assertEqual(len(ledger), 1)
+        self.assertEqual(json.loads(ledger[0].read_text(encoding="utf-8"))["source"]["task_id"],
+                         self.task_id)
+        self.assertEqual(read_workspace(self.data_dir)["tasks"], [])
+        self.assertFalse((self.data_dir / "work_archive" / "record_events").exists(),
+                         "conversion uses one ledger, not a second synthetic create file")
+
+        # Cloud-late original task update makes the conversion unsafe: re-show
+        # original rather than displaying a fabricated second copy of that work.
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "task-record-e2e-late-edit-0001",
+            "task_id": self.task_id, "action": "update", "actor": "user",
+            "timestamp": "2026-11-06T02:05:00Z",
+            "base_revision": 1, "changes": {"title": "另一个设备刚刚修改的旧任务"}
+        })
+        page.reload()
+        page.locator("#nav-worklog").click()
+        expect(page.locator("#work-record-list .work-entry")).to_have_count(0)
+        self.assertEqual(len(read_workspace(self.data_dir)["tasks"]), 1)
+        self.assertEqual(source.read_bytes(), original)
+
     def test_work_archive_inbox_to_multi_linked_record_summary_and_task_backlink(self):
         """Full user path in real Windows Chromium, no real company data."""
         step_id = "STEP-" + "F" * 32
