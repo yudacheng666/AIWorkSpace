@@ -501,7 +501,7 @@ test("step-to-task action is explicit, preserves the step revision and requires 
   task.steps=[step];
   const page=harness([task]);
   const line=page.api.stepRow(task,step,0,page.el("step-message"));
-  const convert=line.children[2].children[2];
+  const convert=line.children[1].children[2];
   assert.equal(convert.textContent,"转为任务");
   await convert.handlers.get("click")[0]();
   assert.equal(page.writes.length,1);
