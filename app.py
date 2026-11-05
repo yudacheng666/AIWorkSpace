@@ -648,11 +648,15 @@ def append_conversion_event(data_dir: Path, event: dict) -> Path:
 
 
 def resolve_conversion_events(tasks: list[dict], events: list[dict],
-                              warnings: list[str]) -> tuple[set[str], set[tuple[str, str]],
-                                                            set[str], set[tuple[str, str]]]:
+                              warnings: list[str], purged_task_ids: set[str] | None = None
+                              ) -> tuple[set[str], set[tuple[str, str]],
+                                         set[str], set[tuple[str, str]]]:
     by_task = {task["task_id"]: task for task in tasks}
     by_step = {(task["task_id"], step["step_id"]): step
                for task in tasks for step in task.get("steps", [])}
+    deleted_steps = {(task["task_id"], step_id) for task in tasks
+                     for step_id in task.get("deleted_step_ids", [])}
+    purged_task_ids = purged_task_ids or set()
     source_counts: dict[tuple[str, str, str], int] = defaultdict(int)
     target_counts: dict[tuple[str, str, str], int] = defaultdict(int)
     target_origin: dict[tuple[str, str, str], str] = {}
@@ -704,10 +708,15 @@ def resolve_conversion_events(tasks: list[dict], events: list[dict],
         if not reason and source["kind"] == "task":
             source_item = by_task.get(source["task_id"])
             parent = None
+            if source_item is None and source["task_id"] in purged_task_ids:
+                reason = "source task was permanently purged after conversion"
         elif not reason:
             parent = by_task.get(source["task_id"])
+            source_key_step = (source["task_id"], source["item_id"])
             source_item = next((step for step in parent.get("steps", [])
                                 if step["step_id"] == source["item_id"]), None) if parent else None
+            if source_item is None and source_key_step in deleted_steps:
+                reason = "source step was deleted after conversion"
         else:
             source_item = None
             parent = None
@@ -743,9 +752,9 @@ def resolve_conversion_events(tasks: list[dict], events: list[dict],
                 target_item = by_task.get(target["item_id"])
                 parent_id = target["fields"].get("parent_task_id")
                 parent_task = by_task.get(parent_id)
-                if target_item is None:
+                if target_item is None and target["item_id"] not in purged_task_ids:
                     pending = True
-                elif target_item.get("conflict"):
+                elif target_item is not None and target_item.get("conflict"):
                     reason = "converted task target conflicts"
                 elif parent_task is None:
                     pending = True
@@ -757,10 +766,12 @@ def resolve_conversion_events(tasks: list[dict], events: list[dict],
                     reason = "converted task parent was moved"
             else:
                 target_parent = by_task.get(target["task_id"])
-                target_item = by_step.get((target["task_id"], target["item_id"]))
-                if target_item is None:
+                target_key_step = (target["task_id"], target["item_id"])
+                target_item = by_step.get(target_key_step)
+                target_deleted = target_item is None and target_key_step in deleted_steps
+                if target_item is None and not target_deleted:
                     pending = True
-                elif target_item.get("conflict"):
+                elif target_item is not None and target_item.get("conflict"):
                     reason = "converted step target conflicts"
                 if target_parent is None:
                     pending = True
@@ -1069,6 +1080,11 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
             duplicate_order_conflicts[task_id].extend(variants)
 
     task_by_id = {task["task_id"]: task for task in tasks}
+    for task in tasks:
+        task["deleted_step_ids"] = sorted(
+            step["step_id"] for step in steps_by_id.values()
+            if step["task_id"] == task["task_id"] and step.get("deleted_at")
+        )
     for task_id, steps in steps_by_task.items():
         if task_id not in task_by_id:
             warnings.append(f"{task_id}: step records are waiting for the parent task to sync")
@@ -1340,7 +1356,7 @@ def read_workspace(data_dir: Path, include_trashed: bool = False) -> dict:
     read_steps(data_dir, tasks, warnings, conversions)
     resolve_task_hierarchy(tasks, warnings)
     hidden_tasks, hidden_steps, hidden_target_tasks, hidden_target_steps = resolve_conversion_events(
-        tasks, conversions, warnings
+        tasks, conversions, warnings, purged_ids
     )
     hidden_tasks |= hidden_target_tasks
     tasks = [task for task in tasks if task["task_id"] not in hidden_tasks]
