@@ -1433,8 +1433,11 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(len(list((self.data_dir / "conversion_events").glob("*.json"))), 0)
 
         append_event(self.data_dir, event(
+            "complete-parent-create", task_id="TASK-COMPLETE-PARENT",
+            changes={"title": "已人工完成的父任务", "status": "todo"}))
+        append_event(self.data_dir, event(
             "complete-parent-manually", task_id="TASK-COMPLETE-PARENT",
-            changes={"title": "已人工完成的父任务", "status": "done"},
+            action="update", revision=1, changes={"status": "done"},
             actor="user", confirmed_done=True))
         status, movable = self.create_task({"title": "不能移动到已完成父任务"})
         self.assertEqual(status, 201)
