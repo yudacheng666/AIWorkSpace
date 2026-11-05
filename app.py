@@ -1867,6 +1867,281 @@ def label_work_associations(record: dict, workspace: dict) -> None:
 
 
 
+
+# Work-archive inbox and review summaries deliberately have separate, append-only
+# event streams. The web UI does not call an AI model; summaries are transparent
+# source-linked drafts for the user or connected ChatGPT to refine.
+ARCHIVE_KIND_META = {
+    "inbox": (INBOX_ID, "inbox_id", "work_archive/inbox_events"),
+    "summary": (SUMMARY_ID, "summary_id", "work_archive/summary_events"),
+}
+
+
+def _archive_day(value: object, nullable: bool = False) -> None:
+    if nullable and value is None:
+        return
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        raise ValueError("work archive requires YYYY-MM-DD")
+    try:
+        date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError("invalid work archive calendar date") from exc
+
+
+def validate_work_archive_event(value: object, kind: str) -> dict:
+    pattern, id_field, _ = ARCHIVE_KIND_META[kind]
+    allowed = {"version", "event_id", id_field, "action", "actor",
+               "timestamp", "base_revision", "changes"}
+    if not isinstance(value, dict) or set(value) != allowed or value.get("version") != 1:
+        raise ValueError("invalid work archive event envelope")
+    if not isinstance(value.get("event_id"), str) or not EVENT_ID.fullmatch(value["event_id"]):
+        raise ValueError("invalid archive event ID")
+    if not isinstance(value.get(id_field), str) or not pattern.fullmatch(value[id_field]):
+        raise ValueError("invalid work archive object ID")
+    if value.get("actor") not in {"user", "chatgpt"}:
+        raise ValueError("invalid archive actor")
+    stamp = value.get("timestamp")
+    if not isinstance(stamp, str):
+        raise ValueError("timestamp required")
+    try:
+        if datetime.fromisoformat(stamp.replace("Z", "+00:00")).tzinfo is None:
+            raise ValueError("timezone required")
+    except ValueError as exc:
+        raise ValueError("invalid archive timestamp") from exc
+    revision = value.get("base_revision")
+    if type(revision) is not int or revision < 0:
+        raise ValueError("invalid archive base revision")
+    changes = value.get("changes")
+    if not isinstance(changes, dict) or not changes:
+        raise ValueError("archive changes required")
+    action = value.get("action")
+    if kind == "inbox":
+        if action == "create":
+            if revision != 0 or not {"content", "occurred_on"} <= set(changes) or (
+                    set(changes) - {"content", "occurred_on", "project_id"}):
+                raise ValueError("inbox creation requires content and occurred_on")
+            content = changes["content"]
+            if not isinstance(content, str) or not 1 <= len(content.strip()) <= 8000:
+                raise ValueError("inbox text length 1-8000")
+            _archive_day(changes["occurred_on"], nullable=True)
+            project = changes.get("project_id")
+            if project is not None and (not isinstance(project, str) or
+                                        not PROJECT_ID.fullmatch(project)):
+                raise ValueError("invalid inbox project")
+        elif action == "dismiss":
+            if revision != 1 or value["actor"] != "user" or changes != {"ignored": True}:
+                raise ValueError("inbox dismiss requires explicit user revision")
+        else:
+            raise ValueError("invalid inbox action")
+    else:
+        if action == "create":
+            required = {"period", "period_start", "period_end", "project_id",
+                        "body", "source_record_ids", "source_completion_ids", "confirmed"}
+            if revision != 0 or set(changes) != required:
+                raise ValueError("summary creation requires all fields")
+            if changes["period"] not in {"daily", "weekly", "monthly"}:
+                raise ValueError("invalid summary period")
+            _archive_day(changes["period_start"])
+            _archive_day(changes["period_end"])
+            if (date.fromisoformat(changes["period_start"]) >
+                    date.fromisoformat(changes["period_end"])):
+                raise ValueError("summary period dates reversed")
+            project = changes["project_id"]
+            if project is not None and (not isinstance(project, str) or
+                                        not PROJECT_ID.fullmatch(project)):
+                raise ValueError("invalid summary project")
+            for key, pattern in (("source_record_ids", WORK_RECORD_ID),
+                                 ("source_completion_ids", EVENT_ID)):
+                ids = changes[key]
+                if not isinstance(ids, list) or len(ids) > 250 or any(
+                        not isinstance(item, str) or not pattern.fullmatch(item) for item in ids
+                ) or len(ids) != len(set(ids)):
+                    raise ValueError("invalid summary source IDs")
+        elif action == "update":
+            if revision < 1 or set(changes) - {"body", "confirmed"}:
+                raise ValueError("invalid summary update fields")
+        else:
+            raise ValueError("invalid summary action")
+        if "body" in changes and (not isinstance(changes["body"], str) or
+                                  not 1 <= len(changes["body"].strip()) <= 12000):
+            raise ValueError("summary body length 1-12000")
+        if "confirmed" in changes and type(changes["confirmed"]) is not bool:
+            raise ValueError("confirmed must be boolean")
+        if changes.get("confirmed") is True and value["actor"] != "user":
+            raise ValueError("summary confirmation requires user action")
+    return value
+
+
+def read_work_archive_events(data_dir: Path, kind: str) -> dict:
+    """Project independent inbox/summary events without guessing conflict winners."""
+    _, id_field, folder = ARCHIVE_KIND_META[kind]
+    directory = data_dir / folder
+    if not directory.exists():
+        return {"items": [], "warnings": []}
+    roots: dict[str, list[dict]] = defaultdict(list)
+    updates: dict[str, list[dict]] = defaultdict(list)
+    event_ids: dict[str, dict] = {}
+    duplicates: set[str] = set()
+    warnings: list[str] = []
+    for path in sorted(directory.glob("*.json")):
+        if not path.is_file():
+            continue
+        try:
+            if path.stat().st_size > MAX_WORK_RECORD_BODY:
+                raise ValueError("archive event file too large")
+            event = validate_work_archive_event(
+                json.loads(path.read_text(encoding="utf-8-sig")), kind)
+            existing = event_ids.get(event["event_id"])
+            if existing is not None:
+                if existing == event:
+                    warnings.append(path.name + ": duplicate archive event ignored")
+                    continue
+                duplicates.update({existing[id_field], event[id_field]})
+                warnings.append(path.name + ": archive event ID collision")
+            else:
+                event_ids[event["event_id"]] = event
+            (roots if event["action"] == "create" else updates)[event[id_field]].append(event)
+        except (ValueError, OSError, TypeError, UnicodeError, json.JSONDecodeError) as exc:
+            warnings.append(path.name + ": " + str(exc))
+    items = []
+    for object_id in sorted(set(roots) | set(updates)):
+        creation = roots[object_id]
+        if len(creation) != 1:
+            warnings.append(object_id + ": archive creation missing or conflicting")
+            if creation:
+                items.append({id_field: object_id, "conflict": True, "revision": 0})
+            continue
+        root = creation[0]
+        item = {id_field: object_id, **root["changes"], "created_at": root["timestamp"],
+                "updated_at": root["timestamp"], "revision": 1, "conflict": False}
+        if kind == "inbox":
+            item.setdefault("project_id", None)
+            item["ignored"] = False
+        by_revision: dict[int, list[dict]] = defaultdict(list)
+        for event in updates[object_id]:
+            by_revision[event["base_revision"]].append(event)
+        while item["revision"] in by_revision:
+            variants = by_revision.pop(item["revision"])
+            if len(variants) != 1:
+                item["conflict"] = True
+                warnings.append(object_id + ": concurrent archive edits")
+                break
+            item.update(variants[0]["changes"])
+            item["revision"] += 1
+            item["updated_at"] = variants[0]["timestamp"]
+        if by_revision:
+            item["conflict"] = True
+            warnings.append(object_id + ": missing or out-of-order archive updates")
+        if object_id in duplicates:
+            item["conflict"] = True
+            warnings.append(object_id + ": duplicate archive event ID")
+        items.append(item)
+    items.sort(key=lambda item: (item.get("created_at", ""), item[id_field]), reverse=True)
+    return {"items": items, "warnings": warnings}
+
+
+def append_work_archive_event(data_dir: Path, kind: str, event: dict) -> Path:
+    validate_work_archive_event(event, kind)
+    return _append_json_event(data_dir, event, ARCHIVE_KIND_META[kind][2])
+
+
+def read_work_inbox(data_dir: Path, records: list[dict] | None = None) -> dict:
+    result = read_work_archive_events(data_dir, "inbox")
+    if records is None:
+        records = read_work_records(data_dir)["records"]
+    links: dict[str, list[dict]] = defaultdict(list)
+    for record in records:
+        if record.get("source_inbox_id"):
+            links[record["source_inbox_id"]].append(record)
+    for item in result["items"]:
+        attached = links.get(item["inbox_id"], [])
+        if attached:
+            item["processed_record_id"] = attached[0]["record_id"] if len(attached) == 1 else None
+            if len(attached) != 1 or attached[0].get("conflict"):
+                item["conflict"] = True
+                result["warnings"].append(item["inbox_id"] + ": duplicate or conflicted source links")
+    return result
+
+
+def work_review_period(period: str, day: str) -> tuple[str, str]:
+    if period not in {"daily", "weekly", "monthly"}:
+        raise ValueError("invalid work review period")
+    _archive_day(day)
+    start = date.fromisoformat(day)
+    if period == "daily":
+        end = start
+    elif period == "weekly":
+        start -= timedelta(days=start.weekday())
+        end = start + timedelta(days=6)
+    else:
+        end = start.replace(day=calendar.monthrange(start.year, start.month)[1])
+        start = start.replace(day=1)
+    return start.isoformat(), end.isoformat()
+
+
+def preview_work_review(data_dir: Path, workspace: dict, period: str,
+                        day: str, project_id: str | None = None) -> dict:
+    """Source-linked deterministic review. No AI calls, no implicit data writes."""
+    start, end = work_review_period(period, day)
+    if project_id is not None:
+        if not PROJECT_ID.fullmatch(project_id):
+            raise ValueError("invalid summary project")
+        project = next((p for p in workspace["projects"]
+                        if p["project_id"] == project_id and not p.get("conflict")), None)
+        if project is None:
+            raise LookupError("summary project not synchronized")
+    else:
+        project = None
+    state = read_work_records(data_dir)
+    if state["warnings"]:
+        raise LookupError("work record source has unresolved warnings; check before summarizing")
+    records = sorted((r for r in state["records"] if not r.get("conflict")
+                      and start <= r["occurred_on"] <= end
+                      and (project_id is None or r.get("project_id") == project_id)),
+                     key=lambda item: (item["occurred_on"], item["record_id"]))
+    completed = []
+    for event in read_task_completion_activity(data_dir, workspace):
+        # Completion timestamps are UTC for a deterministic cloud-safe summary.
+        stamp = datetime.fromisoformat(event["occurred_at"].replace("Z", "+00:00"))
+        completion_day = stamp.astimezone(timezone.utc).date().isoformat()
+        if start <= completion_day <= end and (project_id is None or event.get("project_id") == project_id):
+            completed.append(event)
+    if len(records) > 250 or len(completed) > 250:
+        raise ValueError("too many work sources in this period; narrow project or date")
+    duration = sum(r.get("duration_minutes") or 0 for r in records)
+    heading = {"daily": "日报", "weekly": "周报", "monthly": "月报"}[period]
+    lines = ["# " + heading + "（来源整理底稿，非 AI 自动分析）",
+             "期间：" + start + " 至 " + end,
+             "项目：" + (project["name"] if project else "全部项目"),
+             "工作记录：" + str(len(records)) + " 条；任务人工完成：" +
+             str(len(completed)) + " 次；已填耗时：" + str(duration) + " 分钟",
+             "",
+             "## 已发生工作"]
+    for record in records:
+        lines.append("- [" + record["occurred_on"] + "] " +
+                     record["content"].replace("\n", " ").strip())
+        if record.get("outcome"):
+            lines.append("  成果：" + record["outcome"].replace("\n", " ").strip())
+    if not records:
+        lines.append("- 无工作记录")
+    lines.append("")
+    lines.append("## 已确认完成的任务")
+    for event in completed:
+        lines.append("- [" + event["occurred_at"][:10] + " UTC] " + event["task_title"])
+    if not completed:
+        lines.append("- 无已确认完成事件")
+    lines.extend(["", "## 本期复盘与后续行动（请本人或 ChatGPT 核实后填写）", ""])
+    body = "\n".join(lines)
+    if len(body) > 12000:
+        raise ValueError("review source text exceeds 12000 characters; narrow scope")
+    return {"period": period, "period_start": start, "period_end": end,
+            "project_id": project_id, "body": body,
+            "source_record_ids": [r["record_id"] for r in records],
+            "source_completion_ids": [e["source_event_id"] for e in completed],
+            "record_count": len(records), "completion_count": len(completed),
+            "duration_minutes": duration}
+
+
 def validate_setting_event(value: object) -> dict:
     """Validate the shared retention settings event schema for review discovery."""
     if (not isinstance(value, dict) or value.get("version") != 1 or
