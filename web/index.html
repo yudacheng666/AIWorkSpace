@@ -4002,7 +4002,8 @@
         row.append(header);
         if (entry.kind === "record") {
           const record = entry.record;
-          row.dataset.recordId = record.record_id;
+          if (row.dataset) row.dataset.recordId = record.record_id;
+          else row.recordId = record.record_id;
           if (record.conflict) row.className += " work-entry-conflict";
           row.append(element("p", "work-entry-content", record.content));
           if (record.outcome) row.append(element("p", "work-entry-outcome", "成果：" + record.outcome));
