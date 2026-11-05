@@ -4201,14 +4201,19 @@
         kind: "record", day: record.occurred_on, timestamp: record.created_at,
         sourceId: record.record_id, projectId: record.project_id, record,
         search: [record.content, record.outcome, record.project_name, record.task_title,
-                 record.display_id].join(" ").toLocaleLowerCase()
+                 record.display_id, ...(record.action_link_labels || []).map(link => link.label)]
+                 .join(" ").toLocaleLowerCase()
       })).concat(workTaskCompletions.map(item => ({
         kind: "completion", day: localActivityDay(item.occurred_at),
         timestamp: item.occurred_at, sourceId: item.source_event_id,
         projectId: item.project_id, item,
         search: [item.task_title, item.task_id].join(" ").toLocaleLowerCase()
       }))).filter(item => (!from || item.day >= from) && (!to || item.day <= to)
-        && (!project || item.projectId === project) && (!keyword || item.search.includes(keyword)));
+        && (!project || item.projectId === project) && (!keyword || item.search.includes(keyword))
+        && (!workFocusedTaskId || (item.kind === "completion" ? item.item.task_id === workFocusedTaskId
+          : item.record.task_id === workFocusedTaskId ||
+            (item.record.action_links || []).some(link =>
+              (link.target_type === "task" ? link.target_id : link.task_id) === workFocusedTaskId))));
       entries.sort((a, b) => (b.day || "").localeCompare(a.day || "")
         || (b.timestamp || "").localeCompare(a.timestamp || "")
         || a.sourceId.localeCompare(b.sourceId));
@@ -4242,8 +4247,23 @@
           if (record.task_id) meta.append(element("span", "",
             "任务：" + (record.task_title || "关联任务尚未同步")));
           if (record.duration_minutes) meta.append(element("span", "", "耗时：" + record.duration_minutes + " 分钟"));
+          if (record.featured) meta.append(element("span", "", "已收录成果库"));
+          for (const link of record.action_link_labels || []) {
+            meta.append(element("span", "", (workLinkRelationLabels[link.relation] || "关联") + "：" + link.label));
+          }
           meta.append(element("span", "", "录入：" + localActivityDay(record.created_at)));
           row.append(meta);
+          if (record.evidence_links?.length) {
+            const docs = element("div", "work-archive-tags");
+            for (const doc of record.evidence_links) {
+              const anchor = element("a", "work-archive-tag", "证据：" + doc.title);
+              anchor.href = doc.url;
+              anchor.target = "_blank";
+              anchor.rel = "noopener noreferrer";
+              docs.append(anchor);
+            }
+            row.append(docs);
+          }
           const footer = element("div", "work-entry-footer");
           const edit = element("button", "", record.conflict ? "存在冲突，暂不可编辑" : "编辑记录");
           edit.type = "button";
@@ -4277,6 +4297,7 @@
         workRecords = state.records || [];
         workTaskCompletions = state.task_completions || [];
         renderWorkRecords();
+        renderWorkOutcomes();
         if (state.warnings?.length) {
           $("work-record-count").textContent += " · " + state.warnings.length + " 条数据提醒";
         }
