@@ -440,13 +440,16 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         # the link must succeed without losing or overwriting the task.
         title_editor.fill(original_title)
         document.get_by_role("button", name="添加链接").click()
-        # Saving can preserve the open panel or re-render it closed; do not
-        # accidentally close an already-open accordion in this older UI test.
+        # First wait for the asynchronous save+refresh to render the *new*
+        # document count; otherwise opening the old panel can be undone
+        # by the subsequent refresh and look like a missing link.
+        toggle = page.locator("#task-detail-content .step-row .doc-panel-toggle")
+        expect(toggle).to_have_text("关联文档（1）")
         doc_body = page.locator("#task-detail-content .step-row .doc-panel-content")
         if not doc_body.is_visible():
-            page.locator("#task-detail-content .step-row .doc-panel-toggle").click()
+            toggle.click()
         link = page.locator("#task-detail-content .doc-row a").first
-        link.wait_for(state="visible")
+        expect(link).to_be_visible()
         self.assertEqual(link.inner_text(), "虚构云端计划")
         self.assertEqual(
             link.get_attribute("href"),
