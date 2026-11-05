@@ -12,6 +12,7 @@ import re
 import sys
 import tempfile
 import threading
+import time
 from datetime import date, timedelta
 import unittest
 from http.server import ThreadingHTTPServer
@@ -700,9 +701,18 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         dates.nth(1).fill(due)
         dates.nth(2).fill(follow_up)
         step_row.get_by_role("button", name="保存步骤").click()
-        expect(page.locator("#step-" + step_id).locator(".step-date-fields input").nth(0)).to_have_value(planned)
-        step = next(item for item in read_workspace(self.data_dir)["tasks"][0]["steps"]
-                    if item["step_id"] == step_id)
+        # The input retains the typed value before the asynchronous save completes.
+        # Poll the real append-only reducer, not the live input, to prove persistence.
+        deadline = time.monotonic() + 10
+        step = None
+        while time.monotonic() < deadline:
+            step = next((item for item in read_workspace(self.data_dir)["tasks"][0]["steps"]
+                         if item["step_id"] == step_id), None)
+            if step and (step["planned_date"], step["due_date"], step["follow_up_date"]) == (
+                    planned, due, follow_up):
+                break
+            time.sleep(0.1)
+        self.assertIsNotNone(step)
         self.assertEqual((step["planned_date"], step["due_date"], step["follow_up_date"]),
                          (planned, due, follow_up))
         stream_hashes = {
