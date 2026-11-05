@@ -1,5 +1,22 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-06：v2.6.0 Draft PR #43 已通过准确 SHA 自动化（待集中体验与授权合并）
+
+- **PR**：[Draft #43](https://github.com/yudacheng666/AIWorkSpace/pull/43)，依赖 #40→#41→#42；仍 **Open/Draft**，不合并、不部署。
+- **产品与测试 SHA**：`f24ba1a00087555c5b1541a9061aebbe7567dc3b`，[GitHub Actions #42125093085](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42125093085) **3/3 SUCCESS**。Ubuntu Python 237 tests（25 预期 SKIP），Windows Python 237 tests（23 预期 SKIP），Node 每平台 107 PASS/0 FAIL，Windows 真实 Chromium 更新回滚 3 PASS、工作台 E2E 20 PASS（含 task→record 人工确认、取消不写入、单事件、旧任务原文件字节保留及晚到编辑冻结转换）。
+- **失败处理**：首次新增 Node 测试的 VM 导出字符串含非法换行，已修；新增转换表单未加入页面导航草稿保护，在测试捕获后已修；上述准确 SHA 全套重测通过。旧失败 SHA 不能代替最终证据，Codex 不重复跑同环境。
+- **仍未验收**：公司 Windows 8770、真实 Google Drive 双电脑断网/重连及版本混用、生产数据迁移和外部自动 AI 分析。正式 main 仍为 2.2.0。用户要求工作记录各阶段完成后一并集中体验，待后续授权再按 #40→#41→#42→#43 顺序审核合并。
+
+## 2026-11-06：2.6.0 误建任务转为事实工作记录（累计候选，尚未合并）
+
+- **开发前检查**：已按 AGENTS.md 读取 README、REQUIREMENTS、PROJECT_STATE、DECISIONS、WORK_RECORDS_DESIGN 并核对当前 main SHA \`4bff94987a9cf45df2a3fd3acafdefb79bdedefd\`、正式 VERSION 2.2.0、现有 Draft PR #40（2.3）→ #41（2.4）→ #42（2.5）与精确 Actions 证据；三项尚未合并，用户要求全部阶段完工再集中体验。
+- **基线与开发分支**：基于 #42 HEAD \`6fd208ba26ada7ce5b25b4adeabf9f632810865d\`，新建 \`feat/20261106-work-task-to-record\`；统一候选 VERSION=2.6.0，保留 #40→#41→#42→本 PR 的依赖，**绝不能脱离前三项直接发布到 main**。
+- **本阶段代码**：任务到记录转换为一份不可覆盖的 \`work_archive/task_record_events/\` 事件；task 原有事件字节不变，靠 source revision/指纹与目标约束在只读投影中隐藏旧任务、显示新 RECORD，并保留原任务 ID。晚到源任务修改、相同来源多转换、记录 ID 冲突或坏文件时拒绝激活并显示核查告警，原任务可见。界面加转换入口/明确二次确认/发生日期/事实成果/耗时，保留草稿与 409，遵循本机 Host/Origin 限制。
+- **代码与测试文件**：app.py、web/index.html、tests/test_task_record_conversion.py；设计/需求/决策/README 更新。既有 #42 Actions \`#42022478232\` 在产品 SHA \`7cb663881bc6c9b67f193cb0548ae0700831baba\` 3/3 SUCCESS，但**不等于 2.6 新代码已验收**。
+- **测试状态**：以本 PR 准确 SHA 的 Actions 为准；新的 Python 合同/HTTP/故障及源事件不可变测试将进入标准 Ubuntu/Windows、Node 与 Windows Chromium CI。未取得 CI 结果前状态 **NOT TESTED**，不得沿用 #42 的 PASS。
+- **未触碰真实用户资料**：未操作公司 Windows 8770，没有更改真实 Google Drive 数据，未合并主分支，未使用 Work/付费 API。真正双电脑 Drive 离线-重连、版本混用与断电数据同步 **NOT TESTED**。
+- **后续方向**：本阶段精确 SHA CI、缺陷定向修复并回写结论；另行规划 ChatGPT 主动分析日报/周报与可追溯职业成果报告，而不在无模型 API 的本机页面假装自动分析。待所有阶段完成，再按用户安排集中体验并审批依赖 PR 合并。
+
 ## 2026-11-05：2.5.0 工作记录衍生待办审核候选 CI PASS（Draft PR #42）
 
 - 用户指示继续下一阶段文档、代码、测试，不在各子阶段反复人工体验。按 AGENTS.md 审计 main=2.2.0 / SHA 4bff94987a9cf45df2a3fd3acafdefb79bdedefd；PR #40、#41 均 Draft 未合并。此分支 feat/20261105-work-action-review 从 PR #41 精确 HEAD 3ee098df8798a0209b14a9338b2e237ea9b32b1c 派生。

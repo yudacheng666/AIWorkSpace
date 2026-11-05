@@ -59,7 +59,8 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
           "new-task-priority", "task-sort", "task-date-field", "calendar-granularity", "project-sort",
           "work-record-project", "work-record-task", "work-filter-project",
           "work-inbox-project", "work-summary-period", "work-summary-project",
-          "work-link-target", "work-link-relation", "work-action-source"]);
+          "work-link-target", "work-link-relation", "work-action-source",
+          "work-task-convert-source"]);
         elements.set(id, node(selects.has(id) ? "select" : "div"));
       }
       return elements.get(id);
@@ -98,7 +99,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes,
@@ -1592,4 +1593,50 @@ test("invalid JSON does not submit a proposal; unsaved analysis is protected on 
   assert.equal(h.writes.length,0);
   assert.equal(h.api.setActivePage("tasks","all"),false);
   assert.equal(h.el("work-action-json").value,"{bad json}");
+});
+
+
+test("task-to-record UI only proposes standalone tasks and preserves source fields on confirmation", async () => {
+  const parent={...sampleTask(),task_id:"TASK-HAS-STEP",steps:[{step_id:"STEP-SIMULATED"}]};
+  const recurrent={...sampleTask(),task_id:"TASK-RECUR",recurrence:{enabled:true}};
+  const eligible={...sampleTask(),task_id:"TASK-SAFE-FINISHED-FACT",title:"误建的虚构沟通",steps:[]};
+  const h=harness([parent,recurrent,eligible],()=>true,[],[],(path,body)=>{
+    assert.equal(path,"/api/work-archive/tasks/"+eligible.task_id+"/convert-to-record");
+    return {ok:true,json:async()=>({saved:true,display_id:"R-261106-TEST"})};
+  });
+  await h.api.refresh(true);
+  const options=h.el("work-task-convert-source").children;
+  assert.equal(options.length,2, "only the blank choice and standalone task can convert");
+  assert.equal(options[1].value, eligible.task_id);
+  h.el("work-task-convert-source").value=eligible.task_id;
+  h.el("work-task-convert-date").value="2026-11-02";
+  h.el("work-task-convert-content").value="会议已召开";
+  h.el("work-task-convert-outcome").value="达成结果";
+  h.el("work-task-convert-minutes").value="30";
+  const submit=h.el("work-task-convert-form").handlers.get("submit")[0];
+  await submit({preventDefault() {}});
+  const saved=h.writes.find(x=>x.path.includes("convert-to-record"));
+  assert.ok(saved);
+  assert.equal(saved.body.revision,1);
+  assert.equal(saved.body.confirmed_move,true);
+  assert.equal(saved.body.content,"会议已召开");
+  assert.equal(saved.body.duration_minutes,30);
+  assert.equal(saved.body.occurred_on,"2026-11-02");
+  assert.equal(Object.hasOwn(saved.body,"status"),false);
+  assert.match(h.el("work-task-convert-message").textContent,/转换成功/);
+});
+
+test("cancelled task-to-record conversion does not POST and leaves the unsaved draft untouched", async () => {
+  const eligible={...sampleTask(),task_id:"TASK-UNSAVED-FACT"};
+  const h=harness([eligible],()=>false);
+  await h.api.refresh(true);
+  h.api.setActivePage("worklog");
+  h.el("work-task-convert-source").value=eligible.task_id;
+  h.el("work-task-convert-content").value="已有的工作事实";
+  h.el("work-task-convert-date").value="2026-11-04";
+  h.el("work-task-convert-form").handlers.get("input")[0]();
+  assert.equal(h.api.setActivePage("tasks","all"),false, "unsaved form prevents navigation");
+  await h.el("work-task-convert-form").handlers.get("submit")[0]({preventDefault() {}});
+  assert.equal(h.writes.length,0);
+  assert.equal(h.el("work-task-convert-content").value,"已有的工作事实");
 });
