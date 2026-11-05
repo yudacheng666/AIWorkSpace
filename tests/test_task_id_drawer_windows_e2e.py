@@ -11,6 +11,7 @@ import os
 import sys
 import tempfile
 import threading
+from datetime import date, timedelta
 import unittest
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -22,7 +23,7 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from app import append_event, handler_factory, read_workspace  # noqa: E402
+from app import append_event, append_step_event, handler_factory, read_workspace  # noqa: E402
 
 
 @unittest.skipUnless(
@@ -669,6 +670,98 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertTrue(page.locator("#task-detail-drawer").evaluate("(e) => e.hidden"))
         self.assertEqual(self._file_hashes(), self.before)
 
+
+
+
+    def test_step_dates_calendar_gantt_and_bidirectional_conversion_in_real_chromium(self):
+        today = date.today()
+        planned = (today + timedelta(days=1)).isoformat()
+        follow_up = (today + timedelta(days=2)).isoformat()
+        due = (today + timedelta(days=3)).isoformat()
+        step_id = "STEP-" + "C" * 32
+        append_step_event(self.data_dir, {
+            "version": 1, "event_id": "step-dates-conversion-create",
+            "task_id": self.task_id, "step_id": step_id, "action": "create",
+            "actor": "user", "timestamp": "2026-11-05T09:00:00Z",
+            "base_revision": 0,
+            "changes": {"title": "虚构采购步骤：整理报价", "position": 1,
+                        "planned_date": planned, "due_date": due,
+                        "follow_up_date": follow_up},
+        })
+        original_streams = self._file_hashes()
+        page = self._open_browser(open_detail=True)
+        step_row = page.locator("#step-" + step_id)
+        dates = step_row.locator(".step-date-fields input[type=date]")
+        expect(dates).to_have_count(3)
+        dates.nth(0).fill(planned)
+        dates.nth(1).fill(due)
+        dates.nth(2).fill(follow_up)
+        step_row.get_by_role("button", name="保存步骤").click()
+        expect(page.locator("#step-" + step_id).locator(".step-date-fields input").nth(0)).to_have_value(planned)
+        step = next(item for item in read_workspace(self.data_dir)["tasks"][0]["steps"]
+                    if item["step_id"] == step_id)
+        self.assertEqual((step["planned_date"], step["due_date"], step["follow_up_date"]),
+                         (planned, due, follow_up))
+        stream_hashes = {
+            path.relative_to(self.data_dir).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+            for folder in ("events", "step_events") for path in (self.data_dir / folder).glob("*.json")
+        }
+
+        page.locator("#nav-calendar").click()
+        expect(page.locator(".calendar-grid")).to_be_visible()
+        expect(page.locator(".calendar-grid .calendar-step").filter(
+            has_text="虚构采购步骤：整理报价")).to_have_count(1)
+        page.locator("#nav-gantt").click()
+        expect(page.locator(".gantt-step-row").filter(
+            has_text="虚构采购步骤：整理报价")).to_have_count(1)
+
+        page.locator("#nav-tasks").click()
+        page.locator(".task-summary").filter(
+            has_text="虚构任务：验证短编号及抽屉").locator(".task-summary-title").click()
+        expect(page.locator("#step-" + step_id)).to_be_visible()
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator("#step-" + step_id).get_by_role("button", name="转为任务").click()
+        parent_state = {item["task_id"]: item for item in read_workspace(self.data_dir)["tasks"]}
+        parent = parent_state[self.task_id]
+        self.assertEqual(parent["steps"], [])
+        child = next(item for item in parent_state.values() if item.get("parent_task_id") == self.task_id)
+        self.assertEqual((child["title"], child["planned_date"], child["due_date"],
+                          child["follow_up_date"]), (
+            "虚构采购步骤：整理报价", planned, due, follow_up))
+        self.assertEqual(len(list((self.data_dir / "conversion_events").glob("*.json"))), 1)
+
+        child_button = page.locator("#task-detail-content .child-tasks-panel").get_by_role(
+            "button", name=re.compile("虚构采购步骤：整理报价"))
+        child_button.click()
+        expect(page.locator("#task-detail-title")).to_have_text("虚构采购步骤：整理报价")
+        selector = page.locator(".task-conversion-panel select")
+        selector.select_option(self.task_id)
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.get_by_role("button", name="转为该任务的步骤").click()
+
+        final = {item["task_id"]: item for item in read_workspace(self.data_dir)["tasks"]}
+        parent = final[self.task_id]
+        self.assertEqual(len(parent["steps"]), 1)
+        moved_step = parent["steps"][0]
+        self.assertNotEqual(moved_step["step_id"], step_id)
+        self.assertEqual((moved_step["title"], moved_step["planned_date"],
+                          moved_step["due_date"], moved_step["follow_up_date"]),
+                         ("虚构采购步骤：整理报价", planned, due, follow_up))
+        self.assertFalse(any(item.get("parent_task_id") == self.task_id for item in final.values()))
+        self.assertEqual(len(list((self.data_dir / "conversion_events").glob("*.json"))), 2)
+        after_streams = {
+            path.relative_to(self.data_dir).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+            for folder in ("events", "step_events") for path in (self.data_dir / folder).glob("*.json")
+        }
+        self.assertEqual(after_streams, stream_hashes,
+                         "conversion transactions must not rewrite either original event stream")
+
+        page.locator("#nav-calendar").click()
+        expect(page.locator(".calendar-grid .calendar-step").filter(
+            has_text="虚构采购步骤：整理报价")).to_have_count(1)
+        page.locator("#nav-gantt").click()
+        expect(page.locator(".gantt-step-row").filter(
+            has_text="虚构采购步骤：整理报价")).to_have_count(1)
 
     def test_notification_inbox_is_read_only_and_displays_stable_message_id(self):
         source = self.data_dir / "events" / "evt_invalid_lifecycle_notification.json"
