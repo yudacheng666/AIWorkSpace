@@ -114,7 +114,7 @@ work_archive 原有 record_events 外新增 inbox_events、summary_events。所�
 - POST /api/work-archive/actions/link：明确确认将已有任务作为源工作记录的 derived_action 关联，原记录 revision/目标项目/冲突检测后只追加一条 RECORD update(action_links) 事件，不改已有任务状态。重复关联无新写入。
 - GET /api/work-records 在只读投影中追加来源任务反向标签，任务原始数据流不复制回 RECORD，避免两个表同一关系被重复写入。
 
-所有 API 继续只接受本机安全 Host/Origin，错误状态 400/403/404/409，不删除、覆盖、猜测或擅自重试异常事件。项目与日期不明确不从 ChatGPT 语义自动补造，未核对数据保留草稿；真实多电脑未测试。
+所有 API 继续只接受本机安全 Host/Origin，错误状态 400/403/404/409，不删除、覆盖、猜测或擅自重试异常事件。项目与日期不明确不从 ChatGPT 语义自动补造，未核对数据保留草稿；真实多电脑未测试。对同一来源/原始任务标题，服务端检查不可变的 task create 事件，即使衍生任务后来改名也不能通过重放旧建议创建第二条。
 
 ### 8.3 延后项目
 
@@ -122,4 +122,4 @@ work_archive 原有 record_events 外新增 inbox_events、summary_events。所�
 
 ### 8.4 阶段 2.5 自动化证据
 
-准确产品/测试 SHA `1502c02dbb8fc2d742698e369bb72ff83378bcca` 的 [GitHub Actions #42021765613](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42021765613) 3/3 SUCCESS，Ubuntu/Windows Python 222 项（含设计性 SKIP）、Node 每端 105 PASS、Windows Chromium 更新/回滚 3 PASS 和 UI E2E 19 PASS。所有测试使用虚构临时目录，包含取消确认、人工审核与同名重复阻断、source_work_record 单事件、原始任务/工作记录不覆盖；没有替用户验证公司 Windows 8770、跨电脑 Drive 离线同步或真实 ChatGPT 自动化写回。
+准确产品/测试 SHA `7cb663881bc6c9b67f193cb0548ae0700831baba` 的 [GitHub Actions #42022478232](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42022478232) 3/3 SUCCESS，Ubuntu/Windows Python 223 项（含设计性 SKIP）、Node 每端 105 PASS、Windows Chromium 更新/回滚 3 PASS 和 UI E2E 19 PASS。所有测试使用虚构临时目录，包含取消确认、人工审核与同名重复阻断、source_work_record 单事件、原始任务/工作记录不覆盖；没有替用户验证公司 Windows 8770、跨电脑 Drive 离线同步或真实 ChatGPT 自动化写回。
