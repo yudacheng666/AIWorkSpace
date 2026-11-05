@@ -172,3 +172,6 @@
 
 | D-20261105-WR-04（个人工作档案完整组合） | 在工作记录 PR #40 上新增原文 INBOX 事件、工作记录的 source_inbox_id 幂等关联、多任务/步骤引用、精选成果与 Google Docs 证据引用。收件箱不采用“创建记录+写处理状态”的跨文件双写，来源处理情况从合法记录反向派生。步骤转换或同步缺失不推断重绑；任务人工完成仍只读投影。 | 用户希望全部完成再集中体验，优先数据可追溯、跨设备防重复、无破坏性迁移。 |
 | D-20261105-WR-05（带来源的周期总结） | 日周月报只读生成底稿并标明非 AI；人工核对后以独立 SUMMARY 追加事件保存来源 record/confirmed completion IDs、期间、项目、正文、revision。来源变化导致 409，编辑保留历史。网页不内嵌模型，不引入付费 API，ChatGPT 分析由用户主动请求；成果库仅收录明确精选的记录。 | 避免伪造 AI 推理和工作业绩，并给未来项目复盘与职业档案保留可靠数据基础。 |
+
+
+| D-20261105-WR-06（2.4.0 组合候选 CI 验收） | 产品与测试准确 SHA 2c16b37c02c4b566869ecd9a75ceaf10e73110e8 的 [Actions #42009472610](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42009472610) 为 3/3 SUCCESS：Ubuntu/Windows Python 各 215 tests（23/21 预期跳过），Node 各 101 PASS，Windows Chromium updater 3、工作台 UI E2E 18 PASS，覆盖工作记录来源去重、任务/步骤关联、来源总结、人工核对、证据及原业务事件不变。之前失败因缺省 action_links 的 None 处理和 Chromium textarea 断言错误；修复后在新 SHA 完整复验通过。 | 不沿用失败旧 SHA，也不让 Codex 重复同平台已通过的测试；公司 Windows 8770 和真实 Google Drive 双机离线/重连仍未测。用户要求完整功能后一次集中体验，PR #40/#41 继续 Draft，发布与部署待独立批准。 |
