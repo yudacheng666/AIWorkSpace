@@ -3404,13 +3404,14 @@
         return false;
       }
       if (activePage==="worklog" && page!=="worklog" &&
-          ["work-record-form","work-inbox-form","work-summary-form","work-action-form"].some(id =>
+          ["work-record-form","work-inbox-form","work-summary-form","work-action-form","work-task-convert-form"].some(id =>
             unsavedPersistentEditors.has($(id)))) {
         if (!window.confirm("工作档案存在未保存内容，离开将丢弃草稿。确定继续吗？")) return false;
         resetWorkRecordForm();
         resetWorkInboxForm();
         resetWorkSummary();
         resetWorkActionForm();
+        resetTaskConvertForm();
       }
       activePage = page;
       if (page === "tasks") taskViewMode = taskViewModes.includes(mode) ? mode : "list";
