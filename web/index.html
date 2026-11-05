@@ -2336,8 +2336,8 @@
       const statusClass = task.conflict ? "conflict" : (task.status || "todo");
       const priorityName = priorities[task.priority || "normal"] || "普通";
       const priorityClass = task.priority || "normal";
-      const dueDate = task.due_date || "未设置";
-      const overdue = !!(task.due_date && task.due_date < localDayISO(new Date()) &&
+      const dueDate = taskEffectiveDate(task,"due_date") || "未设置";
+      const overdue = !!(taskEffectiveDate(task,"due_date") && taskEffectiveDate(task,"due_date") < localDayISO(new Date()) &&
                          task.status !== "done" && !task.conflict);
       card.append(
         main,
@@ -2420,6 +2420,14 @@
       return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
     }
 
+    function taskEffectiveDate(task, field) {
+      // For current active cycles, the anchored start is their virtual scheduled day.
+      // Original task date fields and the event history remain untouched.
+      if (task.recurrence_active && (field === "due_date" || field === "planned_date"))
+        return task.recurrence_period_start || "";
+      return task[field] || "";
+    }
+
     function overviewDates(now = new Date()) {
       return {today: localDayISO(now),
               sevenDays: localDayISO(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7))};
@@ -2433,14 +2441,14 @@
       if (view === "all") return true;
       if (view === "risk") {
         return task.conflict || (task.status !== "done" &&
-          (task.status === "blocked" || !!(task.due_date && task.due_date < dates.today)));
+          (task.status === "blocked" || !!(taskEffectiveDate(task,"due_date") && taskEffectiveDate(task,"due_date") < dates.today)));
       }
       if (!isOpenTask(task)) return false;
-      if (view === "due") return !!(task.due_date &&
-        task.due_date >= dates.today && task.due_date <= dates.sevenDays);
+      if (view === "due") return !!(taskEffectiveDate(task,"due_date") &&
+        taskEffectiveDate(task,"due_date") >= dates.today && taskEffectiveDate(task,"due_date") <= dates.sevenDays);
       if (!selfOwner) return false;
       if (view === "mine") return task.owner === selfOwner &&
-        !!(task.planned_date && task.planned_date <= dates.today);
+        !!(taskEffectiveDate(task,"planned_date") && taskEffectiveDate(task,"planned_date") <= dates.today);
       if (view === "followup") return !!task.owner && task.owner !== selfOwner &&
         !!(task.follow_up_date && task.follow_up_date <= dates.today);
       return false;
@@ -2454,7 +2462,7 @@
           ? !!task.owner : task.owner !== query.owner)) return false;
       if (query.status && (query.status === "conflict"
           ? !task.conflict : task.conflict || task.status !== query.status)) return false;
-      const dateValue = task[query.dateField] || "";
+      const dateValue = taskEffectiveDate(task, query.dateField);
       if (query.dateFrom && (!dateValue || dateValue < query.dateFrom)) return false;
       if (query.dateTo && (!dateValue || dateValue > query.dateTo)) return false;
       if (query.keyword) {
@@ -2607,8 +2615,8 @@
       const items = [];
       for (const task of tasks) {
         items.push({kind:"task", task, title:task.title, id:taskDisplayId(task),
-          status:task.status, conflict:task.conflict, due_date:task.due_date,
-          planned_date:task.planned_date, follow_up_date:task.follow_up_date});
+          status:task.status, conflict:task.conflict, due_date:taskEffectiveDate(task,"due_date"),
+          planned_date:taskEffectiveDate(task,"planned_date"), follow_up_date:task.follow_up_date});
         for (const step of task.steps || []) {
           items.push({kind:"step", task, step, title:step.title, id:step.step_id,
             status:step.status, conflict:step.conflict, due_date:step.due_date,
@@ -2804,7 +2812,7 @@
         case "owner": return task.owner || columnBlank;
         case "status": return task.conflict ? "conflict" : (task.status || "todo");
         case "priority": return task.priority || "normal";
-        case "due": return task.due_date || "";
+        case "due": return taskEffectiveDate(task,"due_date");
         default: return "";
       }
     }
@@ -3036,7 +3044,7 @@
         sortWithCompletedLast((a,b) => compareTaskColumns(a,b));
       } else if (sortMode === "due") {
         sortWithCompletedLast((a,b) =>
-          (a.due_date || "9999-99-99").localeCompare(b.due_date || "9999-99-99"));
+          (taskEffectiveDate(a,"due_date") || "9999-99-99").localeCompare(taskEffectiveDate(b,"due_date") || "9999-99-99"));
       } else if (sortMode === "priority") {
         const rank = {urgent: 3, high: 2, normal: 1, low: 0};
         sortWithCompletedLast((a,b) =>
