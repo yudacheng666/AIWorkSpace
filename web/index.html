@@ -657,6 +657,16 @@
       .inbox-message-time { width:100%; margin-left:0; }
       .inbox-message-meta { align-items:flex-start; flex-direction:column; gap:5px; }
     }
+    .recurrence-panel {border:1px solid #dde6ee;border-radius:12px;padding:13px;margin:13px 0;background:#f9fbfd}
+    .recurrence-panel h3 {font-size:14px;margin:0 0 6px;color:#29415e}
+    .recurrence-fields {display:flex;flex-wrap:wrap;align-items:end;gap:10px;margin-top:10px}
+    .recurrence-fields label {display:flex;flex-direction:column;gap:4px;font-size:12px;min-width:120px}
+    .recurrence-fields input,.recurrence-fields select {min-height:34px;border:1px solid #cbd7e3;border-radius:7px;padding:5px 8px;background:white}
+    .recurrence-fields input[type=number] {max-width:90px}
+    .recurrence-controls {display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .recurrence-controls button {min-height:34px}
+    .recurrence-warning {font-size:12px;color:#775622;margin:8px 0 0}
+    .task-recurrence-note {font-size:11px;color:#35678e;display:block;margin-top:3px}
   </style>
 </head>
 <body>
@@ -1728,7 +1738,7 @@
           status.append(option);
         }
       }
-      status.disabled = task.conflict;
+      status.disabled = task.conflict || !!task.recurrence_ended;
       statusLabel.append(status);
       const parentLabel = element("label", "", "上级任务（可选）");
       const parentSelect = element("select");
@@ -1856,7 +1866,7 @@
       if (!children.length) childList.append(element("p", "step-empty",
         "暂无子任务。可在其他任务的详情中指定本任务为上级。"));
       childPanel.append(childList);
-      card.append(top, form, stepPanel(task), childPanel, taskToStepPanel(task));
+      card.append(top, form, recurrencePanel(task), stepPanel(task), childPanel, taskToStepPanel(task));
       if (Array.isArray(task.document_links) && task.document_links.length) {
         card.append(legacyDocumentPanel(task));
       }
@@ -2011,6 +2021,115 @@
       return panel;
     }
 
+    function recurrencePanel(task) {
+      const panel = element("section", "recurrence-panel");
+      panel.append(element("h3", "", "周期性任务"));
+      const rule = task.recurrence || null;
+      const names = {daily:"天", weekly:"周", monthly:"月", yearly:"年"};
+      const details = !rule ? "尚未设置重复周期；设置后只保留一个任务编号。"
+        : task.recurrence_ended ? "已彻底结束循环；历史周期完成记录保留。"
+        : task.recurrence_period_start
+          ? "本周期：" + task.recurrence_period_start + " 至 " + task.recurrence_period_end +
+            " · " + (task.status === "done" ? "本周期已完成" : "本周期未完成")
+          : "周期尚未开始（" + rule.start_date + " 起）。";
+      panel.append(element("p", "overview-note", details));
+      const hasDependents = !!((task.steps || []).length || (task.all_child_task_ids || []).length ||
+        task.step_order_conflict || task.step_order_incomplete || task.status_rollup_incomplete);
+      const locked = !!(task.conflict || hasDependents || task.parent_missing || task.parent_cycle);
+      const form = element("form", "recurrence-fields");
+      const unitLabel = element("label", "", "重复单位");
+      const unit = element("select");
+      for (const [value, title] of Object.entries({daily:"每天", weekly:"每周", monthly:"每月", yearly:"每年"})) {
+        const option = element("option", "", title);
+        option.value = value;
+        option.selected = (rule?.unit || "weekly") === value;
+        unit.append(option);
+      }
+      unitLabel.append(unit);
+      const intervalLabel = element("label", "", "每隔几个周期");
+      const interval = element("input");
+      interval.type = "number"; interval.min = "1"; interval.max = "99"; interval.step = "1";
+      interval.value = String(rule?.interval || 1);
+      intervalLabel.append(interval);
+      const startLabel = element("label", "", "首次开始日期");
+      const start = element("input");
+      start.type = "date"; start.required = true;
+      start.value = rule?.start_date || localDayISO(new Date());
+      startLabel.append(start);
+      const save = element("button", "save", rule ? "保存周期规则" : "启用周期任务");
+      save.type = "submit"; save.disabled = locked;
+      form.append(unitLabel, intervalLabel, startLabel, save);
+      panel.append(form);
+      const feedback = element("p", "message");
+      const snapshot = () => [unit.value, interval.value, start.value];
+      const watcher = watchUnsavedEditor(form, snapshot);
+      form.addEventListener("submit", async event => {
+        event.preventDefault();
+        if (isSaving || locked) return;
+        const count = Number(interval.value);
+        if (!Number.isInteger(count) || count < 1 || count > 99 || !start.value) {
+          feedback.textContent = "请输入 1～99 的间隔及有效起始日期。"; return;
+        }
+        if ([...unsavedTaskEditors].some(other => other !== form) ||
+            unsavedPersistentEditors.size || unsavedProjectEditors.size) {
+          feedback.textContent = "请先保存其他未完成的编辑草稿。"; return;
+        }
+        const next = {unit:unit.value, interval:count, start_date:start.value, enabled:true};
+        if (rule && JSON.stringify(rule) === JSON.stringify(next)) {
+          feedback.textContent = "周期规则没有变化。"; return;
+        }
+        if (!window.confirm("确认保存周期规则？本周期进度将重新从待处理开始；原事件历史不会删除。")) return;
+        const submitted = snapshot();
+        isSaving = true; save.disabled = true; feedback.textContent = "正在保存…";
+        try {
+          const response = await fetch("/api/tasks/" + encodeURIComponent(task.task_id) + "/recurrence", {
+            method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({action:"configure",revision:task.revision,recurrence:next})
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "周期规则保存失败");
+          watcher.markClean(submitted);
+          if (JSON.stringify(snapshot()) === JSON.stringify(submitted)) {
+            await refresh(true);
+          } else {
+            feedback.textContent = "规则已保存；输入期间产生的新草稿仍未保存，请核对后刷新。";
+          }
+        } catch (error) {
+          feedback.textContent = "保存失败：" + error.message + "。请刷新确认版本。";
+        } finally {isSaving = false; save.disabled = locked;}
+      });
+      if (rule) {
+        const actions = element("div", "recurrence-controls");
+        const toggle = element("button", "", rule.enabled ? "彻底结束循环" : "恢复循环");
+        toggle.type = "button"; toggle.disabled = locked;
+        toggle.addEventListener("click", async () => {
+          if (isSaving || locked || !confirmDiscardUnsaved()) return;
+          const action = rule.enabled ? "end" : "resume";
+          if (!window.confirm(rule.enabled
+            ? "确定彻底结束此周期任务？未来不再自动回到待办，仍可在此恢复循环。"
+            : "确定恢复周期循环？将重新启用原规则，并从当前周期待办开始。")) return;
+          isSaving = true; toggle.disabled = true; feedback.textContent = "正在保存…";
+          try {
+            const response = await fetch("/api/tasks/" + encodeURIComponent(task.task_id) + "/recurrence", {
+              method:"POST",headers:{"Content-Type":"application/json"},
+              body:JSON.stringify({action,revision:task.revision,confirmed:true})
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "操作失败");
+            await refresh(true);
+          } catch (error) {
+            feedback.textContent = "操作失败：" + error.message + "。请刷新后核查。";
+          } finally {isSaving = false; toggle.disabled = locked;}
+        });
+        actions.append(toggle);
+        panel.append(actions);
+      }
+      if (locked) panel.append(element("p", "recurrence-warning",
+        "周期任务目前仅支持无步骤、无子任务且没有同步冲突的任务；请先处理下级事项。"));
+      panel.append(feedback);
+      return panel;
+    }
+
     function lifecyclePanel(task) {
       const panel = element("div", "task-lifecycle-controls");
       const remove = element("button", "", "删除任务");
@@ -2069,6 +2188,7 @@
         ["steps", "children", "steps_and_children"].includes(task.status_source));
     }
     function taskQuickStatusOptions(task) {
+      if (task.recurrence_ended) return [];
       if (!taskHasProgressDependents(task)) return Object.entries(labels);
       return (task.manual_status ?? task.status) === "done"
         ? [["todo", "重新打开（恢复自动联动）"]]
@@ -2083,7 +2203,7 @@
         quickFieldFeedback(feedback, "有尚未保存的草稿，请先保存或取消草稿后重试。", true);
         return false;
       }
-      if (field === "status" && (task.status_rollup_incomplete ||
+      if (field === "status" && (task.recurrence_ended || task.status_rollup_incomplete ||
           task.step_order_incomplete || task.step_order_conflict || task.parent_missing ||
           task.parent_cycle)) {
         quickFieldFeedback(feedback, "下级状态或同步信息不完整，请先打开任务详情核查。", true);
@@ -2129,7 +2249,7 @@
       const isStatus = field === "status";
       const choices = isStatus ? labels : priorities;
       const value = isStatus ? task.status : (task.priority || "normal");
-      const unsafeStatus = isStatus && (task.status_rollup_incomplete ||
+      const unsafeStatus = isStatus && (task.recurrence_ended || task.status_rollup_incomplete ||
         task.step_order_incomplete || task.step_order_conflict || task.parent_missing ||
         task.parent_cycle);
       const disabled = !!(task.conflict || unsafeStatus);
@@ -2203,14 +2323,21 @@
       copyFeedback.ariaLive = "polite";
       id.addEventListener("click", () => copyTaskSummaryId(task, copyFeedback));
       main.append(title, id, copyFeedback);
+      if (task.recurrence) {
+        const recurrenceText = task.recurrence_ended ? "周期已彻底结束（可恢复）"
+          : "循环：每 " + task.recurrence.interval +
+            ({daily:"天",weekly:"周",monthly:"月",yearly:"年"}[task.recurrence.unit] || "") +
+            " · " + (task.recurrence_period_start || "尚未开始");
+        main.append(element("small", "task-recurrence-note", recurrenceText));
+      }
       const projectName = task.project_name || (task.project_id ? "项目未同步／需核查" : "未归类／收件箱");
       const ownerName = task.owner || "未指派";
       const statusName = task.conflict ? "需要人工核查" : (labels[task.status] || "未知状态");
       const statusClass = task.conflict ? "conflict" : (task.status || "todo");
       const priorityName = priorities[task.priority || "normal"] || "普通";
       const priorityClass = task.priority || "normal";
-      const dueDate = task.due_date || "未设置";
-      const overdue = !!(task.due_date && task.due_date < localDayISO(new Date()) &&
+      const dueDate = taskEffectiveDate(task,"due_date") || "未设置";
+      const overdue = !!(taskEffectiveDate(task,"due_date") && taskEffectiveDate(task,"due_date") < localDayISO(new Date()) &&
                          task.status !== "done" && !task.conflict);
       card.append(
         main,
@@ -2293,6 +2420,16 @@
       return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
     }
 
+    function taskEffectiveDate(task, field) {
+      // Each cycle occupies its own date window: plan at period start,
+      // due at period end. No original task date or event is overwritten.
+      if (task.recurrence_active && field === "planned_date")
+        return task.recurrence_period_start || "";
+      if (task.recurrence_active && field === "due_date")
+        return task.recurrence_period_end || "";
+      return task[field] || "";
+    }
+
     function overviewDates(now = new Date()) {
       return {today: localDayISO(now),
               sevenDays: localDayISO(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7))};
@@ -2306,14 +2443,14 @@
       if (view === "all") return true;
       if (view === "risk") {
         return task.conflict || (task.status !== "done" &&
-          (task.status === "blocked" || !!(task.due_date && task.due_date < dates.today)));
+          (task.status === "blocked" || !!(taskEffectiveDate(task,"due_date") && taskEffectiveDate(task,"due_date") < dates.today)));
       }
       if (!isOpenTask(task)) return false;
-      if (view === "due") return !!(task.due_date &&
-        task.due_date >= dates.today && task.due_date <= dates.sevenDays);
+      if (view === "due") return !!(taskEffectiveDate(task,"due_date") &&
+        taskEffectiveDate(task,"due_date") >= dates.today && taskEffectiveDate(task,"due_date") <= dates.sevenDays);
       if (!selfOwner) return false;
       if (view === "mine") return task.owner === selfOwner &&
-        !!(task.planned_date && task.planned_date <= dates.today);
+        !!(taskEffectiveDate(task,"planned_date") && taskEffectiveDate(task,"planned_date") <= dates.today);
       if (view === "followup") return !!task.owner && task.owner !== selfOwner &&
         !!(task.follow_up_date && task.follow_up_date <= dates.today);
       return false;
@@ -2327,7 +2464,7 @@
           ? !!task.owner : task.owner !== query.owner)) return false;
       if (query.status && (query.status === "conflict"
           ? !task.conflict : task.conflict || task.status !== query.status)) return false;
-      const dateValue = task[query.dateField] || "";
+      const dateValue = taskEffectiveDate(task, query.dateField);
       if (query.dateFrom && (!dateValue || dateValue < query.dateFrom)) return false;
       if (query.dateTo && (!dateValue || dateValue > query.dateTo)) return false;
       if (query.keyword) {
@@ -2480,8 +2617,8 @@
       const items = [];
       for (const task of tasks) {
         items.push({kind:"task", task, title:task.title, id:taskDisplayId(task),
-          status:task.status, conflict:task.conflict, due_date:task.due_date,
-          planned_date:task.planned_date, follow_up_date:task.follow_up_date});
+          status:task.status, conflict:task.conflict, due_date:taskEffectiveDate(task,"due_date"),
+          planned_date:taskEffectiveDate(task,"planned_date"), follow_up_date:task.follow_up_date});
         for (const step of task.steps || []) {
           items.push({kind:"step", task, step, title:step.title, id:step.step_id,
             status:step.status, conflict:step.conflict, due_date:step.due_date,
@@ -2677,7 +2814,7 @@
         case "owner": return task.owner || columnBlank;
         case "status": return task.conflict ? "conflict" : (task.status || "todo");
         case "priority": return task.priority || "normal";
-        case "due": return task.due_date || "";
+        case "due": return taskEffectiveDate(task,"due_date");
         default: return "";
       }
     }
@@ -2909,7 +3046,7 @@
         sortWithCompletedLast((a,b) => compareTaskColumns(a,b));
       } else if (sortMode === "due") {
         sortWithCompletedLast((a,b) =>
-          (a.due_date || "9999-99-99").localeCompare(b.due_date || "9999-99-99"));
+          (taskEffectiveDate(a,"due_date") || "9999-99-99").localeCompare(taskEffectiveDate(b,"due_date") || "9999-99-99"));
       } else if (sortMode === "priority") {
         const rank = {urgent: 3, high: 2, normal: 1, low: 0};
         sortWithCompletedLast((a,b) =>

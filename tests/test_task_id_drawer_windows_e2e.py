@@ -440,9 +440,16 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         # the link must succeed without losing or overwriting the task.
         title_editor.fill(original_title)
         document.get_by_role("button", name="添加链接").click()
-        page.locator("#task-detail-content .step-row .doc-panel-toggle").click()
+        # First wait for the asynchronous save+refresh to render the *new*
+        # document count; otherwise opening the old panel can be undone
+        # by the subsequent refresh and look like a missing link.
+        toggle = page.locator("#task-detail-content .step-row .doc-panel-toggle")
+        expect(toggle).to_have_text("关联文档（1）")
+        doc_body = page.locator("#task-detail-content .step-row .doc-panel-content")
+        if not doc_body.is_visible():
+            toggle.click()
         link = page.locator("#task-detail-content .doc-row a").first
-        link.wait_for(state="visible")
+        expect(link).to_be_visible()
         self.assertEqual(link.inner_text(), "虚构云端计划")
         self.assertEqual(
             link.get_attribute("href"),
@@ -779,6 +786,60 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.locator("#nav-gantt").click()
         expect(page.locator(".gantt-step-row").filter(
             has_text="虚构采购步骤：整理报价")).to_have_count(1)
+
+    def test_recurring_task_ui_completion_end_and_resume(self):
+        """Real Chromium demonstrates the recurring task user workflow and append-only writes."""
+        initial = self._file_hashes()
+        page = self._open_browser()
+        panel = page.locator(".recurrence-panel")
+        expect(panel).to_contain_text("周期性任务")
+        panel.locator("select").select_option("daily")
+        panel.locator('input[type="number"]').fill("1")
+        panel.locator('input[type="date"]').fill(date.today().isoformat())
+        page.once("dialog", lambda dialog: dialog.accept())
+        panel.get_by_role("button", name="启用周期任务").click()
+        expect(page.locator(".recurrence-panel")).to_contain_text("本周期：")
+        task = next(t for t in read_workspace(self.data_dir)["tasks"] if t["task_id"] == self.task_id)
+        self.assertTrue(task["recurrence_active"])
+        self.assertEqual(task["status"], "todo")
+        self.assertEqual(page.evaluate(
+            "(id) => taskEffectiveDate(current.find(t => t.task_id === id), 'planned_date')",
+            self.task_id), task["recurrence_period_start"])
+        self.assertEqual(page.evaluate(
+            "(id) => taskEffectiveDate(current.find(t => t.task_id === id), 'due_date')",
+            self.task_id), task["recurrence_period_end"])
+
+        form = page.locator("#task-detail-content .task-form")
+        form.locator("select").first.select_option("done")
+        page.once("dialog", lambda dialog: dialog.accept())
+        form.get_by_role("button", name="保存修改").click()
+        expect(page.locator(".recurrence-panel")).to_contain_text("本周期已完成")
+        task = next(t for t in read_workspace(self.data_dir)["tasks"] if t["task_id"] == self.task_id)
+        self.assertEqual(task["status"], "done")
+
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator(".recurrence-panel").get_by_role(
+            "button", name="彻底结束循环").click()
+        expect(page.locator(".recurrence-panel")).to_contain_text("已彻底结束循环")
+        task = next(t for t in read_workspace(self.data_dir)["tasks"] if t["task_id"] == self.task_id)
+        self.assertTrue(task["recurrence_ended"])
+        self.assertEqual(task["status"], "done")
+
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator(".recurrence-panel").get_by_role("button", name="恢复循环").click()
+        expect(page.locator(".recurrence-panel")).to_contain_text("本周期未完成")
+        task = next(t for t in read_workspace(self.data_dir)["tasks"] if t["task_id"] == self.task_id)
+        self.assertTrue(task["recurrence_active"])
+        self.assertEqual(task["status"], "todo")
+        for relative, digest in initial.items():
+            self.assertEqual(self._file_hashes().get(relative), digest,
+                             "existing event files must stay byte-for-byte unchanged")
+        actions = [json.loads(p.read_text("utf-8"))
+                   for p in self.data_dir.glob("events/*.json")]
+        self.assertEqual(len(actions), 5)
+        self.assertTrue(any(event["changes"].get("status") == "done" and
+                            event.get("confirmed_done") for event in actions))
+        self.assertTrue(any(event.get("confirmed_end") for event in actions))
 
     def test_notification_inbox_is_read_only_and_displays_stable_message_id(self):
         source = self.data_dir / "events" / "evt_invalid_lifecycle_notification.json"

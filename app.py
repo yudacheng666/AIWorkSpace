@@ -7,6 +7,7 @@ Google Drive for desktop synchronizes, or omit it for isolated demo data.
 from __future__ import annotations
 
 import argparse
+import calendar
 import hashlib
 import json
 import os
@@ -40,6 +41,7 @@ TASK_DEFAULTS = {"owner": None, "priority": "normal",
 MAX_BODY = 16_384
 MAX_CONVERSION_BODY = 65_536
 MAX_STEPS_PER_TASK = 100
+RECURRENCE_UNITS = {"daily", "weekly", "monthly", "yearly"}
 _write_lock = threading.Lock()
 _update_lock = threading.Lock()
 
@@ -143,6 +145,8 @@ def validate_parent_assignment(tasks: list[dict], task_id: str,
         parent = by_id.get(ancestor)
         if parent is None or parent.get("conflict") or parent.get("trashed_at"):
             raise ValueError("parent task is missing, deleted or conflicted")
+        if parent.get("recurrence") is not None:
+            raise ValueError("recurring tasks cannot have child tasks")
         ancestor = parent.get("parent_task_id")
 
 
@@ -225,6 +229,101 @@ def resolve_task_hierarchy(tasks: list[dict], warnings: list[str]) -> None:
     for task in sorted(tasks, key=lambda t: t["task_id"]):
         visit(task)
 
+def validate_recurrence(value: object) -> dict:
+    """Validate an anchored calendar schedule, including the stopped form."""
+    if not isinstance(value, dict) or set(value) != {"unit", "interval", "start_date", "enabled"}:
+        raise ValueError("recurrence requires unit, interval, start_date and enabled")
+    if value["unit"] not in RECURRENCE_UNITS:
+        raise ValueError("invalid recurrence unit")
+    if type(value["interval"]) is not int or not 1 <= value["interval"] <= 99:
+        raise ValueError("recurrence interval must be between 1 and 99")
+    if type(value["enabled"]) is not bool:
+        raise ValueError("recurrence enabled must be boolean")
+    raw = value["start_date"]
+    if not isinstance(raw, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
+        raise ValueError("invalid recurrence start date")
+    try:
+        date.fromisoformat(raw)
+    except ValueError as exc:
+        raise ValueError("invalid recurrence start calendar date") from exc
+    return dict(value)
+
+
+def recurrence_bounds(rule: dict, day: date | None = None) -> tuple[str, str] | None:
+    """Current cycle bounds; month-end and leap-day anchors clamp predictably."""
+    today = day or date.today()
+    anchor = date.fromisoformat(rule["start_date"])
+    if today < anchor:
+        return None
+    unit, interval = rule["unit"], rule["interval"]
+
+    def start_at(index: int) -> date:
+        if unit in {"daily", "weekly"}:
+            try:
+                return anchor + timedelta(days=index * interval * (7 if unit == "weekly" else 1))
+            except OverflowError:
+                return date.max
+        if unit == "monthly":
+            ordinal = (anchor.year - 1) * 12 + anchor.month - 1 + index * interval
+            if ordinal >= 9999 * 12:
+                return date.max
+            year, month_zero = divmod(ordinal, 12)
+            year, month = year + 1, month_zero + 1
+        else:
+            year, month = anchor.year + index * interval, anchor.month
+            if year > 9999:
+                return date.max
+        return date(year, month, min(anchor.day, calendar.monthrange(year, month)[1]))
+
+    if unit in {"daily", "weekly"}:
+        estimate = (today - anchor).days // (interval * (7 if unit == "weekly" else 1))
+    elif unit == "monthly":
+        estimate = ((today.year - anchor.year) * 12 + today.month - anchor.month) // interval
+    else:
+        estimate = (today.year - anchor.year) // interval
+    index = max(0, estimate)
+    while index and start_at(index) > today:
+        index -= 1
+    while start_at(index + 1) <= today and start_at(index + 1) > start_at(index):
+        index += 1
+    begin, next_begin = start_at(index), start_at(index + 1)
+    finish = next_begin - timedelta(days=1) if next_begin > begin else date.max
+    return begin.isoformat(), finish.isoformat()
+
+
+def project_recurrence(tasks: list[dict], warnings: list[str],
+                       today: date | None = None) -> None:
+    """Read-only current cycle status; historical events never reset or overwrite."""
+    for task in tasks:
+        task["recurrence_period_start"] = None
+        task["recurrence_period_end"] = None
+        task["recurrence_active"] = False
+        task["recurrence_ended"] = False
+        task.setdefault("recurrence", None)
+        task.setdefault("recurrence_status_period", None)
+        rule = task["recurrence"]
+        if rule is None:
+            continue
+        if (task.get("conflict") or task.get("status_rollup_incomplete") or
+                task.get("step_order_conflict") or task.get("step_order_incomplete") or
+                task.get("steps") or task.get("all_child_task_ids")):
+            warnings.append(f'{task["task_id"]}: recurrence depends on unresolved subitems')
+            continue
+        if not rule["enabled"]:
+            task["recurrence_ended"] = True
+            task["status"] = "done"
+            task["status_source"] = "recurrence_ended"
+            continue
+        task["recurrence_active"] = True
+        bounds = recurrence_bounds(rule, today)
+        if bounds:
+            task["recurrence_period_start"], task["recurrence_period_end"] = bounds
+        task["status"] = (task.get("manual_status", task["status"])
+                          if bounds and task.get("recurrence_status_period") == bounds[0]
+                          else "todo")
+        task["status_source"] = "recurrence"
+
+
 def validate_event(value: object) -> dict:
     """Validate both remote ChatGPT files and locally generated events."""
     if not isinstance(value, dict) or value.get("version") != 1:
@@ -264,10 +363,30 @@ def validate_event(value: object) -> dict:
                 raise ValueError("invalid lifecycle timestamp") from exc
         return value
     if set(changes) - {"title", "status", "project_id", "related_project_ids", "parent_task_id",
-                       "document_links", *TASK_MANAGEMENT_FIELDS}:
+                       "document_links", "recurrence", "recurrence_status_period", *TASK_MANAGEMENT_FIELDS}:
         raise ValueError("unknown fields")
     if "document_links" in changes:
         validate_document_links(changes["document_links"])
+    if "recurrence" in changes:
+        if changes["recurrence"] is not None:
+            validate_recurrence(changes["recurrence"])
+        if value["actor"] != "user":
+            raise ValueError("recurrence changes require an explicit user action")
+        if (changes["recurrence"] is not None and
+                changes["recurrence"]["enabled"] is False and
+                value.get("confirmed_end") is not True):
+            raise ValueError("ending recurrence needs explicit confirmation")
+    if "recurrence_status_period" in changes:
+        period = changes["recurrence_status_period"]
+        if period is not None:
+            if not isinstance(period, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", period):
+                raise ValueError("invalid recurrence status period")
+            try:
+                date.fromisoformat(period)
+            except ValueError as exc:
+                raise ValueError("invalid recurrence status period date") from exc
+        if value["actor"] != "user" or "status" not in changes:
+            raise ValueError("recurrence period status requires user status change")
     if "title" in changes and (not isinstance(changes["title"], str)
                                or not 1 <= len(changes["title"].strip()) <= 200):
         raise ValueError("title must be 1–200 characters")
@@ -1408,6 +1527,7 @@ def read_workspace(data_dir: Path, include_trashed: bool = False) -> dict:
             step["position"] = index
         task["status"] = task.get("manual_status", task["status"])
         resolve_step_status(task)
+    project_recurrence(tasks, warnings)
     resolve_task_hierarchy(tasks, warnings)
     warnings.extend(project_state["warnings"])
     if not include_trashed:
@@ -2614,6 +2734,7 @@ def handler_factory(data_dir: Path):
         def do_POST(self):
             path = unquote(urlsplit(self.path).path)
             task_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/update", path)
+            recurrence_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/recurrence", path)
             documents_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/documents", path)
             step_documents_match = re.fullmatch(
                 r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/documents", path)
@@ -2633,7 +2754,7 @@ def handler_factory(data_dir: Path):
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
-            if not (creating_task or creating_project or task_match or project_match or
+            if not (creating_task or creating_project or task_match or recurrence_match or project_match or
                     step_create_match or step_update_match or step_reorder_match or
                     step_documents_match or step_delete_match or step_convert_match or task_convert_match or applying_update or
                     documents_match or lifecycle_match or changing_retention or review_match):
@@ -2724,6 +2845,61 @@ def handler_factory(data_dir: Path):
                         if action != "trash" and not task.get("trashed_at"):
                             return self.json_response(409, {"error": "task must be in trash first"})
                         append_task_lifecycle(data_dir, task, action)
+                    return self.json_response(200, {"saved": True, "action": action})
+
+                if recurrence_match:
+                    action = payload.get("action")
+                    allowed = ({"action", "revision", "recurrence"} if action == "configure"
+                               else {"action", "revision", "confirmed"})
+                    if action not in {"configure", "end", "resume"} or set(payload) != allowed:
+                        raise ValueError("invalid recurring-task operation")
+                    revision = payload["revision"]
+                    if type(revision) is not int or revision < 1:
+                        raise ValueError("invalid revision")
+                    if action != "configure" and payload["confirmed"] is not True:
+                        raise ValueError("ending or resuming recurrence requires confirmation")
+                    new_rule = validate_recurrence(payload["recurrence"]) if action == "configure" else None
+                    if new_rule and not new_rule["enabled"]:
+                        raise ValueError("configure must enable recurrence; use end to stop")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        task = next((t for t in workspace["tasks"]
+                                     if t["task_id"] == recurrence_match.group(1)), None)
+                        if task is None:
+                            return self.json_response(404, {"error": "task not found"})
+                        if (task["conflict"] or task["revision"] != revision or
+                                task.get("status_rollup_incomplete") or task.get("parent_missing") or
+                                task.get("parent_cycle") or task.get("trashed_at")):
+                            return self.json_response(409, {"error": "task changed or needs review; refresh"})
+                        current_rule = task.get("recurrence")
+                        if action == "configure":
+                            if (task.get("steps") or task.get("all_child_task_ids") or
+                                    task.get("step_order_incomplete") or task.get("step_order_conflict")):
+                                return self.json_response(409, {"error": "recurring task must not have steps or child tasks"})
+                            if current_rule == new_rule:
+                                return self.json_response(200, {"saved": False})
+                            changes = {"recurrence": new_rule, "status": "todo",
+                                       "recurrence_status_period": None}
+                        elif action == "end":
+                            if current_rule is None or not current_rule["enabled"]:
+                                return self.json_response(409, {"error": "recurrence already ended or not configured"})
+                            changes = {"recurrence": {**current_rule, "enabled": False}}
+                        else:
+                            if current_rule is None or current_rule["enabled"]:
+                                return self.json_response(409, {"error": "recurrence is not ended"})
+                            if (task.get("steps") or task.get("all_child_task_ids") or
+                                    task.get("step_order_incomplete") or task.get("step_order_conflict")):
+                                return self.json_response(409, {"error": "recurring task must not have steps or child tasks"})
+                            changes = {"recurrence": {**current_rule, "enabled": True},
+                                       "status": "todo", "recurrence_status_period": None}
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "task_id": task["task_id"], "action": "update",
+                                 "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": revision, "changes": changes}
+                        if action == "end":
+                            event["confirmed_end"] = True
+                        validate_event(event)
+                        append_event(data_dir, event)
                     return self.json_response(200, {"saved": True, "action": action})
 
                 if documents_match:
@@ -2891,6 +3067,8 @@ def handler_factory(data_dir: Path):
                             return self.json_response(409, {"error": "only a leaf task without steps or child tasks (including items in the recycle bin) can be converted; move or permanently remove its sub-items first"})
                         if source_task.get("parent_missing") or source_task.get("parent_cycle"):
                             return self.json_response(409, {"error": "source task parent relationship needs review"})
+                        if source_task.get("recurrence") is not None or target_parent.get("recurrence") is not None:
+                            return self.json_response(409, {"error": "recurring tasks cannot be converted into steps or host converted steps"})
                         if (target_parent.get("conflict") or target_parent.get("trashed_at") or
                                 target_parent.get("step_order_conflict") or target_parent.get("step_order_incomplete") or
                                 target_parent.get("status_rollup_incomplete") or
@@ -2946,6 +3124,8 @@ def handler_factory(data_dir: Path):
                             return self.json_response(404, {"error": "task not found"})
                         if task["conflict"]:
                             return self.json_response(409, {"error": "task has an unresolved conflict; refresh"})
+                        if task.get("recurrence") is not None:
+                            return self.json_response(409, {"error": "recurring task cannot have execution steps"})
                         if len(task.get("steps", [])) >= MAX_STEPS_PER_TASK:
                             return self.json_response(409, {"error": "task has reached the 100-step limit"})
                         step_id = f"STEP-{uuid.uuid4().hex.upper()}"
@@ -3173,9 +3353,18 @@ def handler_factory(data_dir: Path):
                         changes = {}
                         if title.strip() != current["title"]:
                             changes["title"] = title.strip()
-                        # Manual status must never be overwritten by the computed rollup on an unrelated edit.
-                        if status is not None and status != current.get("manual_status", current["status"]):
+                        # The previous cycle's manual status must not override today's status.
+                        if status is not None and current.get("recurrence_ended") and status != current["status"]:
+                            return self.json_response(409, {"error": "recurrence has ended; resume the cycle first"})
+                        if (status is not None and current.get("recurrence_active") and
+                                current.get("recurrence_period_start") is None):
+                            return self.json_response(409, {"error": "recurrence start date has not arrived"})
+                        if (status is not None and
+                                (status != current.get("manual_status", current["status"]) or
+                                 (current.get("recurrence_active") and status != current["status"]))):
                             changes["status"] = status
+                            if current.get("recurrence_active"):
+                                changes["recurrence_status_period"] = current["recurrence_period_start"]
                         if "parent_task_id" in payload:
                             parent_id = payload["parent_task_id"]
                             if parent_id != current.get("parent_task_id"):
