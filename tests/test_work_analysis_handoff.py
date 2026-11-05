@@ -105,7 +105,7 @@ class WorkAnalysisContextTests(unittest.TestCase):
         self.assertEqual(result["source_record_ids"], [RECORD])
         self.assertIn(RECORD, result["prompt"])
         self.assertIn("用户标记", result["prompt"])
-        self.assertIn("不得", result["prompt"])
+        self.assertIn("不要编造产出金额", result["prompt"])
         self.assertIn("drive.google.com/file/d/example", result["prompt"])
         # Unfeatured records are not silently promoted to portfolio.
         app.append_work_record_event(self.dir, {
