@@ -5,6 +5,7 @@
 - **需求**：可设置每天／每周／每月／每年重复与间隔，本周期人工确认完成后列入已完成；下一周期在读取时重新显示为待办；明确确认彻底结束后不再重复，后续可以恢复原循环。
 - **项目规则复核**：开始前已阅读 AGENTS.md、README.md、docs/REQUIREMENTS.md、docs/PROJECT_STATE.md、docs/DECISIONS.md；核对 main SHA `2c1a50e32fa068db274d4fef18898f07f59984a5`（正式 VERSION 2.0.13），并审计开放 PR：#37 是 2.1.0 步骤日期/任务转换候选，已通过既有 CI 但尚未获合并批准。新分支 `feat/20261105-recurring-tasks` 基于 #37 HEAD `735bc71e940b60e0055a33dffc9e0ba381705ac5` 开发，不能跳过其依赖直接合并 main。
 - **实现**：事件校验增加 `recurrence`（频率／间隔／起始日／enabled）与 `recurrence_status_period`；按固定锚点计算当前日历周期，周/月/年切换无需后台写文件。当前期人工完成保留 `confirmed_done` 与所属周期；跨期投影恢复待办，历史原始事件不删。通过独立 revision/409 保护的循环配置／结束／恢复 API 操作，结束附带 `confirmed_end` 审计；网页任务详情操作、列表周期标识、日历/甘特和总览虚拟日期联动。仅支持不含步骤和子任务的末级任务，旧客户端混用不安全。
+- **准确 CI 结果（已通过）**：产品与测试 SHA `f0c47fe536d2696f27175e8b9413049ee4945c15`，GitHub Actions [#41977504669](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41977504669) **3/3 SUCCESS**；Ubuntu/Windows Python 各执行 198 项测试（其中各有 21/19 项预期跳过），Node UI 各 93/93 PASS；Windows 实际 Chromium 更新/回滚 3 PASS、工作台 E2E 16 PASS（新增周期任务启用→完成→彻底结束→恢复，以及周期排期字段的真实浏览器验证）。首轮周期专项均 PASS；旧“文档折叠” E2E 因异步刷新后错误收折面板而失败，已将测试改为等待持久化后的文档数，再按当前展开状态操作；在上述准确 SHA 完整复验通过。
 - **测试范围**：新增虚构数据 Python 单测与 HTTP 测试，覆盖月底闰年、周期切换、人工完成、永久结束与恢复、确认、版本冲突及下级限制。提交后须按最新准确 SHA 的 GitHub Actions Ubuntu/Windows Python + Node 与 Windows Chromium 验收；真实两台电脑离线重连同步及公司 8770 环境 **NOT TESTED**。
 - **发布边界**：PR #37 未合并，2.2.0 候选亦不得直接合入 main；本次未修改真实 Google Drive 任务或用户电脑程序。下一步依据准确 SHA CI 修复缺陷，保留与 #37 的依赖及用户合并审批。
  
