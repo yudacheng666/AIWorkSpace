@@ -1351,3 +1351,31 @@ test("work record save conflicts preserve current text and do not mutate tasks",
   assert.equal(h.writes.length, 1);
   assert.equal(h.writes[0].body.revision, 2);
 });
+
+test("work record save preserves edits typed while the request is in flight", async () => {
+  let resolvePost;
+  let confirmCalls = 0;
+  const h = harness([], () => {confirmCalls++; return false;}, [], [], () =>
+    new Promise(resolve => {resolvePost = resolve;}));
+  h.api.setActivePage("worklog");
+  await h.api.loadWorkRecords();
+  h.el("work-record-content").value = "先提交的工作事实";
+  h.el("work-record-date").value = "2026-11-04";
+  h.el("work-record-form").handlers.get("input")[0]();
+  const pending = h.api.saveWorkRecord({preventDefault() {}});
+  assert.equal(h.el("work-record-cancel").disabled, true,
+    "cancel cannot reset the submitted form while the write is pending");
+  assert.equal(typeof resolvePost, "function");
+  h.el("work-record-content").value = "保存期间继续输入的新草稿";
+  h.el("work-record-form").handlers.get("input")[0]();
+  assert.equal(h.api.setActivePage("tasks", "all"), false,
+    "navigation waits until the in-flight write completes");
+  resolvePost({ok:true, json:async()=>({saved:true, display_id:"R-261105-AAAAAAAAAAAA"})});
+  await pending;
+  assert.equal(h.el("work-record-content").value, "保存期间继续输入的新草稿");
+  assert.match(h.el("work-record-message").textContent, /新输入仍保留为未保存草稿/);
+  assert.equal(h.el("work-record-cancel").disabled, false);
+  assert.equal(h.api.setActivePage("tasks", "all"), false,
+    "the preserved draft remains protected after the first save completes");
+  assert.equal(confirmCalls, 1);
+});
