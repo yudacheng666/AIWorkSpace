@@ -69,6 +69,10 @@
     .step-edit-form { display: grid; grid-template-columns: minmax(160px, 1fr) 130px auto; align-items: end; gap: 9px; }
     .step-edit-form label { min-width: 0; font-size: 12px; }
     .step-edit-form input, .step-edit-form select { min-width: 0; padding: 8px 9px; font-size: 13px; }
+    .step-date-fields { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3,minmax(120px,1fr)); gap: 9px; }
+    .step-date-fields label { display: grid; gap: 4px; color: #667a92; }
+    .step-date-fields input { width: 100%; }
+    .step-actions .step-convert { color: #245f9e; border-color: #cbdcf0; background: #f7fbff; }
     .step-id { overflow-wrap: anywhere; }
     .step-actions { display: flex; gap: 5px; padding-top: 2px; }
     .step-actions button { border: 1px solid #dce4ee; color: #50677f; background: #fff; padding: 6px 9px; font-size: 12px; }
@@ -94,6 +98,7 @@
       .step-actions { grid-column: 2; }
       .step-edit-form { grid-template-columns: 1fr 1fr; }
       .step-edit-form button { grid-column: 1 / -1; }
+      .step-date-fields { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 960px) {
       .task-meta { grid-template-columns: repeat(3, minmax(130px, 1fr)); }
@@ -1335,6 +1340,7 @@
 
     function stepRow(task, step, index, message) {
       const row = element("div", "step-row");
+      row.id = "step-" + step.step_id;
       row.append(element("span", "step-number", `${index + 1}.`));
       const content = element("div", "step-content");
       content.append(element("small", "step-id", step.step_id));
@@ -1362,10 +1368,26 @@
       }
       status.disabled = task.conflict || step.conflict;
       statusLabel.append(status);
+      const dateControls = {};
+      const dateFields = element("div", "step-date-fields");
+      for (const [field, labelText] of [
+        ["planned_date", "计划执行日期"], ["due_date", "截止日期"], ["follow_up_date", "下次跟进日期"]
+      ]) {
+        const label = element("label", "", labelText);
+        const input = element("input");
+        input.type = "date";
+        input.value = step[field] || "";
+        input.disabled = task.conflict || step.conflict;
+        label.append(input);
+        dateFields.append(label);
+        dateControls[field] = input;
+      }
       const save = element("button", "save", "保存步骤");
       save.type = "submit"; save.disabled = task.conflict || step.conflict;
-      form.append(titleLabel, statusLabel, save);
-      const stepDraftSnapshot = () => JSON.stringify([title.value, status.value]);
+      form.append(titleLabel, statusLabel, dateFields, save);
+      const stepDraftSnapshot = () => JSON.stringify([
+        title.value, status.value, ...DATE_FIELDS.map(field => dateControls[field].value)
+      ]);
       const stepDraftWatch = watchUnsavedEditor(form, stepDraftSnapshot);
       form.addEventListener("submit", async event => {
         event.preventDefault();
@@ -1382,13 +1404,19 @@
         const changes = {revision: step.revision};
         if (nextTitle !== step.title) changes.title = nextTitle;
         if (nextStatus !== step.status) changes.status = nextStatus;
+        for (const field of DATE_FIELDS) {
+          const value = dateControls[field].value || null;
+          if (value !== (step[field] || null)) changes[field] = value;
+        }
         if (completing) changes.confirmed_done = true;
-        if (!("title" in changes) && !("status" in changes)) {
+        if (!("title" in changes) && !("status" in changes) &&
+            !DATE_FIELDS.some(field => field in changes)) {
           message.textContent = "步骤内容没有变化";
           return;
         }
         const draftAtSubmit = stepDraftSnapshot();
         isSaving = true; save.disabled = true; title.disabled = true; status.disabled = true;
+        Object.values(dateControls).forEach(input => {input.disabled = true;});
         message.className = "step-message"; message.textContent = "正在保存步骤…";
         try {
           const response = await fetch(
@@ -1408,6 +1436,7 @@
           save.disabled = task.conflict || step.conflict;
           title.disabled = task.conflict || step.conflict;
           status.disabled = task.conflict || step.conflict;
+          Object.values(dateControls).forEach(input => {input.disabled = task.conflict || step.conflict;});
         }
       });
       content.append(form, documentPanel(task, step));
@@ -1423,6 +1452,33 @@
       down.disabled = task.conflict || task.step_order_conflict ||
         task.step_order_incomplete || index === task.steps.length - 1;
       down.addEventListener("click", () => saveStepOrder(task, index, index + 1, message));
+      const convertStep = element("button", "step-convert", "转为任务");
+      convertStep.type = "button";
+      convertStep.disabled = task.conflict || step.conflict || task.get?.("status_rollup_incomplete") ||
+        task.step_order_conflict || task.step_order_incomplete;
+      convertStep.title = "将此步骤移动为当前任务下的子任务，保留日期、状态和文档关联";
+      convertStep.addEventListener("click", async () => {
+        if (isSaving || convertStep.disabled || !confirmDiscardUnsaved()) return;
+        if (!window.confirm("将步骤「" + step.title +
+          "」转换为当前任务下的子任务？原步骤将不再显示，日期、状态和文档关联会保留，历史记录不会删除。")) return;
+        isSaving = true; convertStep.disabled = true;
+        message.className = "step-message"; message.textContent = "正在转换为任务…";
+        try {
+          const response = await fetch(
+            "/api/tasks/" + encodeURIComponent(task.task_id) + "/steps/" +
+            encodeURIComponent(step.step_id) + "/convert-to-task", {
+              method: "POST", headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({revision: step.revision, confirmed_move: true})
+            });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "转换失败");
+          message.textContent = "已转换为子任务：" + result.task_id;
+          await refresh(true);
+        } catch (error) {
+          message.className = "step-message error";
+          message.textContent = "转换失败：" + error.message + "。原步骤保留，请刷新核查。";
+        } finally { isSaving = false; convertStep.disabled = task.conflict || step.conflict; }
+      });
       const removeStep = element("button", "step-delete", "删除");
       removeStep.type = "button";
       removeStep.disabled = task.conflict || step.conflict ||
@@ -1455,7 +1511,7 @@
             task.step_order_conflict || task.step_order_incomplete;
         }
       });
-      actions.append(up, down, removeStep);
+      actions.append(up, down, convertStep, removeStep);
       row.append(actions);
       if (step.conflict) {
         const candidates = (step.conflict_candidates || []).map(candidate => {
