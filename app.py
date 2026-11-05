@@ -484,7 +484,6 @@ def step_conversion_snapshot(task: dict, step: dict) -> dict:
         "due_date": step.get("due_date"), "planned_date": step.get("planned_date"),
         "follow_up_date": step.get("follow_up_date"),
         "document_links": list(step.get("document_links", [])),
-        "step_order_revision": task.get("step_order_revision", 0),
         "converted_task_metadata": step.get("converted_task_metadata"),
         "deleted_at": step.get("deleted_at"),
     }
