@@ -1,6 +1,6 @@
 # AIWorkSpace
 
-> **周期任务 2.2.0 开发候选（2026-11-05，未发布）**：可设定日／周／月／年重复，人工完成只属于当前周期、下一周期自动恢复待办；可明确“彻底结束循环”后再“恢复循环”，历史完成事件不删除。功能位于 `feat/20261105-recurring-tasks`，依赖尚未合并的 [PR #37](https://github.com/yudacheng666/AIWorkSpace/pull/37)。正式 main 仍 2.0.13，本功能并未部署公司电脑、亦未修改真实 Google Drive 任务。测试结果以本功能最新准确 SHA 的 CI 为准。
+> **周期任务 2.2.0 开发候选（2026-11-05，完整 CI 已通过、未合并发布）**：可设定日／周／月／年重复，人工完成只属于当前周期、下一周期自动恢复待办；可明确“彻底结束循环”后再“恢复循环”，历史完成事件不删除。功能位于 `feat/20261105-recurring-tasks`，依赖尚未合并的 [PR #37](https://github.com/yudacheng666/AIWorkSpace/pull/37)。正式 main 仍 2.0.13，本功能并未部署公司电脑、亦未修改真实 Google Drive 任务。测试结果以本功能最新准确 SHA 的 CI 为准。
 
 > **2.1.0 候选已通过完整 CI，待用户合并批准（2026-11-05）**：[PR #37](https://github.com/yudacheng666/AIWorkSpace/pull/37) 为执行步骤增加与任务一致的计划、截止、跟进日期，并在日历和甘特图展示；支持步骤→子任务、末级任务→其他任务步骤的双向移动，保留原始事件与转换链。最终产品/测试 SHA `a77bec7df2ce9098a72d3462179fcd9518a4a1b1` 的 [Actions #41966545453](https://github.com/yudacheng666/AIWorkSpace/actions/runs/41966545453) **3/3 SUCCESS**：Ubuntu/Windows Python 各执行 186 tests（含预期跳过）、Node 各 93 PASS，Windows Chromium 更新/回滚 3 PASS、工作台 UI 15 PASS。新增反向同步顺序、多次转换链、伪造完成状态/标题/负责人防篡改测试。**当前正式 main 仍为 2.0.13**；所有共享 Drive 数据目录的电脑须先统一升级到 2.1.0，才应使用转换功能；尚未做真实双电脑同步验收或实际部署。
 
