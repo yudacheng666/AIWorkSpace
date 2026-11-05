@@ -641,6 +641,9 @@ def read_conversion_events(data_dir: Path, warnings: list[str]) -> list[dict]:
 
 def append_conversion_event(data_dir: Path, event: dict) -> Path:
     validate_conversion_event(event)
+    payload = json.dumps(event, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    if len(payload) > MAX_CONVERSION_BODY:
+        raise ValueError("conversion event exceeds the safe file-size limit")
     return _append_json_event(data_dir, event, "conversion_events")
 
 
