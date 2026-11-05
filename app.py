@@ -1592,10 +1592,11 @@ def append_step_event(data_dir: Path, event: dict) -> Path:
 
 WORK_RECORD_FIELDS = {"content", "occurred_on", "project_id", "task_id",
                       "outcome", "duration_minutes", "action_links", "featured",
-                      "source_inbox_id"}
+                      "source_inbox_id", "evidence_links"}
 WORK_RECORD_DEFAULTS = {"project_id": None, "task_id": None,
                         "outcome": None, "duration_minutes": None,
-                        "action_links": [], "featured": False, "source_inbox_id": None}
+                        "action_links": [], "featured": False, "source_inbox_id": None,
+                        "evidence_links": []}
 
 
 def validate_work_record_event(value: object) -> dict:
@@ -1667,6 +1668,8 @@ def validate_work_record_event(value: object) -> dict:
             raise ValueError("invalid source inbox ID")
         if value["action"] != "create":
             raise ValueError("source inbox association is immutable")
+    if "evidence_links" in changes:
+        validate_document_links(changes["evidence_links"])
     if "action_links" in changes:
         links = changes["action_links"]
         if not isinstance(links, list) or len(links) > 20:
