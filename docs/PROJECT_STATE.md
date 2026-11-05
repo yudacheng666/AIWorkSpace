@@ -1,5 +1,13 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-06：2.7.0 来源可追溯 AI 分析交接（新 Draft 候选）
+
+- **承接与规则**：继续从已在准确 SHA 测试通过的 Draft #43（2.6.0，产品 SHA `f24ba1a00087555c5b1541a9061aebbe7567dc3b`、Actions #42125093085 3/3 SUCCESS）开发；原链路 #40→#41→#42→#43 全部未合并，最新 main 仍正式 v2.2.0。新分支 `feat/20261106-work-analysis-handoff`，候选 VERSION 2.7.0。
+- **新增两个只读出口**：`GET /api/work-archive/analysis-context` 严格使用日/周/月已有 summary 底稿的相同 RECORD IDs 和人工确认完成 event IDs，附工作内容、成果/工时、来源任务和证据链接；`GET /api/work-archive/portfolio-context` 仅选人工 featured 成果，项目可筛选。冲突/缺失/无来源/超出 30000 字符等均拒绝，不沉默遗漏。
+- **界面**：工作总结增加「复制含来源的 ChatGPT 分析说明」，成果库增加项目范围和「复制成果证据供 ChatGPT 整理」。点击只读取本机数据、复制剪贴板，由用户主动粘贴给 ChatGPT 分析、核对并用现有手工总结保存流程回写；无内嵌 AI、无付费 API、无自动写事件、无伪造成果。
+- **代码与测试**：app.py、web/index.html、tests/test_work_analysis_handoff.py、tests/test_ui_shell.mjs 和 Windows 真实 Chromium E2E；需求、设计、决策、README 同步。**本阶段尚未完成准确 SHA 的 CI 验收，不可继承 2.6 PASS。**
+- **发布安全**：开发分支 / Draft、虚构测试数据，不合并 main、不操作真实 Drive、不开启后台服务或模型 API；公司 Windows 8770、双机离线/重连与真实业务材料仍 NOT TESTED。用户要求全部阶段完成后集中体验反馈。
+
 ## 2026-11-06：v2.6.0 Draft PR #43 已通过准确 SHA 自动化（待集中体验与授权合并）
 
 - **PR**：[Draft #43](https://github.com/yudacheng666/AIWorkSpace/pull/43)，依赖 #40→#41→#42；仍 **Open/Draft**，不合并、不部署。
