@@ -56,6 +56,9 @@ class WorkRecordValidationTests(unittest.TestCase):
         for value in (
             {**work_event(), "actor": "machine"},
             {**work_event(), "timestamp": "2026-11-05"},
+            {**work_event(), "status": "done"},
+            {**work_event(), "confirmed_done": True},
+            {**work_event(), "unexpected": "not part of the work-record envelope"},
             work_event(action="update", revision=0),
             work_event(action="create", revision=2),
             {**work_event(), "record_id": "RECORD-../../"},
