@@ -1474,22 +1474,53 @@ def read_workspace(data_dir: Path, include_trashed: bool = False,
                 "title": roots[0]["changes"]["title"].strip(),
                 "status": roots[0]["changes"].get("status", "todo"),
                 "revision": 1, "conflict": False,
-                "conflict_fields": [], "conflict_candidates": []}
+                "conflict_fields": [], "conflict_candidates": [],
+                "auto_merge_groups": [], "merge_basis_required": None}
         by_revision: dict[int, list[dict]] = defaultdict(list)
         for event in updated[task_id]:
             by_revision[event["base_revision"]].append(event)
-
+        # Never merge over duplicate-ID tampering or lifecycle operations.
+        has_unsafe_stream = (
+            any(task_id == candidate["task_id"]
+                for variants in duplicate_conflicts.values() for candidate in variants)
+            or any(event["action"] in TASK_LIFECYCLE_ACTIONS
+                   for event in updated[task_id])
+        )
+        required_basis = None
         while task["revision"] in by_revision:
             candidates = by_revision.pop(task["revision"])
+            if required_basis is not None:
+                # A later event can only follow a merged logical version if it
+                # proves that all sibling records were visible when it was written.
+                if any(event.get("merge_basis") != required_basis for event in candidates):
+                    task["conflict"] = True
+                    task["conflict_fields"] = sorted({
+                        field for event in candidates for field in event["changes"]
+                    })
+                    task["conflict_candidates"] = summarize_conflict_events(candidates)
+                    warnings.append(f"{task_id}: edit after auto merge lacks matching merge basis")
+                    break
+                required_basis = None
             if len(candidates) != 1:
-                task["conflict"] = True
-                task["conflict_fields"] = conflicting_fields(candidates)
-                task["conflict_candidates"] = summarize_conflict_events(candidates)
-                warnings.append(f"{task_id}: conflicting edits of revision {task['revision']}")
-                break
+                merged = (None if has_unsafe_stream else
+                          _safe_disjoint_merge(candidates, AUTO_TASK_MERGE_FIELDS))
+                if merged is None:
+                    task["conflict"] = True
+                    task["conflict_fields"] = conflicting_fields(candidates)
+                    task["conflict_candidates"] = summarize_conflict_events(candidates)
+                    warnings.append(f"{task_id}: conflicting edits of revision {task['revision']}")
+                    break
+                task.update(merged["changes"])
+                task["title"] = task["title"].strip()
+                task["revision"] += 1
+                task["auto_merge_groups"].append(merged)
+                required_basis = merged["merge_basis"]
+                continue
             task.update(candidates[0]["changes"])
             task["title"] = task["title"].strip()
             task["revision"] += 1
+        if not task["conflict"]:
+            task["merge_basis_required"] = required_basis
         if by_revision:
             remaining = [event for group in by_revision.values() for event in group]
             task["conflict"] = True
