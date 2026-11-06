@@ -1009,6 +1009,30 @@ test("concurrent-write messages explain affected fields and copy a read-only han
   assert.equal(page.writes.length, 0, "clipboard handoff must never write business data");
 });
 
+test("successfully auto-merged edits are informational and never demand ChatGPT", async () => {
+  const item = {
+    anomaly_id: "ANOM-" + "F".repeat(32), category: "auto_merged",
+    title: "已自动整合任务的独立修改", status: "auto_merged",
+    task_id: "TASK-EXAMPLE", task_title: "虚构：资料任务",
+    source_event: {timestamp: "2026-11-05T10:01:00Z"},
+    source: {folder: "workspace_auto_merge"},
+    user_guidance: {
+      summary: "2 次修改涉及不同内容（优先级、截止日期），已自动整合，无需操作。",
+      impact: "全部原始事件保持不变。", recommendation: "无需处理。"
+    }
+  };
+  const page = harness([], () => true, [], [item]);
+  await page.api.loadNotifications();
+  const list = page.el("review-list");
+  assert.match(treeText(list), /自动整合/);
+  assert.match(treeText(list), /优先级、截止日期/);
+  assert.match(treeText(list), /无需操作/);
+  assert.equal(findTreeNode(list, node => node.tag === "button"), null,
+    "auto-merged notices must not offer repair or copy controls");
+  assert.equal(page.el("nav-reviews").title, "0 条待关注消息");
+  assert.equal(page.writes.length, 0);
+});
+
 test("notification message IDs remain stable across refreshes and the inbox is read-only", async () => {
   const item = {
     anomaly_id: "ANOM-" + "C".repeat(32),
