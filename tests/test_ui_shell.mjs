@@ -1139,6 +1139,8 @@ test("notification inbox exposes the full authorize then apply repair path", asy
   assert.equal(page.writes[0].body.confirm_completion, true);
   assert.equal(item.status, "authorized");
   card = page.el("review-list").children[0];
+  assert.match(treeText(card), /虚构：整理并归档图纸/,
+    "the approved repair preview must remain visible before execution");
   const apply = findTreeNode(card, node => node.tag === "button" && node.textContent === "执行修复");
   assert.ok(apply, "authorization must expose the separate execution step");
   await apply.handlers.get("click")[0]();
