@@ -1,5 +1,7 @@
 # AIWorkSpace
 
+> **2.8.2 维护候选（PR #47）**：修复通知信箱在 5 秒后台刷新时自动收起“查看详情／保留原始记录”及未提交草稿丢失的问题，并修正确认勾选框被全局宽度撑开导致的表单错位。统一导航徽标、风险事项菜单间距、消息刷新按钮以及顶栏按钮高度与文字字体。属于仅前端的界面修复，保留 2.8.1 的一键复制全部通知、单条审计与数据保护规则；候选尚未合并/部署，用户电脑不会自动升级。
+
 > **正式发布：AIWorkSpace 2.8.0（2026-11-06）**。PR [#45](https://github.com/yudacheng666/AIWorkSpace/pull/45) 已合入 `main`，合并 SHA `ab8988f940d7434e9404a41408dba1f9db179b9b`，`VERSION=2.8.0`。新增低风险独立字段冲突自动归并、合并后版本凭证与已自动整合通知；原始 JSON 不改写，高风险冲突仍需核查。用户的 Windows 工作台不会因 GitHub 发布而自动更新，真实双机 Google Drive 离线/重连尚未验收。下方早期“Draft/未发布”段落均为开发阶段历史记录，不代表当前正式版本。
 
 > **正式发布：AIWorkSpace 2.8.1（2026-11-06）**。PR [#46](https://github.com/yudacheng666/AIWorkSpace/pull/46) 已合入 `main`，merge SHA `9dd8a34b0f4841b378a4d8faa29055834a089b55`。通知信箱支持一次复制全部消息给 ChatGPT 核查，并为单条异常提供有审计的授权、执行与保留原始记录流程；不自动发送、不批量修复、不覆盖原始异常文件。合并前准确产品/测试 SHA `17d0937d2a274bc13bcf5e9fe1ab715b6dd4053f` 的 [Actions #42198035504](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42198035504) 3/3 PASS；合并后准确 SHA 的 [Actions #42199542397](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42199542397) 已 **3/3 SUCCESS**（Ubuntu/Windows Python+Node、Windows 更新/回滚及真实 Chromium E2E）。真实 Google Drive 双机离线/重连未验收，用户 Windows 工作台尚未升级。

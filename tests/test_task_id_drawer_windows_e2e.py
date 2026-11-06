@@ -953,6 +953,113 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertFalse((self.data_dir / "review_events").exists())
 
 
+    def test_inbox_panels_survive_polling_and_forms_are_responsive(self):
+        """A real Chromium session must retain an in-progress review across refresh."""
+        for i in range(2):
+            source = self.data_dir / "step_events" / f"evt_synthetic_invalid_reference_{i}.json"
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text(json.dumps({
+                "version": 1, "event_id": f"synthetic-invalid-reference-{i}",
+                "task_id": self.task_id, "step_id": f"STEP-invalid-target-{i}",
+                "action": "update", "actor": "user",
+                "timestamp": f"2026-11-05T10:0{i}:00Z", "base_revision": 1,
+                "changes": {"title": f"虚构：等待核对的步骤 {i}"}
+            }, ensure_ascii=False), encoding="utf-8")
+        before = self._file_hashes()
+        page = self._open_browser(open_detail=False)
+        page.locator("#nav-reviews").click()
+        expect(page.locator("#review-list .inbox-message")).to_have_count(2)
+        cards = page.locator("#review-list .inbox-message")
+        first = cards.first
+        second = cards.nth(1)
+
+        # Navigation count sits beside the title, not in an implicit third row.
+        nav = page.locator("#nav-reviews")
+        title_box = nav.locator("span").nth(1).bounding_box()
+        badge_box = page.locator("#review-nav-count").bounding_box()
+        self.assertIsNotNone(badge_box)
+        self.assertGreater(badge_box["x"], title_box["x"] + title_box["width"] - 2)
+        self.assertLess(abs((badge_box["y"] + badge_box["height"] / 2) -
+                            (title_box["y"] + title_box["height"] / 2)), 6)
+        positions = [page.locator(f"#{x}").bounding_box() for x in
+                     ("nav-due", "nav-risk", "nav-reviews")]
+        self.assertEqual(round(positions[0]["height"]), round(positions[1]["height"]))
+        self.assertEqual(round(positions[1]["height"]), round(positions[2]["height"]))
+        self.assertLess(abs((positions[1]["y"] - positions[0]["y"]) -
+                            (positions[2]["y"] - positions[1]["y"])), 2)
+        header_buttons = page.locator("#refresh, #open-create-record, #open-create-task")
+        styles = header_buttons.evaluate_all("""elements => elements.map(e => ({
+          height: e.getBoundingClientRect().height,
+          fontFamily: getComputedStyle(e).fontFamily,
+          fontSize: getComputedStyle(e).fontSize,
+          fontWeight: getComputedStyle(e).fontWeight
+        }))""")
+        self.assertTrue(all(abs(x["height"] - 38) < 1 for x in styles), styles)
+        self.assertEqual(len({x["fontFamily"] for x in styles}), 1)
+        self.assertEqual(len({x["fontSize"] for x in styles}), 2,
+                         "refresh glyph is intentionally larger; both text buttons use the same font size")
+        self.assertEqual(styles[1]["fontSize"], styles[2]["fontSize"])
+        self.assertEqual(styles[1]["fontWeight"], styles[2]["fontWeight"])
+        self.assertGreaterEqual(float(page.locator("#review-refresh").evaluate(
+            "e => parseFloat(getComputedStyle(e).borderRadius)")), 7)
+
+        # One message can be edited while the other remains independently open.
+        first.locator(".inbox-message-details summary").click()
+        first.locator(".inbox-defer summary").click()
+        second.locator(".inbox-message-details summary").click()
+        note = "我已经核查了步骤清单，暂时保留原记录；没有授权补写或删除。"
+        first.locator(".inbox-defer textarea").fill(note)
+        first.locator('.inbox-defer input[type="checkbox"]').check()
+        expect(first.locator("button.inbox-dismiss")).to_be_enabled()
+        layout = first.locator(".inbox-defer").evaluate("""e => {
+          const label = e.querySelector('.inbox-consent');
+          const input = label.querySelector('input');
+          const span = label.querySelector('span');
+          const outer = e.getBoundingClientRect();
+          return {
+            width: input.getBoundingClientRect().width,
+            spanWidth: span.getBoundingClientRect().width,
+            labelRight: label.getBoundingClientRect().right,
+            containerRight: outer.right,
+            textareaRight: e.querySelector('textarea').getBoundingClientRect().right
+          };
+        }""")
+        self.assertLessEqual(layout["width"], 20, layout)
+        self.assertGreater(layout["spanWidth"], 200, layout)
+        self.assertLessEqual(layout["labelRight"], layout["containerRight"] + 2, layout)
+        self.assertLessEqual(layout["textareaRight"], layout["containerRight"] + 2, layout)
+
+        # Wait through an ACTUAL 5s interval, not just a manual rerender.
+        observed = []
+        page.on("request", lambda request: observed.append(request.url)
+                if "/api/reviews" in request.url else None)
+        page.wait_for_timeout(6300)
+        self.assertTrue(any("/api/reviews" in url for url in observed),
+                        "the background polling must have actually reloaded notifications")
+        expect(first.locator(".inbox-defer")).to_have_attribute("open", "")
+        expect(first.locator(".inbox-message-details")).to_have_attribute("open", "")
+        expect(second.locator(".inbox-message-details")).to_have_attribute("open", "")
+        expect(first.locator(".inbox-defer textarea")).to_have_value(note)
+        self.assertTrue(first.locator('.inbox-defer input[type="checkbox"]').is_checked())
+        expect(first.locator("button.inbox-dismiss")).to_be_enabled()
+
+        # Explicit reload also preserves open/readable forms and does not write.
+        page.locator("#review-refresh").click()
+        expect(first.locator(".inbox-defer")).to_have_attribute("open", "")
+        expect(first.locator(".inbox-defer textarea")).to_have_value(note)
+        expect(first.locator("button.inbox-dismiss")).to_be_enabled()
+        self.assertEqual(self._file_hashes(), before)
+        first.locator("button.inbox-dismiss").click()
+        expect(first.locator(".inbox-status")).to_have_text("已确认保留")
+        expect(second.locator(".inbox-status")).to_have_text("待关注")
+        self.assertEqual(
+            {key: value for key, value in self._file_hashes().items()
+             if key.startswith("step_events/")},
+            {key: value for key, value in before.items()
+             if key.startswith("step_events/")},
+            "only audit events may be added; original invalid inputs must remain unchanged"
+        )
+
     def test_notification_inbox_bulk_copy_and_real_repair_and_keep_original_actions(self):
         """The inbox lets a user copy every message, review a proposal, apply it, or keep a source."""
         step_id = "STEP-" + "C" * 32

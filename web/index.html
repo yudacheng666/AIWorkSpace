@@ -625,7 +625,13 @@
     .task-lifecycle-controls button {border:1px solid #b45353;color:#a33434;background:transparent;border-radius:6px;padding:8px 12px;}
 
 
-    .nav-count { margin-left:auto; min-width:20px; padding:2px 6px; border-radius:20px; background:#fff0e8; color:#a94b32; font-size:10px; font-weight:700; text-align:center; }
+    /* The badge occupies a third explicit column, never an implicit new row. */
+    #nav-reviews { grid-template-columns:22px max-content max-content; justify-content:start; column-gap:9px; }
+    #nav-reviews .nav-count { margin-left:0; justify-self:start; align-self:center; }
+    .nav-count { min-width:20px; padding:2px 6px; border-radius:20px; background:#fff0e8; color:#a94b32; font-size:10px; font-weight:700; text-align:center; white-space:nowrap; }
+    #nav-risk { min-height:41px; margin:0; padding-block:0; }
+    #nav-risk .nav-icon { display:inline-flex; align-items:center; justify-content:center; height:20px; }
+
     .inbox-panel { min-width:0; padding:18px; border:1px solid #e2e9f1; border-radius:12px; background:#fff; }
     .inbox-panel-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:13px; }
     .inbox-panel-head h2 { margin:0; color:#2a405f; font-size:15px; }
@@ -637,24 +643,27 @@
     .inbox-copy { margin-top:10px; }
     .inbox-copy:hover,.inbox-copy-all:hover { background:#e7f0ff; }
     .inbox-copy-all:disabled { opacity:.45; cursor:not-allowed; }
+    #review-refresh { display:inline-flex; align-items:center; justify-content:center; height:36px; min-height:36px; padding:0 13px; border:1px solid #c8d5e6; border-radius:8px; background:#fff; color:#355777; font:inherit; font-size:12px; font-weight:650; line-height:1; box-sizing:border-box; cursor:pointer; }
+    #review-refresh:hover { background:#f4f8fe; border-color:#a9c0dd; }
     .inbox-panel-meta { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; }
     .inbox-open-summary { color:#718198; font-size:11px; }
-    .inbox-actions { display:grid; gap:10px; margin-top:12px; padding-top:11px; border-top:1px solid #edf0f5; }
+    .inbox-actions { display:grid; grid-template-columns:minmax(0,1fr); min-width:0; gap:10px; margin-top:12px; padding-top:11px; border-top:1px solid #edf0f5; }
     .inbox-action-note { margin:0; color:#65758a; font-size:12px; line-height:1.7; }
-    .inbox-proposal,.inbox-defer { border:1px solid #dce5ef; border-radius:9px; padding:10px 12px; background:#fbfcfe; }
+    .inbox-proposal,.inbox-defer { min-width:0; max-width:100%; border:1px solid #dce5ef; border-radius:9px; padding:10px 12px; background:#fbfcfe; box-sizing:border-box; }
     .inbox-proposal summary,.inbox-defer summary { cursor:pointer; color:#405a78; font-size:12px; font-weight:650; }
     .inbox-proposal-content { display:grid; gap:7px; margin-top:9px; }
     .inbox-proposal-content p { margin:0; color:#5b6f86; font-size:12px; line-height:1.65; overflow-wrap:anywhere; }
     .inbox-proposal-change { display:flex; flex-wrap:wrap; gap:5px; }
     .inbox-proposal-change strong { color:#405670; }
-    .inbox-consent { display:flex; align-items:flex-start; gap:8px; color:#465e79; font-size:12px; line-height:1.6; margin-top:8px; }
-    .inbox-consent input { margin-top:2px; flex:0 0 auto; }
+    .inbox-consent { display:grid; grid-template-columns:16px minmax(0,1fr); align-items:start; justify-content:start; gap:9px; width:100%; min-width:0; color:#465e79; font-size:12px; line-height:1.6; margin-top:8px; cursor:pointer; }
+    .inbox-consent input[type="checkbox"] { width:16px; min-width:16px; max-width:16px; height:16px; margin:2px 0 0; padding:0; border-radius:4px; box-shadow:none; accent-color:var(--blue); }
+    .inbox-consent span { min-width:0; overflow-wrap:anywhere; }
     .inbox-action-button { width:max-content; max-width:100%; border:1px solid #bdcddd; border-radius:8px; padding:8px 13px; background:#fff; color:#365a80; font:inherit; font-size:12px; cursor:pointer; }
     .inbox-action-button--primary { border-color:#9db9d7; background:#edf5fd; color:#244f7e; }
     .inbox-action-button:disabled { opacity:.45; cursor:not-allowed; }
     .inbox-action-explain { margin:0; color:#75849a; font-size:11px; line-height:1.6; }
-    .inbox-dismiss-form { display:grid; gap:8px; margin-top:9px; }
-    .inbox-dismiss-form textarea { width:100%; min-height:60px; resize:vertical; border:1px solid #d6e0ec; border-radius:7px; padding:8px; font:inherit; font-size:12px; }
+    .inbox-dismiss-form { display:grid; grid-template-columns:minmax(0,1fr); min-width:0; gap:8px; margin-top:9px; }
+    .inbox-dismiss-form textarea { display:block; box-sizing:border-box; min-width:0; max-width:100%; width:100%; min-height:70px; resize:vertical; border:1px solid #d6e0ec; border-radius:7px; padding:9px 10px; font:inherit; font-size:12px; line-height:1.6; }
     .inbox-panel-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; }
     .inbox-edits { margin:8px 0 0; color:#485b76; font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
     .inbox-message-header { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
@@ -721,6 +730,10 @@
     .work-entry-conflict {border-color:#e5b99a;background:#fffbf5}
     .work-entry-empty {padding:30px;text-align:center;color:#718197;font-size:13px}
     .secondary-action {background:#fff;color:#285baf;border:1px solid #bcd0e6;border-radius:8px;padding:9px 13px;font-weight:650}
+    /* Header actions share a single height and type scale; visual emphasis comes from color. */
+    .topbar-actions > button { display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; box-sizing:border-box; height:38px; min-height:38px; padding:0 14px; font-family:inherit; font-size:12px; font-weight:650; line-height:1; white-space:nowrap; }
+    .topbar-actions > .refresh-top { width:38px; padding:0; font-size:19px; }
+
     @media(max-width:1100px) {.work-meta {grid-template-columns:repeat(2,minmax(130px,1fr))}.work-filters {grid-template-columns:repeat(2,minmax(120px,1fr))}}
     .work-archive-row{display:flex;align-items:end;flex-wrap:wrap;gap:10px;margin:10px 0}
     .work-archive-row label{display:grid;gap:5px;flex:1;min-width:130px;font-size:12px;color:#53677f}
@@ -3945,8 +3958,52 @@
       }
       return hasAction || panel.children.length ? panel : null;
     }
+    /* Periodic /api/tasks refreshes also reload the inbox. Keep user-opened
+       sections and unchanged form drafts across that read-only DOM redraw. */
+    function notificationFormSignature(item) {
+      return [item.status || "", item.review_revision ?? 0,
+        item.source?.sha256 || "", item.proposal?.proposal_sha256 || ""].join("|");
+    }
+    function captureNotificationPanels(host) {
+      const saved = new Map();
+      for (const article of host.querySelectorAll?.(".inbox-message") || []) {
+        const id = article.getAttribute("data-review-id");
+        if (!id) continue;
+        const detailSelectors = [".inbox-message-details", ".inbox-proposal", ".inbox-defer"];
+        const expanded = detailSelectors.filter(selector => article.querySelector(selector)?.open);
+        const textarea = article.querySelector(".inbox-dismiss-form textarea");
+        const checkboxes = Array.from(article.querySelectorAll('.inbox-consent input[type="checkbox"]'));
+        saved.set(id, {
+          signature: article.getAttribute("data-review-signature"), expanded,
+          note: textarea?.value || "", checks: checkboxes.map(input => input.checked)
+        });
+      }
+      return saved;
+    }
+    function restoreNotificationPanel(article, saved, item) {
+      if (!saved) return;
+      for (const selector of saved.expanded) {
+        const section = article.querySelector(selector);
+        if (section) section.open = true;
+      }
+      // A changed source, proposal or review status invalidates prior consent.
+      if (saved.signature !== notificationFormSignature(item)) return;
+      const note = article.querySelector(".inbox-dismiss-form textarea");
+      if (note) note.value = saved.note;
+      const checkboxes = Array.from(article.querySelectorAll('.inbox-consent input[type="checkbox"]'));
+      checkboxes.forEach((input, i) => { input.checked = saved.checks[i] === true; });
+      const dismiss = article.querySelector(".inbox-dismiss");
+      if (dismiss && note) dismiss.disabled = !(checkboxes.at(-1)?.checked && note.value.trim() && note.value.trim().length <= 500);
+      const authorize = article.querySelector(".inbox-authorize");
+      if (authorize) {
+        const checks = Array.from(article.querySelectorAll(".inbox-actions > .inbox-consent input"));
+        authorize.disabled = !checks.length || checks.some(input => !input.checked);
+      }
+    }
+
     function renderNotificationList() {
       const host = $("review-list");
+      const panelDrafts = captureNotificationPanels(host);
       const total = $("review-total");
       const copyAll = $("review-copy-all");
       const openSummary = $("review-open-summary");
@@ -3966,6 +4023,7 @@
       for (const item of sorted) {
         const article = element("article", "inbox-message");
         article.setAttribute("data-review-id", item.anomaly_id || "");
+        article.setAttribute("data-review-signature", notificationFormSignature(item));
         const header = element("div", "inbox-message-header");
         const [statusLabel, statusTone] = notificationStatus(item);
         header.append(
@@ -4024,6 +4082,7 @@
             "核查说明已复制。这条消息已复制到剪贴板；请粘贴到 ChatGPT 对话，复制不会修改工作台数据。");
         });
         if (item.status !== "auto_merged") article.append(copy);
+        restoreNotificationPanel(article, panelDrafts.get(item.anomaly_id), item);
         host.append(article);
       }
     }
