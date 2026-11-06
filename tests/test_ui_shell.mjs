@@ -990,7 +990,7 @@ test("concurrent-write messages explain affected fields and copy a read-only han
       {event_id: "synthetic-1", changes: {priority: "high"}},
       {event_id: "synthetic-2", changes: {title: "虚构标题新版", due_date: "2026-11-05"}}
     ],
-    user_guidance: {summary: "两条修改使用了同一个旧版本。", impact: "原始记录仍保留。"}
+    user_guidance: {summary: "两条修改使用了同一个旧版本。", impact: "原始记录仍保留。", recommendation: "点击复制给 ChatGPT 核查。"}
   };
   const page = harness([], () => true, [], [item]);
   await page.api.loadNotifications();
@@ -998,6 +998,7 @@ test("concurrent-write messages explain affected fields and copy a read-only han
   assert.match(treeText(list), /虚构资料整理任务/);
   assert.match(treeText(list), /2 条修改发生了版本冲突/);
   assert.match(treeText(list), /优先级、任务名称、截止日期/);
+  assert.match(treeText(list), /点击复制给 ChatGPT 核查/);
   const button = findTreeNode(list, node => node.tag === "button");
   assert.equal(button?.textContent, "复制给 ChatGPT 核查");
   for (const handler of button.handlers.get("click") || []) await handler();
