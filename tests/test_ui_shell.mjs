@@ -816,8 +816,8 @@ test("V2 polishing: filters remain accessible and Gantt uses legible horizontall
 
 test("stage3 project counts separate primary and related without duplicate",async()=>{
  const p="PROJECT-DEMO-1";
- const tasks=[{...sampleTask(),task_id:"A",project_id:p,related_project_ids:[p]},
- {...sampleTask(),task_id:"B",project_id:"OTHER",related_project_ids:[p],status:"blocked"}];
+ const tasks=[{...sampleTask(),task_id:"A",project_id:p,related_project_ids:[p],due_date:"2099-12-31"},
+ {...sampleTask(),task_id:"B",project_id:"OTHER",related_project_ids:[p],status:"blocked",due_date:"2099-12-31"}];
  const x=harness(tasks,()=>true,[{project_id:p,name:"虚构项目",revision:1,conflict:false}]);
  await x.api.refresh(true);
  assert.equal(x.api.projectCounts(p).primary,1);
