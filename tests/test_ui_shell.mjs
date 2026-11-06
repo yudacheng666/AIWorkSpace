@@ -1072,7 +1072,7 @@ test("bulk ChatGPT handoff copies every visible message in one read-only bundle"
   assert.match(copied, /evt_synthetic_invalid_step.json/);
   assert.match(copied, /TASK-SYNTHETIC-001/);
   assert.match(copied, /请逐条核查/);
-  assert.match(copied, /不得直接修改、删除、覆盖或移动/);
+  assert.match(copied, /不要直接修改任何数据、删除、覆盖或移动/);
   assert.equal(page.writes.length, 0, "bulk clipboard handoff must not create review or business writes");
 });
 
