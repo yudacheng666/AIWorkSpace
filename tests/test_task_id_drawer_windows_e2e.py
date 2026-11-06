@@ -874,6 +874,9 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         row = page.locator(".task-summary").filter(has_text="虚构：已自动整合资料任务")
         row.locator(".task-quick-editor--priority .task-quick-trigger").click()
         row.get_by_role("button", name="设为紧急").click()
+        # The UI saves asynchronously; wait for the observed browser result
+        # before asserting server-side revision.
+        expect(row.locator(".task-quick-editor--priority .task-quick-trigger")).to_have_text("紧急")
         state = read_workspace(self.data_dir)
         current = state["tasks"][0]
         self.assertFalse(current["conflict"], state["warnings"])
