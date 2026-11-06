@@ -1,5 +1,13 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-06：通知信箱读得懂、可交给 ChatGPT 核查（Draft PR #45）
+
+- **现场反馈**：用户未升级公司 Windows 程序，已有 ChatGPT 通过 Google Drive 追加任务/步骤事件后显示新冲突；消息仍以技术警告为中心，没有可执行的下一步。
+- **只读诊断**：现有云盘事件中确认同一任务存在两条针对相同 base_revision 的不同字段修改，导致 reducer 正确停止在冲突版本；旧历史异常也仍存在。诊断仅在用户私有云盘只读进行，**真实任务名称、ID、文件链接、事件字节未写入公开 GitHub**。原始文件未编辑、删除或覆盖。
+- **根因及修正**：后台 `_workspace_warning_anomalies` 原只返回警告字符串、不附关联任务；前台 `notificationRecommendation` 在 `semantic_conflict` 情况下覆盖后端针对性建议。PR #45 新增任务关联、冲突字段与候选数展示、针对性中文建议和用户主动「复制给 ChatGPT 核查」的只读剪贴板交接；不直接修复、无模型 API、无新业务事件写入。
+- **代码与测试**：分支 `fix/20261106-notification-triage` 基于正式 2.7.0 main `255c413697539862166792a6847f0a239e5af039`。新增合成双写冲突 Python 回归 + Node 复制/不写入测试，并维护产品需求和决策；GitHub Actions 准确 SHA 测试结果以本 PR 的日志为准。
+- **未完成边界**：旧版 Windows 8770 目前未更新；新的 UI 只有用户正式升级后才可看到，历史版本冲突不会因升级或复制说明而自动消除。真实事件修复仍须先完整备份、核对业务修改并取得明确授权，再按受保护的追加式/审计式修复流程处理。用户未批准本 PR 合并，保留 Draft；真实双机 Drive 离线/重连 NOT TESTED。
+
 ## 2026-11-06：2.7.0 Draft PR #44 准确 SHA CI PASS；尚未发布
 
 - **准确代码/测试 SHA**：`26eeaef7b7030707ddf6e24a7992cd078b4e36e9`，GitHub Actions [#42126735310](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42126735310) **3/3 SUCCESS**。Ubuntu Python 243 tests（26 SKIP）、Windows Python 243 tests（24 SKIP）；Node 两端各 109 PASS/0 FAIL；Windows 原生 Chromium 更新/回滚 3 PASS，工作台 UI 21 PASS（含总结与成果库来源编号及证据剪贴板只读核验）。
