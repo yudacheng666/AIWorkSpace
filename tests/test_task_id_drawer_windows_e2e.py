@@ -1020,6 +1020,9 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         expect(authorize).to_be_enabled()
         authorize.click()
         expect(position_card.locator(".inbox-status")).to_have_text("已授权，待执行")
+        expect(position_card.locator(".inbox-proposal")).to_be_visible()
+        expect(position_card.locator(".inbox-proposal-content")).to_contain_text(
+            "虚构：修复后的图纸整理步骤")
         expect(position_card.locator("button.inbox-apply")).to_be_visible()
         self.assertEqual(position_source.read_bytes(), position_original,
                          "authorization alone must not write the business event")
