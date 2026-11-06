@@ -955,8 +955,16 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
 
     def test_notification_inbox_bulk_copy_and_real_repair_and_keep_original_actions(self):
         """The inbox lets a user copy every message, review a proposal, apply it, or keep a source."""
+        step_id = "STEP-" + "C" * 32
+        append_step_event(self.data_dir, {
+            "version": 1, "event_id": "ui-review-step-create",
+            "task_id": self.task_id, "step_id": step_id,
+            "action": "create", "actor": "user",
+            "timestamp": "2026-11-05T10:00:00Z", "base_revision": 0,
+            "changes": {"title": "虚构：原始图纸整理", "position": 1},
+        })
         task = read_workspace(self.data_dir)["tasks"][0]
-        step_id = task["steps"][0]["step_id"]
+        self.assertEqual(task["steps"][0]["step_id"], step_id)
         position_source = self.data_dir / "step_events" / "evt_ui_review_position.json"
         position_event = {
             "version": 1, "event_id": "ui-review-position-event",
