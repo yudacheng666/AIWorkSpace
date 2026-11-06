@@ -125,6 +125,46 @@ class NotificationTriageTests(unittest.TestCase):
             self.assertEqual(task["priority"], "high")
             self.assertEqual(task["title"], "虚构：最新版")
 
+    def test_confirmed_lifecycle_after_verified_merge_is_not_regressed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data = Path(temp)
+            for event in (root_event(),
+                          task_event(2, "update", 1, {"priority": "high"}),
+                          task_event(3, "update", 1, {"due_date": "2026-11-15"})):
+                write_event(data / "events", event)
+            lifecycle = task_event(
+                4, "trash", 2, {"trashed_at": "2026-11-05T10:04:00Z"}
+            )
+            append_event(data, lifecycle)
+            self.assertRegex(lifecycle["merge_basis"], r"^[0-9a-f]{64}$")
+            result = read_workspace(data, include_trashed=True)
+            task = result["tasks"][0]
+            self.assertFalse(task["conflict"], result["warnings"])
+            self.assertEqual(task["revision"], 3)
+            self.assertTrue(task["trashed_at"])
+            self.assertEqual(task["priority"], "high")
+
+    def test_verified_delete_after_auto_merged_step_remains_legal(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data = Path(temp)
+            write_event(data / "events", root_event())
+            for event in (
+                step_event(10, "create", 0, {"title": "虚构：步骤", "position": 1}),
+                step_event(11, "update", 1, {"title": "虚构：调整步骤"}),
+                step_event(12, "update", 1, {"due_date": "2026-11-15"}),
+            ):
+                write_event(data / "step_events", event)
+            deletion = step_event(
+                13, "delete", 2, {"deleted_at": "2026-11-05T10:13:00Z"},
+                confirmed_delete=True,
+            )
+            append_step_event(data, deletion)
+            self.assertRegex(deletion["merge_basis"], r"^[0-9a-f]{64}$")
+            result = read_workspace(data)
+            self.assertFalse(result["tasks"][0]["conflict"])
+            self.assertFalse(any("conflicting edits" in w for w in result["warnings"]))
+            self.assertEqual(len(result["tasks"][0]["steps"]), 0)
+
     def test_old_client_late_write_without_merge_basis_is_frozen(self):
         with tempfile.TemporaryDirectory() as temp:
             data = Path(temp)
