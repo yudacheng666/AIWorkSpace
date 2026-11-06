@@ -1,5 +1,14 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-06：2.8.0 正式发布（已合入 main，发布后 3/3 CI PASS）
+
+- **用户授权和合并**：用户明确指示“合并，发布”。完成全部开放 PR 核查：仅 PR #45 尚未合并、无遗留依赖；先标记 Ready 后以 GitHub 标准 Merge 合入正式 `main`。PR [#45](https://github.com/yudacheng666/AIWorkSpace/pull/45) 已 **MERGED**，合并 SHA `ab8988f940d7434e9404a41408dba1f9db179b9b`，`main/VERSION=2.8.0`；合并后开放 PR=0。
+- **验收（准确 SHA）**：PR 候选实际产品/测试/版本 SHA `d5d08410b52e3a53d3d02a85715741fa185a87fe` 的 [GitHub Actions #42152643485](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42152643485) 3/3 SUCCESS；后续到 PR HEAD `87341b57fc92d5c2e19e845c980010a6f85876b0` 的变更仅 README 和 PROJECT_STATE 文档。**合并后的准确 main SHA** `ab8988f940d7434e9404a41408dba1f9db179b9b` 对应 [Actions #42190703776](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42190703776)，Ubuntu Python/Node、Windows Python/Node、Windows 真实应用 + Chromium E2E **3/3 SUCCESS**。无需重复安排 Codex 跑同 SHA/同内容回归。
+- **正式发布内容**：任务标题/负责人/优先级/日期，步骤标题/日期中的低风险、不同字段、同旧版本事件可确定性地安全归并；原始 JSON 不改写。后续编辑带 `merge_basis` 验证，旧客户端缺少匹配凭证的迟到修改不静默覆盖；完成、删除、状态、转换、同字段竞争等继续人工核查。通知信箱将成功归并显示为“已自动整合，无需操作”。
+- **发布与部署区别**：本轮仅 **GitHub main 正式代码发布**，工作台的网页“检查更新”将按照其当前机制读取 main 最新 build SHA、版本与受检程序 ZIP。没有在用户公司 Windows 本机执行“立即更新”，没有更改 Google Drive 真实任务、事件或冲突文件。真实双电脑 Google Drive 离线/重连及旧版客户端混用仍 **NOT TESTED**，不可视为已验收。
+- **后续**：同一 Google Drive 数据目录的电脑应先做好数据备份，再统一更新软件，避免旧客户端继续写入；升级后先只读核对历史异常和自动归并后的任务字段，不擅自批量重写事件。若有仍无法自动合并的历史问题，另按数据治理的备份—核查—授权—合法写入—审计流程处理。
+- **文档说明**：下文原“PR #45 Draft / VERSION=2.7.0”的候选章节是当时开发历史证据，已被本正式发布回执取代。README 另补正式发布版本页首说明；该等发布记录仅文档修改，提交带 `[skip ci]`，不能把文档提交 SHA 误写为 CI 实际测试 SHA。
+
 ## 2026-11-06：2.8.0 候选「安全并行更新自动归并」— PR #45 Draft
 
 - **用户批准的改动**：同一任务/步骤的几条操作如果修改互不相交的低风险字段，不应每次要求复制给 ChatGPT。实现中并非简单按客户端时间戳先后覆盖，而是对相同 base_revision 的多个有效 `update` 做确定性、字段级安全检查。
