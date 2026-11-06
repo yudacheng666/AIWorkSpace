@@ -347,6 +347,12 @@ def validate_event(value: object) -> dict:
     changes = value.get("changes")
     if not isinstance(changes, dict) or not changes:
         raise ValueError("changes must be a nonempty object")
+    if "merge_basis" in value and (
+        value["action"] == "create" or
+        not isinstance(value["merge_basis"], str) or
+        not MERGE_BASIS_PATTERN.fullmatch(value["merge_basis"])
+    ):
+        raise ValueError("invalid task merge basis")
     if value["action"] in TASK_LIFECYCLE_ACTIONS:
         if value["actor"] != "user" or revision < 1:
             raise ValueError("task lifecycle must be a user action on existing task")
@@ -512,6 +518,12 @@ def validate_step_event(value: object) -> dict:
     changes = value.get("changes")
     if not isinstance(changes, dict) or not changes:
         raise ValueError("changes must be a nonempty object")
+    if "merge_basis" in value and (
+        value["action"] in {"create", "reorder"} or
+        not isinstance(value["merge_basis"], str) or
+        not MERGE_BASIS_PATTERN.fullmatch(value["merge_basis"])
+    ):
+        raise ValueError("invalid step merge basis")
     if value["action"] == "reorder":
         if set(value) - {"version", "event_id", "task_id", "action", "actor",
                          "timestamp", "base_revision", "changes"}:
@@ -526,7 +538,7 @@ def validate_step_event(value: object) -> dict:
         return value
     if set(value) - {"version", "event_id", "task_id", "step_id", "action", "actor",
                      "timestamp", "base_revision", "changes", "confirmed_done",
-                     "confirmed_delete"}:
+                     "confirmed_delete", "merge_basis"}:
         raise ValueError("unknown step event fields")
     if not isinstance(value.get("step_id"), str) or not STEP_ID.fullmatch(value["step_id"]):
         raise ValueError("invalid step_id")
@@ -1691,6 +1703,19 @@ def _append_json_event(data_dir: Path, event: dict, folder: str) -> Path:
 
 
 def append_event(data_dir: Path, event: dict) -> Path:
+    # New clients certify they observed every sibling before following a merged
+    # logical revision. Older clients cannot silently overwrite late-sync edits.
+    if event.get("action") != "create" and type(event.get("base_revision")) is int:
+        workspace = read_workspace(data_dir, include_trashed=True)
+        current = next((task for task in workspace["tasks"]
+                        if task["task_id"] == event.get("task_id")), None)
+        if current and not current["conflict"] and (
+            current["revision"] == event["base_revision"]
+        ) and current.get("merge_basis_required"):
+            required = current["merge_basis_required"]
+            if event.get("merge_basis", required) != required:
+                raise ValueError("task merge basis does not match current revision")
+            event["merge_basis"] = required
     validate_event(event)
     return _append_json_event(data_dir, event, "events")
 
@@ -1701,6 +1726,19 @@ def append_project_event(data_dir: Path, event: dict) -> Path:
 
 
 def append_step_event(data_dir: Path, event: dict) -> Path:
+    if event.get("action") in {"update", "delete"} and type(event.get("base_revision")) is int:
+        workspace = read_workspace(data_dir, include_trashed=True)
+        task = next((task for task in workspace["tasks"]
+                     if task["task_id"] == event.get("task_id")), None)
+        step = next((step for step in (task or {}).get("steps", [])
+                     if step["step_id"] == event.get("step_id")), None)
+        if (task and not task.get("conflict") and step and not step.get("conflict") and
+                step["revision"] == event["base_revision"] and
+                step.get("merge_basis_required")):
+            required = step["merge_basis_required"]
+            if event.get("merge_basis", required) != required:
+                raise ValueError("step merge basis does not match current revision")
+            event["merge_basis"] = required
     validate_step_event(event)
     return _append_json_event(data_dir, event, "step_events")
 
