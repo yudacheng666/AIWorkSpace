@@ -1002,6 +1002,50 @@ def conflicting_fields(events: list[dict]) -> list[str]:
     )
 
 
+# Only independent, low-risk fields may be combined at the same logical revision.
+# This is a read-only projection. No original event is rewritten or re-timestamped.
+AUTO_TASK_MERGE_FIELDS = frozenset(("title", *TASK_MANAGEMENT_FIELDS))
+AUTO_STEP_MERGE_FIELDS = frozenset(("title", *DATE_FIELDS))
+MERGE_BASIS_PATTERN = re.compile(r"[0-9a-f]{64}\\Z")
+
+
+def _safe_disjoint_merge(candidates: list[dict], allowed: frozenset[str]) -> dict | None:
+    """Deterministically combine independent sibling updates; timestamps never choose a winner."""
+    if len(candidates) < 2 or len(candidates) > 20:
+        return None
+    updates: dict = {}
+    for event in candidates:
+        if event.get("action") != "update":
+            return None
+        if set(event) - {"version", "event_id", "task_id", "step_id", "action",
+                          "actor", "timestamp", "base_revision", "changes", "merge_basis"}:
+            return None
+        changes = event.get("changes", {})
+        if not changes or set(changes) - allowed or set(changes) & set(updates):
+            return None
+        try:
+            instant = datetime.fromisoformat(event["timestamp"].replace("Z", "+00:00"))
+            if instant.tzinfo is None or instant.utcoffset() is None:
+                return None
+        except (ValueError, TypeError, AttributeError, KeyError):
+            return None
+        updates.update(changes)
+    if len({event["event_id"] for event in candidates}) != len(candidates):
+        return None
+    ordered = sorted(candidates, key=lambda event: event["event_id"])
+    digest = hashlib.sha256(json.dumps(
+        ordered, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")).hexdigest()
+    return {
+        "changes": updates,
+        "fields": sorted(updates),
+        "event_ids": [event["event_id"] for event in ordered],
+        "base_revision": ordered[0]["base_revision"],
+        "timestamp": max(event["timestamp"] for event in candidates),
+        "merge_basis": digest,
+    }
+
+
 def read_projects(data_dir: Path) -> dict:
     """Reduce append-only project events without overwriting project history."""
     directory = data_dir / "project_events"
