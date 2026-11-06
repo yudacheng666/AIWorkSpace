@@ -1028,6 +1028,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
             '[data-review-id="' + reference_item["anomaly_id"] + '"]'
         )
         defer = reference_card.locator("details.inbox-defer")
+        defer.locator("summary").click()
         defer.locator("textarea").fill("已核对步骤列表，无法确认这条异常记录的目标，决定保留原始记录。")
         defer.locator("input[type=checkbox]").check()
         defer.get_by_role("button", name="确认保留，不写入").click()
