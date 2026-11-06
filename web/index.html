@@ -3744,7 +3744,7 @@
         instruction: [
           "请逐条核查以下通知。先只读检查 Google Drive 中对应的原始事件文件、任务/步骤当前状态和同步情况，不要只凭摘要猜测。",
           "请按消息编号逐条说明：问题是什么、实际影响、哪些内容尚未生效、是否有安全修复方案、我需要做什么。",
-          "不得直接修改、删除、覆盖或移动任何原始文件；不得自动写入新事件、标记任务/步骤完成或将消息标记为已处理。",
+          "不要直接修改任何数据、删除、覆盖或移动任何原始文件；不得自动写入新事件、标记任务/步骤完成或将消息标记为已处理。",
           "如需修复，请先给出逐条方案、目标对象和具体字段变化，等待我明确授权后再执行。"
         ].join("\n"),
         message_count: items.length,
@@ -3855,7 +3855,7 @@
             "我另外确认：这项任务/步骤确实已经完成。"));
           panel.append(completionLabel);
         }
-        const authorize = element("button", "inbox-action-button inbox-action-button--primary",
+        const authorize = element("button", "inbox-action-button inbox-action-button--primary inbox-authorize",
           "授权这项修复");
         authorize.type = "button";
         authorize.disabled = true;
@@ -3882,7 +3882,7 @@
         hasAction = true;
         panel.append(element("p", "inbox-action-note",
           "你已经授权这项修复。系统尚未修改业务数据；执行时会再次核对原始文件和当前版本。"));
-        const apply = element("button", "inbox-action-button inbox-action-button--primary",
+        const apply = element("button", "inbox-action-button inbox-action-button--primary inbox-apply",
           "执行修复");
         apply.type = "button";
         apply.addEventListener("click", async () => {
@@ -3911,7 +3911,7 @@
         const confirmLabel = element("label", "inbox-consent");
         confirmLabel.append(confirm, element("span", "",
           "我确认保留原始记录，不将这条异常修改写入任务/步骤。"));
-        const dismiss = element("button", "inbox-action-button", "确认保留，不写入");
+        const dismiss = element("button", "inbox-action-button inbox-dismiss", "确认保留，不写入");
         dismiss.type = "button";
         dismiss.disabled = true;
         const updateEnabled = () => {
@@ -4015,7 +4015,7 @@
         copy.addEventListener("click", async () => {
           const prompt = reviewCopyPrompt([item]);
           await copyReviewText(prompt,
-            "这条消息已复制。请粘贴到 ChatGPT 对话；复制不会修改工作台数据。");
+            "核查说明已复制。这条消息已复制到剪贴板；请粘贴到 ChatGPT 对话，复制不会修改工作台数据。");
         });
         if (item.status !== "auto_merged") article.append(copy);
         host.append(article);
