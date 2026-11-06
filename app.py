@@ -3062,6 +3062,54 @@ def _workspace_warning_anomalies(workspace: dict, known_filenames: set[str]) -> 
     return results
 
 
+def _workspace_auto_merge_notices(workspace: dict) -> list[dict]:
+    """Informational, deterministic notices for read-only merged projections."""
+    field_labels = {
+        "title": "名称", "owner": "负责人", "priority": "优先级",
+        "due_date": "截止日期", "planned_date": "计划日期",
+        "follow_up_date": "跟进日期",
+    }
+    notices = []
+    for task in workspace.get("tasks", []):
+        if task.get("conflict"):
+            continue
+        sources = [("task", task, None)]
+        sources.extend(("step", step, step["step_id"])
+                       for step in task.get("steps", []) if not step.get("conflict"))
+        for kind, source, step_id in sources:
+            for merged in source.get("auto_merge_groups", []):
+                fields = "、".join(field_labels.get(f, f) for f in merged["fields"])
+                count = len(merged["event_ids"])
+                digest = merged["merge_basis"]
+                review_id = "ANOM-" + hashlib.sha256(
+                    f"auto-merge:{task['task_id']}:{step_id or ''}:{digest}".encode()
+                ).hexdigest()[:32].upper()
+                target = "任务" if kind == "task" else "步骤"
+                notices.append({
+                    "anomaly_id": review_id, "category": "auto_merged",
+                    "title": f"已自动整合{target}的独立修改",
+                    "reason": "已通过安全字段校验；事件原文和历史记录未被改写。",
+                    "source": {"folder": "workspace_auto_merge",
+                               "filename": "", "sha256": digest},
+                    "source_present": True,
+                    "source_event": {"timestamp": merged["timestamp"]},
+                    "event_id": None, "task_id": task["task_id"], "step_id": step_id,
+                    "task_title": task.get("title"),
+                    "step_title": source.get("title") if step_id else None,
+                    "status": "auto_merged",
+                    "merge_count": count,
+                    "merge_fields": merged["fields"],
+                    "user_guidance": {
+                        "summary": f"{count} 次修改涉及不同内容（{fields}），已自动整合，无需操作。",
+                        "impact": "任务和步骤现在显示整合后的结果。全部原始事件保持不变。",
+                        "recommendation": "无需处理。如果另一台设备仍显示旧版本，请先同步并升级工作台。",
+                    },
+                    "can_authorize": False, "can_apply": False, "can_dismiss": False,
+                    "review_revision": 0, "proposal": None, "timeline": [],
+                })
+    return notices
+
+
 def _review_proposal_block_reason(anomaly: dict, workspace: dict) -> str | None:
     """Explain why an event cannot be safely replayed against the current target revision."""
     source_event = anomaly.get("source_event")
@@ -3422,6 +3470,8 @@ def list_data_reviews(data_dir: Path, workspace: dict | None = None) -> dict:
         item["step_title"] = current_step.get("title") if current_step else None
         item["user_guidance"] = _review_user_guidance(item, proposal, proposal_block_reason)
         items.append(item)
+    # Successful, purely derived merges never enter the repair/authorization queue.
+    auto_merge_notices = _workspace_auto_merge_notices(workspace)
     # Keep an audit trail visible even if a synced source file later disappears.
     for anomaly_id, state in states.items():
         if anomaly_id in current_ids:
@@ -3451,8 +3501,9 @@ def list_data_reviews(data_dir: Path, workspace: dict | None = None) -> dict:
             "authorization_event_id": None, "proposal": None,
             "can_authorize": False, "can_apply": False, "can_dismiss": False,
         })
+    items.extend(auto_merge_notices)
     order = {"pending": 0, "authorized": 1, "failed": 2, "stale": 3,
-             "conflict": 4, "dismissed": 5, "applied": 6}
+             "conflict": 4, "dismissed": 5, "applied": 6, "auto_merged": 7}
     items.sort(key=lambda item: (
         order.get(item["status"], 9), item["source"]["folder"],
         item.get("task_id") or "", item.get("step_id") or "",
@@ -3460,7 +3511,7 @@ def list_data_reviews(data_dir: Path, workspace: dict | None = None) -> dict:
          if type((item.get("source_event") or {}).get("base_revision")) is int else -1),
         item["source"]["filename"], item["anomaly_id"]))
     counts = {key: sum(item["status"] == key for item in items)
-              for key in ("pending", "authorized", "applied", "dismissed", "stale", "failed", "conflict")}
+              for key in ("pending", "authorized", "applied", "dismissed", "stale", "failed", "conflict", "auto_merged")}
     counts["total"] = len(items)
     counts["open_count"] = (counts["pending"] + counts["authorized"] + counts["stale"]
                             + counts["failed"] + counts["conflict"])
