@@ -3829,8 +3829,9 @@
         message.textContent = successText;
         return true;
       } catch (error) {
+        await loadNotifications();
         message.className = "inbox-feedback error";
-        message.textContent = "本次操作未完成：" + error.message + "。请刷新消息后重新核对；系统不会跳过版本校验。";
+        message.textContent = "本次操作未完成：" + error.message + "。消息已重新读取；请按最新状态核对，系统不会跳过版本校验。";
         return false;
       }
     }
@@ -3869,12 +3870,13 @@
           updateEnabled();
           if (authorize.disabled) return;
           authorize.disabled = true;
-          await submitReviewAction(item, "authorize", {
+          const saved = await submitReviewAction(item, "authorize", {
             source_sha256: item.source.sha256,
             proposal_sha256: item.proposal.proposal_sha256,
             confirmed: true,
             ...(completionConfirm ? {confirm_completion: completionConfirm.checked} : {})
           }, "已记录你的授权。业务数据尚未修改；请刷新后检查“执行修复”步骤。");
+          if (!saved) authorize.disabled = false;
         });
         panel.append(authorize);
       }
@@ -3888,11 +3890,12 @@
         apply.addEventListener("click", async () => {
           if (!window.confirm("确认执行这项已授权修复？工作台将追加一条经过校验的新事件；原始异常文件不会被覆盖或删除。")) return;
           apply.disabled = true;
-          await submitReviewAction(item, "apply", {
+          const saved = await submitReviewAction(item, "apply", {
             source_sha256: item.source.sha256,
             authorization_event_id: item.authorization_event_id,
             confirmed: true
           }, "修复已执行并通过结果核验。原始异常记录仍保留。");
+          if (!saved) apply.disabled = false;
         });
         panel.append(apply);
       }
@@ -3923,11 +3926,12 @@
           updateEnabled();
           if (dismiss.disabled) return;
           dismiss.disabled = true;
-          await submitReviewAction(item, "dismiss", {
+          const saved = await submitReviewAction(item, "dismiss", {
             source_sha256: item.source.sha256,
             confirmed: true,
             note: note.value.trim()
           }, "已记录为暂不修复，原始记录继续保留。");
+          if (!saved) dismiss.disabled = false;
         });
         form.append(note, confirmLabel, dismiss);
         defer.append(form);
