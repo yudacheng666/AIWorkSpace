@@ -6,9 +6,11 @@
 - **根因**：后台早已存在单条消息的 `authorize`、`apply`、`dismiss` API 和审计链，但通知信箱前端只提供单条剪贴板复制，没有展示合法修复 proposal，也没有授权、执行和“保留原始记录、不写入”入口。
 - **新实现**：顶部新增「复制全部消息给 ChatGPT 核查」，复制当前列表全部消息（包含已处理/自动整合状态）的消息编号、类型/状态、任务/步骤、来源文件定位与 SHA、关键事件内容、建议、proposal 和审计历史；只复制剪贴板，不自动发送。每条消息按后端能力显示具体处理步骤：展开修复预览→勾选确认授权→独立执行修复；若涉及完成状态，另设完成确认；支持填写原因并确认暂不修复/保留原始记录。没有安全方案或存在冲突时明确阻止写入并提示批量交给 ChatGPT 核查。
 - **数据安全**：继续使用现有 `/api/reviews/{id}/authorize|apply|dismiss`；前端不直写文件，不批量修复。授权只写 review audit；执行时后端重新核对 source SHA、proposal SHA、目标 revision，追加新合法事件并验证；保留原始异常文件。暂不修复只记录决定，不等于底层问题已解决。
-- **代码/测试**：分支 `feat/20261106-review-inbox-actions` 从正式 main 文档同步后的基线 `977cdabec40cd7cb804b8246b6e8f467ab6a6a67` 创建，候选 `VERSION=2.8.1`。修改 `web/index.html`；Node UI 覆盖全部消息批量复制、授权与完成双确认、授权/执行分离、保留原始记录；Windows Chromium E2E 覆盖真实页面剪贴板、修复事件追加、原始异常字节不变及审计事件。后端现有治理 API 的 18 项合成端到端测试在 `tests/test_data_governance.py`，本阶段不改写该 API。准确 SHA 的 CI 尚待执行。
+- **代码/测试**：PR [#46](https://github.com/yudacheng666/AIWorkSpace/pull/46) Draft，分支 `feat/20261106-review-inbox-actions` 从正式 main 文档同步后的基线 `977cdabec40cd7cb804b8246b6e8f467ab6a6a67` 创建，候选 `VERSION=2.8.1`。修改 `web/index.html`；Node UI 覆盖全部消息批量复制、授权与完成双确认、授权/执行分离、保留原始记录；Windows Chromium E2E 覆盖真实页面剪贴板、修复事件追加、授权后继续查看预览、原始异常字节不变及审计事件。后端既有治理 API 的合成端到端回归继续由 `tests/test_data_governance.py` 覆盖，本阶段未改写后端 API。
+- **准确 SHA 验收**：产品/测试/候选版本 SHA `17d0937d2a274bc13bcf5e9fe1ab715b6dd4053f` 对应 [GitHub Actions #42198035504](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42198035504) **3/3 SUCCESS**。Ubuntu Python 260 tests（28 SKIP）、Windows Python 260 tests（26 SKIP）；Node 两平台各 114 PASS/0 FAIL；Windows 更新/回滚 3 PASS；Windows 真实应用 + Chromium 23 PASS（包含本次新增批量复制、授权、执行修复、暂不修复/审计及源文件字节不变路径）。
+- **首轮问题及定向修正**：初轮 Node 测试错误地从最小 DOM stub 读取静态 HTML 按钮文本，改为核验真实 HTML；Windows E2E 新用例未独立创建合成步骤，已补齐 fixture；批量复制提示语断言同步到最终只读安全文案。另补测授权后仍显示 proposal 供用户在执行前复核。以上均在最终准确 SHA 的完整 CI 中通过。
 - **边界**：2.8.0 已合并正式 main（合并 commit `ab8988f940d7434e9404a41408dba1f9db179b9b`）；2.8.1 尚未合并或发布。用户当前真实 5 条消息未通过本次开发操作；真实 Google Drive 事件未读取/写入/删除，用户 Windows 程序未升级。实际 5 条消息哪些可修复，须由升级后后端逐条计算 `can_authorize/can_apply/can_dismiss`，不能预先承诺全部可自动修复。
-- **下一步**：完成 UI 代码审阅与准确 SHA 的 Ubuntu/Windows/Chromium Actions；CI 通过后保持 Draft 待用户批准合并。真实 5 条消息后续须先备份和只读核查，再按每条消息的能力展示操作，不批量写入。
+- **下一步**：代码与自动化验收已完成；PR #46 仍保持 Draft，等待用户明确批准合并/发布。真实 5 条消息后续须先备份和只读核查，再按每条消息的能力展示操作，不批量写入。
 
 ## 2026-11-06：2.8.0 正式发布（已合入 main，发布后 3/3 CI PASS）
 
