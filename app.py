@@ -2894,13 +2894,29 @@ def _workspace_warning_anomalies(workspace: dict, known_filenames: set[str]) -> 
         anomaly_id = "ANOM-" + hashlib.sha256(
             ("workspace:" + source_hash).encode("utf-8")
         ).hexdigest()[:32].upper()
+        # Warning strings are produced by our reducers, not untrusted event metadata.
+        # Recover the affected task for a readable notification without changing events.
+        task_match = re.match(r"^(TASK-[A-Za-z0-9-]{1,50}): ", warning)
+        task_id = task_match.group(1) if task_match else None
+        task = next((candidate for candidate in workspace.get("tasks", [])
+                     if candidate.get("task_id") == task_id), None)
+        is_concurrent = bool(
+            task and task.get("conflict") and
+            re.search(r"conflicting edits of revision \\d+", warning)
+        )
         results.append({
             "anomaly_id": anomaly_id, "category": category,
-            "title": "数据正在等待同步" if category == "sync_pending" else "数据引用或版本存在冲突",
+            "title": ("同一任务的多次修改发生版本冲突" if is_concurrent else
+                      "数据正在等待同步" if category == "sync_pending" else
+                      "数据引用或版本存在冲突"),
             "reason": warning,
             "source": {"folder": "workspace", "filename": "", "sha256": source_hash},
             "source_present": True, "source_event": None, "raw_excerpt": None,
-            "event_id": None, "task_id": None, "step_id": None, "action": None,
+            "event_id": None, "task_id": task_id if task else None,
+            "step_id": None, "action": None,
+            "concurrent_task_edit": is_concurrent,
+            "related_edits": (task.get("conflict_candidates", []) if is_concurrent else []),
+            "conflict_fields": (task.get("conflict_fields", []) if is_concurrent else []),
         })
     return results
 
@@ -2991,9 +3007,17 @@ def _review_user_guidance(anomaly: dict, proposal: dict | None,
         impact = "这通常表示同步尚未完成，不等于数据丢失；系统暂时不会对它进行修改。"
         recommendation = "先等待 Google Drive 和其他电脑完成同步，再点击“重新扫描”。暂时不要授权修复或手工新建重复任务。"
     elif category == "semantic_conflict":
-        summary = "同一任务或步骤存在互相冲突的版本，系统无法判断哪一个才是正确结果。"
-        impact = "相关数据已暂停自动处理，系统不会自行选择一个版本覆盖另一个版本。"
-        recommendation = "先核对各版本的实际内容和同步情况。无法确定正确版本时，请保留现状，不要执行修复。"
+        if anomaly.get("concurrent_task_edit"):
+            summary = "同一任务的多次修改使用了相同的旧版本，工作台不能安全决定修改顺序。"
+            impact = "这些修改没有被自动合并，相关任务可能暂时不能继续编辑。原始文件和此前已确认的内容仍保留。"
+            recommendation = ("不用自行研究版本号、原始文件或选择删除哪条记录。"
+                              "请点击“复制给 ChatGPT 核查”，由 ChatGPT 只读核对每次修改，"
+                              "提出保留全部合理内容的方案；备份并经你明确批准后才能执行修复。")
+        else:
+            summary = "同一任务或步骤存在互相冲突的版本，系统无法判断哪一个才是正确结果。"
+            impact = "相关数据已暂停自动处理，系统不会自行选择一个版本覆盖另一个版本。"
+            recommendation = ("不用自行修改原始文件。可以复制此消息给 ChatGPT，"
+                              "先核对来源和当前状态，再决定是否需要修复。")
     else:
         summary = "这条记录不符合工作台的数据规则，系统已暂停应用它。"
         impact = "原始记录仍保留；系统不会自动改写任务、步骤或项目内容。"
