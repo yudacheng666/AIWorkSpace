@@ -2,7 +2,7 @@
 
 > **正式发布：AIWorkSpace 2.8.0（2026-11-06）**。PR [#45](https://github.com/yudacheng666/AIWorkSpace/pull/45) 已合入 `main`，合并 SHA `ab8988f940d7434e9404a41408dba1f9db179b9b`，`VERSION=2.8.0`。新增低风险独立字段冲突自动归并、合并后版本凭证与已自动整合通知；原始 JSON 不改写，高风险冲突仍需核查。用户的 Windows 工作台不会因 GitHub 发布而自动更新，真实双机 Google Drive 离线/重连尚未验收。下方早期“Draft/未发布”段落均为开发阶段历史记录，不代表当前正式版本。
 
-> **正式发布：AIWorkSpace 2.8.1（2026-11-06）**。PR [#46](https://github.com/yudacheng666/AIWorkSpace/pull/46) 已合入 `main`，merge SHA `9dd8a34b0f4841b378a4d8faa29055834a089b55`。通知信箱支持一次复制全部消息给 ChatGPT 核查，并为单条异常提供有审计的授权、执行与保留原始记录流程；不自动发送、不批量修复、不覆盖原始异常文件。合并前准确产品/测试 SHA `17d0937d2a274bc13bcf5e9fe1ab715b6dd4053f` 的 [Actions #42198035504](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42198035504) 3/3 PASS；合并后准确 SHA 的 [Actions #42199542397](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42199542397) 正在复验。真实 Google Drive 双机离线/重连未验收，用户 Windows 工作台尚未升级。
+> **正式发布：AIWorkSpace 2.8.1（2026-11-06）**。PR [#46](https://github.com/yudacheng666/AIWorkSpace/pull/46) 已合入 `main`，merge SHA `9dd8a34b0f4841b378a4d8faa29055834a089b55`。通知信箱支持一次复制全部消息给 ChatGPT 核查，并为单条异常提供有审计的授权、执行与保留原始记录流程；不自动发送、不批量修复、不覆盖原始异常文件。合并前准确产品/测试 SHA `17d0937d2a274bc13bcf5e9fe1ab715b6dd4053f` 的 [Actions #42198035504](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42198035504) 3/3 PASS；合并后准确 SHA 的 [Actions #42199542397](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42199542397) 已 **3/3 SUCCESS**（Ubuntu/Windows Python+Node、Windows 更新/回滚及真实 Chromium E2E）。真实 Google Drive 双机离线/重连未验收，用户 Windows 工作台尚未升级。
 
 > **2.7.0 Draft 开发候选（2026-11-06，尚未发布）**：新增日/周/月总结的来源编号与 Google Drive 证据交接，以及人工精选成果向 ChatGPT 的只读素材复制。所有分析由用户主动粘贴并核对，绝不在本机网页内调用付费模型或自动写任务/总结。累积依赖 #40→#41→#42→#43→本 PR；正式 main 仍为 2.2.0，无部署授权。
 
