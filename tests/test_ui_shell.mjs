@@ -1061,8 +1061,8 @@ test("bulk ChatGPT handoff copies every visible message in one read-only bundle"
   const page = harness([], () => true, [], reviews);
   await page.api.loadNotifications();
   const button = page.el("review-copy-all");
-  assert.equal(button.textContent, "复制全部消息给 ChatGPT 核查");
   assert.equal(button.disabled, false);
+  assert.match(html, /id="review-copy-all" class="inbox-copy-all" disabled>复制全部消息给 ChatGPT 核查/);
   await button.handlers.get("click")[0]();
   assert.equal(page.copied.length, 1);
   const copied = page.copied[0];
