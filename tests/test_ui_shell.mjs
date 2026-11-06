@@ -1029,7 +1029,8 @@ test("successfully auto-merged edits are informational and never demand ChatGPT"
   assert.match(treeText(list), /无需操作/);
   assert.equal(findTreeNode(list, node => node.tag === "button"), null,
     "auto-merged notices must not offer repair or copy controls");
-  assert.equal(page.el("nav-reviews").title, "0 条待关注消息");
+  assert.equal(page.el("nav-reviews").title, "系统通知和数据提醒",
+    "resolved notices must not create an attention-count badge");
   assert.equal(page.writes.length, 0);
 });
 
