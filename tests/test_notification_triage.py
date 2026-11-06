@@ -1,86 +1,269 @@
-"""Regression coverage for readable, read-only conflict notifications.
+"""Deterministic task/step conflict triage: synthetic data only.
 
-Synthetic event details only; production Google Drive files are never loaded.
+No production Drive IDs, filenames, content or external network access.
 """
 import json
 import tempfile
 import unittest
 from pathlib import Path
 
-from app import list_data_reviews
+from app import (
+    append_event, append_step_event, list_data_reviews, read_workspace,
+    validate_event, validate_step_event,
+)
+
+TASK_ID = "TASK-" + "A" * 32
+STEP_ID = "STEP-" + "B" * 32
+
+
+def task_event(number, action, base, changes, **metadata):
+    event = {
+        "version": 1, "event_id": "evt-synthetic-%04d" % number,
+        "task_id": TASK_ID, "actor": "user",
+        "action": action, "timestamp": "2026-11-05T10:%02d:00Z" % (number % 60),
+        "base_revision": base, "changes": changes,
+    }
+    event.update(metadata)
+    return event
+
+
+def step_event(number, action, base, changes, **metadata):
+    event = task_event(number, action, base, changes, **metadata)
+    event["step_id"] = STEP_ID
+    return event
+
+
+def write_event(folder, event, filename=None):
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / (filename or (event["event_id"] + ".json"))
+    path.write_text(json.dumps(event, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+def root_event():
+    return task_event(1, "create", 0, {"title": "虚构：材料整理", "status": "todo"})
+
+
+def note_files(folder):
+    return {p.name: p.read_bytes() for p in folder.rglob("*.json")}
 
 
 class NotificationTriageTests(unittest.TestCase):
-    def test_concurrent_revision_warning_identifies_task_and_candidates(self):
-        task_id = "TASK-" + "A" * 32
+    def test_manual_conflict_remains_readable_and_non_actionable(self):
         workspace = {
             "tasks": [{
-                "task_id": task_id,
-                "title": "虚构：材料整理",
-                "revision": 4,
-                "conflict": True,
-                "conflict_fields": ["priority", "title", "due_date"],
+                "task_id": TASK_ID, "title": "虚构：材料整理", "revision": 4,
+                "conflict": True, "conflict_fields": ["title"],
                 "conflict_candidates": [
-                    {"event_id": "evt-example-a", "actor": "user",
-                     "timestamp": "2026-11-05T10:00:00Z",
-                     "changes": {"priority": "high"}},
-                    {"event_id": "evt-example-b", "actor": "user",
-                     "timestamp": "2026-11-05T10:01:00Z",
-                     "changes": {"title": "虚构：新版材料整理", "due_date": "2026-11-05"}},
+                    {"event_id": "evt-a", "actor": "user", "timestamp": "2026-11-05T10:00:00Z",
+                     "changes": {"title": "虚构：甲"}},
+                    {"event_id": "evt-b", "actor": "user", "timestamp": "2026-11-05T10:01:00Z",
+                     "changes": {"title": "虚构：乙"}},
                 ],
             }],
-            "warnings": [f"{task_id}: conflicting edits of revision 4"],
+            "warnings": [f"{TASK_ID}: conflicting edits of revision 4"],
         }
         with tempfile.TemporaryDirectory() as temp:
             out = list_data_reviews(Path(temp), workspace)
             self.assertEqual(len(out["items"]), 1)
             item = out["items"][0]
-            self.assertEqual(item["task_id"], task_id)
+            self.assertEqual(item["task_id"], TASK_ID)
             self.assertEqual(item["task_title"], "虚构：材料整理")
-            self.assertEqual(item["category"], "semantic_conflict")
             self.assertTrue(item["concurrent_task_edit"])
             self.assertEqual(len(item["related_edits"]), 2)
             self.assertFalse(item["can_apply"])
             self.assertFalse(item["can_authorize"])
             self.assertIn("相同的旧版本", item["user_guidance"]["summary"])
-            self.assertIn("复制给 ChatGPT 核查", item["user_guidance"]["recommendation"])
-            self.assertEqual(list(Path(temp).rglob("*.json")), [],
-                             "listing notices must not write an event")
+            self.assertEqual(list(Path(temp).rglob("*.json")), [])
 
-    def test_reducer_finds_two_valid_same_revision_edits_without_writing(self):
-        task_id = "TASK-" + "B" * 32
-        base = {
-            "version": 1, "task_id": task_id, "actor": "user",
-            "timestamp": "2026-11-05T10:00:00Z",
-        }
-        entries = [
-            {**base, "event_id": "11111111-1111-4111-8111-111111111111",
-             "action": "create", "base_revision": 0,
-             "changes": {"title": "虚构：设计资料", "status": "todo"}},
-            {**base, "event_id": "22222222-2222-4222-8222-222222222222",
-             "action": "update", "base_revision": 1,
-             "changes": {"priority": "high"}},
-            {**base, "event_id": "33333333-3333-4333-8333-333333333333",
-             "action": "update", "base_revision": 1,
-             "changes": {"title": "虚构：资料归档", "due_date": "2026-11-05"}},
+    def test_nonoverlap_updates_auto_merge_no_mutation_or_open_alarm(self):
+        events = [
+            root_event(),
+            task_event(2, "update", 1, {"priority": "high"}),
+            task_event(3, "update", 1, {"title": "虚构：新版资料", "due_date": "2026-11-05"}),
         ]
         with tempfile.TemporaryDirectory() as temp:
-            directory = Path(temp) / "events"
-            directory.mkdir()
-            for i, event in enumerate(entries):
-                (directory / f"evt_demo_{i}.json").write_text(
-                    json.dumps(event, ensure_ascii=False), encoding="utf-8")
-            before = {p.name: p.read_bytes() for p in directory.iterdir()}
-            response = list_data_reviews(Path(temp))
-            matched = [item for item in response["items"]
-                       if item.get("task_id") == task_id
-                       and item.get("concurrent_task_edit")]
-            self.assertEqual(len(matched), 1)
-            self.assertEqual(matched[0]["task_title"], "虚构：设计资料")
-            self.assertEqual(len(matched[0]["related_edits"]), 2)
-            self.assertFalse(matched[0]["can_apply"])
-            self.assertEqual({p.name: p.read_bytes() for p in directory.iterdir()}, before)
-            self.assertFalse((Path(temp) / "review_events").exists())
+            data = Path(temp)
+            folder = data / "events"
+            for event in events:
+                write_event(folder, event)
+            original = note_files(data)
+            workspace = read_workspace(data)
+            task = workspace["tasks"][0]
+            self.assertFalse(task["conflict"], workspace["warnings"])
+            self.assertEqual(task["revision"], 2, "siblings form one logical revision")
+            self.assertEqual(task["title"], "虚构：新版资料")
+            self.assertEqual(task["priority"], "high")
+            self.assertEqual(task["due_date"], "2026-11-05")
+            self.assertEqual(len(task["auto_merge_groups"]), 1)
+            self.assertEqual(len(task["auto_merge_groups"][0]["event_ids"]), 2)
+            self.assertRegex(task["merge_basis_required"], r"^[0-9a-f]{64}$")
+            register = list_data_reviews(data)
+            self.assertEqual(register["summary"]["open_count"], 0)
+            self.assertEqual(register["summary"]["auto_merged"], 1)
+            notice = register["items"][0]
+            self.assertEqual(notice["category"], "auto_merged")
+            self.assertEqual(notice["status"], "auto_merged")
+            self.assertIn("优先级", notice["user_guidance"]["summary"])
+            self.assertFalse(notice["can_apply"])
+            self.assertEqual(note_files(data), original)
+            self.assertFalse((data / "review_events").exists())
+
+    def test_new_client_attests_merged_siblings_when_writing_next_event(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data = Path(temp)
+            for event in (root_event(),
+                          task_event(2, "update", 1, {"priority": "high"}),
+                          task_event(3, "update", 1, {"due_date": "2026-11-15"})):
+                write_event(data / "events", event)
+            event = task_event(4, "update", 2, {"title": "虚构：最新版"})
+            append_event(data, event)
+            self.assertRegex(event["merge_basis"], r"^[0-9a-f]{64}$")
+            task = read_workspace(data)["tasks"][0]
+            self.assertFalse(task["conflict"])
+            self.assertEqual(task["revision"], 3)
+            self.assertEqual(task["priority"], "high")
+            self.assertEqual(task["title"], "虚构：最新版")
+
+    def test_old_client_late_write_without_merge_basis_is_frozen(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data = Path(temp)
+            for event in (root_event(),
+                          task_event(2, "update", 1, {"priority": "high"}),
+                          task_event(3, "update", 1, {"due_date": "2026-11-15"}),
+                          task_event(4, "update", 2, {"title": "虚构：未同步完就改标题"})):
+                write_event(data / "events", event)
+            task = read_workspace(data)["tasks"][0]
+            self.assertTrue(task["conflict"])
+            self.assertEqual(task["revision"], 2)
+            self.assertTrue(any("lacks matching merge basis" in w
+                                for w in read_workspace(data)["warnings"]))
+            self.assertFalse(any(x["category"] == "auto_merged"
+                                 for x in list_data_reviews(data)["items"]))
+
+    def test_late_third_sibling_revokes_old_merge_basis_safely(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data = Path(temp)
+            for event in (root_event(), task_event(2, "update", 1, {"priority": "high"}),
+                          task_event(3, "update", 1, {"due_date": "2026-11-15"})):
+                write_event(data / "events", event)
+            event = task_event(4, "update", 2, {"title": "虚构：最终版"})
+            append_event(data, event)
+            write_event(data / "events", task_event(5, "update", 1, {"owner": "虚构负责人"}))
+            state = read_workspace(data)
+            self.assertTrue(state["tasks"][0]["conflict"])
+            self.assertEqual(state["tasks"][0]["revision"], 2)
+            self.assertEqual(state["tasks"][0]["owner"], "虚构负责人")
+            self.assertTrue(any("lacks matching merge basis" in w
+                                for w in state["warnings"]))
+
+    def test_same_field_different_values_stays_blocked_despite_timestamp(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data = Path(temp)
+            for event in (root_event(),
+                          task_event(2, "update", 1, {"title": "虚构：甲"}),
+                          task_event(59, "update", 1, {"title": "虚构：乙"})):
+                write_event(data / "events", event)
+            task = read_workspace(data)["tasks"][0]
+            self.assertTrue(task["conflict"])
+            self.assertEqual(task["title"], "虚构：材料整理")
+            self.assertEqual(task["revision"], 1)
+            self.assertEqual(len(task["conflict_candidates"]), 2)
+            self.assertEqual(list_data_reviews(data)["summary"]["open_count"], 1)
+
+    def test_status_and_lifecycle_edits_never_merge_automatically(self):
+        cases = [
+            task_event(3, "update", 1, {"status": "doing"}),
+            task_event(3, "update", 1, {"status": "done"}, confirmed_done=True),
+            task_event(3, "trash", 1, {"trashed_at": "2026-11-05T10:03:00Z"}),
+        ]
+        for danger in cases:
+            with self.subTest(action=danger["action"], changes=danger["changes"]):
+                with tempfile.TemporaryDirectory() as temp:
+                    data = Path(temp)
+                    for event in (root_event(), task_event(2, "update", 1, {"priority": "high"}), danger):
+                        write_event(data / "events", event)
+                    self.assertTrue(read_workspace(data)["tasks"][0]["conflict"])
+                    self.assertFalse(read_workspace(data)["tasks"][0]["auto_merge_groups"])
+
+    def test_duplicate_event_id_variants_freeze_even_disjoint_fields(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data = Path(temp)
+            a = task_event(2, "update", 1, {"title": "虚构：新标题"})
+            b = task_event(2, "update", 1, {"priority": "high"})
+            for i, event in enumerate((root_event(), a, b)):
+                write_event(data / "events", event, f"evt_{i}.json")
+            task = read_workspace(data)["tasks"][0]
+            self.assertTrue(task["conflict"])
+            self.assertEqual(task["auto_merge_groups"], [])
+
+    def test_timestamp_is_not_an_authority_and_order_is_deterministic(self):
+        sequences = [(2, 3), (3, 2)]
+        projected = []
+        for sequence in sequences:
+            with tempfile.TemporaryDirectory() as temp:
+                data = Path(temp)
+                write_event(data / "events", root_event(), "evt_0.json")
+                entries = {
+                    2: task_event(58, "update", 1, {"priority": "high"}),
+                    3: task_event(2, "update", 1, {"due_date": "2026-11-15"}),
+                }
+                for i, key in enumerate(sequence):
+                    write_event(data / "events", entries[key], "evt_branch_%d.json" % i)
+                task = read_workspace(data)["tasks"][0]
+                self.assertFalse(task["conflict"])
+                projected.append((task["revision"], task["priority"], task["due_date"],
+                                  task["merge_basis_required"]))
+        self.assertEqual(projected[0], projected[1])
+
+    def test_step_dates_and_title_auto_merge_with_attestation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data = Path(temp)
+            write_event(data / "events", root_event())
+            for event in (
+                step_event(10, "create", 0, {"title": "虚构：步骤", "position": 1}),
+                step_event(11, "update", 1, {"title": "虚构：改进步骤"}),
+                step_event(12, "update", 1, {"due_date": "2026-11-15"}),
+            ):
+                write_event(data / "step_events", event)
+            task = read_workspace(data)["tasks"][0]
+            self.assertFalse(task["conflict"])
+            step = task["steps"][0]
+            self.assertFalse(step["conflict"])
+            self.assertEqual(step["revision"], 2)
+            self.assertEqual(step["title"], "虚构：改进步骤")
+            self.assertEqual(step["due_date"], "2026-11-15")
+            self.assertEqual(list_data_reviews(data)["summary"]["auto_merged"], 1)
+            followup = step_event(13, "update", 2, {"status": "doing"})
+            append_step_event(data, followup)
+            self.assertRegex(followup["merge_basis"], r"^[0-9a-f]{64}$")
+            latest = read_workspace(data)["tasks"][0]["steps"][0]
+            self.assertFalse(latest["conflict"])
+            self.assertEqual(latest["status"], "doing")
+
+    def test_step_delete_or_completion_remains_manual_conflict(self):
+        for unsafe in (
+            step_event(12, "delete", 1, {"deleted_at": "2026-11-05T10:12:00Z"},
+                       confirmed_delete=True),
+            step_event(12, "update", 1, {"status": "done"}, confirmed_done=True),
+        ):
+            with self.subTest(action=unsafe["action"]):
+                with tempfile.TemporaryDirectory() as temp:
+                    data = Path(temp)
+                    write_event(data / "events", root_event())
+                    for event in (step_event(10, "create", 0, {"title": "虚构：步骤", "position": 1}),
+                                  step_event(11, "update", 1, {"due_date": "2026-11-15"}),
+                                  unsafe):
+                        write_event(data / "step_events", event)
+                    self.assertTrue(read_workspace(data)["tasks"][0]["steps"][0]["conflict"])
+
+    def test_invalid_merge_basis_and_unknown_context_are_rejected(self):
+        bad = task_event(4, "update", 2, {"priority": "urgent"}, merge_basis="not-a-hash")
+        with self.assertRaisesRegex(ValueError, "merge basis"):
+            validate_event(bad)
+        bad_step = step_event(4, "update", 2, {"title": "虚构：步骤"}, merge_basis="bad")
+        with self.assertRaisesRegex(ValueError, "merge basis"):
+            validate_step_event(bad_step)
 
     def test_unrelated_warning_is_not_falsely_linked_to_a_task(self):
         with tempfile.TemporaryDirectory() as temp:
