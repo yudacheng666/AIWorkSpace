@@ -1,5 +1,22 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-06：2.8.0 候选「安全并行更新自动归并」— PR #45 Draft
+
+- **用户批准的改动**：同一任务/步骤的几条操作如果修改互不相交的低风险字段，不应每次要求复制给 ChatGPT。实现中并非简单按客户端时间戳先后覆盖，而是对相同 base_revision 的多个有效 `update` 做确定性、字段级安全检查。
+- **实现及真实范围**：任务仅标题、负责人、优先级与截止/计划/跟进日期，步骤仅标题与日期；合并为**一个逻辑 revision 的只读投影**，原始事件保持不变。由参与事件完整内容产生稳定 `merge_basis`，新版应用的下一次更新自动携带该凭证；旧版/迟到编辑、第三个后来同步的 sibling 改变凭证时冻结，不凭时间戳覆盖。完成确认、状态、删除、回收站、周期、文档、项目、父子关系、转换和重复 ID 不自动裁决。归并后通知为「已自动整合/无需操作」且不计入待办；其他冲突才可复制交给 ChatGPT。
+- **代码**：`app.py` 的 task/step reducers、event validation / append provenance、通知审计投影，`web/index.html` 只读信息入口，`VERSION=2.8.0`，扩展了原 PR #45；`AGENTS.md`、需求与决策、README 同步。用户真实 11 月 5 日的事件仅此前只读诊断，本 PR 内所有测试均使用匿名虚构数据，任何真实工作台原文件均未改写。
+- **测试证据**：实现和 Python/Node/Windows Chromium 全链路 SHA `e4f28a5f757a3e1adcb843d9cb517312d4a8ae92` 对应 [Actions #42152405463](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42152405463) **3/3 SUCCESS**：Ubuntu/Windows Python+Node、Windows 真正 Chromium（包含自动合并结果、只读通知、用户后续优先级写入凭证和源字节不变）。早期 CI 曾因新增 UI 断言错误预期导航无消息时的 title，以及 Windows E2E 未等待网页异步保存就断言版本失败；已针对测试行为修复并在新 SHA 成功。随后仅将 VERSION 从 2.7.0 改为候选 2.8.0：准确产品/测试/版本 SHA `d5d08410b52e3a53d3d02a85715741fa185a87fe`，对应 [Actions #42152643485](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42152643485) **3/3 SUCCESS**（Ubuntu Python+Node、Windows Python+Node、Windows 真实 Chromium；其中新自动归并浏览器端到端 1 PASS，整个 Windows 应用 E2E 22 PASS，更新/回滚 3 PASS）。后续文档提交均使用 [skip ci]，无产品/测试文件变更。
+- **合并/部署边界**：PR #45 保持 Draft，用户尚未批准合并；main 当前 SHA `255c413697539862166792a6847f0a239e5af039`、VERSION 2.7.0，用户公司 Windows 8770 尚未升级。云端 Windows CI 不等于 Google Drive 双机离线重连真实验收（NOT TESTED），生产历史冲突不可在本轮通过后台直接移动、删除或覆盖事件。
+- **下一步**：核对候选 2.8.0 准确 SHA CI、PR 审阅及受影响范围；经用户批准才按项目合并规则合并，再由用户决定何时升级真实电脑，随后只读检查历史数据投影与通知，必要时另行审批真正的数据修复。
+
+## 2026-11-06：通知信箱读得懂、可交给 ChatGPT 核查（Draft PR #45）
+
+- **现场反馈**：用户未升级公司 Windows 程序，已有 ChatGPT 通过 Google Drive 追加任务/步骤事件后显示新冲突；消息仍以技术警告为中心，没有可执行的下一步。
+- **只读诊断**：现有云盘事件中确认同一任务存在两条针对相同 base_revision 的不同字段修改，导致 reducer 正确停止在冲突版本；旧历史异常也仍存在。诊断仅在用户私有云盘只读进行，**真实任务名称、ID、文件链接、事件字节未写入公开 GitHub**。原始文件未编辑、删除或覆盖。
+- **根因及修正**：后台 `_workspace_warning_anomalies` 原只返回警告字符串、不附关联任务；前台 `notificationRecommendation` 在 `semantic_conflict` 情况下覆盖后端针对性建议。PR #45 新增任务关联、冲突字段与候选数展示、针对性中文建议和用户主动「复制给 ChatGPT 核查」的只读剪贴板交接；不直接修复、无模型 API、无新业务事件写入。
+- **代码与测试**：分支 `fix/20261106-notification-triage` 基于正式 2.7.0 main `255c413697539862166792a6847f0a239e5af039`。新增合成双写冲突 Python reducer/通知回归、Node 复制与零写入、Windows 真实 Chromium 剪贴板/原事件字节不变专项测试；维护需求与决策。准确产品/测试 SHA `7a5c79b8924fa7a11d9d7e9357c2ea4a271a7c72` 对应 [Actions #42144397718](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42144397718) **3/3 SUCCESS**（Ubuntu Python/Node、Windows Python/Node、Windows real app + Chromium E2E）。首次 CI 的 Node 非时间稳定测试采用过期固定截止日导致 2!=1、旧 Windows E2E 假设信箱无按钮；分别修正虚构测试数据和新的只读复制行为断言，最终准确 SHA 完整复验通过。
+- **未完成边界**：旧版 Windows 8770 目前未更新；新的 UI 只有用户正式升级后才可看到，历史版本冲突不会因升级或复制说明而自动消除。真实事件修复仍须先完整备份、核对业务修改并取得明确授权，再按受保护的追加式/审计式修复流程处理。用户未批准本 PR 合并，保留 Draft；真实双机 Drive 离线/重连 NOT TESTED。
+
 ## 2026-11-06：2.7.0 Draft PR #44 准确 SHA CI PASS；尚未发布
 
 - **准确代码/测试 SHA**：`26eeaef7b7030707ddf6e24a7992cd078b4e36e9`，GitHub Actions [#42126735310](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42126735310) **3/3 SUCCESS**。Ubuntu Python 243 tests（26 SKIP）、Windows Python 243 tests（24 SKIP）；Node 两端各 109 PASS/0 FAIL；Windows 原生 Chromium 更新/回滚 3 PASS，工作台 UI 21 PASS（含总结与成果库来源编号及证据剪贴板只读核验）。

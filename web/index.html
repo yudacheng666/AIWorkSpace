@@ -632,6 +632,9 @@
     .inbox-total { color:#718198; font-size:12px; }
     .inbox-list { display:grid; gap:10px; }
     .inbox-message { min-width:0; padding:14px 16px; border:1px solid #e7edf4; border-radius:10px; background:#fff; }
+    .inbox-copy { margin-top:10px; border:1px solid #b9ccea; border-radius:8px; padding:8px 12px; font:inherit; font-size:12px; color:#295f9b; background:#f2f7ff; cursor:pointer; }
+    .inbox-copy:hover { background:#e7f0ff; }
+    .inbox-edits { margin:8px 0 0; color:#485b76; font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
     .inbox-message-header { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
     .inbox-type,.inbox-status { display:inline-flex; align-items:center; width:max-content; padding:4px 8px; border-radius:20px; font-size:11px; }
     .inbox-type { background:#edf3fa; color:#536b87; }
@@ -842,7 +845,7 @@
     </section>
     <section id="page-reviews" class="workspace-page" hidden>
       <div class="page-heading">
-        <div><h1>通知信箱</h1><p class="subtitle">集中查看系统发现的数据异常与同步提示。这里仅展示信息，不修改任务或步骤。</p></div>
+        <div><h1>通知信箱</h1><p class="subtitle">可安全处理的并行修改将自动整合，仅真正无法判断的问题需要你关注；技术异常可交给 ChatGPT 核查。</p></div>
         <button type="button" id="review-refresh">刷新消息</button>
       </div>
       <section class="inbox-panel" aria-labelledby="inbox-list-heading">
@@ -3565,7 +3568,8 @@
       dismissed: ["已确认保留", "muted"],
       stale: ["情况已变化", "attention"],
       failed: ["处理未完成", "attention"],
-      conflict: ["存在版本冲突", "attention"]
+      conflict: ["存在版本冲突", "attention"],
+      auto_merged: ["已自动整合", "success"]
     };
     const notificationTypeLabels = {
       sync_pending: "同步提醒",
@@ -3576,7 +3580,8 @@
       completion_confirmation_missing: "完成确认提醒",
       malformed_event: "数据文件异常",
       invalid_event: "数据记录异常",
-      historical: "历史记录"
+      historical: "历史记录",
+      auto_merged: "自动整合"
     };
 
     function notificationIdFor(item, items = notificationItems) {
@@ -3625,6 +3630,11 @@
     function notificationRecommendation(item) {
       if (item.status === "applied" || item.status === "dismissed") {
         return "这条消息已有处理记录。原始异常记录仍保留，可供后续追踪。";
+      }
+      // Keep the server's issue-specific guidance; the old hard-coded fallback
+      // accidentally hid actionable instructions for real revision conflicts.
+      if (notificationGuidance(item).recommendation) {
+        return notificationGuidance(item).recommendation;
       }
       if (item.category === "invalid_step_reference") {
         return "请在关联任务详情中核对现有步骤；如确认确有缺项，再通过正常步骤操作补充。系统不会猜测或自动改绑。";
@@ -3682,6 +3692,21 @@
         }
         article.append(header, title, summary, meta);
 
+        // A message must explain the affected business fields, not just an error ID.
+        const relatedEdits = Array.isArray(item.related_edits) ? item.related_edits : [];
+        if (item.concurrent_task_edit && relatedEdits.length) {
+          const fieldLabels = {
+            title: "任务名称", due_date: "截止日期", planned_date: "计划日期",
+            follow_up_date: "跟进日期", priority: "优先级", status: "状态",
+            owner: "负责人", note: "备注"
+          };
+          const editedFields = [...new Set(relatedEdits.flatMap(edit =>
+            Object.keys(edit.changes || {})))].map(field => fieldLabels[field] || "其他信息");
+          article.append(element("p", "inbox-edits",
+            relatedEdits.length + " 条修改发生了版本冲突，涉及：" + editedFields.join("、") +
+            "。系统未自动选择或覆盖其中任何一条。"));
+        }
+
         const details = element("details", "inbox-message-details");
         details.append(element("summary", "", "查看详情"));
         const detailContent = element("div", "inbox-message-detail-content");
@@ -3692,6 +3717,38 @@
         detailContent.append(impact, recommendation);
         details.append(detailContent);
         article.append(details);
+
+        // No embedded AI or write endpoint: the user explicitly initiates a safe handoff.
+        const copy = element("button", "inbox-copy", "复制给 ChatGPT 核查");
+        copy.type = "button";
+        copy.addEventListener("click", async () => {
+          const reviewPrompt = [
+            "请帮我核查 AIWorkSpace 通知信箱里的这条异常。先只读核对来源和实际数据，不要直接修改任何数据。",
+            "消息编号：" + notificationIdFor(item),
+            "问题类型：" + notificationTypeLabel(item),
+            "当前状态：" + notificationStatus(item)[0],
+            "关联任务：" + (item.task_title || "暂未识别"),
+            "任务内部编号：" + (item.task_id || "无"),
+            "相关步骤：" + (item.step_title || item.recorded_step_title || "无"),
+            "情况说明：" + notificationSummary(item),
+            "影响：" + notificationImpact(item),
+            "原始警告（仅供技术核对）：" + (item.reason || "无"),
+            "多条修改的字段和候选值（仅供比对）：" +
+              JSON.stringify(Array.isArray(item.related_edits) ? item.related_edits : []).slice(0, 12000),
+            "请先解释问题、逐项核查哪些修改尚未生效，并提出不丢失原始事件的处理方案。" +
+              "未经我另行确认，请勿删除、覆盖、移走原文件，勿自动提交修复或把任务标记为已完成。"
+          ].join("\n");
+          try {
+            if (!globalThis.navigator?.clipboard?.writeText) throw new Error("clipboard unavailable");
+            await globalThis.navigator.clipboard.writeText(reviewPrompt);
+            $("review-message").className = "inbox-feedback";
+            $("review-message").textContent = "核查说明已复制。请粘贴到 ChatGPT 对话，我会先只读排查并说明方案。";
+          } catch (_) {
+            $("review-message").className = "inbox-feedback error";
+            $("review-message").textContent = "复制失败。请在 ChatGPT 中告诉我消息编号：" + notificationIdFor(item);
+          }
+        });
+        if (item.status !== "auto_merged") article.append(copy);
         host.append(article);
       }
     }

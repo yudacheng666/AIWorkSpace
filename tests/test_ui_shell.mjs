@@ -816,8 +816,8 @@ test("V2 polishing: filters remain accessible and Gantt uses legible horizontall
 
 test("stage3 project counts separate primary and related without duplicate",async()=>{
  const p="PROJECT-DEMO-1";
- const tasks=[{...sampleTask(),task_id:"A",project_id:p,related_project_ids:[p]},
- {...sampleTask(),task_id:"B",project_id:"OTHER",related_project_ids:[p],status:"blocked"}];
+ const tasks=[{...sampleTask(),task_id:"A",project_id:p,related_project_ids:[p],due_date:"2099-12-31"},
+ {...sampleTask(),task_id:"B",project_id:"OTHER",related_project_ids:[p],status:"blocked",due_date:"2099-12-31"}];
  const x=harness(tasks,()=>true,[{project_id:p,name:"虚构项目",revision:1,conflict:false}]);
  await x.api.refresh(true);
  assert.equal(x.api.projectCounts(p).primary,1);
@@ -962,8 +962,10 @@ test("notification inbox shows stable message IDs, readable summaries and no rep
   assert.match(treeText(list.children[1]), /步骤记录异常/);
   assert.match(treeText(list.children[1]), /待关注/);
   assert.doesNotMatch(treeText(list), /ANOM-|TASK-PRIVATE|STEP-PRIVATE|SHA-256|PRIVATE_RAW_JSON|PRIVATE_PROPOSAL|PRIVATE_VALIDATOR_DETAIL/);
-  assert.equal(findTreeNode(list, node => node.tag === "button"), null,
-    "the mailbox must not expose authorize, apply or dismiss controls");
+  const copyOnly = findTreeNode(list, node => node.tag === "button");
+  assert.ok(copyOnly, "the mailbox must offer a safe ChatGPT handoff");
+  assert.equal(copyOnly.textContent, "复制给 ChatGPT 核查",
+    "the only mailbox action is a clipboard copy, not a data mutation");
   const details = findTreeNode(list.children[1], node => node.tag === "details");
   assert.ok(details, "read-only message details can be expanded");
   assert.notEqual(details.open, true, "message details are collapsed by default");
@@ -971,6 +973,65 @@ test("notification inbox shows stable message IDs, readable summaries and no rep
   assert.match(treeText(details), /建议：/);
   assert.match(treeText(details), /不会猜测或自动改绑/);
   assert.equal(page.writes.length, 0, "loading notifications must not write business or review events");
+});
+
+test("concurrent-write messages explain affected fields and copy a read-only handoff", async () => {
+  const item = {
+    anomaly_id: "ANOM-" + "E".repeat(32),
+    category: "semantic_conflict",
+    title: "同一任务的多次修改发生版本冲突",
+    status: "pending",
+    task_id: "TASK-SYNTHETIC-EXAMPLE",
+    task_title: "虚构资料整理任务",
+    concurrent_task_edit: true,
+    source: {folder: "workspace"},
+    reason: "TASK-SYNTHETIC-EXAMPLE: conflicting edits of revision 4",
+    related_edits: [
+      {event_id: "synthetic-1", changes: {priority: "high"}},
+      {event_id: "synthetic-2", changes: {title: "虚构标题新版", due_date: "2026-11-05"}}
+    ],
+    user_guidance: {summary: "两条修改使用了同一个旧版本。", impact: "原始记录仍保留。", recommendation: "点击复制给 ChatGPT 核查。"}
+  };
+  const page = harness([], () => true, [], [item]);
+  await page.api.loadNotifications();
+  const list = page.el("review-list");
+  assert.match(treeText(list), /虚构资料整理任务/);
+  assert.match(treeText(list), /2 条修改发生了版本冲突/);
+  assert.match(treeText(list), /优先级、任务名称、截止日期/);
+  assert.match(treeText(list), /点击复制给 ChatGPT 核查/);
+  const button = findTreeNode(list, node => node.tag === "button");
+  assert.equal(button?.textContent, "复制给 ChatGPT 核查");
+  for (const handler of button.handlers.get("click") || []) await handler();
+  assert.equal(page.copied.length, 1);
+  assert.match(page.copied[0], /TASK-SYNTHETIC-EXAMPLE/);
+  assert.match(page.copied[0], /虚构标题新版/);
+  assert.match(page.copied[0], /不要直接修改任何数据/);
+  assert.equal(page.writes.length, 0, "clipboard handoff must never write business data");
+});
+
+test("successfully auto-merged edits are informational and never demand ChatGPT", async () => {
+  const item = {
+    anomaly_id: "ANOM-" + "F".repeat(32), category: "auto_merged",
+    title: "已自动整合任务的独立修改", status: "auto_merged",
+    task_id: "TASK-EXAMPLE", task_title: "虚构：资料任务",
+    source_event: {timestamp: "2026-11-05T10:01:00Z"},
+    source: {folder: "workspace_auto_merge"},
+    user_guidance: {
+      summary: "2 次修改涉及不同内容（优先级、截止日期），已自动整合，无需操作。",
+      impact: "全部原始事件保持不变。", recommendation: "无需处理。"
+    }
+  };
+  const page = harness([], () => true, [], [item]);
+  await page.api.loadNotifications();
+  const list = page.el("review-list");
+  assert.match(treeText(list), /自动整合/);
+  assert.match(treeText(list), /优先级、截止日期/);
+  assert.match(treeText(list), /无需操作/);
+  assert.equal(findTreeNode(list, node => node.tag === "button"), null,
+    "auto-merged notices must not offer repair or copy controls");
+  assert.equal(page.el("nav-reviews").title, "系统通知和数据提醒",
+    "resolved notices must not create an attention-count badge");
+  assert.equal(page.writes.length, 0);
 });
 
 test("notification message IDs remain stable across refreshes and the inbox is read-only", async () => {

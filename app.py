@@ -347,6 +347,12 @@ def validate_event(value: object) -> dict:
     changes = value.get("changes")
     if not isinstance(changes, dict) or not changes:
         raise ValueError("changes must be a nonempty object")
+    if "merge_basis" in value and (
+        value["action"] == "create" or
+        not isinstance(value["merge_basis"], str) or
+        not MERGE_BASIS_PATTERN.fullmatch(value["merge_basis"])
+    ):
+        raise ValueError("invalid task merge basis")
     if value["action"] in TASK_LIFECYCLE_ACTIONS:
         if value["actor"] != "user" or revision < 1:
             raise ValueError("task lifecycle must be a user action on existing task")
@@ -512,6 +518,12 @@ def validate_step_event(value: object) -> dict:
     changes = value.get("changes")
     if not isinstance(changes, dict) or not changes:
         raise ValueError("changes must be a nonempty object")
+    if "merge_basis" in value and (
+        value["action"] in {"create", "reorder"} or
+        not isinstance(value["merge_basis"], str) or
+        not MERGE_BASIS_PATTERN.fullmatch(value["merge_basis"])
+    ):
+        raise ValueError("invalid step merge basis")
     if value["action"] == "reorder":
         if set(value) - {"version", "event_id", "task_id", "action", "actor",
                          "timestamp", "base_revision", "changes"}:
@@ -526,7 +538,7 @@ def validate_step_event(value: object) -> dict:
         return value
     if set(value) - {"version", "event_id", "task_id", "step_id", "action", "actor",
                      "timestamp", "base_revision", "changes", "confirmed_done",
-                     "confirmed_delete"}:
+                     "confirmed_delete", "merge_basis"}:
         raise ValueError("unknown step event fields")
     if not isinstance(value.get("step_id"), str) or not STEP_ID.fullmatch(value["step_id"]):
         raise ValueError("invalid step_id")
@@ -1002,6 +1014,50 @@ def conflicting_fields(events: list[dict]) -> list[str]:
     )
 
 
+# Only independent, low-risk fields may be combined at the same logical revision.
+# This is a read-only projection. No original event is rewritten or re-timestamped.
+AUTO_TASK_MERGE_FIELDS = frozenset(("title", *TASK_MANAGEMENT_FIELDS))
+AUTO_STEP_MERGE_FIELDS = frozenset(("title", *DATE_FIELDS))
+MERGE_BASIS_PATTERN = re.compile(r"[0-9a-f]{64}$")
+
+
+def _safe_disjoint_merge(candidates: list[dict], allowed: frozenset[str]) -> dict | None:
+    """Deterministically combine independent sibling updates; timestamps never choose a winner."""
+    if len(candidates) < 2 or len(candidates) > 20:
+        return None
+    updates: dict = {}
+    for event in candidates:
+        if event.get("action") != "update":
+            return None
+        if set(event) - {"version", "event_id", "task_id", "step_id", "action",
+                          "actor", "timestamp", "base_revision", "changes", "merge_basis"}:
+            return None
+        changes = event.get("changes", {})
+        if not changes or set(changes) - allowed or set(changes) & set(updates):
+            return None
+        try:
+            instant = datetime.fromisoformat(event["timestamp"].replace("Z", "+00:00"))
+            if instant.tzinfo is None or instant.utcoffset() is None:
+                return None
+        except (ValueError, TypeError, AttributeError, KeyError):
+            return None
+        updates.update(changes)
+    if len({event["event_id"] for event in candidates}) != len(candidates):
+        return None
+    ordered = sorted(candidates, key=lambda event: event["event_id"])
+    digest = hashlib.sha256(json.dumps(
+        ordered, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")).hexdigest()
+    return {
+        "changes": updates,
+        "fields": sorted(updates),
+        "event_ids": [event["event_id"] for event in ordered],
+        "base_revision": ordered[0]["base_revision"],
+        "timestamp": max(event["timestamp"] for event in candidates),
+        "merge_basis": digest,
+    }
+
+
 def read_projects(data_dir: Path) -> dict:
     """Reduce append-only project events without overwriting project history."""
     directory = data_dir / "project_events"
@@ -1177,6 +1233,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
                 "status": root["changes"].get("status", "todo"),
                 "revision": 1, "conflict": False,
                 "conflict_fields": [], "conflict_candidates": [],
+                "auto_merge_groups": [], "merge_basis_required": None,
                 "created_at": root.get("timestamp", ""),
                 "created_position": root["changes"].get("position"),
                 "document_links": root["changes"].get("document_links", []),
@@ -1195,17 +1252,44 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
             for event in events:
                 if event["action"] in {"update", "delete"}:
                     updates[event["base_revision"]].append(event)
+            has_unsafe_stream = (
+                step["conflict"] or
+                any(step_id == candidate.get("step_id")
+                    for variants in duplicate_conflicts.values() for candidate in variants) or
+                any(step_id == part["item_id"] and part["kind"] == "step"
+                    for conversion in conversions or []
+                    for part in (conversion["source"], conversion["target"]))
+            )
+            required_basis = None
             while step["revision"] in updates:
                 candidates = updates.pop(step["revision"])
+                if required_basis is not None:
+                    if any(event.get("merge_basis") != required_basis for event in candidates):
+                        step["conflict"] = True
+                        step["conflict_fields"] = sorted(set(step["conflict_fields"]) |
+                            {field for event in candidates for field in event["changes"]})
+                        step["conflict_candidates"].extend(summarize_conflict_events(candidates))
+                        warnings.append(f"{step_id}: step edit after auto merge lacks matching merge basis")
+                        break
+                    required_basis = None
                 if len(candidates) != 1:
-                    step["conflict"] = True
-                    step["conflict_fields"] = sorted(
-                        set(step["conflict_fields"]) |
-                        {field for event in candidates for field in event["changes"]}
-                    )
-                    step["conflict_candidates"].extend(summarize_conflict_events(candidates))
-                    warnings.append(f"{step_id}: conflicting edits at revision {step['revision']}")
-                    break
+                    merged = (None if has_unsafe_stream else
+                              _safe_disjoint_merge(candidates, AUTO_STEP_MERGE_FIELDS))
+                    if merged is None:
+                        step["conflict"] = True
+                        step["conflict_fields"] = sorted(
+                            set(step["conflict_fields"]) |
+                            {field for event in candidates for field in event["changes"]}
+                        )
+                        step["conflict_candidates"].extend(summarize_conflict_events(candidates))
+                        warnings.append(f"{step_id}: conflicting edits at revision {step['revision']}")
+                        break
+                    step.update(merged["changes"])
+                    step["title"] = step["title"].strip()
+                    step["revision"] += 1
+                    step["auto_merge_groups"].append(merged)
+                    required_basis = merged["merge_basis"]
+                    continue
                 selected = candidates[0]
                 # A delete tombstone cannot be undone by a late edit.
                 if step.get("deleted_at"):
@@ -1218,6 +1302,8 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
                 if "title" in step:
                     step["title"] = step["title"].strip()
                 step["revision"] += 1
+            if not step["conflict"]:
+                step["merge_basis_required"] = required_basis
             if updates:
                 remaining = [event for group in updates.values() for event in group]
                 step["conflict"] = True
@@ -1430,22 +1516,53 @@ def read_workspace(data_dir: Path, include_trashed: bool = False,
                 "title": roots[0]["changes"]["title"].strip(),
                 "status": roots[0]["changes"].get("status", "todo"),
                 "revision": 1, "conflict": False,
-                "conflict_fields": [], "conflict_candidates": []}
+                "conflict_fields": [], "conflict_candidates": [],
+                "auto_merge_groups": [], "merge_basis_required": None}
         by_revision: dict[int, list[dict]] = defaultdict(list)
         for event in updated[task_id]:
             by_revision[event["base_revision"]].append(event)
-
+        # Never merge over duplicate-ID tampering or lifecycle operations.
+        has_unsafe_stream = (
+            any(task_id == candidate["task_id"]
+                for variants in duplicate_conflicts.values() for candidate in variants)
+            or any(task_id in {event["source"]["task_id"], event["target"]["task_id"]}
+                   for event in conversions)
+        )
+        required_basis = None
         while task["revision"] in by_revision:
             candidates = by_revision.pop(task["revision"])
+            if required_basis is not None:
+                # A later event can only follow a merged logical version if it
+                # proves that all sibling records were visible when it was written.
+                if any(event.get("merge_basis") != required_basis for event in candidates):
+                    task["conflict"] = True
+                    task["conflict_fields"] = sorted({
+                        field for event in candidates for field in event["changes"]
+                    })
+                    task["conflict_candidates"] = summarize_conflict_events(candidates)
+                    warnings.append(f"{task_id}: edit after auto merge lacks matching merge basis")
+                    break
+                required_basis = None
             if len(candidates) != 1:
-                task["conflict"] = True
-                task["conflict_fields"] = conflicting_fields(candidates)
-                task["conflict_candidates"] = summarize_conflict_events(candidates)
-                warnings.append(f"{task_id}: conflicting edits of revision {task['revision']}")
-                break
+                merged = (None if has_unsafe_stream else
+                          _safe_disjoint_merge(candidates, AUTO_TASK_MERGE_FIELDS))
+                if merged is None:
+                    task["conflict"] = True
+                    task["conflict_fields"] = conflicting_fields(candidates)
+                    task["conflict_candidates"] = summarize_conflict_events(candidates)
+                    warnings.append(f"{task_id}: conflicting edits of revision {task['revision']}")
+                    break
+                task.update(merged["changes"])
+                task["title"] = task["title"].strip()
+                task["revision"] += 1
+                task["auto_merge_groups"].append(merged)
+                required_basis = merged["merge_basis"]
+                continue
             task.update(candidates[0]["changes"])
             task["title"] = task["title"].strip()
             task["revision"] += 1
+        if not task["conflict"]:
+            task["merge_basis_required"] = required_basis
         if by_revision:
             remaining = [event for group in by_revision.values() for event in group]
             task["conflict"] = True
@@ -1588,6 +1705,19 @@ def _append_json_event(data_dir: Path, event: dict, folder: str) -> Path:
 
 
 def append_event(data_dir: Path, event: dict) -> Path:
+    # New clients certify they observed every sibling before following a merged
+    # logical revision. Older clients cannot silently overwrite late-sync edits.
+    if event.get("action") != "create" and type(event.get("base_revision")) is int:
+        workspace = read_workspace(data_dir, include_trashed=True)
+        current = next((task for task in workspace["tasks"]
+                        if task["task_id"] == event.get("task_id")), None)
+        if current and not current["conflict"] and (
+            current["revision"] == event["base_revision"]
+        ) and current.get("merge_basis_required"):
+            required = current["merge_basis_required"]
+            if event.get("merge_basis", required) != required:
+                raise ValueError("task merge basis does not match current revision")
+            event["merge_basis"] = required
     validate_event(event)
     return _append_json_event(data_dir, event, "events")
 
@@ -1598,6 +1728,19 @@ def append_project_event(data_dir: Path, event: dict) -> Path:
 
 
 def append_step_event(data_dir: Path, event: dict) -> Path:
+    if event.get("action") in {"update", "delete"} and type(event.get("base_revision")) is int:
+        workspace = read_workspace(data_dir, include_trashed=True)
+        task = next((task for task in workspace["tasks"]
+                     if task["task_id"] == event.get("task_id")), None)
+        step = next((step for step in (task or {}).get("steps", [])
+                     if step["step_id"] == event.get("step_id")), None)
+        if (task and not task.get("conflict") and step and not step.get("conflict") and
+                step["revision"] == event["base_revision"] and
+                step.get("merge_basis_required")):
+            required = step["merge_basis_required"]
+            if event.get("merge_basis", required) != required:
+                raise ValueError("step merge basis does not match current revision")
+            event["merge_basis"] = required
     validate_step_event(event)
     return _append_json_event(data_dir, event, "step_events")
 
@@ -2894,15 +3037,79 @@ def _workspace_warning_anomalies(workspace: dict, known_filenames: set[str]) -> 
         anomaly_id = "ANOM-" + hashlib.sha256(
             ("workspace:" + source_hash).encode("utf-8")
         ).hexdigest()[:32].upper()
+        # Warning strings are produced by our reducers, not untrusted event metadata.
+        # Recover the affected task for a readable notification without changing events.
+        task_match = re.match(r"^(TASK-[A-Za-z0-9-]{1,50}): ", warning)
+        task_id = task_match.group(1) if task_match else None
+        task = next((candidate for candidate in workspace.get("tasks", [])
+                     if candidate.get("task_id") == task_id), None)
+        is_concurrent = bool(
+            task and task.get("conflict") and
+            re.search(r"conflicting edits of revision \d+", warning)
+        )
         results.append({
             "anomaly_id": anomaly_id, "category": category,
-            "title": "数据正在等待同步" if category == "sync_pending" else "数据引用或版本存在冲突",
+            "title": ("同一任务的多次修改发生版本冲突" if is_concurrent else
+                      "数据正在等待同步" if category == "sync_pending" else
+                      "数据引用或版本存在冲突"),
             "reason": warning,
             "source": {"folder": "workspace", "filename": "", "sha256": source_hash},
             "source_present": True, "source_event": None, "raw_excerpt": None,
-            "event_id": None, "task_id": None, "step_id": None, "action": None,
+            "event_id": None, "task_id": task_id if task else None,
+            "step_id": None, "action": None,
+            "concurrent_task_edit": is_concurrent,
+            "related_edits": (task.get("conflict_candidates", []) if is_concurrent else []),
+            "conflict_fields": (task.get("conflict_fields", []) if is_concurrent else []),
         })
     return results
+
+
+def _workspace_auto_merge_notices(workspace: dict) -> list[dict]:
+    """Informational, deterministic notices for read-only merged projections."""
+    field_labels = {
+        "title": "名称", "owner": "负责人", "priority": "优先级",
+        "due_date": "截止日期", "planned_date": "计划日期",
+        "follow_up_date": "跟进日期",
+    }
+    notices = []
+    for task in workspace.get("tasks", []):
+        if task.get("conflict"):
+            continue
+        sources = [("task", task, None)]
+        sources.extend(("step", step, step["step_id"])
+                       for step in task.get("steps", []) if not step.get("conflict"))
+        for kind, source, step_id in sources:
+            for merged in source.get("auto_merge_groups", []):
+                fields = "、".join(field_labels.get(f, f) for f in merged["fields"])
+                count = len(merged["event_ids"])
+                digest = merged["merge_basis"]
+                review_id = "ANOM-" + hashlib.sha256(
+                    f"auto-merge:{task['task_id']}:{step_id or ''}:{digest}".encode()
+                ).hexdigest()[:32].upper()
+                target = "任务" if kind == "task" else "步骤"
+                notices.append({
+                    "anomaly_id": review_id, "category": "auto_merged",
+                    "title": f"已自动整合{target}的独立修改",
+                    "reason": "已通过安全字段校验；事件原文和历史记录未被改写。",
+                    "source": {"folder": "workspace_auto_merge",
+                               "filename": "", "sha256": digest},
+                    "source_present": True,
+                    "source_event": {"timestamp": merged["timestamp"]},
+                    "event_id": None, "task_id": task["task_id"], "step_id": step_id,
+                    "task_title": task.get("title"),
+                    "step_title": source.get("title") if step_id else None,
+                    "status": "auto_merged",
+                    "merge_count": count,
+                    "merge_fields": merged["fields"],
+                    "user_guidance": {
+                        "summary": f"{count} 次修改涉及不同内容（{fields}），已自动整合，无需操作。",
+                        "impact": "任务和步骤现在显示整合后的结果。全部原始事件保持不变。",
+                        "recommendation": "无需处理。如果另一台设备仍显示旧版本，请先同步并升级工作台。",
+                    },
+                    "can_authorize": False, "can_apply": False, "can_dismiss": False,
+                    "review_revision": 0, "proposal": None, "timeline": [],
+                })
+    return notices
 
 
 def _review_proposal_block_reason(anomaly: dict, workspace: dict) -> str | None:
@@ -2991,9 +3198,17 @@ def _review_user_guidance(anomaly: dict, proposal: dict | None,
         impact = "这通常表示同步尚未完成，不等于数据丢失；系统暂时不会对它进行修改。"
         recommendation = "先等待 Google Drive 和其他电脑完成同步，再点击“重新扫描”。暂时不要授权修复或手工新建重复任务。"
     elif category == "semantic_conflict":
-        summary = "同一任务或步骤存在互相冲突的版本，系统无法判断哪一个才是正确结果。"
-        impact = "相关数据已暂停自动处理，系统不会自行选择一个版本覆盖另一个版本。"
-        recommendation = "先核对各版本的实际内容和同步情况。无法确定正确版本时，请保留现状，不要执行修复。"
+        if anomaly.get("concurrent_task_edit"):
+            summary = "同一任务的多次修改使用了相同的旧版本，工作台不能安全决定修改顺序。"
+            impact = "这些修改没有被自动合并，相关任务可能暂时不能继续编辑。原始文件和此前已确认的内容仍保留。"
+            recommendation = ("不用自行研究版本号、原始文件或选择删除哪条记录。"
+                              "请点击“复制给 ChatGPT 核查”，由 ChatGPT 只读核对每次修改，"
+                              "提出保留全部合理内容的方案；备份并经你明确批准后才能执行修复。")
+        else:
+            summary = "同一任务或步骤存在互相冲突的版本，系统无法判断哪一个才是正确结果。"
+            impact = "相关数据已暂停自动处理，系统不会自行选择一个版本覆盖另一个版本。"
+            recommendation = ("不用自行修改原始文件。可以复制此消息给 ChatGPT，"
+                              "先核对来源和当前状态，再决定是否需要修复。")
     else:
         summary = "这条记录不符合工作台的数据规则，系统已暂停应用它。"
         impact = "原始记录仍保留；系统不会自动改写任务、步骤或项目内容。"
@@ -3257,6 +3472,8 @@ def list_data_reviews(data_dir: Path, workspace: dict | None = None) -> dict:
         item["step_title"] = current_step.get("title") if current_step else None
         item["user_guidance"] = _review_user_guidance(item, proposal, proposal_block_reason)
         items.append(item)
+    # Successful, purely derived merges never enter the repair/authorization queue.
+    auto_merge_notices = _workspace_auto_merge_notices(workspace)
     # Keep an audit trail visible even if a synced source file later disappears.
     for anomaly_id, state in states.items():
         if anomaly_id in current_ids:
@@ -3286,8 +3503,9 @@ def list_data_reviews(data_dir: Path, workspace: dict | None = None) -> dict:
             "authorization_event_id": None, "proposal": None,
             "can_authorize": False, "can_apply": False, "can_dismiss": False,
         })
+    items.extend(auto_merge_notices)
     order = {"pending": 0, "authorized": 1, "failed": 2, "stale": 3,
-             "conflict": 4, "dismissed": 5, "applied": 6}
+             "conflict": 4, "dismissed": 5, "applied": 6, "auto_merged": 7}
     items.sort(key=lambda item: (
         order.get(item["status"], 9), item["source"]["folder"],
         item.get("task_id") or "", item.get("step_id") or "",
@@ -3295,7 +3513,7 @@ def list_data_reviews(data_dir: Path, workspace: dict | None = None) -> dict:
          if type((item.get("source_event") or {}).get("base_revision")) is int else -1),
         item["source"]["filename"], item["anomaly_id"]))
     counts = {key: sum(item["status"] == key for item in items)
-              for key in ("pending", "authorized", "applied", "dismissed", "stale", "failed", "conflict")}
+              for key in ("pending", "authorized", "applied", "dismissed", "stale", "failed", "conflict", "auto_merged")}
     counts["total"] = len(items)
     counts["open_count"] = (counts["pending"] + counts["authorized"] + counts["stale"]
                             + counts["failed"] + counts["conflict"])

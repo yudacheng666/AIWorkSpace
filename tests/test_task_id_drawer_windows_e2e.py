@@ -841,6 +841,58 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
                             event.get("confirmed_done") for event in actions))
         self.assertTrue(any(event.get("confirmed_end") for event in actions))
 
+    def test_real_browser_auto_merges_disjoint_versions_and_attests_next_edit(self):
+        """Actual Chromium must show merged task, passive receipt and a provably based next edit."""
+        updates = [
+            {"version": 1, "event_id": "synthetic-merge-task-priority",
+             "task_id": self.task_id, "action": "update", "actor": "user",
+             "timestamp": "2026-11-05T10:01:00Z", "base_revision": 1,
+             "changes": {"priority": "high"}},
+            {"version": 1, "event_id": "synthetic-merge-task-details",
+             "task_id": self.task_id, "action": "update", "actor": "user",
+             "timestamp": "2026-11-05T10:02:00Z", "base_revision": 1,
+             "changes": {"title": "虚构：已自动整合资料任务", "due_date": "2026-11-15"}},
+        ]
+        for event in updates:
+            append_event(self.data_dir, event)
+        original = self._file_hashes()
+        page = self._open_browser(open_detail=False)
+        row = page.locator(".task-summary").filter(has_text="虚构：已自动整合资料任务")
+        expect(row).to_have_count(1)
+        expect(row.locator(".task-quick-editor--priority .task-quick-trigger")).to_have_text("高")
+        page.locator("#nav-reviews").click()
+        expect(page.locator("#review-list .inbox-message")).to_have_count(1)
+        notification = page.locator("#review-list .inbox-message")
+        expect(notification.locator(".inbox-status")).to_have_text("已自动整合")
+        expect(notification.locator(".inbox-message-summary")).to_contain_text("无需操作")
+        expect(notification.locator("button")).to_have_count(0)
+        self.assertEqual(self._file_hashes(), original,
+                         "viewing a successful merge must not modify original files")
+
+        # The next user edit is made against the merged logical revision.
+        page.locator("#nav-tasks").click()
+        row = page.locator(".task-summary").filter(has_text="虚构：已自动整合资料任务")
+        row.locator(".task-quick-editor--priority .task-quick-trigger").click()
+        row.get_by_role("button", name="设为紧急").click()
+        # The UI saves asynchronously; wait for the observed browser result
+        # before asserting server-side revision.
+        expect(row.locator(".task-quick-editor--priority .task-quick-trigger")).to_have_text("紧急")
+        state = read_workspace(self.data_dir)
+        current = state["tasks"][0]
+        self.assertFalse(current["conflict"], state["warnings"])
+        self.assertEqual(current["revision"], 3)
+        self.assertEqual(current["priority"], "urgent")
+        events = [json.loads(path.read_text("utf-8"))
+                  for path in self.data_dir.glob("events/*.json")]
+        latest = [event for event in events if event["base_revision"] == 2]
+        self.assertEqual(len(latest), 1)
+        self.assertRegex(latest[0]["merge_basis"], r"^[0-9a-f]{64}$")
+        for event in updates:
+            source = self.data_dir / "events" / f"evt_{event['event_id']}.json"
+            self.assertEqual(hashlib.sha256(source.read_bytes()).hexdigest(),
+                             original[source.relative_to(self.data_dir).as_posix()],
+                             "the original siblings cannot be rewritten")
+
     def test_notification_inbox_is_read_only_and_displays_stable_message_id(self):
         source = self.data_dir / "events" / "evt_invalid_lifecycle_notification.json"
         invalid = {
@@ -866,7 +918,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         expect(message.locator(".inbox-status")).to_have_text("待关注")
         message_id = message.locator(".inbox-message-id").inner_text()
         self.assertRegex(message_id, r"MSG-\d{6}-[A-F0-9]{12,32}")
-        expect(page.locator("#review-list button")).to_have_count(0)
+        expect(message.locator("button.inbox-copy")).to_have_count(1)
         details = message.locator(".inbox-message-details")
         self.assertFalse(details.evaluate("(element) => element.open"),
                          "message details must be collapsed by default")
@@ -889,6 +941,16 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
                          "opening and refreshing the inbox must not change the invalid source event")
         self.assertFalse((self.data_dir / "review_events").exists(),
                          "the read-only mailbox must not create review audit writes")
+        # Clipboard handoff is a real user click, not an authorization/write endpoint.
+        page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+        message.locator("button.inbox-copy").click()
+        expect(page.locator("#review-message")).to_contain_text("核查说明已复制")
+        clipboard = page.evaluate("navigator.clipboard.readText()")
+        self.assertIn("请帮我核查 AIWorkSpace", clipboard)
+        self.assertIn(message_id.replace("消息编号：", ""), clipboard)
+        self.assertIn("不要直接修改任何数据", clipboard)
+        self.assertEqual(source.read_bytes(), original)
+        self.assertFalse((self.data_dir / "review_events").exists())
 
 
     def test_work_record_backdated_capture_edit_and_task_history_protection(self):
