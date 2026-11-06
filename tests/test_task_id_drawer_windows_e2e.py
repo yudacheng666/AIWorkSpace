@@ -866,7 +866,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         expect(message.locator(".inbox-status")).to_have_text("待关注")
         message_id = message.locator(".inbox-message-id").inner_text()
         self.assertRegex(message_id, r"MSG-\d{6}-[A-F0-9]{12,32}")
-        expect(page.locator("#review-list button")).to_have_count(0)
+        expect(message.locator("button.inbox-copy")).to_have_count(1)
         details = message.locator(".inbox-message-details")
         self.assertFalse(details.evaluate("(element) => element.open"),
                          "message details must be collapsed by default")
@@ -889,6 +889,16 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
                          "opening and refreshing the inbox must not change the invalid source event")
         self.assertFalse((self.data_dir / "review_events").exists(),
                          "the read-only mailbox must not create review audit writes")
+        # Clipboard handoff is a real user click, not an authorization/write endpoint.
+        page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+        message.locator("button.inbox-copy").click()
+        expect(page.locator("#review-message")).to_contain_text("核查说明已复制")
+        clipboard = page.evaluate("navigator.clipboard.readText()")
+        self.assertIn("请帮我核查 AIWorkSpace", clipboard)
+        self.assertIn(message_id.replace("消息编号：", ""), clipboard)
+        self.assertIn("不要直接修改任何数据", clipboard)
+        self.assertEqual(source.read_bytes(), original)
+        self.assertFalse((self.data_dir / "review_events").exists())
 
 
     def test_work_record_backdated_capture_edit_and_task_history_protection(self):
