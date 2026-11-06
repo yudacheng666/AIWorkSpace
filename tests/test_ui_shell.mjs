@@ -962,8 +962,10 @@ test("notification inbox shows stable message IDs, readable summaries and no rep
   assert.match(treeText(list.children[1]), /步骤记录异常/);
   assert.match(treeText(list.children[1]), /待关注/);
   assert.doesNotMatch(treeText(list), /ANOM-|TASK-PRIVATE|STEP-PRIVATE|SHA-256|PRIVATE_RAW_JSON|PRIVATE_PROPOSAL|PRIVATE_VALIDATOR_DETAIL/);
-  assert.equal(findTreeNode(list, node => node.tag === "button"), null,
-    "the mailbox must not expose authorize, apply or dismiss controls");
+  const copyOnly = findTreeNode(list, node => node.tag === "button");
+  assert.ok(copyOnly, "the mailbox must offer a safe ChatGPT handoff");
+  assert.equal(copyOnly.textContent, "复制给 ChatGPT 核查",
+    "the only mailbox action is a clipboard copy, not a data mutation");
   const details = findTreeNode(list.children[1], node => node.tag === "details");
   assert.ok(details, "read-only message details can be expanded");
   assert.notEqual(details.open, true, "message details are collapsed by default");
@@ -971,6 +973,39 @@ test("notification inbox shows stable message IDs, readable summaries and no rep
   assert.match(treeText(details), /建议：/);
   assert.match(treeText(details), /不会猜测或自动改绑/);
   assert.equal(page.writes.length, 0, "loading notifications must not write business or review events");
+});
+
+test("concurrent-write messages explain affected fields and copy a read-only handoff", async () => {
+  const item = {
+    anomaly_id: "ANOM-" + "E".repeat(32),
+    category: "semantic_conflict",
+    title: "同一任务的多次修改发生版本冲突",
+    status: "pending",
+    task_id: "TASK-SYNTHETIC-EXAMPLE",
+    task_title: "虚构资料整理任务",
+    concurrent_task_edit: true,
+    source: {folder: "workspace"},
+    reason: "TASK-SYNTHETIC-EXAMPLE: conflicting edits of revision 4",
+    related_edits: [
+      {event_id: "synthetic-1", changes: {priority: "high"}},
+      {event_id: "synthetic-2", changes: {title: "虚构标题新版", due_date: "2026-11-05"}}
+    ],
+    user_guidance: {summary: "两条修改使用了同一个旧版本。", impact: "原始记录仍保留。"}
+  };
+  const page = harness([], () => true, [], [item]);
+  await page.api.loadNotifications();
+  const list = page.el("review-list");
+  assert.match(treeText(list), /虚构资料整理任务/);
+  assert.match(treeText(list), /2 条修改发生了版本冲突/);
+  assert.match(treeText(list), /优先级、任务名称、截止日期/);
+  const button = findTreeNode(list, node => node.tag === "button");
+  assert.equal(button?.textContent, "复制给 ChatGPT 核查");
+  for (const handler of button.handlers.get("click") || []) await handler();
+  assert.equal(page.copied.length, 1);
+  assert.match(page.copied[0], /TASK-SYNTHETIC-EXAMPLE/);
+  assert.match(page.copied[0], /虚构标题新版/);
+  assert.match(page.copied[0], /不要直接修改任何数据/);
+  assert.equal(page.writes.length, 0, "clipboard handoff must never write business data");
 });
 
 test("notification message IDs remain stable across refreshes and the inbox is read-only", async () => {
