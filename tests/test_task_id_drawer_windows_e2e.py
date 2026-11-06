@@ -25,7 +25,7 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from app import append_event, append_step_event, append_work_record_event, handler_factory, read_workspace  # noqa: E402
+from app import append_event, append_step_event, append_work_record_event, handler_factory, read_workspace, list_data_reviews  # noqa: E402
 
 
 @unittest.skipUnless(
@@ -952,6 +952,92 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(source.read_bytes(), original)
         self.assertFalse((self.data_dir / "review_events").exists())
 
+
+    def test_notification_inbox_bulk_copy_and_real_repair_and_keep_original_actions(self):
+        """The inbox lets a user copy every message, review a proposal, apply it, or keep a source."""
+        task = read_workspace(self.data_dir)["tasks"][0]
+        step_id = task["steps"][0]["step_id"]
+        position_source = self.data_dir / "step_events" / "evt_ui_review_position.json"
+        position_event = {
+            "version": 1, "event_id": "ui-review-position-event",
+            "task_id": self.task_id, "step_id": step_id,
+            "action": "update", "actor": "user",
+            "timestamp": "2026-11-05T10:01:00Z", "base_revision": 1,
+            "changes": {"title": "虚构：修复后的图纸整理步骤", "position": 8},
+        }
+        position_source.write_text(json.dumps(position_event, ensure_ascii=False, indent=2),
+                                   encoding="utf-8")
+        position_original = position_source.read_bytes()
+
+        reference_source = self.data_dir / "step_events" / "evt_ui_review_bad_reference.json"
+        reference_event = {
+            "version": 1, "event_id": "ui-review-invalid-reference",
+            "task_id": self.task_id, "step_id": "STEP-not-a-valid-id",
+            "action": "update", "actor": "user",
+            "timestamp": "2026-11-05T10:02:00Z", "base_revision": 1,
+            "changes": {"title": "虚构：无法确认目标的步骤"},
+        }
+        reference_source.write_text(json.dumps(reference_event, ensure_ascii=False, indent=2),
+                                    encoding="utf-8")
+        reference_original = reference_source.read_bytes()
+
+        register = list_data_reviews(self.data_dir)
+        position_item = next(item for item in register["items"]
+                             if item["category"] == "step_update_position")
+        reference_item = next(item for item in register["items"]
+                              if item["category"] == "invalid_step_reference")
+        self.assertTrue(position_item["can_authorize"])
+        self.assertTrue(reference_item["can_dismiss"])
+        self.assertFalse(reference_item["can_authorize"])
+
+        page = self._open_browser(open_detail=False)
+        page.locator("#nav-reviews").click()
+        expect(page.locator("#review-list .inbox-message")).to_have_count(2)
+        page.locator("#review-copy-all").click()
+        expect(page.locator("#review-message")).to_contain_text("已复制全部 2 条消息")
+        clipboard = page.evaluate("navigator.clipboard.readText()")
+        self.assertIn("ui-review-position-event", clipboard)
+        self.assertIn("ui-review-invalid-reference", clipboard)
+        self.assertIn("不要直接修改任何数据", clipboard)
+
+        position_card = page.locator(
+            '[data-review-id="' + position_item["anomaly_id"] + '"]'
+        )
+        expect(position_card.locator(".inbox-proposal")).to_be_visible()
+        expect(position_card.locator(".inbox-proposal-content")).to_contain_text(
+            "虚构：修复后的图纸整理步骤")
+        authorize = position_card.locator("button.inbox-authorize")
+        expect(authorize).to_be_disabled()
+        position_card.locator(".inbox-consent input").first.check()
+        expect(authorize).to_be_enabled()
+        authorize.click()
+        expect(position_card.locator(".inbox-status")).to_have_text("待专门处理")
+        expect(position_card.locator("button.inbox-apply")).to_be_visible()
+        self.assertEqual(position_source.read_bytes(), position_original,
+                         "authorization alone must not write the business event")
+
+        position_card.locator("button.inbox-apply").click()
+        expect(position_card.locator(".inbox-status")).to_have_text("已修复并验证")
+        task_after = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual(task_after["steps"][0]["title"], "虚构：修复后的图纸整理步骤")
+        self.assertEqual(position_source.read_bytes(), position_original,
+                         "the invalid source event must remain byte-for-byte unchanged")
+
+        reference_card = page.locator(
+            '[data-review-id="' + reference_item["anomaly_id"] + '"]'
+        )
+        defer = reference_card.locator("details.inbox-defer")
+        defer.locator("textarea").fill("已核对步骤列表，无法确认这条异常记录的目标，决定保留原始记录。")
+        defer.locator("input[type=checkbox]").check()
+        defer.get_by_role("button", name="确认保留，不写入").click()
+        expect(reference_card.locator(".inbox-status")).to_have_text("已确认保留")
+        self.assertEqual(reference_source.read_bytes(), reference_original,
+                         "keep-original only records the review decision")
+        review_events = list((self.data_dir / "review_events").glob("*.json"))
+        self.assertEqual(len(review_events), 3,
+                         "authorization, verified apply and keep-original are separately audited")
+        self.assertEqual(len(list((self.data_dir / "step_events").glob("*.json"))), 4,
+                         "only the explicitly executed repair appends one valid step event")
 
     def test_work_record_backdated_capture_edit_and_task_history_protection(self):
         page = self._open_browser(open_detail=False)
