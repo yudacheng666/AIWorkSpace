@@ -2902,7 +2902,7 @@ def _workspace_warning_anomalies(workspace: dict, known_filenames: set[str]) -> 
                      if candidate.get("task_id") == task_id), None)
         is_concurrent = bool(
             task and task.get("conflict") and
-            re.search(r"conflicting edits of revision \\d+", warning)
+            re.search(r"conflicting edits of revision \d+", warning)
         )
         results.append({
             "anomaly_id": anomaly_id, "category": category,
