@@ -1034,6 +1034,165 @@ test("successfully auto-merged edits are informational and never demand ChatGPT"
   assert.equal(page.writes.length, 0);
 });
 
+test("bulk ChatGPT handoff copies every visible message in one read-only bundle", async () => {
+  const reviews = [
+    {
+      anomaly_id: "ANOM-" + "1".repeat(32), category: "invalid_step_reference",
+      title: "虚构：步骤编号无法识别", status: "pending",
+      task_id: "TASK-SYNTHETIC-001", task_title: "虚构：设备资料任务",
+      step_id: "STEP-BAD", recorded_step_title: "虚构：图纸整理",
+      source: {folder: "step_events", filename: "evt_synthetic_invalid_step.json",
+        sha256: "a".repeat(64)},
+      event_id: "synthetic-invalid-step", source_present: true,
+      source_event: {action: "update", timestamp: "2026-11-05T10:00:00Z",
+        base_revision: 1, changes: {title: "虚构：图纸整理"}},
+      user_guidance: {summary: "步骤编号无法识别。", impact: "原始记录保留。",
+        recommendation: "请核对关联任务。"}
+    },
+    {
+      anomaly_id: "ANOM-" + "2".repeat(32), category: "auto_merged",
+      title: "虚构：两次修改已自动整合", status: "auto_merged",
+      task_id: "TASK-SYNTHETIC-002", task_title: "虚构：另一个任务",
+      source: {folder: "workspace_auto_merge"},
+      user_guidance: {summary: "已自动整合，无需操作。", impact: "原始事件保留。",
+        recommendation: "无需处理。"}
+    }
+  ];
+  const page = harness([], () => true, [], reviews);
+  await page.api.loadNotifications();
+  const button = page.el("review-copy-all");
+  assert.equal(button.disabled, false);
+  assert.match(html, /id="review-copy-all" class="inbox-copy-all" disabled>复制全部消息给 ChatGPT 核查/);
+  await button.handlers.get("click")[0]();
+  assert.equal(page.copied.length, 1);
+  const copied = page.copied[0];
+  assert.match(copied, /message_count": 2/);
+  assert.match(copied, /虚构：步骤编号无法识别/);
+  assert.match(copied, /虚构：两次修改已自动整合/);
+  assert.match(copied, /evt_synthetic_invalid_step.json/);
+  assert.match(copied, /TASK-SYNTHETIC-001/);
+  assert.match(copied, /请逐条核查/);
+  assert.match(copied, /不要直接修改任何数据、删除、覆盖或移动/);
+  assert.equal(page.writes.length, 0, "bulk clipboard handoff must not create review or business writes");
+});
+
+test("notification inbox exposes the full authorize then apply repair path", async () => {
+  const item = {
+    anomaly_id: "ANOM-" + "3".repeat(32), category: "step_update_position",
+    title: "虚构：步骤修改需要核对", status: "pending",
+    task_id: "TASK-SYNTHETIC-003", task_title: "虚构：设备资料任务",
+    step_id: "STEP-" + "4".repeat(32), step_title: "虚构：整理图纸",
+    source: {folder: "step_events", filename: "evt_synthetic_step_position.json",
+      sha256: "c".repeat(64)},
+    source_present: true, can_authorize: true, can_apply: false, can_dismiss: true,
+    proposal: {
+      target: {task_id: "TASK-SYNTHETIC-003", task_title: "虚构：设备资料任务",
+        step_id: "STEP-" + "4".repeat(32), step_title: "虚构：整理图纸"},
+      event: {action: "update", changes: {title: "虚构：整理并归档图纸"}},
+      proposal_sha256: "d".repeat(64), requires_completion_confirmation: true,
+      explanation: "按当前步骤版本重新生成合法更新。"
+    },
+    user_guidance: {summary: "步骤修改需要核对。", impact: "原始事件保留。",
+      recommendation: "核对后再授权。"}
+  };
+  const page = harness([], () => true, [], [item], async (path, body) => {
+    if (path.endsWith("/authorize")) {
+      item.status = "authorized";
+      item.can_authorize = false;
+      item.can_apply = true;
+      item.authorization_event_id = "review-auth-synthetic";
+      return {ok:true,json:async()=>({saved:true,status:"authorized"})};
+    }
+    if (path.endsWith("/apply")) {
+      item.status = "applied";
+      item.can_apply = false;
+      item.can_dismiss = false;
+      return {ok:true,json:async()=>({saved:true,status:"applied"})};
+    }
+    throw new Error("unexpected review action " + path);
+  });
+  await page.api.loadNotifications();
+  let card = page.el("review-list").children[0];
+  assert.match(treeText(card), /虚构：整理并归档图纸/);
+  assert.match(treeText(card), /我已核对上方的目标和修改/);
+  assert.match(treeText(card), /我另外确认：这项任务\/步骤确实已经完成/);
+  let checks = [];
+  const collectChecks = node => {
+    if (node.tag === "input" && node.type === "checkbox") checks.push(node);
+    for (const child of node.children || []) collectChecks(child);
+  };
+  collectChecks(card);
+  assert.equal(checks.length, 3, "proposal consent, completion consent and defer consent are separate");
+  const authorize = findTreeNode(card, node => node.tag === "button" && node.textContent === "授权这项修复");
+  assert.equal(authorize.disabled, true);
+  checks[0].checked = true;
+  checks[0].handlers.get("change")[0]();
+  assert.equal(authorize.disabled, true, "completion cannot be inferred from general repair approval");
+  checks[1].checked = true;
+  checks[1].handlers.get("change")[0]();
+  assert.equal(authorize.disabled, false);
+  await authorize.handlers.get("click")[0]();
+  assert.equal(page.writes.length, 1);
+  assert.match(page.writes[0].path, /\/authorize$/);
+  assert.equal(page.writes[0].body.source_sha256, "c".repeat(64));
+  assert.equal(page.writes[0].body.proposal_sha256, "d".repeat(64));
+  assert.equal(page.writes[0].body.confirm_completion, true);
+  assert.equal(item.status, "authorized");
+  card = page.el("review-list").children[0];
+  assert.match(treeText(card), /虚构：整理并归档图纸/,
+    "the approved repair preview must remain visible before execution");
+  const apply = findTreeNode(card, node => node.tag === "button" && node.textContent === "执行修复");
+  assert.ok(apply, "authorization must expose the separate execution step");
+  await apply.handlers.get("click")[0]();
+  assert.equal(page.writes.length, 2);
+  assert.match(page.writes[1].path, /\/apply$/);
+  assert.equal(page.writes[1].body.authorization_event_id, "review-auth-synthetic");
+  assert.equal(page.writes[1].body.confirmed, true);
+  assert.equal(item.status, "applied");
+  assert.match(page.el("review-message").textContent, /修复已执行并通过结果核验/);
+});
+
+test("unsupported review can be explicitly recorded as keep-original without business write", async () => {
+  const item = {
+    anomaly_id: "ANOM-" + "5".repeat(32), category: "invalid_step_reference",
+    title: "虚构：步骤编号无法识别", status: "pending",
+    task_id: "TASK-SYNTHETIC-005", task_title: "虚构：步骤核对任务",
+    source: {folder: "step_events", filename: "evt_synthetic_bad_step.json",
+      sha256: "e".repeat(64)},
+    source_present: true, can_authorize: false, can_apply: false, can_dismiss: true,
+    proposal: null,
+    user_guidance: {summary: "无法识别步骤编号。", impact: "原始记录保留。",
+      recommendation: "先核对关联任务中的步骤。"}
+  };
+  const page = harness([], () => true, [], [item], async (path, body) => {
+    item.status = "dismissed";
+    item.can_dismiss = false;
+    return {ok:true,json:async()=>({saved:true,status:"dismissed"})};
+  });
+  await page.api.loadNotifications();
+  const card = page.el("review-list").children[0];
+  const defer = findTreeNode(card, node => node.tag === "details" && node.className === "inbox-defer");
+  assert.ok(defer);
+  const textarea = findTreeNode(defer, node => node.tag === "textarea");
+  const consent = findTreeNode(defer, node => node.tag === "input" && node.type === "checkbox");
+  const button = findTreeNode(defer, node => node.tag === "button");
+  assert.equal(button.textContent, "确认保留，不写入");
+  assert.equal(button.disabled, true);
+  textarea.value = "已核对现有步骤，无法确认这条记录的目标，决定暂不写入。";
+  textarea.handlers.get("input")[0]();
+  assert.equal(button.disabled, true, "a reason alone is not enough");
+  consent.checked = true;
+  consent.handlers.get("change")[0]();
+  assert.equal(button.disabled, false);
+  await button.handlers.get("click")[0]();
+  assert.equal(page.writes.length, 1);
+  assert.match(page.writes[0].path, /\/dismiss$/);
+  assert.equal(page.writes[0].body.note, textarea.value);
+  assert.equal(page.writes[0].body.confirmed, true);
+  assert.equal(item.status, "dismissed");
+  assert.equal(page.writes.length, 1, "only the review decision is written, not a task/step event");
+});
+
 test("notification message IDs remain stable across refreshes and the inbox is read-only", async () => {
   const item = {
     anomaly_id: "ANOM-" + "C".repeat(32),
@@ -1093,7 +1252,12 @@ test("navigation presents a notification mailbox instead of a repair center", ()
   assert.match(html, /id="nav-reviews"[\s\S]*?通知信箱/);
   assert.match(html, /<h1>通知信箱<\/h1>/);
   assert.match(html, /id="review-refresh">刷新消息/);
-  assert.doesNotMatch(html, /数据异常处理|打开数据核查|确认并授权修复|执行已授权修复|确认保留，不写入/);
+  assert.match(html, /id="review-copy-all"/);
+  assert.match(html, /复制全部消息给 ChatGPT 核查/);
+  assert.match(html, /授权这项修复/);
+  assert.match(html, /执行修复/);
+  assert.match(html, /确认保留，不写入/);
+  assert.doesNotMatch(html, /数据异常处理|打开数据核查/);
 });
 
 function taskQuickControl(row, field) {

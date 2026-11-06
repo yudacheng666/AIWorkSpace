@@ -2,6 +2,8 @@
 
 > **正式发布：AIWorkSpace 2.8.0（2026-11-06）**。PR [#45](https://github.com/yudacheng666/AIWorkSpace/pull/45) 已合入 `main`，合并 SHA `ab8988f940d7434e9404a41408dba1f9db179b9b`，`VERSION=2.8.0`。新增低风险独立字段冲突自动归并、合并后版本凭证与已自动整合通知；原始 JSON 不改写，高风险冲突仍需核查。用户的 Windows 工作台不会因 GitHub 发布而自动更新，真实双机 Google Drive 离线/重连尚未验收。下方早期“Draft/未发布”段落均为开发阶段历史记录，不代表当前正式版本。
 
+> **2.8.1 开发候选（2026-11-06，尚未发布）**：通知信箱增加一次复制全部消息给 ChatGPT 的只读交接；补上单条异常的修复预览、明确授权、单独执行，以及“暂不修复、保留原始记录”的审计操作。仅使用现有后端核查 API，不增加自动批量修复或内嵌 AI。候选分支 `feat/20261106-review-inbox-actions`，Draft PR [#46](https://github.com/yudacheng666/AIWorkSpace/pull/46)。准确产品/测试/版本 SHA `17d0937d2a274bc13bcf5e9fe1ab715b6dd4053f` 的 [Actions #42198035504](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42198035504) 已 3/3 SUCCESS；仍待用户批准合并/发布。
+
 > **2.7.0 Draft 开发候选（2026-11-06，尚未发布）**：新增日/周/月总结的来源编号与 Google Drive 证据交接，以及人工精选成果向 ChatGPT 的只读素材复制。所有分析由用户主动粘贴并核对，绝不在本机网页内调用付费模型或自动写任务/总结。累积依赖 #40→#41→#42→#43→本 PR；正式 main 仍为 2.2.0，无部署授权。
 
 > **2.6.0 开发候选（2026-11-06，尚未发布）**：在 Draft PR #40→#41→#42 之上开发“误建任务转工作记录”，以单条追加式事务保留源任务历史、核查 source revision 和内容指纹，冲突时保留原任务可见。新版本仅供 CI 使用；正式 main 仍为 2.2.0。用户要求所有阶段完成后一次体验；不得提前合并、升级公司 Windows 8770 或操作真实 Google Drive。

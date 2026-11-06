@@ -632,8 +632,30 @@
     .inbox-total { color:#718198; font-size:12px; }
     .inbox-list { display:grid; gap:10px; }
     .inbox-message { min-width:0; padding:14px 16px; border:1px solid #e7edf4; border-radius:10px; background:#fff; }
-    .inbox-copy { margin-top:10px; border:1px solid #b9ccea; border-radius:8px; padding:8px 12px; font:inherit; font-size:12px; color:#295f9b; background:#f2f7ff; cursor:pointer; }
-    .inbox-copy:hover { background:#e7f0ff; }
+    .inbox-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+    .inbox-copy,.inbox-copy-all { border:1px solid #b9ccea; border-radius:8px; padding:8px 12px; font:inherit; font-size:12px; color:#295f9b; background:#f2f7ff; cursor:pointer; }
+    .inbox-copy { margin-top:10px; }
+    .inbox-copy:hover,.inbox-copy-all:hover { background:#e7f0ff; }
+    .inbox-copy-all:disabled { opacity:.45; cursor:not-allowed; }
+    .inbox-panel-meta { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; }
+    .inbox-open-summary { color:#718198; font-size:11px; }
+    .inbox-actions { display:grid; gap:10px; margin-top:12px; padding-top:11px; border-top:1px solid #edf0f5; }
+    .inbox-action-note { margin:0; color:#65758a; font-size:12px; line-height:1.7; }
+    .inbox-proposal,.inbox-defer { border:1px solid #dce5ef; border-radius:9px; padding:10px 12px; background:#fbfcfe; }
+    .inbox-proposal summary,.inbox-defer summary { cursor:pointer; color:#405a78; font-size:12px; font-weight:650; }
+    .inbox-proposal-content { display:grid; gap:7px; margin-top:9px; }
+    .inbox-proposal-content p { margin:0; color:#5b6f86; font-size:12px; line-height:1.65; overflow-wrap:anywhere; }
+    .inbox-proposal-change { display:flex; flex-wrap:wrap; gap:5px; }
+    .inbox-proposal-change strong { color:#405670; }
+    .inbox-consent { display:flex; align-items:flex-start; gap:8px; color:#465e79; font-size:12px; line-height:1.6; margin-top:8px; }
+    .inbox-consent input { margin-top:2px; flex:0 0 auto; }
+    .inbox-action-button { width:max-content; max-width:100%; border:1px solid #bdcddd; border-radius:8px; padding:8px 13px; background:#fff; color:#365a80; font:inherit; font-size:12px; cursor:pointer; }
+    .inbox-action-button--primary { border-color:#9db9d7; background:#edf5fd; color:#244f7e; }
+    .inbox-action-button:disabled { opacity:.45; cursor:not-allowed; }
+    .inbox-action-explain { margin:0; color:#75849a; font-size:11px; line-height:1.6; }
+    .inbox-dismiss-form { display:grid; gap:8px; margin-top:9px; }
+    .inbox-dismiss-form textarea { width:100%; min-height:60px; resize:vertical; border:1px solid #d6e0ec; border-radius:7px; padding:8px; font:inherit; font-size:12px; }
+    .inbox-panel-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; }
     .inbox-edits { margin:8px 0 0; color:#485b76; font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
     .inbox-message-header { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
     .inbox-type,.inbox-status { display:inline-flex; align-items:center; width:max-content; padding:4px 8px; border-radius:20px; font-size:11px; }
@@ -845,13 +867,19 @@
     </section>
     <section id="page-reviews" class="workspace-page" hidden>
       <div class="page-heading">
-        <div><h1>通知信箱</h1><p class="subtitle">可安全处理的并行修改将自动整合，仅真正无法判断的问题需要你关注；技术异常可交给 ChatGPT 核查。</p></div>
-        <button type="button" id="review-refresh">刷新消息</button>
+        <div><h1>通知信箱</h1><p class="subtitle">可安全处理的异常在这里按步骤确认；无法安全判断的消息可一次性复制给 ChatGPT 核查。</p></div>
+        <div class="inbox-toolbar">
+          <button type="button" id="review-copy-all" class="inbox-copy-all" disabled>复制全部消息给 ChatGPT 核查</button>
+          <button type="button" id="review-refresh">刷新消息</button>
+        </div>
       </div>
       <section class="inbox-panel" aria-labelledby="inbox-list-heading">
         <div class="inbox-panel-head">
           <h2 id="inbox-list-heading">全部消息</h2>
-          <span id="review-total" class="inbox-total">0 条消息</span>
+          <div class="inbox-panel-meta">
+            <span id="review-total" class="inbox-total">0 条消息</span>
+            <span id="review-open-summary" class="inbox-open-summary"></span>
+          </div>
         </div>
         <div id="review-list" class="inbox-list" aria-live="polite">
           <div class="inbox-empty">正在读取消息…</div>
@@ -3563,7 +3591,7 @@
 
     const notificationStatusLabels = {
       pending: ["待关注", "attention"],
-      authorized: ["待专门处理", "info"],
+      authorized: ["已授权，待执行", "info"],
       applied: ["已修复并验证", "success"],
       dismissed: ["已确认保留", "muted"],
       stale: ["情况已变化", "attention"],
@@ -3653,16 +3681,8 @@
     function notificationStatus(item) {
       return notificationStatusLabels[item.status] || ["待关注", "attention"];
     }
-    function renderNotificationList() {
-      const host = $("review-list");
-      const total = $("review-total");
-      host.replaceChildren();
-      total.textContent = notificationItems.length + " 条消息";
-      if (!notificationItems.length) {
-        host.append(element("div", "inbox-empty", "目前没有新的系统消息。"));
-        return;
-      }
-      const sorted = notificationItems.slice().sort((left, right) => {
+    function sortedNotificationItems() {
+      return notificationItems.slice().sort((left, right) => {
         const leftTime = Date.parse(notificationTimestamp(left));
         const rightTime = Date.parse(notificationTimestamp(right));
         const leftValid = Number.isFinite(leftTime);
@@ -3671,8 +3691,281 @@
         if (leftValid !== rightValid) return rightValid ? 1 : -1;
         return notificationIdFor(left).localeCompare(notificationIdFor(right));
       });
+    }
+    function reviewCopyPayload(item, items) {
+      const event = item.source_event && typeof item.source_event === "object" ? item.source_event : null;
+      const proposal = item.proposal && typeof item.proposal === "object" ? item.proposal : null;
+      return {
+        message_id: notificationIdFor(item, items),
+        type: notificationTypeLabel(item),
+        status: notificationStatus(item)[0],
+        title: item.title || "系统提醒",
+        task: item.task_id || item.task_title ? {
+          id: item.task_id || null, title: item.task_title || null
+        } : null,
+        step: item.step_id || item.step_title || item.recorded_step_title ? {
+          id: item.step_id || null,
+          title: item.step_title || item.recorded_step_title || null
+        } : null,
+        source: {
+          folder: item.source?.folder || null,
+          filename: item.source?.filename || null,
+          sha256: item.source?.sha256 || null,
+          present: item.source_present !== false,
+          event_id: item.event_id || event?.event_id || null
+        },
+        explanation: notificationSummary(item),
+        impact: notificationImpact(item),
+        next_step: notificationRecommendation(item),
+        validation_reason: item.reason || null,
+        source_event: event ? {
+          action: event.action || null,
+          timestamp: event.timestamp || null,
+          base_revision: Number.isInteger(event.base_revision) ? event.base_revision : null,
+          changes: event.changes || null
+        } : null,
+        related_edits: Array.isArray(item.related_edits) ? item.related_edits : [],
+        repair_proposal: proposal ? {
+          target: proposal.target || null,
+          action: proposal.event?.action || null,
+          changes: proposal.event?.changes || null,
+          explanation: proposal.explanation || null,
+          requires_completion_confirmation: Boolean(proposal.requires_completion_confirmation),
+          proposal_sha256: proposal.proposal_sha256 || null
+        } : null,
+        repair_block_reason: item.proposal_block_reason || null,
+        review_history: Array.isArray(item.timeline) ? item.timeline : []
+      };
+    }
+    function reviewCopyPrompt(items) {
+      const payload = {
+        workspace: "AIWorkSpace",
+        purpose: "核查通知信箱消息",
+        instruction: [
+          "请逐条核查以下通知。先只读检查 Google Drive 中对应的原始事件文件、任务/步骤当前状态和同步情况，不要只凭摘要猜测。",
+          "请按消息编号逐条说明：问题是什么、实际影响、哪些内容尚未生效、是否有安全修复方案、我需要做什么。",
+          "不要直接修改任何数据、删除、覆盖或移动任何原始文件；不得自动写入新事件、标记任务/步骤完成或将消息标记为已处理。",
+          "如需修复，请先给出逐条方案、目标对象和具体字段变化，等待我明确授权后再执行。"
+        ].join("\n"),
+        message_count: items.length,
+        messages: items.map(item => reviewCopyPayload(item, items))
+      };
+      return "请帮我核查 AIWorkSpace 通知信箱中的全部消息。以下内容由工作台一次性整理，包含当前显示的全部消息（包括已处理和自动整合记录），请先只读核查。\n\n" +
+        JSON.stringify(payload, null, 2);
+    }
+    async function copyReviewText(value, successText) {
+      try {
+        if (!globalThis.navigator?.clipboard?.writeText) throw new Error("clipboard unavailable");
+        await globalThis.navigator.clipboard.writeText(value);
+        const message = $("review-message");
+        message.className = "inbox-feedback";
+        message.textContent = successText;
+      } catch (_) {
+        const message = $("review-message");
+        message.className = "inbox-feedback error";
+        message.textContent = "复制失败。请检查浏览器剪贴板权限后重试。";
+      }
+    }
+    async function copyAllNotifications() {
+      const items = sortedNotificationItems();
+      if (!items.length) return;
+      await copyReviewText(reviewCopyPrompt(items),
+        "已复制全部 " + items.length + " 条消息。请粘贴到 ChatGPT 对话，我会逐条核查并说明可执行的处理方案；复制本身不会修改数据。");
+    }
+    function reviewFieldLabel(field) {
+      return ({
+        title: "名称", status: "状态", owner: "负责人", priority: "优先级",
+        due_date: "截止日期", planned_date: "计划日期",
+        follow_up_date: "下次跟进日期", project_id: "所属项目",
+        related_project_ids: "关联项目", document_links: "文档链接",
+        trashed_at: "回收站状态"
+      })[field] || field;
+    }
+    function reviewFieldValue(field, value) {
+      if (field === "status") return ({todo:"待处理",doing:"进行中",blocked:"受阻",done:"已完成"})[value] || String(value);
+      if (field === "priority") return ({low:"低",normal:"普通",high:"高",urgent:"紧急"})[value] || String(value);
+      if (field === "trashed_at") return value ? "移入回收站" : "恢复到任务列表";
+      if (value === null) return "清空";
+      if (Array.isArray(value)) return value.join("、") || "无";
+      if (value && typeof value === "object") return JSON.stringify(value);
+      return String(value);
+    }
+    function reviewProposalDetails(item) {
+      const proposal = item.proposal;
+      const details = element("details", "inbox-proposal");
+      details.open = true;
+      details.append(element("summary", "", "查看系统建议的修复内容"));
+      const content = element("div", "inbox-proposal-content");
+      const target = proposal.target || {};
+      content.append(element("p", "", "目标：" + (target.task_title || item.task_title || "关联任务") +
+        (target.step_title ? " / " + target.step_title : "")));
+      const actionLabel = proposal.event?.action === "trash" ? "移入回收站" :
+        proposal.event?.action === "restore" ? "恢复任务" : "更新记录";
+      content.append(element("p", "", "拟执行操作：" + actionLabel));
+      const changes = proposal.event?.changes || {};
+      for (const [field, value] of Object.entries(changes)) {
+        const line = element("p", "inbox-proposal-change");
+        line.append(element("strong", "", reviewFieldLabel(field) + "："),
+          element("span", "", reviewFieldValue(field, value)));
+        content.append(line);
+      }
+      if (proposal.explanation) content.append(element("p", "", "系统说明：" + proposal.explanation));
+      content.append(element("p", "inbox-action-explain",
+        "请先核对上面的目标和修改。授权只记录你的同意，不会立刻修改任务；之后还需要你单独点击“执行修复”。"));
+      details.append(content);
+      return details;
+    }
+    async function submitReviewAction(item, action, body, successText) {
+      const message = $("review-message");
+      try {
+        const response = await fetch("/api/reviews/" + encodeURIComponent(item.anomaly_id) + "/" + action, {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(body)
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "操作未完成");
+        await loadNotifications();
+        message.className = "inbox-feedback";
+        message.textContent = successText;
+        return true;
+      } catch (error) {
+        await loadNotifications();
+        message.className = "inbox-feedback error";
+        message.textContent = "本次操作未完成：" + error.message + "。消息已重新读取；请按最新状态核对，系统不会跳过版本校验。";
+        return false;
+      }
+    }
+    function reviewActionPanel(item) {
+      const panel = element("section", "inbox-actions");
+      let hasAction = false;
+      if (item.proposal && (item.can_authorize || item.can_apply)) {
+        panel.append(reviewProposalDetails(item));
+      }
+      if (item.can_authorize && item.proposal) {
+        hasAction = true;
+        const normalConfirm = element("input");
+        normalConfirm.type = "checkbox";
+        const normalLabel = element("label", "inbox-consent");
+        normalLabel.append(normalConfirm, element("span", "",
+          "我已核对上方的目标和修改，同意按此建议修复。"));
+        panel.append(normalLabel);
+        let completionConfirm = null;
+        if (item.proposal.requires_completion_confirmation) {
+          completionConfirm = element("input");
+          completionConfirm.type = "checkbox";
+          const completionLabel = element("label", "inbox-consent");
+          completionLabel.append(completionConfirm, element("span", "",
+            "我另外确认：这项任务/步骤确实已经完成。"));
+          panel.append(completionLabel);
+        }
+        const authorize = element("button", "inbox-action-button inbox-action-button--primary inbox-authorize",
+          "授权这项修复");
+        authorize.type = "button";
+        authorize.disabled = true;
+        const updateEnabled = () => {
+          authorize.disabled = !normalConfirm.checked ||
+            Boolean(item.proposal.requires_completion_confirmation && !completionConfirm?.checked);
+        };
+        normalConfirm.addEventListener("change", updateEnabled);
+        if (completionConfirm) completionConfirm.addEventListener("change", updateEnabled);
+        authorize.addEventListener("click", async () => {
+          updateEnabled();
+          if (authorize.disabled) return;
+          authorize.disabled = true;
+          const saved = await submitReviewAction(item, "authorize", {
+            source_sha256: item.source.sha256,
+            proposal_sha256: item.proposal.proposal_sha256,
+            confirmed: true,
+            ...(completionConfirm ? {confirm_completion: completionConfirm.checked} : {})
+          }, "已记录你的授权。业务数据尚未修改；请刷新后检查“执行修复”步骤。");
+          if (!saved) authorize.disabled = false;
+        });
+        panel.append(authorize);
+      }
+      if (item.can_apply && item.authorization_event_id) {
+        hasAction = true;
+        panel.append(element("p", "inbox-action-note",
+          "你已经授权这项修复。系统尚未修改业务数据；执行时会再次核对原始文件和当前版本。"));
+        const apply = element("button", "inbox-action-button inbox-action-button--primary inbox-apply",
+          "执行修复");
+        apply.type = "button";
+        apply.addEventListener("click", async () => {
+          if (!window.confirm("确认执行这项已授权修复？工作台将追加一条经过校验的新事件；原始异常文件不会被覆盖或删除。")) return;
+          apply.disabled = true;
+          const saved = await submitReviewAction(item, "apply", {
+            source_sha256: item.source.sha256,
+            authorization_event_id: item.authorization_event_id,
+            confirmed: true
+          }, "修复已执行并通过结果核验。原始异常记录仍保留。");
+          if (!saved) apply.disabled = false;
+        });
+        panel.append(apply);
+      }
+      if (item.can_dismiss) {
+        hasAction = true;
+        const defer = element("details", "inbox-defer");
+        defer.append(element("summary", "", "暂不修复，保留原始记录"));
+        const form = element("div", "inbox-dismiss-form");
+        form.append(element("p", "inbox-action-explain",
+          "这只会记录你决定暂不写入的原因，不会删除原始文件，也不代表底层问题已经修复。"));
+        const note = element("textarea");
+        note.maxLength = 500;
+        note.placeholder = "请写明已核对的情况和暂不写入的原因（必填）";
+        const confirm = element("input");
+        confirm.type = "checkbox";
+        const confirmLabel = element("label", "inbox-consent");
+        confirmLabel.append(confirm, element("span", "",
+          "我确认保留原始记录，不将这条异常修改写入任务/步骤。"));
+        const dismiss = element("button", "inbox-action-button inbox-dismiss", "确认保留，不写入");
+        dismiss.type = "button";
+        dismiss.disabled = true;
+        const updateEnabled = () => {
+          dismiss.disabled = !confirm.checked || !note.value.trim() || note.value.trim().length > 500;
+        };
+        note.addEventListener("input", updateEnabled);
+        confirm.addEventListener("change", updateEnabled);
+        dismiss.addEventListener("click", async () => {
+          updateEnabled();
+          if (dismiss.disabled) return;
+          dismiss.disabled = true;
+          const saved = await submitReviewAction(item, "dismiss", {
+            source_sha256: item.source.sha256,
+            confirmed: true,
+            note: note.value.trim()
+          }, "已记录为暂不修复，原始记录继续保留。");
+          if (!saved) dismiss.disabled = false;
+        });
+        form.append(note, confirmLabel, dismiss);
+        defer.append(form);
+        panel.append(defer);
+      }
+      if (!hasAction && !["applied", "dismissed", "auto_merged"].includes(item.status)) {
+        panel.append(element("p", "inbox-action-note",
+          "目前没有可安全执行的自动修复方案。请先使用上方“复制全部消息给 ChatGPT 核查”，由 ChatGPT 核对原始来源并提出处理方案；不要手工修改原始文件。"));
+      }
+      return hasAction || panel.children.length ? panel : null;
+    }
+    function renderNotificationList() {
+      const host = $("review-list");
+      const total = $("review-total");
+      const copyAll = $("review-copy-all");
+      const openSummary = $("review-open-summary");
+      host.replaceChildren();
+      const sorted = sortedNotificationItems();
+      total.textContent = notificationItems.length + " 条消息";
+      copyAll.disabled = !sorted.length;
+      const openItems = sorted.filter(item =>
+        ["pending", "authorized", "stale", "failed", "conflict"].includes(item.status));
+      const directlyActionable = openItems.filter(item => item.can_authorize || item.can_apply).length;
+      openSummary.textContent = "待处理 " + openItems.length + " 条 · 可按建议处理 " +
+        directlyActionable + " 条 · 需进一步核查 " + (openItems.length - directlyActionable) + " 条";
+      if (!sorted.length) {
+        host.append(element("div", "inbox-empty", "目前没有新的系统消息。"));
+        return;
+      }
       for (const item of sorted) {
         const article = element("article", "inbox-message");
+        article.setAttribute("data-review-id", item.anomaly_id || "");
         const header = element("div", "inbox-message-header");
         const [statusLabel, statusTone] = notificationStatus(item);
         header.append(
@@ -3683,7 +3976,7 @@
         const title = element("h3", "inbox-message-title", item.title || "系统提醒");
         const summary = element("p", "inbox-message-summary", notificationSummary(item));
         const meta = element("div", "inbox-message-meta");
-        meta.append(element("span", "inbox-message-id", "消息编号：" + notificationIdFor(item)));
+        meta.append(element("span", "inbox-message-id", "消息编号：" + notificationIdFor(item, sorted)));
         const taskContext = item.task_title ? "关联任务：" + item.task_title :
           item.source?.folder === "workspace" ? "工作区提示" : "关联对象暂未识别";
         meta.append(element("span", "", taskContext));
@@ -3692,7 +3985,6 @@
         }
         article.append(header, title, summary, meta);
 
-        // A message must explain the affected business fields, not just an error ID.
         const relatedEdits = Array.isArray(item.related_edits) ? item.related_edits : [];
         if (item.concurrent_task_edit && relatedEdits.length) {
           const fieldLabels = {
@@ -3715,38 +4007,21 @@
         const recommendation = element("p");
         recommendation.append(element("strong", "", "建议："), element("span", "", notificationRecommendation(item)));
         detailContent.append(impact, recommendation);
+        if (item.proposal_block_reason && !item.proposal) {
+          detailContent.append(element("p", "", "当前无法自动修复：" + notificationRecommendation(item)));
+        }
         details.append(detailContent);
         article.append(details);
 
-        // No embedded AI or write endpoint: the user explicitly initiates a safe handoff.
+        const actions = reviewActionPanel(item);
+        if (actions) article.append(actions);
+
         const copy = element("button", "inbox-copy", "复制给 ChatGPT 核查");
         copy.type = "button";
         copy.addEventListener("click", async () => {
-          const reviewPrompt = [
-            "请帮我核查 AIWorkSpace 通知信箱里的这条异常。先只读核对来源和实际数据，不要直接修改任何数据。",
-            "消息编号：" + notificationIdFor(item),
-            "问题类型：" + notificationTypeLabel(item),
-            "当前状态：" + notificationStatus(item)[0],
-            "关联任务：" + (item.task_title || "暂未识别"),
-            "任务内部编号：" + (item.task_id || "无"),
-            "相关步骤：" + (item.step_title || item.recorded_step_title || "无"),
-            "情况说明：" + notificationSummary(item),
-            "影响：" + notificationImpact(item),
-            "原始警告（仅供技术核对）：" + (item.reason || "无"),
-            "多条修改的字段和候选值（仅供比对）：" +
-              JSON.stringify(Array.isArray(item.related_edits) ? item.related_edits : []).slice(0, 12000),
-            "请先解释问题、逐项核查哪些修改尚未生效，并提出不丢失原始事件的处理方案。" +
-              "未经我另行确认，请勿删除、覆盖、移走原文件，勿自动提交修复或把任务标记为已完成。"
-          ].join("\n");
-          try {
-            if (!globalThis.navigator?.clipboard?.writeText) throw new Error("clipboard unavailable");
-            await globalThis.navigator.clipboard.writeText(reviewPrompt);
-            $("review-message").className = "inbox-feedback";
-            $("review-message").textContent = "核查说明已复制。请粘贴到 ChatGPT 对话，我会先只读排查并说明方案。";
-          } catch (_) {
-            $("review-message").className = "inbox-feedback error";
-            $("review-message").textContent = "复制失败。请在 ChatGPT 中告诉我消息编号：" + notificationIdFor(item);
-          }
+          const prompt = reviewCopyPrompt([item]);
+          await copyReviewText(prompt,
+            "核查说明已复制。这条消息已复制到剪贴板；请粘贴到 ChatGPT 对话，复制不会修改工作台数据。");
         });
         if (item.status !== "auto_merged") article.append(copy);
         host.append(article);
@@ -3773,6 +4048,7 @@
       }
     }
 
+    $("review-copy-all").addEventListener("click", () => copyAllNotifications());
     $("review-refresh").addEventListener("click", () => loadNotifications());
 
     let trashItems = [];
