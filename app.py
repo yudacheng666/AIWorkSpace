@@ -1006,7 +1006,7 @@ def conflicting_fields(events: list[dict]) -> list[str]:
 # This is a read-only projection. No original event is rewritten or re-timestamped.
 AUTO_TASK_MERGE_FIELDS = frozenset(("title", *TASK_MANAGEMENT_FIELDS))
 AUTO_STEP_MERGE_FIELDS = frozenset(("title", *DATE_FIELDS))
-MERGE_BASIS_PATTERN = re.compile(r"[0-9a-f]{64}\\Z")
+MERGE_BASIS_PATTERN = re.compile(r"[0-9a-f]{64}$")
 
 
 def _safe_disjoint_merge(candidates: list[dict], allowed: frozenset[str]) -> dict | None:
@@ -1221,6 +1221,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
                 "status": root["changes"].get("status", "todo"),
                 "revision": 1, "conflict": False,
                 "conflict_fields": [], "conflict_candidates": [],
+                "auto_merge_groups": [], "merge_basis_required": None,
                 "created_at": root.get("timestamp", ""),
                 "created_position": root["changes"].get("position"),
                 "document_links": root["changes"].get("document_links", []),
@@ -1239,17 +1240,42 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
             for event in events:
                 if event["action"] in {"update", "delete"}:
                     updates[event["base_revision"]].append(event)
+            has_unsafe_stream = (
+                step["conflict"] or
+                any(event["action"] == "delete" for event in events) or
+                any(step_id == candidate.get("step_id")
+                    for variants in duplicate_conflicts.values() for candidate in variants)
+            )
+            required_basis = None
             while step["revision"] in updates:
                 candidates = updates.pop(step["revision"])
+                if required_basis is not None:
+                    if any(event.get("merge_basis") != required_basis for event in candidates):
+                        step["conflict"] = True
+                        step["conflict_fields"] = sorted(set(step["conflict_fields"]) |
+                            {field for event in candidates for field in event["changes"]})
+                        step["conflict_candidates"].extend(summarize_conflict_events(candidates))
+                        warnings.append(f"{step_id}: step edit after auto merge lacks matching merge basis")
+                        break
+                    required_basis = None
                 if len(candidates) != 1:
-                    step["conflict"] = True
-                    step["conflict_fields"] = sorted(
-                        set(step["conflict_fields"]) |
-                        {field for event in candidates for field in event["changes"]}
-                    )
-                    step["conflict_candidates"].extend(summarize_conflict_events(candidates))
-                    warnings.append(f"{step_id}: conflicting edits at revision {step['revision']}")
-                    break
+                    merged = (None if has_unsafe_stream else
+                              _safe_disjoint_merge(candidates, AUTO_STEP_MERGE_FIELDS))
+                    if merged is None:
+                        step["conflict"] = True
+                        step["conflict_fields"] = sorted(
+                            set(step["conflict_fields"]) |
+                            {field for event in candidates for field in event["changes"]}
+                        )
+                        step["conflict_candidates"].extend(summarize_conflict_events(candidates))
+                        warnings.append(f"{step_id}: conflicting edits at revision {step['revision']}")
+                        break
+                    step.update(merged["changes"])
+                    step["title"] = step["title"].strip()
+                    step["revision"] += 1
+                    step["auto_merge_groups"].append(merged)
+                    required_basis = merged["merge_basis"]
+                    continue
                 selected = candidates[0]
                 # A delete tombstone cannot be undone by a late edit.
                 if step.get("deleted_at"):
@@ -1262,6 +1288,8 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
                 if "title" in step:
                     step["title"] = step["title"].strip()
                 step["revision"] += 1
+            if not step["conflict"]:
+                step["merge_basis_required"] = required_basis
             if updates:
                 remaining = [event for group in updates.values() for event in group]
                 step["conflict"] = True
