@@ -1016,6 +1016,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(position_source.read_bytes(), position_original,
                          "authorization alone must not write the business event")
 
+        page.on("dialog", lambda dialog: dialog.accept())
         position_card.locator("button.inbox-apply").click()
         expect(position_card.locator(".inbox-status")).to_have_text("已修复并验证")
         task_after = read_workspace(self.data_dir)["tasks"][0]
