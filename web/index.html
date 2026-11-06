@@ -3838,9 +3838,11 @@
     function reviewActionPanel(item) {
       const panel = element("section", "inbox-actions");
       let hasAction = false;
+      if (item.proposal && (item.can_authorize || item.can_apply)) {
+        panel.append(reviewProposalDetails(item));
+      }
       if (item.can_authorize && item.proposal) {
         hasAction = true;
-        panel.append(reviewProposalDetails(item));
         const normalConfirm = element("input");
         normalConfirm.type = "checkbox";
         const normalLabel = element("label", "inbox-consent");
