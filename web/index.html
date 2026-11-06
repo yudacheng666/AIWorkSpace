@@ -3629,6 +3629,11 @@
       if (item.status === "applied" || item.status === "dismissed") {
         return "这条消息已有处理记录。原始异常记录仍保留，可供后续追踪。";
       }
+      // Keep the server's issue-specific guidance; the old hard-coded fallback
+      // accidentally hid actionable instructions for real revision conflicts.
+      if (notificationGuidance(item).recommendation) {
+        return notificationGuidance(item).recommendation;
+      }
       if (item.category === "invalid_step_reference") {
         return "请在关联任务详情中核对现有步骤；如确认确有缺项，再通过正常步骤操作补充。系统不会猜测或自动改绑。";
       }
