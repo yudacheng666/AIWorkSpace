@@ -1,17 +1,16 @@
 # AIWorkSpace｜当前项目状态
 
-## 2026-11-06：2.8.1 候选「通知信箱批量核查与可操作处理」（开发中）
+## 2026-11-06：2.8.1 正式合并「通知信箱批量核查与可操作处理」
 
-- **用户反馈/需求**：通知信箱需要一键复制全部消息给 ChatGPT 核查；目前 5 条待处理消息只可阅读，用户不知道如何处理。
-- **根因**：后台早已存在单条消息的 `authorize`、`apply`、`dismiss` API 和审计链，但通知信箱前端只提供单条剪贴板复制，没有展示合法修复 proposal，也没有授权、执行和“保留原始记录、不写入”入口。
-- **新实现**：顶部新增「复制全部消息给 ChatGPT 核查」，复制当前列表全部消息（包含已处理/自动整合状态）的消息编号、类型/状态、任务/步骤、来源文件定位与 SHA、关键事件内容、建议、proposal 和审计历史；只复制剪贴板，不自动发送。每条消息按后端能力显示具体处理步骤：展开修复预览→勾选确认授权→独立执行修复；若涉及完成状态，另设完成确认；支持填写原因并确认暂不修复/保留原始记录。没有安全方案或存在冲突时明确阻止写入并提示批量交给 ChatGPT 核查。
-- **数据安全**：继续使用现有 `/api/reviews/{id}/authorize|apply|dismiss`；前端不直写文件，不批量修复。授权只写 review audit；执行时后端重新核对 source SHA、proposal SHA、目标 revision，追加新合法事件并验证；保留原始异常文件。暂不修复只记录决定，不等于底层问题已解决。
-- **代码/测试**：PR [#46](https://github.com/yudacheng666/AIWorkSpace/pull/46) Draft，分支 `feat/20261106-review-inbox-actions` 从正式 main 文档同步后的基线 `977cdabec40cd7cb804b8246b6e8f467ab6a6a67` 创建，候选 `VERSION=2.8.1`。修改 `web/index.html`；Node UI 覆盖全部消息批量复制、授权与完成双确认、授权/执行分离、保留原始记录；Windows Chromium E2E 覆盖真实页面剪贴板、修复事件追加、授权后继续查看预览、原始异常字节不变及审计事件。后端既有治理 API 的合成端到端回归继续由 `tests/test_data_governance.py` 覆盖，本阶段未改写后端 API。
-- **准确 SHA 验收**：产品/测试/候选版本 SHA `17d0937d2a274bc13bcf5e9fe1ab715b6dd4053f` 对应 [GitHub Actions #42198035504](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42198035504) **3/3 SUCCESS**。Ubuntu Python 260 tests（28 SKIP）、Windows Python 260 tests（26 SKIP）；Node 两平台各 114 PASS/0 FAIL；Windows 更新/回滚 3 PASS；Windows 真实应用 + Chromium 23 PASS（包含本次新增批量复制、授权、执行修复、暂不修复/审计及源文件字节不变路径）。
-- **首轮问题及定向修正**：初轮 Node 测试错误地从最小 DOM stub 读取静态 HTML 按钮文本，改为核验真实 HTML；Windows E2E 新用例未独立创建合成步骤，已补齐 fixture；批量复制提示语断言同步到最终只读安全文案。另补测授权后仍显示 proposal 供用户在执行前复核。以上均在最终准确 SHA 的完整 CI 中通过。
-- **边界**：2.8.0 已合并正式 main（合并 commit `ab8988f940d7434e9404a41408dba1f9db179b9b`）；2.8.1 尚未合并或发布。用户当前真实 5 条消息未通过本次开发操作；真实 Google Drive 事件未读取/写入/删除，用户 Windows 程序未升级。实际 5 条消息哪些可修复，须由升级后后端逐条计算 `can_authorize/can_apply/can_dismiss`，不能预先承诺全部可自动修复。
-- **下一步**：代码与自动化验收已完成；PR #46 仍保持 Draft，等待用户明确批准合并/发布。真实 5 条消息后续须先备份和只读核查，再按每条消息的能力展示操作，不批量写入。
-
+- **用户反馈/需求**：通知信箱需要一键复制全部消息给 ChatGPT 核查；当前 5 条待处理消息只可阅读，用户不知道如何处理。
+- **根因**：后台已有单条消息的 `authorize`、`apply`、`dismiss` API 和审计链，但通知信箱前端没有展示合法修复 proposal，也没有授权、执行和“保留原始记录、不写入”入口。
+- **正式实现**：顶部新增「复制全部消息给 ChatGPT 核查」，复制当前列表全部消息（含已处理/自动整合状态）的消息编号、类型/状态、任务/步骤、来源文件定位与 SHA、关键事件内容、建议、proposal 和审计历史；只复制剪贴板，不自动发送。每条消息按后端能力显示处理步骤：展开修复预览→勾选确认授权→独立执行修复；完成状态另需独立确认；支持填写原因并确认暂不修复/保留原始记录。无安全方案或存在冲突时明确阻止写入并提示交给 ChatGPT 核查。
+- **数据安全**：继续使用现有 `/api/reviews/{id}/authorize|apply|dismiss`；前端不直写文件，不批量修复。授权只写 review audit；执行时后端重新核对 source SHA、proposal SHA、目标 revision，追加新合法事件并验证；保留原始异常文件。暂不修复只记录决定，不代表底层问题已解决。
+- **合并**：用户于 2026-11-06 明确指示“合并”。PR [#46](https://github.com/yudacheng666/AIWorkSpace/pull/46) 已从 Draft 标记 Ready 并标准 merge 合入 `main`；merge commit / 当前产品 SHA `9dd8a34b0f4841b378a4d8faa29055834a089b55`，`VERSION=2.8.1`。开放 PR=0。
+- **合并前准确 SHA 验收**：产品/测试/版本 SHA `17d0937d2a274bc13bcf5e9fe1ab715b6dd4053f` 对应 [GitHub Actions #42198035504](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42198035504) **3/3 SUCCESS**。Ubuntu Python 260 tests（28 SKIP）、Windows Python 260 tests（26 SKIP）；Node 两平台各 114 PASS/0 FAIL；Windows 更新/回滚 3 PASS；Windows 真实应用 + Chromium 23 PASS（包含本次新增批量复制、授权、执行修复、暂不修复/审计及源文件字节不变路径）。
+- **合并后验证**：[GitHub Actions #42199542397](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42199542397) 正在对准确 merge SHA 执行完整三平台 CI；最终结果待回写。合并前已验证 PR HEAD 相比已测试 SHA 仅增加 README 与 PROJECT_STATE 两处 `[skip ci]` 文档记录，无产品/测试代码变化。
+- **首轮问题及定向修正**：初轮 Node 测试错误地从最小 DOM stub 读取静态 HTML 按钮文本，改为核验真实 HTML；Windows E2E 新用例未独立创建合成步骤，已补齐 fixture；批量复制提示语断言同步到最终只读安全文案。另补测授权后仍显示 proposal 供用户在执行前复核。最终准确 SHA CI 全部通过。
+- **真实数据与部署边界**：本 PR 所有测试均使用虚构数据。用户真实 5 条待处理消息未在开发/合并过程中被读取、写入、删除或批量处理；用户 Windows 工作台未升级。真实 Google Drive 双机离线/重连仍 NOT TESTED。下一步需在用户升级 2.8.1 后，先备份并只读核查真实 5 条消息，再按每条消息实际可执行能力处理，不批量写入。
 ## 2026-11-06：2.8.0 正式发布（已合入 main，发布后 3/3 CI PASS）
 
 - **用户授权和合并**：用户明确指示“合并，发布”。完成全部开放 PR 核查：仅 PR #45 尚未合并、无遗留依赖；先标记 Ready 后以 GitHub 标准 Merge 合入正式 `main`。PR [#45](https://github.com/yudacheng666/AIWorkSpace/pull/45) 已 **MERGED**，合并 SHA `ab8988f940d7434e9404a41408dba1f9db179b9b`，`main/VERSION=2.8.0`；合并后开放 PR=0。
