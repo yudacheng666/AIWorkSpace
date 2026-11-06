@@ -1254,9 +1254,11 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
                     updates[event["base_revision"]].append(event)
             has_unsafe_stream = (
                 step["conflict"] or
-                any(event["action"] == "delete" for event in events) or
                 any(step_id == candidate.get("step_id")
-                    for variants in duplicate_conflicts.values() for candidate in variants)
+                    for variants in duplicate_conflicts.values() for candidate in variants) or
+                any(step_id == part["item_id"] and part["kind"] == "step"
+                    for conversion in conversions or []
+                    for part in (conversion["source"], conversion["target"]))
             )
             required_basis = None
             while step["revision"] in updates:
@@ -1523,8 +1525,8 @@ def read_workspace(data_dir: Path, include_trashed: bool = False,
         has_unsafe_stream = (
             any(task_id == candidate["task_id"]
                 for variants in duplicate_conflicts.values() for candidate in variants)
-            or any(event["action"] in TASK_LIFECYCLE_ACTIONS
-                   for event in updated[task_id])
+            or any(task_id in {event["source"]["task_id"], event["target"]["task_id"]}
+                   for event in conversions)
         )
         required_basis = None
         while task["revision"] in by_revision:
