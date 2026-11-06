@@ -845,7 +845,7 @@
     </section>
     <section id="page-reviews" class="workspace-page" hidden>
       <div class="page-heading">
-        <div><h1>通知信箱</h1><p class="subtitle">这里仅展示提醒，不会更改任务。看不懂的消息可一键复制给 ChatGPT 核查，无需自行处理技术文件。</p></div>
+        <div><h1>通知信箱</h1><p class="subtitle">可安全处理的并行修改将自动整合，仅真正无法判断的问题需要你关注；技术异常可交给 ChatGPT 核查。</p></div>
         <button type="button" id="review-refresh">刷新消息</button>
       </div>
       <section class="inbox-panel" aria-labelledby="inbox-list-heading">
@@ -3568,7 +3568,8 @@
       dismissed: ["已确认保留", "muted"],
       stale: ["情况已变化", "attention"],
       failed: ["处理未完成", "attention"],
-      conflict: ["存在版本冲突", "attention"]
+      conflict: ["存在版本冲突", "attention"],
+      auto_merged: ["已自动整合", "success"]
     };
     const notificationTypeLabels = {
       sync_pending: "同步提醒",
@@ -3579,7 +3580,8 @@
       completion_confirmation_missing: "完成确认提醒",
       malformed_event: "数据文件异常",
       invalid_event: "数据记录异常",
-      historical: "历史记录"
+      historical: "历史记录",
+      auto_merged: "自动整合"
     };
 
     function notificationIdFor(item, items = notificationItems) {
@@ -3746,7 +3748,7 @@
             $("review-message").textContent = "复制失败。请在 ChatGPT 中告诉我消息编号：" + notificationIdFor(item);
           }
         });
-        article.append(copy);
+        if (item.status !== "auto_merged") article.append(copy);
         host.append(article);
       }
     }
