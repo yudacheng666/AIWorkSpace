@@ -1,5 +1,15 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-06：2.8.1 候选「通知信箱批量核查与可操作处理」（开发中）
+
+- **用户反馈/需求**：通知信箱需要一键复制全部消息给 ChatGPT 核查；目前 5 条待处理消息只可阅读，用户不知道如何处理。
+- **根因**：后台早已存在单条消息的 `authorize`、`apply`、`dismiss` API 和审计链，但通知信箱前端只提供单条剪贴板复制，没有展示合法修复 proposal，也没有授权、执行和“保留原始记录、不写入”入口。
+- **新实现**：顶部新增「复制全部消息给 ChatGPT 核查」，复制当前列表全部消息（包含已处理/自动整合状态）的消息编号、类型/状态、任务/步骤、来源文件定位与 SHA、关键事件内容、建议、proposal 和审计历史；只复制剪贴板，不自动发送。每条消息按后端能力显示具体处理步骤：展开修复预览→勾选确认授权→独立执行修复；若涉及完成状态，另设完成确认；支持填写原因并确认暂不修复/保留原始记录。没有安全方案或存在冲突时明确阻止写入并提示批量交给 ChatGPT 核查。
+- **数据安全**：继续使用现有 `/api/reviews/{id}/authorize|apply|dismiss`；前端不直写文件，不批量修复。授权只写 review audit；执行时后端重新核对 source SHA、proposal SHA、目标 revision，追加新合法事件并验证；保留原始异常文件。暂不修复只记录决定，不等于底层问题已解决。
+- **代码/测试**：分支 `feat/20261106-review-inbox-actions` 从正式 main 文档同步后的基线 `977cdabec40cd7cb804b8246b6e8f467ab6a6a67` 创建，候选 `VERSION=2.8.1`。修改 `web/index.html`；Node UI 覆盖全部消息批量复制、授权与完成双确认、授权/执行分离、保留原始记录；Windows Chromium E2E 覆盖真实页面剪贴板、修复事件追加、原始异常字节不变及审计事件。后端现有治理 API 的 18 项合成端到端测试在 `tests/test_data_governance.py`，本阶段不改写该 API。准确 SHA 的 CI 尚待执行。
+- **边界**：2.8.0 已合并正式 main（合并 commit `ab8988f940d7434e9404a41408dba1f9db179b9b`）；2.8.1 尚未合并或发布。用户当前真实 5 条消息未通过本次开发操作；真实 Google Drive 事件未读取/写入/删除，用户 Windows 程序未升级。实际 5 条消息哪些可修复，须由升级后后端逐条计算 `can_authorize/can_apply/can_dismiss`，不能预先承诺全部可自动修复。
+- **下一步**：完成 UI 代码审阅与准确 SHA 的 Ubuntu/Windows/Chromium Actions；CI 通过后保持 Draft 待用户批准合并。真实 5 条消息后续须先备份和只读核查，再按每条消息的能力展示操作，不批量写入。
+
 ## 2026-11-06：2.8.0 正式发布（已合入 main，发布后 3/3 CI PASS）
 
 - **用户授权和合并**：用户明确指示“合并，发布”。完成全部开放 PR 核查：仅 PR #45 尚未合并、无遗留依赖；先标记 Ready 后以 GitHub 标准 Merge 合入正式 `main`。PR [#45](https://github.com/yudacheng666/AIWorkSpace/pull/45) 已 **MERGED**，合并 SHA `ab8988f940d7434e9404a41408dba1f9db179b9b`，`main/VERSION=2.8.0`；合并后开放 PR=0。
