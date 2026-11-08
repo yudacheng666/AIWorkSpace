@@ -806,7 +806,8 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
           radius: parseFloat(getComputedStyle(e).borderRadius),
           borderStyle: getComputedStyle(e).borderTopStyle
         })""")
-        self.assertEqual(end_style["display"], "inline-flex", end_style)
+        # A flex item is blockified by Chromium, so inline-flex is computed as flex here.
+        self.assertEqual(end_style["display"], "flex", end_style)
         self.assertAlmostEqual(end_style["height"], 34, delta=1, msg=str(end_style))
         self.assertGreaterEqual(end_style["radius"], 7, end_style)
         self.assertEqual(end_style["borderStyle"], "solid", end_style)

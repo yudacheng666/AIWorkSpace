@@ -922,7 +922,7 @@ test("notification inbox shows stable message IDs, readable summaries and no rep
   const guidance = {
     summary: "这条执行步骤记录中的步骤编号无法识别，系统不能确定它属于哪一个步骤。",
     impact: "这条记录没有被应用，原始记录仍保留；系统不会猜测目标步骤，也不会覆盖现有步骤。",
-    recommendation: "请先核对关联任务中的步骤列表；若已有对应步骤，不要重复创建。"
+    recommendation: "请先核对关联任务中的步骤列表；若已有对应步骤，不要重复创建。系统不会猜测或自动改绑。"
   };
   const reviews = [
     {
