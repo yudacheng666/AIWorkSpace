@@ -1,5 +1,7 @@
 # AIWorkSpace
 
+> **2.8.3 维护候选（2026-11-08，Draft PR [#48](https://github.com/yudacheng666/AIWorkSpace/pull/48)）**：按用户四处截图批注，统一「打开通知信箱」与周期任务结束/恢复按钮样式，将任务详情项目字段调整为顶对齐，并修复通知信箱重复显示同一条建议的问题。候选产品/测试/版本 SHA `a5e46d2b727920797eff1ccbc7b4304f058b5389` 的 [GitHub Actions #42447533497](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42447533497) **3/3 SUCCESS**：Ubuntu/Windows Python 各 261 项（29/27 项预期 SKIP）、Node 各 115 PASS；Windows 更新/回滚 3 PASS、真实 Chromium 工作台 E2E 24 PASS。PR 尚未合并，正式 main 仍为 2.8.2；用户本机 8770 未升级，真实 Google Drive 数据未触碰。
+
 > **正式发布：AIWorkSpace 2.8.2（2026-11-06）**。PR [#47](https://github.com/yudacheng666/AIWorkSpace/pull/47) 已合入 `main`，合并 SHA `1f8c501997a459cc0658f171a41f6521c30c5947`，VERSION=2.8.2。修复通知信箱 5 秒后台刷新时“查看详情／保留原始记录”自动收起、未提交草稿丢失、checkbox 说明文字被挤压，以及导航数量、菜单行距、刷新消息和顶栏按钮高度/字体不统一。保留 2.8.1 的一键复制全部通知和审计式授权/执行/保留原始记录流程。[合并后 CI #42223632101](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42223632101) 3/3 SUCCESS（Windows 真正 Chromium 布局及跨刷新 E2E 通过）。软件内置更新读取 GitHub main；用户本机软件须自行升级，真实 Google Drive 双机同步尚未验收。
 
 > **正式发布：AIWorkSpace 2.8.0（2026-11-06）**。PR [#45](https://github.com/yudacheng666/AIWorkSpace/pull/45) 已合入 `main`，合并 SHA `ab8988f940d7434e9404a41408dba1f9db179b9b`，`VERSION=2.8.0`。新增低风险独立字段冲突自动归并、合并后版本凭证与已自动整合通知；原始 JSON 不改写，高风险冲突仍需核查。用户的 Windows 工作台不会因 GitHub 发布而自动更新，真实双机 Google Drive 离线/重连尚未验收。下方早期“Draft/未发布”段落均为开发阶段历史记录，不代表当前正式版本。
