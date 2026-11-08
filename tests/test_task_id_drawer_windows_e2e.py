@@ -621,9 +621,20 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
                             page.locator("#tasks > article").evaluate_all(
                                 "(nodes) => nodes.map(n => n.className)")))
         self.assertEqual(page.locator("#task-list-columns details[data-field='due'] .task-column-indicator").inner_text().strip(),
-                         "↑1 ▾")
+                         "↑1")
         self.assertEqual(page.locator("#task-list-columns details[data-field='priority'] .task-column-indicator").inner_text().strip(),
-                         "↓2 ▾")
+                         "↓2")
+        self.assertEqual(page.locator("#task-list-columns details[data-field='due'] .task-column-caret").inner_text(),
+                         "▾")
+        self.assertEqual(page.locator("#task-list-columns details[data-field='priority'] .task-column-caret").inner_text(),
+                         "▾")
+        label_box = page.locator("#task-list-columns details[data-field='title'] .task-column-label").bounding_box()
+        caret_box = page.locator("#task-list-columns details[data-field='title'] .task-column-caret").bounding_box()
+        self.assertIsNotNone(label_box)
+        self.assertIsNotNone(caret_box)
+        self.assertGreaterEqual(caret_box["x"], label_box["x"] + label_box["width"] - 1)
+        self.assertLessEqual(caret_box["x"] - (label_box["x"] + label_box["width"]), 8,
+                             "dropdown caret must sit immediately after its heading")
         self.assertEqual(len(read_workspace(self.data_dir)["tasks"]), 3)
 
     def test_explicit_child_status_updates_parent_and_title_save_does_not_leak_manual(self):
@@ -1041,8 +1052,12 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         # One message can be edited while the other remains independently open.
         first.locator(".inbox-message-details summary").click()
         first.locator(".inbox-defer summary").click()
+        expect(first.locator(".inbox-defer")).to_contain_text("暂不处理不代表问题已经解决")
         second.locator(".inbox-message-details summary").click()
-        note = "我已经核查了步骤清单，暂时保留原记录；没有授权补写或删除。"
+        note = "我已经核对步骤清单，暂时不处理这项修改；没有授权新增或删除步骤。"
+        expect(first.locator(".inbox-message-operation")).to_contain_text("收到的操作：修改步骤")
+        self.assertNotIn("这条记录", first.inner_text())
+        self.assertNotIn("原始文件", first.inner_text())
         first.locator(".inbox-defer textarea").fill(note)
         first.locator('.inbox-defer input[type="checkbox"]').check()
         expect(first.locator("button.inbox-dismiss")).to_be_enabled()
@@ -1084,8 +1099,9 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         expect(first.locator(".inbox-defer textarea")).to_have_value(note)
         expect(first.locator("button.inbox-dismiss")).to_be_enabled()
         self.assertEqual(self._file_hashes(), before)
+        expect(first.locator("button.inbox-dismiss")).to_have_text("确认暂不处理")
         first.locator("button.inbox-dismiss").click()
-        expect(first.locator(".inbox-status")).to_have_text("已确认保留")
+        expect(first.locator(".inbox-status")).to_have_text("已暂不处理")
         expect(second.locator(".inbox-status")).to_have_text("待关注")
         self.assertEqual(
             {key: value for key, value in self._file_hashes().items()
@@ -1185,15 +1201,17 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         detail_content = reference_details.locator(".inbox-message-detail-content")
         expect(detail_content.locator("p")).to_have_count(2)
         recommendation = detail_content.locator("p").nth(1).inner_text()
-        self.assertEqual(recommendation.count("请先核对关联任务中的步骤列表"), 1,
-                         "the block reason must not repeat the same recommendation")
+        self.assertIn("请打开任务", recommendation)
+        self.assertIn("正常编辑入口", recommendation)
+        self.assertNotIn("原始文件", recommendation)
+        self.assertNotIn("这条记录", recommendation)
         self.assertNotIn("当前无法自动修复", detail_content.inner_text())
         defer = reference_card.locator("details.inbox-defer")
         defer.locator("summary").click()
-        defer.locator("textarea").fill("已核对步骤列表，无法确认这条异常记录的目标，决定保留原始记录。")
+        defer.locator("textarea").fill("已核对步骤列表，无法确认要修改哪一步，决定暂不处理。")
         defer.locator("input[type=checkbox]").check()
-        defer.get_by_role("button", name="确认保留，不写入").click()
-        expect(reference_card.locator(".inbox-status")).to_have_text("已确认保留")
+        defer.get_by_role("button", name="确认暂不处理").click()
+        expect(reference_card.locator(".inbox-status")).to_have_text("已暂不处理")
         self.assertEqual(reference_source.read_bytes(), reference_original,
                          "keep-original only records the review decision")
         review_events = list((self.data_dir / "review_events").glob("*.json"))
