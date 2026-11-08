@@ -218,7 +218,7 @@ class DataGovernanceApiTests(unittest.TestCase):
                           {"title": "需要核对的虚构步骤名称"}),
              "step_id": "STEP-not-a-valid-id"})
         item = self.item("invalid_step_reference")
-        self.assertEqual(item["title"], "执行步骤记录中的步骤编号无法识别")
+        self.assertEqual(item["title"], "步骤操作未能确认目标")
         self.assertEqual(item["task_title"], "虚构治理测试任务")
         self.assertEqual(item["recorded_step_title"], "需要核对的虚构步骤名称")
         self.assertIsNone(item["proposal"])
