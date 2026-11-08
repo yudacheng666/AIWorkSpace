@@ -921,7 +921,8 @@ function findTreeNode(node, predicate) {
 test("notification inbox shows stable message IDs, readable summaries and no repair controls", async () => {
   const guidance = {
     summary: "这条执行步骤记录中的步骤编号无法识别，系统不能确定它属于哪一个步骤。",
-    impact: "这条记录没有被应用，原始记录仍保留；系统不会猜测目标步骤，也不会覆盖现有步骤。"
+    impact: "这条记录没有被应用，原始记录仍保留；系统不会猜测目标步骤，也不会覆盖现有步骤。",
+    recommendation: "请先核对关联任务中的步骤列表；若已有对应步骤，不要重复创建。系统不会猜测或自动改绑。"
   };
   const reviews = [
     {
@@ -936,7 +937,8 @@ test("notification inbox shows stable message IDs, readable summaries and no rep
       source: {folder: "step_events", filename: "evt_private.json", sha256: "a".repeat(64)},
       reason: "invalid step_id PRIVATE_VALIDATOR_DETAIL",
       source_event: {action: "create", timestamp: "2026-11-04T08:00:00Z", raw_secret: "PRIVATE_RAW_JSON"},
-      proposal: {private_proposal: "PRIVATE_PROPOSAL"},
+      proposal: null,
+      proposal_block_reason: "记录引用的步骤编号无法识别。",
       user_guidance: guidance
     },
     {
@@ -972,7 +974,21 @@ test("notification inbox shows stable message IDs, readable summaries and no rep
   assert.match(treeText(details), /影响：/);
   assert.match(treeText(details), /建议：/);
   assert.match(treeText(details), /不会猜测或自动改绑/);
+  const detailContent = findTreeNode(details, node => node.className === "inbox-message-detail-content");
+  assert.ok(detailContent);
+  assert.equal(detailContent.children.length, 2,
+    "blocked messages show impact and one recommendation, not a duplicated block-reason paragraph");
+  assert.equal((treeText(detailContent).match(/请先核对关联任务中的步骤列表/g) || []).length, 1);
   assert.equal(page.writes.length, 0, "loading notifications must not write business or review events");
+});
+
+
+
+test("task detail alignment and action buttons use the workspace visual system", () => {
+  assert.match(html, /\.task-detail-content \.task-form\s*\{[^}]*align-items:\s*start/s);
+  assert.match(html, /\.warning-open\s*\{[^}]*display:\s*inline-flex/s);
+  assert.match(html, /\.recurrence-controls \.recurrence-toggle\s*\{[^}]*display:\s*inline-flex/s);
+  assert.match(html, /"recurrence-toggle " \+ \(rule\.enabled \?/);
 });
 
 test("concurrent-write messages explain affected fields and copy a read-only handoff", async () => {

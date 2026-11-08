@@ -147,6 +147,10 @@
     .empty strong { font-size: 18px; }
     .empty p { font-size: 14px; line-height: 1.9; color: #728299; margin-bottom: 0; }
     .alert { margin: 16px 0; padding: 15px 18px; border-radius: 10px; border: 1px solid #f0d6a6; background: #fff7e8; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+    .warning-open { display:inline-flex; align-items:center; justify-content:center; min-height:30px; margin-left:8px; padding:0 11px; border:1px solid #cbd9ec; border-radius:8px; background:#fff; color:#285baf; font:inherit; font-size:11px; font-weight:650; line-height:1; vertical-align:middle; }
+    .warning-open:hover:not(:disabled) { border-color:#a9c0e2; background:#f5f9ff; color:#1f55c0; }
+    .warning-open:focus-visible { outline:2px solid #9dc1f6; outline-offset:2px; }
+    .warning-open:disabled { opacity:.5; cursor:not-allowed; }
     .update-panel { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 20px 0 26px; padding: 16px 18px; background: #fff; border: 1px solid #e6ecf4; border-radius: 14px; }
     .update-copy { display: grid; gap: 5px; min-width: 0; }
     .update-title-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
@@ -401,7 +405,7 @@
     .drawer-id-controls button:focus-visible { outline: 2px solid #1759a5; outline-offset: 2px; border-radius: 4px; }
     .task-detail-content { min-height: 0; overflow: auto; padding: 15px 20px 35px; }
     .task-detail-content .task { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-    .task-detail-content .task-form { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 11px; }
+    .task-detail-content .task-form { grid-template-columns: repeat(2,minmax(0,1fr)); align-items:start; gap: 11px; }
     .task-detail-content .task-form > label:first-child, .task-detail-content .task-form > .save { grid-column: 1 / -1; }
     .task-detail-content .task-meta { grid-template-columns: repeat(2,minmax(0,1fr)); }
     .task-detail-content .step-row { grid-template-columns: 25px minmax(0,1fr); }
@@ -698,7 +702,12 @@
     .recurrence-fields input,.recurrence-fields select {min-height:34px;border:1px solid #cbd7e3;border-radius:7px;padding:5px 8px;background:white}
     .recurrence-fields input[type=number] {max-width:90px}
     .recurrence-controls {display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px}
-    .recurrence-controls button {min-height:34px}
+    .recurrence-controls .recurrence-toggle {display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 12px;border:1px solid #dce4ee;border-radius:8px;background:#fff;color:#536983;font:inherit;font-size:12px;font-weight:650;line-height:1;transition:border-color .15s,background .15s,color .15s}
+    .recurrence-controls .recurrence-toggle--end {border-color:#ecd8d4;background:#fff;color:#a34b45}
+    .recurrence-controls .recurrence-toggle--end:hover:not(:disabled) {border-color:#dfb6b0;background:#fff4f2;color:#963c36}
+    .recurrence-controls .recurrence-toggle--resume {border-color:#cbdcf0;background:#f7faff;color:#285baf}
+    .recurrence-controls .recurrence-toggle--resume:hover:not(:disabled) {border-color:#a9c2e4;background:#eef5ff;color:#1f55c0}
+    .recurrence-controls .recurrence-toggle:disabled {opacity:.48;cursor:not-allowed}
     .recurrence-warning {font-size:12px;color:#775622;margin:8px 0 0}
     .task-recurrence-note {font-size:11px;color:#35678e;display:block;margin-top:3px}
 
@@ -2393,7 +2402,9 @@
       });
       if (rule) {
         const actions = element("div", "recurrence-controls");
-        const toggle = element("button", "", rule.enabled ? "彻底结束循环" : "恢复循环");
+        const toggle = element("button",
+          "recurrence-toggle " + (rule.enabled ? "recurrence-toggle--end" : "recurrence-toggle--resume"),
+          rule.enabled ? "彻底结束循环" : "恢复循环");
         toggle.type = "button"; toggle.disabled = locked;
         toggle.addEventListener("click", async () => {
           if (isSaving || locked || !confirmDiscardUnsaved()) return;
@@ -4064,10 +4075,9 @@
         impact.append(element("strong", "", "影响："), element("span", "", notificationImpact(item)));
         const recommendation = element("p");
         recommendation.append(element("strong", "", "建议："), element("span", "", notificationRecommendation(item)));
+        // The backend already folds proposal_block_reason into user_guidance.recommendation.
+        // Rendering the same guidance a second time duplicated the instruction for blocked messages.
         detailContent.append(impact, recommendation);
-        if (item.proposal_block_reason && !item.proposal) {
-          detailContent.append(element("p", "", "当前无法自动修复：" + notificationRecommendation(item)));
-        }
         details.append(detailContent);
         article.append(details);
 
