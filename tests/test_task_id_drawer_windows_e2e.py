@@ -799,6 +799,17 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.once("dialog", lambda dialog: dialog.accept())
         panel.get_by_role("button", name="启用周期任务").click()
         expect(page.locator(".recurrence-panel")).to_contain_text("本周期：")
+        end_toggle = panel.get_by_role("button", name="彻底结束循环")
+        end_style = end_toggle.evaluate("""e => ({
+          display: getComputedStyle(e).display,
+          height: e.getBoundingClientRect().height,
+          radius: parseFloat(getComputedStyle(e).borderRadius),
+          borderStyle: getComputedStyle(e).borderTopStyle
+        })""")
+        self.assertEqual(end_style["display"], "inline-flex", end_style)
+        self.assertAlmostEqual(end_style["height"], 34, delta=1, msg=str(end_style))
+        self.assertGreaterEqual(end_style["radius"], 7, end_style)
+        self.assertEqual(end_style["borderStyle"], "solid", end_style)
         task = next(t for t in read_workspace(self.data_dir)["tasks"] if t["task_id"] == self.task_id)
         self.assertTrue(task["recurrence_active"])
         self.assertEqual(task["status"], "todo")
@@ -810,6 +821,13 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
             self.task_id), task["recurrence_period_end"])
 
         form = page.locator("#task-detail-content .task-form")
+        self.assertEqual(form.evaluate("e => getComputedStyle(e).alignItems"), "start")
+        primary_project = form.locator("label").filter(has_text="主要所属项目").bounding_box()
+        related_projects = form.locator("label").filter(has_text="关联项目（可多选）").bounding_box()
+        self.assertIsNotNone(primary_project)
+        self.assertIsNotNone(related_projects)
+        self.assertLess(abs(primary_project["y"] - related_projects["y"]), 1.5,
+                        "primary and related project labels must align at the top of their grid row")
         form.locator("select").first.select_option("done")
         page.once("dialog", lambda dialog: dialog.accept())
         form.get_by_role("button", name="保存修改").click()
@@ -908,6 +926,22 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         source.write_text(json.dumps(invalid, ensure_ascii=False, indent=2), encoding="utf-8")
         original = source.read_bytes()
         page = self._open_browser()
+        warning = page.locator("#warnings")
+        expect(warning).to_be_visible()
+        warning_button = warning.locator(".warning-open")
+        expect(warning_button).to_have_text("打开通知信箱")
+        warning_style = warning_button.evaluate("""e => ({
+          display: getComputedStyle(e).display,
+          height: e.getBoundingClientRect().height,
+          radius: parseFloat(getComputedStyle(e).borderRadius),
+          background: getComputedStyle(e).backgroundColor,
+          borderStyle: getComputedStyle(e).borderTopStyle
+        })""")
+        self.assertEqual(warning_style["display"], "inline-flex", warning_style)
+        self.assertGreaterEqual(warning_style["height"], 30, warning_style)
+        self.assertGreaterEqual(warning_style["radius"], 7, warning_style)
+        self.assertNotEqual(warning_style["background"], "rgba(0, 0, 0, 0)", warning_style)
+        self.assertEqual(warning_style["borderStyle"], "solid", warning_style)
         # _open_browser opens the task drawer; close it through the real backdrop first.
         page.mouse.click(140, 400)
         page.locator("#nav-reviews").click()
@@ -1145,6 +1179,14 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         reference_card = page.locator(
             '[data-review-id="' + reference_item["anomaly_id"] + '"]'
         )
+        reference_details = reference_card.locator(".inbox-message-details")
+        reference_details.locator("summary").click()
+        detail_content = reference_details.locator(".inbox-message-detail-content")
+        expect(detail_content.locator("p")).to_have_count(2)
+        recommendation = detail_content.locator("p").nth(1).inner_text()
+        self.assertEqual(recommendation.count("请先核对关联任务中的步骤列表"), 1,
+                         "the block reason must not repeat the same recommendation")
+        self.assertNotIn("当前无法自动修复", detail_content.inner_text())
         defer = reference_card.locator("details.inbox-defer")
         defer.locator("summary").click()
         defer.locator("textarea").fill("已核对步骤列表，无法确认这条异常记录的目标，决定保留原始记录。")
