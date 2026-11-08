@@ -1,6 +1,6 @@
 # AIWorkSpace｜当前项目状态
 
-## 2026-11-08：2.8.4 候选—通知信箱可读性与任务列标题下拉箭头（Draft PR #49）
+## 2026-11-08：2.8.4 正式发布—通知信箱可读性与任务列标题下拉箭头（PR #49 已合并）
 
 - **用户反馈**：四处截图批注指出任务列标题下拉箭头应紧跟标题；通知消息中的「这条记录」没有说明具体对象；「建议」没有说明用户应在哪个任务、哪一步执行；「原始文件／原始记录」属于开发术语，用户不知道它指什么、为何要保留。
 - **问题本质**：通知信箱此前把内部事件文件/审计记录概念直接展示给用户，却没有先说明工作台实际收到的任务或步骤操作、涉及对象及是否生效。用户不应需要理解 JSON 文件、步骤编号或审计机制才能决定下一步。
@@ -13,8 +13,9 @@
 - **安全边界**：保留原有 review authorize/apply/dismiss API 和审计链，不改变业务事件 schema，不把查看/暂不处理变成业务写入；未触碰真实 Google Drive 数据，未升级本机 8770。
 - **代码与测试**：app.py、web/index.html、VERSION=2.8.4、tests/test_ui_shell.mjs、tests/test_notification_triage.py、tests/test_data_governance.py、tests/test_task_id_drawer_windows_e2e.py。
 - **产品/测试 SHA**：0480b0c620093ad289119a750b5b143153c65b18。GitHub Actions [#42449989908](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42449989908) **3/3 SUCCESS**：Ubuntu Python 262（29 项预期 SKIP）、Node 116 PASS；Windows Python 262（27 项预期 SKIP）、Node 116 PASS；Windows 更新/回滚 3 PASS；真实应用 Chromium 工作台 E2E 24 PASS，覆盖列标题箭头几何位置、通知消息说明及暂不处理流程。
-- **分支与状态**：分支 fix/20261108-notification-language-column-caret，PR [#49](https://github.com/yudacheng666/AIWorkSpace/pull/49) Draft，等待用户审阅与后续合并授权。正式 main 仍为 2.8.3。
-- **下一步**：等待用户体验/审阅 2.8.4 候选；未经用户明确批准不合并、不升级本机软件、不操作真实工作台数据。
+- **分支与发布**：用户于 2026-11-08 明确要求「发布」，分支 `fix/20261108-notification-language-column-caret` 的 [PR #49](https://github.com/yudacheng666/AIWorkSpace/pull/49) 已从 Draft 标记 Ready 后按标准 merge 合入 `main`；合并 SHA `54f3a2e873f71bc619c3b579b52c88c2dae495ca`，`main/VERSION=2.8.4`，开放 PR=0。候选最终 SHA `189895e7403dce29f2458cb279961fe341dcb9c0` 的最后一次提交仅更新记忆文档（[skip ci]），产品/测试代码与已通过的 SHA 相同。
+- **合并后准确 SHA 回归**：[GitHub Actions #42450534930](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42450534930) 对 merge SHA `54f3a2e873f71bc619c3b579b52c88c2dae495ca` **3/3 SUCCESS**：Ubuntu/Windows Python+Node 及 Windows 真实应用 Chromium E2E 与更新/回滚通过。合并后仅回写发布文档（[skip ci]），不以文档 SHA 冒充测试 SHA。
+- **下一步**：2.8.4 已发布到 GitHub main，但用户本机 8770 仍需主动在系统设置中执行「检查更新／立即更新」；切换多台电脑版本前先备份、避免新旧版本同时写入同一 Drive 目录。真实双机 Drive 离线/重连及历史通知对应的数据修复尚未验收，未经授权不处理。
 
 ## 2026-11-08：2.8.3 正式发布—任务详情与通知信箱四项局部 UI 修正（已合并 PR #48）
 

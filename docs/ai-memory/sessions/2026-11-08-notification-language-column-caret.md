@@ -19,9 +19,9 @@
 
 ## 实现与测试
 
-- 版本：2.8.4 候选。
+- 版本：2.8.4 正式发布。
 - 分支：fix/20261108-notification-language-column-caret
-- PR：[#49](https://github.com/yudacheng666/AIWorkSpace/pull/49)，Draft。
+- PR：[#49](https://github.com/yudacheng666/AIWorkSpace/pull/49)，已合并到 main（merge SHA `54f3a2e873f71bc619c3b579b52c88c2dae495ca`）。
 - 产品/测试 SHA：0480b0c620093ad289119a750b5b143153c65b18
 - GitHub Actions：[run #42449989908](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42449989908)，**3/3 SUCCESS**。
   - Ubuntu Python：262 项，29 项预期 SKIP；Node：116 PASS / 0 FAIL。
@@ -32,6 +32,6 @@
 
 ## 当前状态与后续
 
-- PR #49 保持 Draft，等待用户审阅与明确合并授权。
-- 正式 main 仍为 2.8.3；2.8.4 尚未发布。
-- 用户体验前不得合并或升级本机服务；本轮不处理真实数据中的通知消息。
+- 用户于 2026-11-08 明确要求「发布」，PR #49 已由 Draft 标记 Ready 并 merge，合并 SHA `54f3a2e873f71bc619c3b579b52c88c2dae495ca`，`main/VERSION=2.8.4`，开放 PR=0。
+- 合并后准确 SHA 的 [Actions #42450534930](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42450534930) **3/3 SUCCESS**；包含 Ubuntu/Windows Python+Node，以及 Windows 真实应用 Chromium 和更新/回滚 E2E。与先前 PR CI 独立标识，不混淆文档回写提交的 SHA。
+- 发布仅指 GitHub main 更新；未自动升级用户本机 8770，未访问或修改真实 Google Drive 任务数据。后续用户可通过本机系统设置检查更新；真实数据中通知异常应继续遵循人工核查和明确授权。
