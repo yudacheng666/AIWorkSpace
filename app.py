@@ -2945,7 +2945,7 @@ def _classify_invalid_event(folder: str, event: object, reason: str) -> tuple[st
     if folder == "events" and isinstance(event, dict) and event.get("action") in TASK_LIFECYCLE_ACTIONS:
         return "task_lifecycle_requires_user", "任务生命周期事件缺少有效的用户操作授权或版本"
     if folder == "step_events" and isinstance(event, dict) and "invalid step_id" in reason:
-        return "invalid_step_reference", "执行步骤记录中的步骤编号无法识别"
+        return "invalid_step_reference", "步骤操作未能确认目标"
     if (folder == "step_events" and isinstance(event, dict)
             and event.get("action") == "update" and "cannot set position" in reason):
         return "step_update_position", "执行步骤更新包含不允许的 position 字段"
@@ -3119,13 +3119,12 @@ def _review_proposal_block_reason(anomaly: dict, workspace: dict) -> str | None:
     if folder == "step_events" and anomaly.get("category") == "invalid_step_reference":
         changes = source_event.get("changes", {}) if isinstance(source_event, dict) else {}
         recorded_title = changes.get("title") if isinstance(changes, dict) else None
-        title_note = (f"记录中填写的步骤名称为“{recorded_title}”。"
+        title_note = (f"操作中填写的步骤名称是“{recorded_title}”。"
                       if isinstance(recorded_title, str) and recorded_title.strip() else "")
         return (
-            "这条记录中的步骤编号格式不正确，系统无法确认它属于哪一个步骤，因此不会自动修复或改绑。"
+            "这项步骤操作中的识别信息不符合要求，系统无法确认目标步骤，因此不能自动处理。"
             + title_note
-            + "请核对关联任务中的步骤列表：如果已有对应步骤，不要重复创建；如果确实缺少且内容需要保留，请通过任务详情正常新增步骤。"
-            "核对后可选择“确认保留，不写入”。"
+            + "请打开关联任务核对步骤列表；不要根据相似名称猜测目标，也不要直接改动不确定的步骤。"
         )
     if not isinstance(source_event, dict) or folder not in {"events", "step_events"}:
         return None
@@ -3171,11 +3170,50 @@ def _review_user_guidance(anomaly: dict, proposal: dict | None,
     source_event = anomaly.get("source_event")
     action = source_event.get("action") if isinstance(source_event, dict) else None
     if category == "invalid_step_reference":
-        summary = "这条执行步骤记录中的步骤编号格式不正确，系统无法确认它属于哪一个步骤。"
-        impact = "这条记录没有被应用，原始记录仍保留；系统不会猜测目标步骤，也不会覆盖任何现有步骤。"
-        recommendation = ("请先核对关联任务中的步骤列表。记录中如果有步骤名称，请与现有步骤对照："
-                          "若已有对应步骤，不要重复创建；若确实缺少且内容需要保留，请通过任务详情正常新增。"
-                          "核对后可选择“确认保留，不写入”。")
+        task_title = anomaly.get("task_title")
+        task_label = f"任务“{task_title}”" if task_title else "关联任务"
+        step_title = anomaly.get("recorded_step_title") or anomaly.get("step_title")
+        step_label = f"步骤“{step_title}”" if step_title else "一项未提供名称的步骤"
+        action_verb = {"create": "新增", "update": "修改", "delete": "删除"}.get(action, "处理")
+        operation = f"{action_verb}{step_label}"
+        summary = (
+            f"系统收到的操作是：在{task_label}中{operation}。"
+            "但系统无法确认这项操作对应任务中的哪一步，因此没有执行。"
+        )
+        impact = f"这项操作没有生效；{task_label}中的现有步骤没有因此改变。"
+        if action == "create" and step_title:
+            recommendation = (
+                f"请打开{task_label}的详情，查看执行步骤。"
+                f"如果已经有{step_label}，不要重复添加；如果确实没有，而且仍需要这一步，"
+                "请在任务详情中正常新增。若不确定是否需要新增，先不要操作，可复制这条消息给 ChatGPT 核查。"
+            )
+        elif action == "create":
+            recommendation = (
+                f"请打开{task_label}的详情，查看执行步骤。由于这项操作没有提供步骤名称，"
+                "请先核对来源；确认确实需要新增后，再在任务详情中正常新增。"
+            )
+        elif action == "update" and step_title:
+            recommendation = (
+                f"请打开{task_label}的详情，核对执行步骤。"
+                f"确认要修改的是{step_label}后，再通过该步骤的正常编辑入口修改；"
+                "不要仅凭名称相似就操作。若无法确认目标，请先不要修改，可复制这条消息给 ChatGPT 核查。"
+            )
+        elif action == "update":
+            recommendation = (
+                f"请打开{task_label}的详情，核对步骤列表。由于这项操作没有提供步骤名称，"
+                "请先确认具体目标；确认后再通过该步骤的正常编辑入口修改。"
+            )
+        elif action == "delete":
+            recommendation = (
+                f"请打开{task_label}的详情，先确认要删除的具体步骤是否为{step_label}。"
+                "确认无误后，再通过该步骤的正常删除入口操作；这条消息本身不会删除步骤。"
+                "若无法确认目标，请先不要删除，可复制这条消息给 ChatGPT 核查。"
+            )
+        else:
+            recommendation = (
+                f"请打开{task_label}的详情，核对执行步骤。"
+                "在确认目标之前，不要新增、修改或删除步骤；如无法确认，可复制这条消息给 ChatGPT 核查。"
+            )
     elif category == "task_lifecycle_requires_user":
         operation = "移入回收站" if action == "trash" else "从回收站恢复" if action == "restore" else "永久删除"
         summary = f"这条记录尝试对任务执行“{operation}”，但没有满足工作台要求的用户确认或版本条件。"
