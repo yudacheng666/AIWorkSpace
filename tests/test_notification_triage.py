@@ -49,6 +49,36 @@ def note_files(folder):
 
 
 class NotificationTriageTests(unittest.TestCase):
+    def test_invalid_step_reference_guidance_explains_the_actual_operation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data = Path(temp)
+            write_event(data / "events", root_event())
+            invalid_events = [
+                step_event(2, "create", 0, {"title": "虚构：整理供应商图纸", "position": 1}),
+                step_event(3, "update", 1, {"title": "虚构：修改供应商图纸"}),
+                step_event(4, "delete", 1, {"deleted_at": "2026-11-05T10:04:00Z"}),
+            ]
+            for event in invalid_events:
+                event["step_id"] = "STEP-not-a-valid-id-" + event["event_id"]
+                write_event(data / "step_events", event)
+            before = note_files(data)
+
+            result = list_data_reviews(data)
+            self.assertEqual(len(result["items"]), 3)
+            by_action = {item["action"]: item for item in result["items"]}
+            self.assertEqual(by_action["create"]["task_title"], "虚构：材料整理")
+            self.assertIn("新增步骤“虚构：整理供应商图纸”", by_action["create"]["user_guidance"]["summary"])
+            self.assertIn("不要重复添加", by_action["create"]["user_guidance"]["recommendation"])
+            self.assertIn("正常编辑入口", by_action["update"]["user_guidance"]["recommendation"])
+            self.assertIn("正常删除入口", by_action["delete"]["user_guidance"]["recommendation"])
+            for item in result["items"]:
+                guidance = item["user_guidance"]
+                self.assertIn("因此没有执行", guidance["summary"])
+                self.assertNotIn("这条记录", guidance["summary"])
+                self.assertNotIn("原始文件", guidance["impact"])
+                self.assertNotIn("原始记录", guidance["impact"])
+            self.assertEqual(note_files(data), before)
+            self.assertFalse((data / "review_events").exists())
     def test_manual_conflict_remains_readable_and_non_actionable(self):
         workspace = {
             "tasks": [{
