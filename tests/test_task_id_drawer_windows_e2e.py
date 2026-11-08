@@ -969,8 +969,8 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertFalse(details.evaluate("(element) => element.open"),
                          "message details must be collapsed by default")
         details.locator("summary").click()
-        expect(details.locator(".inbox-message-detail-content")).to_contain_text("影响：")
-        expect(details.locator(".inbox-message-detail-content")).to_contain_text("建议：")
+        expect(details.locator(".inbox-message-detail-content")).to_contain_text("对任务的影响：")
+        expect(details.locator(".inbox-message-detail-content")).to_contain_text("你可以怎么做：")
         visible_text = message.inner_text()
         self.assertNotIn("ANOM-", visible_text)
         self.assertNotIn("SHA-256", visible_text)
