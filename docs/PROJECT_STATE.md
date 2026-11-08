@@ -1,6 +1,6 @@
 # AIWorkSpace｜当前项目状态
 
-## 2026-11-08：2.8.3 候选—任务详情与通知信箱四项局部 UI 修正（Draft PR #48）
+## 2026-11-08：2.8.3 正式发布—任务详情与通知信箱四项局部 UI 修正（已合并 PR #48）
 
 - **用户反馈**：根据用户在实际工作台页面的四处截图批注，修复「打开通知信箱」按钮原始、周期任务「彻底结束循环」按钮原始、任务详情项目字段底部对齐、通知信箱同一条建议重复显示。
 - **根因**：① `.warning-open` 没有专属样式，浏览器显示原始按钮；② 周期任务切换按钮没有应用按钮样式；③ 任务详情表单继承 `align-items:end`，导致高度不同的单选/多选项目控件底部对齐；④ `proposal_block_reason && !proposal` 时，前端把同一个 `notificationRecommendation(item)` 同时作为「建议」和「当前无法自动修复」渲染两次。后端已将阻塞原因用于生成 `user_guidance.recommendation`，因此重复内容来自前端二次渲染，不是两条不同的后端建议。
@@ -8,9 +8,10 @@
 - **代码与测试**：仅涉及 `web/index.html`、`tests/test_ui_shell.mjs`、`tests/test_task_id_drawer_windows_e2e.py` 和候选 `VERSION=2.8.3`。未修改 `app.py`、业务 API、事件格式或持久化逻辑。
 - **准确 SHA 与 CI**：最终产品/测试/版本 SHA `a5e46d2b727920797eff1ccbc7b4304f058b5389`。GitHub Actions [#42447533497](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42447533497) **3/3 SUCCESS**：Ubuntu Python 261（29 个预期 SKIP）、Node 115 PASS；Windows Python 261（27 个预期 SKIP）、Node 115 PASS；Windows 原生更新/回滚 3 PASS；Windows 真实应用 Chromium 工作台 E2E 24 PASS，包含本轮按钮样式、项目字段顶对齐、通知建议去重。相同 SHA 的重复触发 run [#42447567761](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42447567761) 也为 3/3 SUCCESS；两次执行覆盖内容相同，不将其计为两倍测试覆盖。
 - **首轮测试修正**：首个候选 SHA `7e2033a416cf4e47abd0a961d16c74645044d5e3` 的 CI 暴露两项新增测试断言问题：Node fixture 没有保留原有“不猜测或自动改绑”说明；Chromium 中 flex 容器子项的 `inline-flex` 会计算为 `flex`。均修正测试夹具/断言，产品样式本身符合预期；最终 SHA 完整复验通过。
-- **分支与合并状态**：基于正式 main `b6d82ec87c9bfdb013fdc9c42d0f8f3118213161`（VERSION 2.8.2），分支 `fix/20261108-task-inbox-ui-polish`，PR [#48](https://github.com/yudacheng666/AIWorkSpace/pull/48) Open/Draft，候选 VERSION 2.8.3。当前开放 PR 仅 #48；main 未改变，未合并、未部署。
+- **分支与合并状态**：基于正式 main `b6d82ec87c9bfdb013fdc9c42d0f8f3118213161`（VERSION 2.8.2），分支 `fix/20261108-task-inbox-ui-polish`，[PR #48](https://github.com/yudacheng666/AIWorkSpace/pull/48) 经用户明确授权于 2026-11-08 从 Draft 标记 Ready，按标准 merge 合入 `main`；merge SHA `fe2cafaf185eca8172c0bcae7544dc52f2f09e0b`，main/VERSION=2.8.3，开放 PR=0。
 - **安全边界**：全部自动化使用隔离虚构数据；未访问或修改真实 Google Drive 工作台数据，未升级用户本机 8770 服务。CI PASS 只证明 GitHub Runner 的既定测试范围，不代表公司电脑已更新或真实双机 Drive 离线/重连已验收。
-- **下一步**：等待用户审阅 PR #48 并明确决定是否合并。未经用户批准不得合并或发布；合并后仍需由用户自行决定何时更新本机工作台。
+- **合并后准确 SHA 回归**：[GitHub Actions #42447935461](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42447935461) 对 merge SHA `fe2cafaf185eca8172c0bcae7544dc52f2f09e0b` 完成 **3/3 SUCCESS**，涵盖 Ubuntu/Windows Python+Node 与 Windows 原生应用 Chromium 更新/回滚、工作台 UI E2E。后续提交仅更新发布记忆文档 `[skip ci]`；不得把文档提交 SHA 冒充这次测试 SHA。
+- **下一步**：本机工作台是否升级由用户决定；GitHub 合并不自动升级 8770。若升级前共享同一 Google Drive 数据目录的多台电脑，须做好备份、避免版本混用；真实云盘异常仍需另行授权处理。
 
 ## 2026-11-06：2.8.2 正式发布—通知信箱操作面板不再自动折叠、七处界面一致性修正（PR #47）
 

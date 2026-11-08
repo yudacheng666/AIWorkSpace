@@ -9,7 +9,7 @@
 - 仓库：`yudacheng666/AIWorkSpace`
 - 正式 main 基线：`b6d82ec87c9bfdb013fdc9c42d0f8f3118213161`（2.8.2）
 - 分支：`fix/20261108-task-inbox-ui-polish`
-- PR：[#48](https://github.com/yudacheng666/AIWorkSpace/pull/48)，Open/Draft
+- PR：[#48](https://github.com/yudacheng666/AIWorkSpace/pull/48)，Closed/Merged；合并 SHA `fe2cafaf185eca8172c0bcae7544dc52f2f09e0b`，正式 VERSION 2.8.3，开放 PR 0
 - 最终产品/测试/版本 SHA：`a5e46d2b727920797eff1ccbc7b4304f058b5389`（候选 VERSION 2.8.3）
 
 ## 根因与修复
@@ -33,4 +33,4 @@
 
 - 仅修改网页前端、测试和候选版本号；未修改 app.py/API/事件模型。
 - 使用虚构隔离数据；未访问真实 Google Drive，未升级用户本机 8770。
-- PR #48 仍为 Draft，等待用户明确批准合并；不得自行合并/发布。
+- 用户于 2026-11-08 明确批准「合并」；PR #48 转为 Ready 并标准 merge 到 main。合并后准确 SHA `fe2cafaf185eca8172c0bcae7544dc52f2f09e0b` 的 [Actions #42447935461](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42447935461) 3/3 SUCCESS。仅 GitHub 发布代码；用户 Windows 8770 未升级，真实云盘数据未操作。
