@@ -225,9 +225,9 @@ class DataGovernanceApiTests(unittest.TestCase):
         self.assertFalse(item["can_authorize"])
         self.assertTrue(item["can_dismiss"])
         self.assertIn("无法确认", item["user_guidance"]["summary"])
-        self.assertIn("不会猜测", item["user_guidance"]["impact"])
-        self.assertIn("不要重复创建", item["user_guidance"]["recommendation"])
-        self.assertIn("步骤编号格式不正确", item["proposal_block_reason"])
+        self.assertIn("现有步骤没有因此改变", item["user_guidance"]["impact"])
+        self.assertIn("正常编辑入口", item["user_guidance"]["recommendation"])
+        self.assertIn("无法确认目标步骤", item["proposal_block_reason"])
         code, result = self.request(f"/api/reviews/{item['anomaly_id']}/dismiss", {
             "source_sha256": item["source"]["sha256"], "confirmed": True,
             "note": "已核对关联任务，无法确认该步骤编号对应的步骤，决定保留原记录。"})
