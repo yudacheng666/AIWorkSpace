@@ -223,6 +223,11 @@ test("list headings align with existing seven task-card fields without changing 
   assert.deepEqual(page.el("task-list-columns").children.slice(0,6).map(c => c.children[0].children[0].textContent),
     ["任务／编号","项目","负责人","状态","优先级","截止日期"]);
   assert.equal(page.el("task-list-columns").children[6].textContent,"操作");
+  const firstSummary = page.el("task-list-columns").children[0].children[0];
+  assert.equal(firstSummary.children[0].className, "task-column-label");
+  assert.equal(firstSummary.children[1].className, "task-column-caret");
+  assert.equal(firstSummary.children[1].textContent, "▾");
+  assert.equal(firstSummary.children[2].className, "task-column-indicator");
   assert.equal(taskRows(page).length,1);
   assert.equal(taskRows(page)[0].className,"task-summary");
   assert.equal(page.el("task-sort").tag,"select");
@@ -302,14 +307,14 @@ test("global multi-key sorting honors priority, direction, empty-last and determ
   assert.deepEqual(taskTitles(page),["早期普通","晚期紧急","晚期高","无日期"]);
   assert.equal(page.el("tasks").children[0].className,"task-summary",
     "multi sort is global but preserves original task cards");
-  assert.match(columnMenu(page,"due").header.children[0].children[1].textContent,/↑1/);
-  assert.match(columnMenu(page,"priority").header.children[0].children[1].textContent,/↓2/);
+  assert.match(columnMenu(page,"due").header.children[0].children[2].textContent,/↑1/);
+  assert.match(columnMenu(page,"priority").header.children[0].children[2].textContent,/↓2/);
   click(columnMenu(page,"priority").actions.children[3]);
   assert.deepEqual(taskTitles(page),["晚期紧急","无日期","晚期高","早期普通"]);
-  assert.match(columnMenu(page,"priority").header.children[0].children[1].textContent,/↓1/);
+  assert.match(columnMenu(page,"priority").header.children[0].children[2].textContent,/↓1/);
   // Modifying the direction of an existing column must not change its precedence.
   click(columnMenu(page,"priority").actions.children[0]);
-  assert.match(columnMenu(page,"priority").header.children[0].children[1].textContent,/↑1/);
+  assert.match(columnMenu(page,"priority").header.children[0].children[2].textContent,/↑1/);
   click(columnMenu(page,"priority").actions.children[2]);
   assert.equal(page.el("tasks").children[0].className,"task-summary");
   click(page.el("task-columns-clear"));
@@ -365,9 +370,9 @@ test("column filters are list-only; board unchanged; rejected draft discard bloc
   const form = page.el("task-detail-content").children[0].children.find(c=>c.className==="task-form");
   form.children[0].children[0].value = "尚未保存草稿";
   form.handlers.get("input")[0]();
-  const before = columnMenu(page,"title").header.children[0].children[1].textContent;
+  const before = columnMenu(page,"title").header.children[0].children[2].textContent;
   click(columnMenu(page,"title").actions.children[0]);
-  assert.equal(columnMenu(page,"title").header.children[0].children[1].textContent,before);
+  assert.equal(columnMenu(page,"title").header.children[0].children[2].textContent,before);
   assert.equal(page.writes.length,0);
 });
 
@@ -920,15 +925,15 @@ function findTreeNode(node, predicate) {
 
 test("notification inbox shows stable message IDs, readable summaries and no repair controls", async () => {
   const guidance = {
-    summary: "这条执行步骤记录中的步骤编号无法识别，系统不能确定它属于哪一个步骤。",
-    impact: "这条记录没有被应用，原始记录仍保留；系统不会猜测目标步骤，也不会覆盖现有步骤。",
-    recommendation: "请先核对关联任务中的步骤列表；若已有对应步骤，不要重复创建。系统不会猜测或自动改绑。"
+    summary: "系统无法确认这项操作对应任务中的哪一步，因此没有执行。",
+    impact: "这项操作没有生效；任务“虚构演示任务：整理设备资料”中的现有步骤没有因此改变。",
+    recommendation: "请打开任务“虚构演示任务：整理设备资料”的详情，查看执行步骤。若已有同名步骤，不要重复添加；若确实没有且仍需要，请通过任务详情正常新增。"
   };
   const reviews = [
     {
       anomaly_id: "ANOM-" + "A".repeat(32),
       category: "invalid_step_reference",
-      title: "执行步骤记录中的步骤编号无法识别",
+      title: "步骤操作未能确认目标",
       status: "pending",
       task_id: "TASK-PRIVATE-TEST-ONLY",
       task_title: "虚构演示任务：整理设备资料",
@@ -936,7 +941,7 @@ test("notification inbox shows stable message IDs, readable summaries and no rep
       recorded_step_title: "整理供应商图纸",
       source: {folder: "step_events", filename: "evt_private.json", sha256: "a".repeat(64)},
       reason: "invalid step_id PRIVATE_VALIDATOR_DETAIL",
-      source_event: {action: "create", timestamp: "2026-11-04T08:00:00Z", raw_secret: "PRIVATE_RAW_JSON"},
+      source_event: {action: "create", timestamp: "2026-11-04T08:00:00Z", changes: {title: "整理供应商图纸"}, raw_secret: "PRIVATE_RAW_JSON"},
       proposal: null,
       proposal_block_reason: "记录引用的步骤编号无法识别。",
       user_guidance: guidance
@@ -961,7 +966,8 @@ test("notification inbox shows stable message IDs, readable summaries and no rep
   assert.match(treeText(list.children[0]), /MSG-261104-B{12}/);
   assert.match(treeText(list.children[1]), /MSG-261104-A{12}/);
   assert.match(treeText(list.children[1]), /虚构演示任务：整理设备资料/);
-  assert.match(treeText(list.children[1]), /步骤记录异常/);
+  assert.match(treeText(list.children[1]), /步骤操作异常/);
+  assert.match(treeText(list.children[1]), /收到的操作：新增步骤「整理供应商图纸」/);
   assert.match(treeText(list.children[1]), /待关注/);
   assert.doesNotMatch(treeText(list), /ANOM-|TASK-PRIVATE|STEP-PRIVATE|SHA-256|PRIVATE_RAW_JSON|PRIVATE_PROPOSAL|PRIVATE_VALIDATOR_DETAIL/);
   const copyOnly = findTreeNode(list, node => node.tag === "button");
@@ -971,20 +977,57 @@ test("notification inbox shows stable message IDs, readable summaries and no rep
   const details = findTreeNode(list.children[1], node => node.tag === "details");
   assert.ok(details, "read-only message details can be expanded");
   assert.notEqual(details.open, true, "message details are collapsed by default");
-  assert.match(treeText(details), /影响：/);
-  assert.match(treeText(details), /建议：/);
-  assert.match(treeText(details), /不会猜测或自动改绑/);
+  assert.match(treeText(details), /对任务的影响：/);
+  assert.match(treeText(details), /你可以怎么做：/);
+  assert.match(treeText(details), /不要重复添加/);
+  assert.doesNotMatch(treeText(list.children[1]), /这条记录|原始文件|原始记录|步骤编号/);
   const detailContent = findTreeNode(details, node => node.className === "inbox-message-detail-content");
   assert.ok(detailContent);
   assert.equal(detailContent.children.length, 2,
     "blocked messages show impact and one recommendation, not a duplicated block-reason paragraph");
-  assert.equal((treeText(detailContent).match(/请先核对关联任务中的步骤列表/g) || []).length, 1);
+  assert.equal((treeText(detailContent).match(/不要重复添加/g) || []).length, 1);
   assert.equal(page.writes.length, 0, "loading notifications must not write business or review events");
 });
 
 
 
+test("notification defer action explains the result without file jargon", async () => {
+  const item = {
+    anomaly_id: "ANOM-" + "C".repeat(32),
+    category: "invalid_step_reference",
+    title: "步骤操作未能确认目标",
+    status: "pending",
+    task_id: "TASK-SYNTHETIC-EXAMPLE",
+    task_title: "虚构任务：整理资料",
+    recorded_step_title: "虚构步骤：整理附件",
+    action: "update",
+    source_event: {action: "update"},
+    source: {folder: "step_events", filename: "synthetic.json", sha256: "c".repeat(64)},
+    source_present: true,
+    can_dismiss: true,
+    user_guidance: {
+      summary: "系统无法确认这项操作对应任务中的哪一步，因此没有执行。",
+      impact: "这项操作没有生效；现有任务和步骤保持不变。",
+      recommendation: "请先核对步骤列表。"
+    }
+  };
+  const page = harness([], () => true, [], [item]);
+  await page.api.loadNotifications();
+  const card = page.el("review-list").children[0];
+  const defer = findTreeNode(card, node => node.className === "inbox-defer");
+  assert.ok(defer);
+  assert.equal(defer.children[0].textContent, "暂不处理这项操作");
+  assert.match(treeText(defer), /只保存你的决定和备注/);
+  assert.match(treeText(defer), /现有任务和步骤保持不变/);
+  assert.doesNotMatch(treeText(defer), /原始文件|原始记录|底层问题/);
+  const confirm = findTreeNode(defer, node => node.tag === "button");
+  assert.equal(confirm.textContent, "确认暂不处理");
+  assert.equal(page.writes.length, 0, "opening the defer panel must not write audit or business data");
+});
+
 test("task detail alignment and action buttons use the workspace visual system", () => {
+  assert.match(html, /\.task-column-head > summary\s*\{[^}]*justify-content:flex-start/s);
+  assert.match(html, /\.task-column-caret\s*\{[^}]*flex:0 0 auto/s);
   assert.match(html, /\.task-detail-content \.task-form\s*\{[^}]*align-items:\s*start/s);
   assert.match(html, /\.warning-open\s*\{[^}]*display:\s*inline-flex/s);
   assert.match(html, /\.recurrence-controls \.recurrence-toggle\s*\{[^}]*display:\s*inline-flex/s);
@@ -1088,7 +1131,7 @@ test("bulk ChatGPT handoff copies every visible message in one read-only bundle"
   assert.match(copied, /evt_synthetic_invalid_step.json/);
   assert.match(copied, /TASK-SYNTHETIC-001/);
   assert.match(copied, /请逐条核查/);
-  assert.match(copied, /不要直接修改任何数据、删除、覆盖或移动/);
+  assert.match(copied, /不要直接修改任何数据文件、删除或覆盖此前收到的变更信息/);
   assert.equal(page.writes.length, 0, "bulk clipboard handoff must not create review or business writes");
 });
 
@@ -1165,20 +1208,20 @@ test("notification inbox exposes the full authorize then apply repair path", asy
   assert.equal(page.writes[1].body.authorization_event_id, "review-auth-synthetic");
   assert.equal(page.writes[1].body.confirmed, true);
   assert.equal(item.status, "applied");
-  assert.match(page.el("review-message").textContent, /修复已执行并通过结果核验/);
+  assert.match(page.el("review-message").textContent, /修复已完成并核验/);
 });
 
 test("unsupported review can be explicitly recorded as keep-original without business write", async () => {
   const item = {
     anomaly_id: "ANOM-" + "5".repeat(32), category: "invalid_step_reference",
-    title: "虚构：步骤编号无法识别", status: "pending",
+    title: "步骤操作未能确认目标", status: "pending",
     task_id: "TASK-SYNTHETIC-005", task_title: "虚构：步骤核对任务",
     source: {folder: "step_events", filename: "evt_synthetic_bad_step.json",
       sha256: "e".repeat(64)},
     source_present: true, can_authorize: false, can_apply: false, can_dismiss: true,
     proposal: null,
-    user_guidance: {summary: "无法识别步骤编号。", impact: "原始记录保留。",
-      recommendation: "先核对关联任务中的步骤。"}
+    user_guidance: {summary: "系统无法确认这项操作对应哪一步，因此没有执行。", impact: "现有任务和步骤保持不变。",
+      recommendation: "请先核对任务详情中的步骤列表。"}
   };
   const page = harness([], () => true, [], [item], async (path, body) => {
     item.status = "dismissed";
@@ -1192,9 +1235,9 @@ test("unsupported review can be explicitly recorded as keep-original without bus
   const textarea = findTreeNode(defer, node => node.tag === "textarea");
   const consent = findTreeNode(defer, node => node.tag === "input" && node.type === "checkbox");
   const button = findTreeNode(defer, node => node.tag === "button");
-  assert.equal(button.textContent, "确认保留，不写入");
+  assert.equal(button.textContent, "确认暂不处理");
   assert.equal(button.disabled, true);
-  textarea.value = "已核对现有步骤，无法确认这条记录的目标，决定暂不写入。";
+  textarea.value = "已核对现有步骤，无法确认要修改哪一步，决定暂不处理。";
   textarea.handlers.get("input")[0]();
   assert.equal(button.disabled, true, "a reason alone is not enough");
   consent.checked = true;
@@ -1272,7 +1315,7 @@ test("navigation presents a notification mailbox instead of a repair center", ()
   assert.match(html, /复制全部消息给 ChatGPT 核查/);
   assert.match(html, /授权这项修复/);
   assert.match(html, /执行修复/);
-  assert.match(html, /确认保留，不写入/);
+  assert.match(html, /确认暂不处理/);
   assert.doesNotMatch(html, /数据异常处理|打开数据核查/);
 });
 

@@ -287,13 +287,14 @@
     /* The existing task cards stay intact: only their aligned column captions and menus are new. */
     .task-list-columns {display:grid;grid-template-columns:minmax(190px,2.1fr) minmax(110px,1.1fr) minmax(82px,.8fr) 90px 74px 105px 82px;align-items:center;gap:10px;padding:6px 15px;margin:0 0 9px;border:1px solid #e6ecf4;border-radius:9px;background:#f7f9fd;}
     .task-column-head {position:relative;min-width:0;}
-    .task-column-head > summary {display:flex;align-items:center;justify-content:space-between;gap:3px;min-height:29px;padding:4px 5px;border:1px solid transparent;border-radius:6px;cursor:pointer;list-style:none;color:#63748b;font-size:11px;font-weight:650;white-space:nowrap;user-select:none;}
+    .task-column-head > summary {display:flex;align-items:center;justify-content:flex-start;gap:5px;min-height:29px;padding:4px 5px;border:1px solid transparent;border-radius:6px;cursor:pointer;list-style:none;color:#63748b;font-size:11px;font-weight:650;white-space:nowrap;user-select:none;}
     .task-column-head > summary::-webkit-details-marker {display:none;}
     .task-column-head > summary:hover,.task-column-head[open] > summary {border-color:#d6e3f5;background:#edf4ff;color:#245eac;}
     .task-column-head.is-filtered > summary,.task-column-head.is-sorted > summary {color:#245eac;}
     .task-column-head[open] {z-index:20;}
-    .task-column-label {overflow:hidden;text-overflow:ellipsis;}
-    .task-column-indicator {font-size:10px;color:#4d77b4;white-space:nowrap;}
+    .task-column-label {min-width:0;overflow:hidden;text-overflow:ellipsis;}
+    .task-column-caret {flex:0 0 auto;font-size:10px;color:#8492a5;}
+    .task-column-indicator {margin-left:auto;font-size:10px;color:#4d77b4;white-space:nowrap;}
     .task-column-caption {padding:5px;font-size:11px;font-weight:650;color:#63748b;}
     .task-column-menu {position:absolute;top:calc(100% + 5px);left:0;z-index:25;width:235px;max-width:min(235px,80vw);padding:13px;border:1px solid #d8e3f0;border-radius:10px;background:#fff;box-shadow:0 12px 30px #203c6024;display:grid;gap:10px;color:#53667d;font-size:11px;}
     .task-column-head:nth-child(n+5) .task-column-menu {left:auto;right:0;}
@@ -682,6 +683,7 @@
     .inbox-message-title { margin:9px 0 5px; color:#2d4360; font-size:14px; line-height:1.5; }
     .inbox-message-summary { margin:0; color:#53677f; font-size:13px; line-height:1.7; overflow-wrap:anywhere; }
     .inbox-message-meta { display:flex; align-items:center; flex-wrap:wrap; gap:8px 18px; margin-top:9px; color:#8492a5; font-size:11px; }
+    .inbox-message-operation { color:#53677f; font-weight:650; }
     .inbox-message-id { color:#64758b; font-variant-numeric:tabular-nums; letter-spacing:.02em; overflow-wrap:anywhere; }
     .inbox-message-details { margin-top:10px; padding-top:9px; border-top:1px solid #edf0f5; color:#64758b; font-size:12px; }
     .inbox-message-details summary { width:max-content; cursor:pointer; color:#536b87; font-weight:600; }
@@ -3236,9 +3238,10 @@
         const position = columnSorts.findIndex(rule => rule.field === field);
         summary.title = label + "：展开列筛选与排序";
         summary.append(element("span","task-column-label",label),
+          element("span","task-column-caret","▾"),
           element("span","task-column-indicator",
             (position >= 0 ? (columnSorts[position].dir === "asc" ? "↑" : "↓") + (position+1) : "") +
-            (columnHasFilter(field) ? " ●" : "") + " ▾"));
+            (columnHasFilter(field) ? " ●" : "")));
         details.append(summary);
         const menu = element("div","task-column-menu");
         menu.append(element("strong","task-column-menu-title",label + " · 排序 / 筛选"));
@@ -3617,7 +3620,7 @@
       pending: ["待关注", "attention"],
       authorized: ["已授权，待执行", "info"],
       applied: ["已修复并验证", "success"],
-      dismissed: ["已确认保留", "muted"],
+      dismissed: ["已暂不处理", "muted"],
       stale: ["情况已变化", "attention"],
       failed: ["处理未完成", "attention"],
       conflict: ["存在版本冲突", "attention"],
@@ -3626,8 +3629,8 @@
     const notificationTypeLabels = {
       sync_pending: "同步提醒",
       semantic_conflict: "数据冲突",
-      invalid_step_reference: "步骤记录异常",
-      step_update_position: "步骤记录异常",
+      invalid_step_reference: "步骤操作异常",
+      step_update_position: "步骤操作异常",
       task_lifecycle_requires_user: "任务记录异常",
       completion_confirmation_missing: "完成确认提醒",
       malformed_event: "数据文件异常",
@@ -3673,15 +3676,18 @@
       if (guidance.summary) return guidance.summary;
       if (item.category === "sync_pending") return "部分数据正在等待其他设备同步，系统暂未将其作为最新状态处理。";
       if (item.category === "semantic_conflict") return "任务或步骤的数据版本存在差异，系统已暂停自动处理。";
-      return "系统发现一条需要留意的数据记录。原始记录已保留，系统没有自动修改业务数据。";
+      return "系统发现一项需要你留意的操作，但尚未自动应用。";
     }
     function notificationImpact(item) {
       const guidance = notificationGuidance(item);
-      return guidance.impact || "系统没有自动修改任务、步骤或原始记录。";
+      return guidance.impact || "任务和步骤内容没有因此改变。";
     }
     function notificationRecommendation(item) {
-      if (item.status === "applied" || item.status === "dismissed") {
-        return "这条消息已有处理记录。原始异常记录仍保留，可供后续追踪。";
+      if (item.status === "applied") {
+        return "这项修复已完成并核验。工作台保留了此前收到的操作内容，方便日后核对。";
+      }
+      if (item.status === "dismissed") {
+        return "你已选择暂不处理这项操作。任务和步骤内容没有因此改变；你填写的原因会保留，方便日后核对。";
       }
       // Keep the server's issue-specific guidance; the old hard-coded fallback
       // accidentally hid actionable instructions for real revision conflicts.
@@ -3689,15 +3695,21 @@
         return notificationGuidance(item).recommendation;
       }
       if (item.category === "invalid_step_reference") {
-        return "请在关联任务详情中核对现有步骤；如确认确有缺项，再通过正常步骤操作补充。系统不会猜测或自动改绑。";
+        return "请打开关联任务的详情，核对步骤列表。确认具体目标后，再通过任务详情中的正常操作入口处理；不要根据相似名称猜测目标。";
       }
       if (item.category === "sync_pending") {
         return "请先确认其他设备已完成同步，再刷新消息。";
       }
       if (item.category === "semantic_conflict" || item.status === "conflict") {
-        return "这条消息仅作提醒。需要处理时，请先核对当前任务或步骤版本；不要直接覆盖或删除原始记录。";
+        return "这条消息仅作提醒。需要处理时，请先核对当前任务或步骤内容；不要直接覆盖或删除其中任何一项。";
       }
-      return "通知信箱只展示提醒，不在此处修改任务或步骤。需要调整时，请在对应任务或步骤的正常操作界面核对业务内容。";
+      return "通知信箱只展示提醒，不会在这里修改任务或步骤。需要调整时，请打开对应任务或步骤的详情，在正常操作入口处理。";
+    }
+    function notificationOperationLabel(item) {
+      const action = item.source_event?.action || item.action;
+      const verb = {create: "新增", update: "修改", delete: "删除"}[action] || "处理";
+      const title = item.recorded_step_title || item.step_title;
+      return verb + "步骤" + (title ? "「" + title + "」" : "（未提供名称）");
     }
     function notificationTypeLabel(item) {
       return notificationTypeLabels[item.category] || "系统提醒";
@@ -3766,9 +3778,9 @@
         workspace: "AIWorkSpace",
         purpose: "核查通知信箱消息",
         instruction: [
-          "请逐条核查以下通知。先只读检查 Google Drive 中对应的原始事件文件、任务/步骤当前状态和同步情况，不要只凭摘要猜测。",
+          "请逐条核查以下通知。先只读检查 Google Drive 中对应的工作台变更信息、任务/步骤当前状态和同步情况，不要只凭摘要猜测。",
           "请按消息编号逐条说明：问题是什么、实际影响、哪些内容尚未生效、是否有安全修复方案、我需要做什么。",
-          "不要直接修改任何数据、删除、覆盖或移动任何原始文件；不得自动写入新事件、标记任务/步骤完成或将消息标记为已处理。",
+          "不要直接修改任何数据文件、删除或覆盖此前收到的变更信息；不得自动写入新变更、标记任务/步骤完成或将消息标记为已处理。",
           "如需修复，请先给出逐条方案、目标对象和具体字段变化，等待我明确授权后再执行。"
         ].join("\n"),
         message_count: items.length,
@@ -3909,18 +3921,18 @@
       if (item.can_apply && item.authorization_event_id) {
         hasAction = true;
         panel.append(element("p", "inbox-action-note",
-          "你已经授权这项修复。系统尚未修改业务数据；执行时会再次核对原始文件和当前版本。"));
+          "你已经授权这项修复。系统尚未修改任务或步骤；执行前会再次核对这项操作的来源和当前内容。"));
         const apply = element("button", "inbox-action-button inbox-action-button--primary inbox-apply",
           "执行修复");
         apply.type = "button";
         apply.addEventListener("click", async () => {
-          if (!window.confirm("确认执行这项已授权修复？工作台将追加一条经过校验的新事件；原始异常文件不会被覆盖或删除。")) return;
+          if (!window.confirm("确认执行这项已授权修复？工作台会按已核对的内容追加一条修正，不会直接改写此前收到的异常信息。")) return;
           apply.disabled = true;
           const saved = await submitReviewAction(item, "apply", {
             source_sha256: item.source.sha256,
             authorization_event_id: item.authorization_event_id,
             confirmed: true
-          }, "修复已执行并通过结果核验。原始异常记录仍保留。");
+          }, "修复已完成并核验。工作台保留了此前收到的操作内容，方便日后核对。");
           if (!saved) apply.disabled = false;
         });
         panel.append(apply);
@@ -3928,19 +3940,19 @@
       if (item.can_dismiss) {
         hasAction = true;
         const defer = element("details", "inbox-defer");
-        defer.append(element("summary", "", "暂不修复，保留原始记录"));
+        defer.append(element("summary", "", "暂不处理这项操作"));
         const form = element("div", "inbox-dismiss-form");
         form.append(element("p", "inbox-action-explain",
-          "这只会记录你决定暂不写入的原因，不会删除原始文件，也不代表底层问题已经修复。"));
+          "选择后，工作台只保存你的决定和备注；这项操作不会生效，现有任务和步骤保持不变。暂不处理不代表问题已经解决。"));
         const note = element("textarea");
         note.maxLength = 500;
-        note.placeholder = "请写明已核对的情况和暂不写入的原因（必填）";
+        note.placeholder = "请说明为什么暂不处理这项操作（必填）";
         const confirm = element("input");
         confirm.type = "checkbox";
         const confirmLabel = element("label", "inbox-consent");
         confirmLabel.append(confirm, element("span", "",
-          "我确认保留原始记录，不将这条异常修改写入任务/步骤。"));
-        const dismiss = element("button", "inbox-action-button inbox-dismiss", "确认保留，不写入");
+          "我确认：暂不应用这项操作，现有任务和步骤保持不变。"));
+        const dismiss = element("button", "inbox-action-button inbox-dismiss", "确认暂不处理");
         dismiss.type = "button";
         dismiss.disabled = true;
         const updateEnabled = () => {
@@ -3956,7 +3968,7 @@
             source_sha256: item.source.sha256,
             confirmed: true,
             note: note.value.trim()
-          }, "已记录为暂不修复，原始记录继续保留。");
+          }, "已保存：你选择暂不处理这项操作。任务和步骤内容未更改。");
           if (!saved) dismiss.disabled = false;
         });
         form.append(note, confirmLabel, dismiss);
@@ -3965,7 +3977,7 @@
       }
       if (!hasAction && !["applied", "dismissed", "auto_merged"].includes(item.status)) {
         panel.append(element("p", "inbox-action-note",
-          "目前没有可安全执行的自动修复方案。请先使用上方“复制全部消息给 ChatGPT 核查”，由 ChatGPT 核对原始来源并提出处理方案；不要手工修改原始文件。"));
+          "目前没有可安全执行的自动处理方案。请先使用上方“复制全部消息给 ChatGPT 核查”，由 ChatGPT 核对这项操作的来源和当前任务/步骤状态；不要直接在电脑文件夹中修改工作台数据。"));
       }
       return hasAction || panel.children.length ? panel : null;
     }
@@ -4049,7 +4061,10 @@
         const taskContext = item.task_title ? "关联任务：" + item.task_title :
           item.source?.folder === "workspace" ? "工作区提示" : "关联对象暂未识别";
         meta.append(element("span", "", taskContext));
-        if (item.step_title || item.recorded_step_title) {
+        if (item.category === "invalid_step_reference") {
+          meta.append(element("span", "inbox-message-operation",
+            "收到的操作：" + notificationOperationLabel(item)));
+        } else if (item.step_title || item.recorded_step_title) {
           meta.append(element("span", "", "相关步骤：" + (item.step_title || item.recorded_step_title)));
         }
         article.append(header, title, summary, meta);
@@ -4069,12 +4084,12 @@
         }
 
         const details = element("details", "inbox-message-details");
-        details.append(element("summary", "", "查看详情"));
+        details.append(element("summary", "", "查看原因和处理办法"));
         const detailContent = element("div", "inbox-message-detail-content");
         const impact = element("p");
-        impact.append(element("strong", "", "影响："), element("span", "", notificationImpact(item)));
+        impact.append(element("strong", "", "对任务的影响："), element("span", "", notificationImpact(item)));
         const recommendation = element("p");
-        recommendation.append(element("strong", "", "建议："), element("span", "", notificationRecommendation(item)));
+        recommendation.append(element("strong", "", "你可以怎么做："), element("span", "", notificationRecommendation(item)));
         // The backend already folds proposal_block_reason into user_guidance.recommendation.
         // Rendering the same guidance a second time duplicated the instruction for blocked messages.
         detailContent.append(impact, recommendation);
