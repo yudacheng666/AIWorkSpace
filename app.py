@@ -2523,13 +2523,35 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
     if len(records) > 250 or len(completed) > 250:
         raise ValueError("too many work sources in this period; narrow project or date")
     duration = sum(r.get("duration_minutes") or 0 for r in records)
+    projects_by_id = {p["project_id"]: p for p in workspace["projects"]
+                      if not p.get("conflict")}
+    tasks_by_id = {t["task_id"]: t for t in workspace["tasks"]
+                   if not t.get("conflict")}
+    record_sources = []
+    for r in records:
+        task = tasks_by_id.get(r.get("task_id"))
+        project = projects_by_id.get(r.get("project_id"))
+        annotated = {**r}
+        label_work_associations(annotated, workspace)
+        record_sources.append({
+            "record_id": r["record_id"], "display_id": r["display_id"],
+            "revision": r["revision"], "occurred_on": r["occurred_on"],
+            "content": r["content"], "outcome": r.get("outcome"),
+            "featured": r.get("featured", False),
+            "duration_minutes": r.get("duration_minutes"),
+            "project_id": r.get("project_id"),
+            "project_name": project.get("name") if project else None,
+            "task_id": r.get("task_id"),
+            "task_title": task.get("title") if task else None,
+            "action_links": r.get("action_links", []),
+            "action_link_labels": annotated["action_link_labels"],
+            "evidence_links": r.get("evidence_links", [])
+        })
+    # The digest includes the rendered source context, not merely the IDs.
+    # A late project/task label or evidence revision must not be silently used
+    # with an already reviewed set of report inputs.
     fingerprint_sources = {
-        "records": [{"id": r["record_id"], "revision": r["revision"],
-                     "content": r["content"], "occurred_on": r["occurred_on"],
-                     "outcome": r.get("outcome"), "featured": r.get("featured"),
-                     "duration_minutes": r.get("duration_minutes"),
-                     "evidence_links": r.get("evidence_links", []),
-                     "action_links": r.get("action_links", [])} for r in records],
+        "records": record_sources,
         "completions": [{"id": e["source_event_id"], "occurred_at": e["occurred_at"],
                           "task_title": e["task_title"]} for e in completed]
     }
@@ -2568,16 +2590,7 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
             "record_count": len(records), "completion_count": len(completed),
             "duration_minutes": duration,
             "source_digest": source_digest,
-            "record_sources": [
-                {"record_id": r["record_id"], "display_id": r["display_id"],
-                 "occurred_on": r["occurred_on"], "content": r["content"],
-                 "outcome": r.get("outcome"), "featured": r.get("featured", False),
-                 "duration_minutes": r.get("duration_minutes"),
-                 "project_id": r.get("project_id"), "task_id": r.get("task_id"),
-                 "action_links": r.get("action_links", []),
-                 "evidence_links": r.get("evidence_links", [])}
-                for r in records
-            ],
+            "record_sources": record_sources,
             "completion_sources": [
                 {"source_event_id": e["source_event_id"], "occurred_at": e["occurred_at"],
                  "task_title": e["task_title"]} for e in completed
