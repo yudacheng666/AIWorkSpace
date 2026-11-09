@@ -1020,6 +1020,7 @@
           <label>结束日期<input id="work-stage-end" type="date"></label>
           <button type="button" id="work-stage-show">查看阶段事件线</button>
           <button type="button" id="work-stage-copy" disabled>复制来源供 ChatGPT 整理</button>
+          <button type="button" id="work-stage-report" disabled>用该项目生成月度汇报</button>
         </div>
         <p id="work-stage-message" class="work-archive-hint" role="status" aria-live="polite"></p>
         <div id="work-stage-list" aria-live="polite"></div>
@@ -5260,17 +5261,21 @@
     $("work-stage-start").value=$("work-stage-end").value.slice(0,8)+"01";
     for(const id of ["work-stage-project","work-stage-start","work-stage-end"]){
       $(id).addEventListener("change",()=>{
-        workStagePreview=null;$("work-stage-copy").disabled=true;
+        workStagePreview=null;
+        $("work-stage-copy").disabled=true;$("work-stage-report").disabled=true;
         $("work-stage-message").textContent="范围已变化，请重新查看阶段事件线。";
       });
     }
     $("work-stage-show").addEventListener("click",async()=>{
       if(isSaving)return;
-      $("work-stage-copy").disabled=true;workStagePreview=null;
+      $("work-stage-copy").disabled=true;$("work-stage-report").disabled=true;
+      workStagePreview=null;
       try{
         const stage=await freshProjectStage();
         renderProjectStage(stage);
-        workStagePreview=stage;$("work-stage-copy").disabled=false;
+        workStagePreview=stage;
+        $("work-stage-copy").disabled=false;
+        $("work-stage-report").disabled=false;
       }catch(error){
         $("work-stage-list").replaceChildren();
         $("work-stage-message").textContent="无法生成阶段线："+error.message;
@@ -5292,9 +5297,29 @@
         await globalThis.navigator.clipboard.writeText(prompt);
         $("work-stage-message").textContent="已复制当前核对的项目阶段线，可粘贴到 ChatGPT 生成阶段总结；未自动发送或写入工作台。";
       }catch(error){
-        $("work-stage-copy").disabled=true;workStagePreview=null;
+        $("work-stage-copy").disabled=true;
+        $("work-stage-report").disabled=true;workStagePreview=null;
         $("work-stage-message").textContent="未复制："+error.message;
       }
+    });
+
+    $("work-stage-report").addEventListener("click",()=>{
+      const stage=workStagePreview;
+      if(!stage || isSaving) return;
+      if (unsavedPersistentEditors.has($("work-summary-form")) &&
+          !window.confirm("当前工作总结有尚未保存的修改。确定舍弃该草稿，改为此项目的月度汇报吗？")) return;
+      // A stage may span multiple months: the report form uses the month
+      // containing the selected stage END, never silently includes 184 days.
+      resetWorkSummary();
+      $("work-summary-period").value="monthly";
+      $("work-summary-date").value=stage.end;
+      $("work-summary-project").value=stage.project_id;
+      $("work-summary-audience").value="report";
+      workSummaryWatcher.check();
+      $("work-summary-message").textContent="已选中「"+stage.project_name+"」截至 "+
+        stage.end+" 所在月份的汇报版。请点击「生成来源底稿」，逐条勾选要汇报的事实；"+
+        "本操作未创建或修改任何工作记录。";
+      $("work-summary-heading").scrollIntoView?.({block:"start",behavior:"smooth"});
     });
 
     function splitSource() {
