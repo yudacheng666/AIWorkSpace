@@ -97,7 +97,7 @@ class UnifiedTimelineReportTests(unittest.TestCase):
             "body": "# 汇报版\n只选入重要沟通事实", "confirmed": True,
             "source_record_ids": preview["source_record_ids"],
             "source_completion_ids": preview["source_completion_ids"],
-            "audience": "report",
+            "audience": "report", "source_digest": preview["source_digest"],
             "included_record_ids": [important],
             "included_completion_ids": []
         }
