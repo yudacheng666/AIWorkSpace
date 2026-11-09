@@ -56,6 +56,127 @@ def step_order_event(event_id="step-order-001", task_id="TASK-DEMO-001",
             "changes": {"step_ids": step_ids or ["STEP-" + "A" * 32]}}
 
 
+
+class TailnetAccessTests(unittest.TestCase):
+    """Loopback-only app with a strictly opt-in Tailscale Serve HTTPS proxy."""
+
+    ORIGIN = "https://demo-device.demo-tail.ts.net"
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.data_dir = Path(self.temp.name)
+        self.server = ThreadingHTTPServer(
+            ("127.0.0.1", 0), handler_factory(self.data_dir, self.ORIGIN))
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base = f"http://127.0.0.1:{self.server.server_port}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=2)
+        self.temp.cleanup()
+
+    def request_status(self, headers, post=False):
+        request = Request(
+            self.base + ("/api/tasks" if post else "/"),
+            data=json.dumps({"title": "fictional phone task"}).encode("utf-8") if post else None,
+            headers={"Content-Type": "application/json", **headers},
+            method="POST" if post else "GET",
+        )
+        try:
+            with urlopen(request, timeout=3) as reply:
+                return reply.status
+        except HTTPError as exc:
+            return exc.code
+
+    def proxy_headers(self, **updates):
+        headers = {
+            "Host": self.ORIGIN.removeprefix("https://"),
+            "X-Forwarded-Host": self.ORIGIN.removeprefix("https://"),
+            "X-Forwarded-Proto": "https",
+            "Tailscale-User-Login": "demo@example.test",
+        }
+        headers.update(updates)
+        return headers
+
+    def test_origin_configuration_is_strict_and_local_to_installation(self):
+        from app import TAILNET_ACCESS_CONFIG, read_tailnet_origin
+        path = self.data_dir / TAILNET_ACCESS_CONFIG
+        self.assertIsNone(read_tailnet_origin(self.data_dir))
+        path.write_text(json.dumps({"tailscale_origin": self.ORIGIN}), encoding="utf-8")
+        self.assertEqual(read_tailnet_origin(self.data_dir), self.ORIGIN)
+        for invalid in (
+            {"tailscale_origin": "http://demo-device.demo-tail.ts.net"},
+            {"tailscale_origin": self.ORIGIN + ":443"},
+            {"tailscale_origin": self.ORIGIN + "/"},
+            {"tailscale_origin": "https://example.com"},
+            {"tailscale_origin": "https://foo.demo-tail.ts.net.evil.example"},
+            {"tailscale_origin": self.ORIGIN, "bypass": True},
+            ["not a config"],
+        ):
+            with self.subTest(config=invalid):
+                path.write_text(json.dumps(invalid), encoding="utf-8")
+                with self.assertRaises(ValueError):
+                    read_tailnet_origin(self.data_dir)
+        path.write_text("{invalid json", encoding="utf-8")
+        with self.assertRaises(ValueError):
+            read_tailnet_origin(self.data_dir)
+
+    def test_tailnet_serve_get_and_same_origin_post(self):
+        headers = self.proxy_headers()
+        self.assertEqual(self.request_status(headers), 200)
+        # Depending on Serve reverse-proxy version, upstream Host may be
+        # the Tailscale DNS name or the local backend target.
+        local_host = f"127.0.0.1:{self.server.server_port}"
+        self.assertEqual(self.request_status(self.proxy_headers(Host=local_host)), 200)
+        self.assertEqual(self.request_status(
+            {**headers, "Origin": self.ORIGIN}, post=True), 201)
+        self.assertEqual(len(list((self.data_dir / "events").glob("*.json"))), 1)
+
+    def test_tailnet_writes_reject_missing_or_cross_site_origin(self):
+        for origin in (None, "https://untrusted.example", "null", "http://demo-device.demo-tail.ts.net"):
+            with self.subTest(origin=origin):
+                headers = self.proxy_headers()
+                if origin is not None:
+                    headers["Origin"] = origin
+                self.assertEqual(self.request_status(headers, post=True), 403)
+        self.assertFalse((self.data_dir / "events").exists())
+
+    def test_funnel_and_spoofed_proxy_requests_are_denied(self):
+        for headers in (
+            self.proxy_headers(**{"Tailscale-User-Login": ""}),
+            {k: v for k, v in self.proxy_headers().items() if k != "Tailscale-User-Login"},
+            self.proxy_headers(**{"X-Forwarded-Proto": "http"}),
+            self.proxy_headers(**{"X-Forwarded-Host": "another.demo-tail.ts.net"}),
+            self.proxy_headers(Host="attacker.example"),
+            {"Host": f"127.0.0.1:{self.server.server_port}",
+             "X-Forwarded-Host": self.ORIGIN.removeprefix("https://"),
+             "X-Forwarded-Proto": "https"},
+            self.proxy_headers(Origin="https://attacker.example"),
+        ):
+            with self.subTest(headers=headers):
+                self.assertEqual(self.request_status(headers), 403)
+        self.assertEqual(self.request_status(self.proxy_headers(Host="localhost")), 403)
+
+    def test_without_opt_in_tailnet_proxy_is_denied(self):
+        server = ThreadingHTTPServer(
+            ("127.0.0.1", 0), handler_factory(self.data_dir))
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            headers = self.proxy_headers()
+            request = Request(
+                f"http://127.0.0.1:{server.server_port}/", headers=headers)
+            with self.assertRaises(HTTPError) as caught:
+                urlopen(request, timeout=3)
+            self.assertEqual(caught.exception.code, 403)
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=2)
+
+
 class DataTests(unittest.TestCase):
     def test_display_id_preserves_legacy_storage_and_uuid(self):
         original = "TASK-" + "A" * 32

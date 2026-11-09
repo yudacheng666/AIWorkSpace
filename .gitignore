@@ -33,3 +33,5 @@ Thumbs.db
 .aiworkspace-build.json
 .aiworkspace-update-state.json
 .aiworkspace-update-staging-*/
+# Per-device Tailscale Serve opt-in; never commit private network settings.
+.aiworkspace-tailnet-access.json
