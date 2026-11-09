@@ -2330,6 +2330,31 @@ def validate_work_archive_event(value: object, kind: str) -> dict:
         elif action == "update":
             if revision < 1 or set(changes) - {"body", "confirmed"}:
                 raise ValueError("invalid summary update fields")
+        elif action == "reselect":
+            required = {"body", "confirmed", "audience", "source_digest",
+                        "source_record_ids", "source_completion_ids",
+                        "included_record_ids", "included_completion_ids"}
+            if revision < 1 or value["actor"] != "user" or set(changes) != required:
+                raise ValueError("reselect requires a complete user-approved source snapshot")
+            if changes["confirmed"] is not False:
+                raise ValueError("source reselection clears prior human confirmation")
+            if changes["audience"] not in {"personal", "report"} or (
+                    not isinstance(changes["source_digest"], str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", changes["source_digest"])):
+                raise ValueError("invalid reselected audience or source digest")
+            for key, pattern in (("source_record_ids", WORK_RECORD_ID),
+                                 ("source_completion_ids", EVENT_ID)):
+                ids = changes[key]
+                if not isinstance(ids, list) or len(ids) > 250 or len(ids) != len(set(ids)) or any(
+                        not isinstance(i, str) or not pattern.fullmatch(i) for i in ids):
+                    raise ValueError("invalid reselection candidate IDs")
+            for included_key, source_key in (
+                    ("included_record_ids", "source_record_ids"),
+                    ("included_completion_ids", "source_completion_ids")):
+                ids = changes[included_key]
+                if not isinstance(ids, list) or len(ids) != len(set(ids)) or any(
+                        not isinstance(i, str) for i in ids) or not set(ids) <= set(changes[source_key]):
+                    raise ValueError("reselected sources must be unique candidates")
         else:
             raise ValueError("invalid summary action")
         if "body" in changes and (not isinstance(changes["body"], str) or
@@ -4157,6 +4182,8 @@ def handler_factory(data_dir: Path):
             inbox_ignore = re.fullmatch(r"/api/work-archive/inbox/(INBOX-[A-F0-9]{32})/ignore", path)
             creating_summary = path == "/api/work-archive/summaries"
             summary_edit = re.fullmatch(r"/api/work-archive/summaries/(SUMMARY-[A-F0-9]{32})/update", path)
+            summary_reselect = re.fullmatch(
+                r"/api/work-archive/summaries/(SUMMARY-[A-F0-9]{32})/reselect", path)
             action_preview = path == "/api/work-archive/actions/preview"
             action_create = path == "/api/work-archive/actions/create"
             action_link = path == "/api/work-archive/actions/link"
@@ -4165,7 +4192,7 @@ def handler_factory(data_dir: Path):
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
-            if not (creating_work_record or work_record_match or creating_inbox or inbox_ignore or creating_summary or summary_edit or action_preview or action_create or action_link or task_record_match or creating_task or creating_project or task_match or recurrence_match or project_match or
+            if not (creating_work_record or work_record_match or creating_inbox or inbox_ignore or creating_summary or summary_edit or summary_reselect or action_preview or action_create or action_link or task_record_match or creating_task or creating_project or task_match or recurrence_match or project_match or
                     step_create_match or step_update_match or step_reorder_match or
                     step_documents_match or step_delete_match or step_convert_match or task_convert_match or applying_update or
                     documents_match or lifecycle_match or changing_retention or review_match):
@@ -4216,7 +4243,7 @@ def handler_factory(data_dir: Path):
 
             try:
                 archive_request = (creating_work_record or work_record_match or creating_inbox or
-                                   inbox_ignore or creating_summary or summary_edit or
+                                   inbox_ignore or creating_summary or summary_edit or summary_reselect or
                                    action_preview or action_create or action_link or task_record_match)
                 payload = self.read_payload(MAX_WORK_RECORD_BODY if archive_request else MAX_BODY)
                 if task_record_match:
@@ -4430,6 +4457,46 @@ def handler_factory(data_dir: Path):
                                  "timestamp": utc_now(), "base_revision": 0, "changes": changes}
                         append_work_archive_event(data_dir, "summary", event)
                     return self.json_response(201, {"saved": True, "summary_id": sid, "revision": 1})
+                if summary_reselect:
+                    required = {"revision", "audience", "source_digest", "body", "confirmed",
+                                "source_record_ids", "source_completion_ids",
+                                "included_record_ids", "included_completion_ids",
+                                "confirmed_reselect"}
+                    if set(payload) != required or payload["confirmed_reselect"] is not True or (
+                            type(payload["revision"]) is not int or payload["revision"] < 1):
+                        raise ValueError("summary reselection requires explicit approval and revision")
+                    with _write_lock:
+                        state = read_work_archive_events(data_dir, "summary")
+                        prior = next((x for x in state["items"]
+                                      if x["summary_id"] == summary_reselect.group(1)), None)
+                        if prior is None:
+                            return self.json_response(404, {"error": "summary not found"})
+                        if prior["conflict"] or prior["revision"] != payload["revision"]:
+                            return self.json_response(409, {"error": "summary changed or conflicted; reopen"})
+                        if state["warnings"]:
+                            return self.json_response(409, {"error": "summary source history needs review"})
+                        # The original period and project are immutable; new sources are
+                        # allowed only after a fresh preview and explicit reselection.
+                        workspace = read_workspace(data_dir)
+                        preview = preview_work_review(data_dir, workspace, prior["period"],
+                                                      prior["period_start"], prior.get("project_id"))
+                        if (payload["source_record_ids"] != preview["source_record_ids"] or
+                                payload["source_completion_ids"] != preview["source_completion_ids"] or
+                                payload["source_digest"] != preview["source_digest"]):
+                            return self.json_response(409, {
+                                "error": "summary sources changed; regenerate and select again"})
+                        changes = {key: value for key, value in payload.items()
+                                   if key not in {"revision", "confirmed_reselect"}}
+                        # No content is overwritten: the old version remains a full
+                        # immutable event; this append produces the next revision.
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "summary_id": prior["summary_id"], "action": "reselect",
+                                 "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": prior["revision"], "changes": changes}
+                        append_work_archive_event(data_dir, "summary", event)
+                    return self.json_response(200, {
+                        "saved": True, "revision": prior["revision"] + 1,
+                        "reselection": True, "confirmed": False})
                 if summary_edit:
                     if (set(payload) - {"revision", "body", "confirmed"} or
                             "revision" not in payload or
