@@ -1402,6 +1402,7 @@
     let workSplitParts = [];
     let workSplitFollowUps = [];
     let workSplitSelectedSource = "";
+    let workSplitReviewedJson = "";
     let workStagePreview = null;
     const unsavedProgressEditors = new Set();
     let workFocusedStepId = "";
@@ -5313,6 +5314,7 @@
       $("work-split-json").value="";
       workSplitParts=[];
       workSplitFollowUps=[];
+      workSplitReviewedJson="";
       workSplitSelectedSource=$("work-split-source").value;
       $("work-split-review").replaceChildren();
       splitWatcher.markClean();
@@ -5388,6 +5390,21 @@
           throw Error("后续待办建议的标题或日期不合法");
         follow.push({title:item.title.trim(),due_date:item.due_date||null});
       }
+      // Reopening after a network interruption must show already committed
+      // fragments as saved, not as fresh unsaved records. Any overlap with a
+      // different excerpt is rejected before the user can press Save.
+      const existing = source.processed_fragments || [];
+      for (const [index, part] of parts.entries()) {
+        const position = bounds[index];
+        const exact = existing.find(old =>
+          old.start === position.start && old.end === position.end);
+        if (exact) {
+          part.saved = exact.record_id;
+        } else if (existing.some(old =>
+          position.start < old.end && old.start < position.end)) {
+          throw Error("此摘录与已保存的工作事实交叉，请修改摘录并重新核对");
+        }
+      }
       return {parts,follow};
     }
     function renderSplitReview(){
@@ -5408,10 +5425,19 @@
         outcome.disabled=!!part.saved;
         outcome.addEventListener("input",()=>{part.outcome=outcome.value;splitWatcher.check();});
         item.append(entry,element("span","work-archive-hint","实际发生日期："),date,outcome);
+        if (part.saved) {
+          item.append(element("p","work-archive-hint",
+            "该原文片段已有工作记录（"+part.saved+"），不会重复创建。如需修改请打开工作轨迹。"));
+        }
         const save=element("button","save",part.saved?"已保存":"核对后保存这一条");
         save.type="button";save.disabled=!!part.saved;
         save.addEventListener("click",async()=>{
           if(isSaving||part.saved)return;
+          if(!workSplitReviewedJson || $("work-split-json").value !== workSplitReviewedJson) {
+            $("work-split-message").textContent=
+              "拆分建议已编辑，请先重新点击「核对拆分建议」后才能保存。";
+            return;
+          }
           if(!source||splitSource()?.inbox_id!==workSplitSelectedSource ||
              source.source_digest!==part.source_digest && part.source_digest)
             { $("work-split-message").textContent="原文来源已变化，请重新核对。";return; }
@@ -5484,14 +5510,33 @@
       $("work-split-json").focus();
     }
     $("work-split-source").addEventListener("change",()=>{
-      if(isSaving)return;
+      const next = $("work-split-source").value;
+      if (isSaving) {
+        $("work-split-source").value=workSplitSelectedSource;
+        return;
+      }
+      if (next !== workSplitSelectedSource &&
+          unsavedPersistentEditors.has($("work-split-form")) &&
+          !window.confirm("当前拆分草稿尚未保存。确定舍弃未保存的拆分内容并切换原文吗？")) {
+        $("work-split-source").value=workSplitSelectedSource;
+        return;
+      }
       resetSplitForm(false);
       $("work-split-message").textContent="已切换原文，请生成或粘贴新的拆分建议。";
+    });
+    $("work-split-json").addEventListener("input",()=>{
+      splitWatcher.check();
+      if (workSplitReviewedJson && $("work-split-json").value !== workSplitReviewedJson) {
+        $("work-split-message").textContent=
+          "已修改拆分建议；保存前请重新点击「核对拆分建议」。已保存的工作事实不会被改写。";
+      }
     });
     $("work-split-lines").addEventListener("click",()=>{
       const source=splitSource();
       if(!source||source.conflict||source.ignored||source.finished||
          source.processed_record_id){$("work-split-message").textContent="请先选择仍可整理的原文。";return;}
+      if (workSplitReviewedJson && $("work-split-json").value &&
+          !window.confirm("按换行重新生成建议将替换现有拆分草稿；已保存的工作事实不受影响。确定继续吗？")) return;
       const lines=source.content.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
       if(!lines.length||lines.length>10){$("work-split-message").textContent=
         "按换行拆分支持 1–10 条；长笔记请使用 ChatGPT 先整理再核对。";return;}
@@ -5503,6 +5548,9 @@
       });
       $("work-split-json").value=JSON.stringify({version:1,inbox_id:source.inbox_id,
         source_digest:source.source_digest,facts,follow_ups:[]},null,2);
+      workSplitReviewedJson="";
+      workSplitParts=[];workSplitFollowUps=[];
+      $("work-split-review").replaceChildren();
       splitWatcher.check();
       $("work-split-message").textContent="已按换行生成建议。请核对事实、日期；未来计划不要直接保存为已完成工作。";
     });
@@ -5531,12 +5579,20 @@
       if(isSaving)return;
       try{
         const plan=parseSplitPlan();
-        workSplitParts=plan.parts.map(p=>({...p,source_digest:splitSource().source_digest}));
+        const priorSaved=new Map(workSplitParts.filter(p=>p.saved).map(p=>[
+          p.excerpt+"\u0000"+p.occurrence,p]));
+        workSplitParts=plan.parts.map(p=>{
+          const previous=priorSaved.get(p.excerpt+"\u0000"+p.occurrence);
+          return {...p,saved:p.saved||(previous?.saved||false),
+                  source_digest:splitSource().source_digest};
+        });
         workSplitFollowUps=plan.follow;
         workSplitSelectedSource=splitSource().inbox_id;
+        workSplitReviewedJson=$("work-split-json").value;
         renderSplitReview();splitWatcher.check();
         $("work-split-message").textContent="拆分建议已核对格式，共 "+
-          plan.parts.length+" 条事实、"+plan.follow.length+
+          plan.parts.length+" 条事实（其中 "+workSplitParts.filter(p=>p.saved).length+
+          " 条已保存）、"+plan.follow.length+
           " 条未来待办建议。请逐条核实日期、事实后保存；不会自动确认任何任务完成。";
       }catch(error){$("work-split-message").textContent="无法核对拆分结果："+error.message;}
     });
