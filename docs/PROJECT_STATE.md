@@ -1,5 +1,21 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-09：P1–P3 整合体验验收（代码候选已通过 CI，仍未发布）
+
+- **用户要求**：「进行下一步」。按上一阶段计划开展 P1/P2/P3 集成、安全和体验包验收；延续不用 Work、GitHub 开发与持续记忆规则。基线 main `8a4a4babb07ac0012721f35224c84da5d298df26`（v2.8.4）；当前只有 [Draft PR #50](https://github.com/yudacheng666/AIWorkSpace/pull/50)，未获得合并／发布授权。
+- **实际整合修复**：
+  1. 拆分草稿从一条原文切换到另一条时，如已修改内容须明确确认才可放弃；ChatGPT JSON 在通过核对之后如再被修改，旧核对结果不允许继续保存，必须重新核对。
+  2. 重开／网络中断后恢复同一 INBOX 原文时，使用服务端已保存 `processed_fragments` 的字符区间精确识别先前已创建的 RECORD，标记「已保存」、禁用重复创建。原有重叠／不实原文仍拒绝。
+  3. 工作记录顶部添加简洁「我要」快捷导航：事实补记、零碎笔记整理、项目阶段线、个人／汇报总结；项目阶段线新增「用该项目生成月度汇报」，仅把项目与阶段结束日期所在月份带入 P2 汇报版，保留逐条勾选和明确保存，不把多月完整阶段线静默发送或写入报告。
+  4. 跨设备一致性安全补强：`INBOX.finish` 事件必须永久保存本人本次确认的准确 `record_ids` 集合；读取时核对当前可见来源片段与其完全一致。完成标志先到、事实迟到、额外记录晚到均标记来源冲突，不允许显示为已整理，所有源文件到齐后自动只读恢复正确投影，不覆盖任何旧事件。完成 POST 仍必须由用户明确触发且 revision 有效。
+- **新增自动化验收**：Node 覆盖未保存草稿切换取消、AI JSON 改后重新核对、已保存片段重开禁止重复、项目阶段→月度汇报筛选；Windows Chromium 扩展真实用户链路「原始笔记 → 两条事实 → 确认整理 → 项目阶段线 → 月度汇报选材 → 保存」，并核验原任务、原 INBOX 与 RECORD 事件未覆盖；Python 额外覆盖 finish 来源清单协议，模拟某个 RECORD 晚同步时显示冲突，文件到齐后恢复并校验审计源编号。
+- **准确产品／测试 SHA**：`16ea3b9c1cb7f187391ce5be33b9e82cb491137f`，对应 [GitHub Actions #42621080984](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42621080984) **3/3 SUCCESS**。Ubuntu Python 275 项（31 预期跳过）、Node 124/124 PASS；Windows Python 275 项（29 预期跳过）、Node 124/124 PASS；Windows 真正 Chromium 工作台 E2E 26 PASS、更新／回滚 3 PASS。
+- **隔离体验附件已核实存在**：同一 CI run 的 `AIWorkSpace-UI-V2-isolated-preview`（GitHub Artifacts ID `13675288528`，约 161 KB）尚未过期；另有 `windows-update-e2e-evidence`。该包是隔离体验而非正式更新程序，请从上方 Actions run 的 Artifacts 区取用并按 `docs/WORK_ARCHIVE_USER_GUIDE.md` 操作，不要直接指向真实 Drive 数据目录或覆盖本机现有 8770。
+- **发布边界**：所有 GitHub 测试与体验包均使用虚构隔离数据；**没有合并 PR、升级本机、变更正式 main/VERSION、接触真实 Google Drive 数据**。GitHub Runner 中模拟迟到源事件和 Windows 真实 Chromium **不等于**真实公司 Windows 两台电脑在 Drive 断网／重连／混合版本下的实测，仍列 **NOT TESTED**。PR 继续 Draft 待用户集中体验和明确合并决定；高风险真实数据上线仍需独立安全门槛或用户批准例外，不能把已通过 CI 表述成所有环境的生产就绪。
+- **规则同步**：整合协议、体验步骤与安全要求更新在 `docs/UNIFIED_WORK_TIMELINE_V2.md`、`docs/WORK_ARCHIVE_USER_GUIDE.md`、`docs/REQUIREMENTS.md`、`docs/DECISIONS.md`；这些只是最后的 `[skip ci]` 文档更新，不得用文档 HEAD 冒充上述测试产品 SHA。
+
+
+
 ## 2026-11-09：统一工作记录 P3（多事实拆分、跟进建议、项目阶段线）开发及 CI 验收
 
 - **用户指示**：「继续开发，不用 Work」。基于 main `8a4a4babb07ac0012721f35224c84da5d298df26`（2.8.4）的现有 Draft [PR #50](https://github.com/yudacheng666/AIWorkSpace/pull/50) 继续开发，未使用 Work；未创建平行 PR、未改 main/VERSION、未升级真实 Windows 8770、未接触真实 Google Drive 业务数据。
