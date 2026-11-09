@@ -58,7 +58,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
           "query-status", "query-date-field", "new-task-project", "new-task-related",
           "new-task-priority", "task-sort", "task-date-field", "calendar-granularity", "project-sort",
           "work-record-project", "work-record-task", "work-filter-project",
-          "work-inbox-project", "work-summary-period", "work-summary-project",
+          "work-inbox-project", "work-summary-period", "work-summary-project", "work-summary-audience",
           "work-link-target", "work-link-relation", "work-action-source",
           "work-task-convert-source", "work-portfolio-project"]);
         elements.set(id, node(selects.has(id) ? "select" : "div"));
@@ -69,7 +69,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
   };
   const copied = [];
   const navigator = {clipboard: {writeText: async value => {copied.push(value);}}};
-  const window = {confirm, addEventListener() {}};
+  const window = {confirm, alert() {}, addEventListener() {}};
   const fetch = async (path, options) => {
     if (options?.method === "POST") {
       const body = JSON.parse(options.body);
@@ -1747,7 +1747,11 @@ test("review generator submits source IDs and explicit confirmation without invo
   const preview = {period:"weekly",period_start:"2026-11-02",period_end:"2026-11-08",
     project_id:null,body:"# 周报（来源整理底稿）\n已记录工作事实",
     source_record_ids:[recordId],source_completion_ids:["demo-done-0001"],
-    record_count:1,completion_count:1};
+    record_count:1,completion_count:1,source_digest:"a".repeat(64),
+    record_sources:[{record_id:recordId,display_id:"R-261105-AAAAAAAAAAAA",
+      occurred_on:"2026-11-05",content:"已记录工作事实",outcome:null,featured:false}],
+    completion_sources:[{source_event_id:"demo-done-0001",occurred_at:"2026-11-05T08:00:00Z",
+      task_title:"虚构任务"}]};
   const h = harness([],()=>true,[],[],null,{preview});
   h.api.setActivePage("worklog");
   h.el("work-summary-period").value = "weekly";
@@ -1932,18 +1936,36 @@ test("cancelled task-to-record conversion does not POST and leaves the unsaved d
 });
 
 
-test("ChatGPT weekly analysis exports current source-linked context without writing or faking an AI backend", async () => {
-  const h=harness([],()=>true,[],[],null,{
-    analysis_context:{prompt:"来源分析：RECORD-AAAAAAAAAAAA，evt-00001",record_count:1,completion_count:1}
-  });
+test("ChatGPT weekly analysis copies only selected report sources and does not write", async () => {
+  const recordId = "RECORD-" + "A".repeat(32);
+  const ignoredId = "RECORD-" + "B".repeat(32);
+  const preview = {
+    period:"weekly",period_start:"2026-11-02",period_end:"2026-11-08",
+    project_id:null,body:"全部周报来源",source_digest:"b".repeat(64),
+    source_record_ids:[recordId,ignoredId],source_completion_ids:["evt-done-0001"],
+    record_count:2,completion_count:1,
+    record_sources:[
+      {record_id:recordId,display_id:"R-261105-AAAAAAAAAAAA",
+        occurred_on:"2026-11-05",content:"重要项目成果",outcome:"完成阶段成果",featured:true},
+      {record_id:ignoredId,display_id:"R-261105-BBBBBBBBBBBB",
+        occurred_on:"2026-11-05",content:"不应出现在汇报里的日常琐事",outcome:null,featured:false}
+    ],
+    completion_sources:[{source_event_id:"evt-done-0001",occurred_at:"2026-11-05T08:00:00Z",
+      task_title:"已人工确认完成的工作"}]
+  };
+  const h=harness([],()=>true,[],[],null,{preview});
   await h.api.refresh(true);
+  h.api.setActivePage("worklog");
   h.el("work-summary-period").value="weekly";
   h.el("work-summary-date").value="2026-11-05";
-  h.el("work-summary-project").value="";
+  h.el("work-summary-audience").value="report";
+  await h.api.generateWorkSummary();
+  assert.match(h.el("work-summary-body").value,/重要项目成果/);
+  assert.doesNotMatch(h.el("work-summary-body").value,/不应出现在汇报里的日常琐事/);
   await h.el("work-summary-copy-sources").handlers.get("click")[0]();
-  assert.equal(h.copied.at(-1),"来源分析：RECORD-AAAAAAAAAAAA，evt-00001");
-  assert.match(h.el("work-summary-message").textContent,/已复制含 1 条工作记录与 1 条任务完成来源/);
-  assert.equal(h.writes.length,0, "analysis handoff must be strictly read-only");
+  assert.match(h.copied.at(-1),/重要项目成果/);
+  assert.doesNotMatch(h.copied.at(-1),/不应出现在汇报里的日常琐事/);
+  assert.equal(h.writes.length,0,"report source handoff stays read-only");
 });
 
 test("featured achievement context copies only server-verified source data and surfaces conflict without writes", async () => {
