@@ -2813,6 +2813,9 @@
 
     function closeTaskDetail() {
       if (unsavedTaskEditors.size && !confirmDiscardUnsaved()) return false;
+      if ([...unsavedProgressEditors].some(form => $("task-detail-drawer").contains(form))) {
+        window.alert("进展记录草稿尚未保存，请先保存或清空。"); return false;
+      }
       activeDetailTaskId = "";
       $("task-detail-drawer").hidden = true;
       $("task-detail-content").replaceChildren();
@@ -3582,6 +3585,9 @@
         resetWorkActionForm();
         resetTaskConvertForm();
       }
+      if (unsavedProgressEditors.size) {
+        window.alert("进展记录尚未保存，请先保存或清空草稿。"); return false;
+      }
       activePage = page;
       if (page === "tasks") taskViewMode = taskViewModes.includes(mode) ? mode : "list";
       for (const id of ["overview", "tasks", "projects", "trash", "reviews", "settings", "worklog"]) {
@@ -3627,6 +3633,9 @@
 
     async function refresh(force = false, allowDiscard = false) {
       if (isSaving && !force) return;
+      if (unsavedProgressEditors.size) {
+        setRefreshStatus("进展记录草稿未保存，已暂停刷新"); return;
+      }
       if (unsavedTaskEditors.size) {
         if (!allowDiscard || !confirmDiscardUnsaved()) {
           setRefreshStatus("有任务或步骤尚未保存；已暂停刷新，草稿仍保留");
@@ -3638,7 +3647,8 @@
           setRefreshStatus("项目编辑草稿尚未保存；暂停刷新");return;
         }
       }
-      if (!force && (document.activeElement?.closest(".overview-panel") ||
+      if (!force && (document.activeElement?.closest(".progress-form") ||
+                     document.activeElement?.closest(".overview-panel") ||
                      document.activeElement?.closest(".query-panel") ||
                      document.activeElement?.closest(".task") ||
                      document.activeElement?.closest(".project-card") ||
@@ -4803,7 +4813,11 @@
         projectId: item.project_id, item,
         search: [item.task_title, item.task_id].join(" ").toLocaleLowerCase()
       }))).filter(item => (!from || item.day >= from) && (!to || item.day <= to)
-        && (!project || item.projectId === project) && (!keyword || item.search.includes(keyword))
+        && (!project || (item.kind === "completion" ? item.projectId === project :
+          recordBelongsTo(item.record,{type:"project",project_id:project})))
+        && (!workFocusedStepId || (item.kind === "record" &&
+          (item.record.action_links||[]).some(link => link.target_type === "step" && link.target_id === workFocusedStepId)))
+        && (!keyword || item.search.includes(keyword))
         && (!workFocusedTaskId || (item.kind === "completion" ? item.item.task_id === workFocusedTaskId
           : item.record.task_id === workFocusedTaskId ||
             (item.record.action_links || []).some(link =>
@@ -5015,6 +5029,7 @@
     });
     $("work-filter-reset").addEventListener("click", () => {
       workFocusedTaskId = "";
+      workFocusedStepId = "";
       $("work-filter-keyword").value = "";
       $("work-filter-from").value = "";
       $("work-filter-to").value = "";
