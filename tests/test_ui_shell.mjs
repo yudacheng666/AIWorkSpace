@@ -58,7 +58,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
           "query-status", "query-date-field", "new-task-project", "new-task-related",
           "new-task-priority", "task-sort", "task-date-field", "calendar-granularity", "project-sort",
           "work-record-project", "work-record-task", "work-filter-project",
-          "work-inbox-project", "work-summary-period", "work-summary-project",
+          "work-inbox-project", "work-split-source", "work-stage-project", "work-summary-period", "work-summary-project", "work-summary-audience",
           "work-link-target", "work-link-relation", "work-action-source",
           "work-task-convert-source", "work-portfolio-project"]);
         elements.set(id, node(selects.has(id) ? "select" : "div"));
@@ -69,7 +69,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
   };
   const copied = [];
   const navigator = {clipboard: {writeText: async value => {copied.push(value);}}};
-  const window = {confirm, addEventListener() {}};
+  const window = {confirm, alert() {}, addEventListener() {}};
   const fetch = async (path, options) => {
     if (options?.method === "POST") {
       const body = JSON.parse(options.body);
@@ -105,7 +105,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, editWorkSummary, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask, progressPanel, recordBelongsTo})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes,
@@ -1747,7 +1747,11 @@ test("review generator submits source IDs and explicit confirmation without invo
   const preview = {period:"weekly",period_start:"2026-11-02",period_end:"2026-11-08",
     project_id:null,body:"# 周报（来源整理底稿）\n已记录工作事实",
     source_record_ids:[recordId],source_completion_ids:["demo-done-0001"],
-    record_count:1,completion_count:1};
+    record_count:1,completion_count:1,source_digest:"a".repeat(64),
+    record_sources:[{record_id:recordId,display_id:"R-261105-AAAAAAAAAAAA",
+      occurred_on:"2026-11-05",content:"已记录工作事实",outcome:null,featured:false}],
+    completion_sources:[{source_event_id:"demo-done-0001",occurred_at:"2026-11-05T08:00:00Z",
+      task_title:"虚构任务"}]};
   const h = harness([],()=>true,[],[],null,{preview});
   h.api.setActivePage("worklog");
   h.el("work-summary-period").value = "weekly";
@@ -1932,18 +1936,54 @@ test("cancelled task-to-record conversion does not POST and leaves the unsaved d
 });
 
 
-test("ChatGPT weekly analysis exports current source-linked context without writing or faking an AI backend", async () => {
-  const h=harness([],()=>true,[],[],null,{
-    analysis_context:{prompt:"来源分析：RECORD-AAAAAAAAAAAA，evt-00001",record_count:1,completion_count:1}
-  });
+test("ChatGPT weekly analysis copies only selected report sources and does not write", async () => {
+  const recordId = "RECORD-" + "A".repeat(32);
+  const ignoredId = "RECORD-" + "B".repeat(32);
+  const preview = {
+    period:"weekly",period_start:"2026-11-02",period_end:"2026-11-08",
+    project_id:null,body:"全部周报来源",source_digest:"b".repeat(64),
+    source_record_ids:[recordId,ignoredId],source_completion_ids:["evt-done-0001"],
+    record_count:2,completion_count:1,
+    record_sources:[
+      {record_id:recordId,display_id:"R-261105-AAAAAAAAAAAA",
+        occurred_on:"2026-11-05",content:"重要项目成果",outcome:"完成阶段成果",featured:true,
+        project_name:"虚构采购项目",task_title:"报价审核",
+        action_link_labels:[{label:"报价审核 / 核实供应商"}],
+        evidence_links:[{title:"虚构报价附件",url:"https://drive.google.com/file/d/fiction/view"}]},
+      {record_id:ignoredId,display_id:"R-261105-BBBBBBBBBBBB",
+        occurred_on:"2026-11-05",content:"不应出现在汇报里的日常琐事",outcome:null,featured:false}
+    ],
+    completion_sources:[{source_event_id:"evt-done-0001",occurred_at:"2026-11-05T08:00:00Z",
+      task_title:"已人工确认完成的工作"}]
+  };
+  const h=harness([],()=>true,[],[],null,{preview});
   await h.api.refresh(true);
+  h.api.setActivePage("worklog");
   h.el("work-summary-period").value="weekly";
   h.el("work-summary-date").value="2026-11-05";
-  h.el("work-summary-project").value="";
+  h.el("work-summary-audience").value="report";
+  await h.api.generateWorkSummary();
+  assert.match(h.el("work-summary-source-count").textContent,/已选 2 \/ 3/);
+  const importantInfo = h.el("work-summary-source-items").children[0].children[1].children[0].textContent;
+  assert.match(importantInfo,/R-261105-AAAAAAAAAAAA/);
+  assert.match(importantInfo,/虚构采购项目/);
+  assert.match(importantInfo,/报价审核 \/ 核实供应商/);
+  assert.match(importantInfo,/虚构报价附件/);
+  h.el("work-summary-select-all").handlers.get("click")[0]();
+  assert.match(h.el("work-summary-source-count").textContent,/已选 3 \/ 3/);
+  assert.match(h.el("work-summary-body").value,/不应出现在汇报里的日常琐事/);
+  h.el("work-summary-select-important").handlers.get("click")[0]();
+  assert.match(h.el("work-summary-source-count").textContent,/已选 2 \/ 3/);
+  assert.match(h.el("work-summary-body").value,/重要项目成果/);
+  assert.doesNotMatch(h.el("work-summary-body").value,/不应出现在汇报里的日常琐事/);
+  h.el("work-summary-select-none").handlers.get("click")[0]();
+  assert.match(h.el("work-summary-source-count").textContent,/已选 0 \/ 3/);
+  assert.doesNotMatch(h.el("work-summary-body").value,/重要项目成果/);
+  h.el("work-summary-select-important").handlers.get("click")[0]();
   await h.el("work-summary-copy-sources").handlers.get("click")[0]();
-  assert.equal(h.copied.at(-1),"来源分析：RECORD-AAAAAAAAAAAA，evt-00001");
-  assert.match(h.el("work-summary-message").textContent,/已复制含 1 条工作记录与 1 条任务完成来源/);
-  assert.equal(h.writes.length,0, "analysis handoff must be strictly read-only");
+  assert.match(h.copied.at(-1),/重要项目成果/);
+  assert.doesNotMatch(h.copied.at(-1),/不应出现在汇报里的日常琐事/);
+  assert.equal(h.writes.length,0,"report source handoff stays read-only");
 });
 
 test("featured achievement context copies only server-verified source data and surfaces conflict without writes", async () => {
@@ -1963,4 +2003,287 @@ test("featured achievement context copies only server-verified source data and s
   assert.equal(bad.copied.length,0);
   assert.match(bad.el("work-portfolio-message").textContent,/未复制成果来源/);
   assert.equal(bad.writes.length,0);
+});
+
+test("one step progress note belongs to step task and project timelines without task status writes", async () => {
+  const projectId = "PROJECT-" + "A".repeat(32);
+  const stepId = "STEP-" + "B".repeat(32);
+  const taskId = "TASK-UI-PROGRESS";
+  const task = {...sampleTask(),task_id:taskId,project_id:projectId,steps:[
+    {step_id:stepId,task_id:taskId,title:"催报价",status:"todo",revision:1}
+  ]};
+  const fact = {record_id:"RECORD-"+"C".repeat(32),occurred_on:"2026-11-09",
+    content:"已向供应商催促报价",project_id:projectId,task_id:taskId,
+    action_links:[{target_type:"step",target_id:stepId,task_id:taskId,relation:"progress_on"}]};
+  const h = harness([task],()=>true,[{project_id:projectId,name:"虚构采购"}],[],null,{records:[fact]});
+  await h.api.refresh(true);
+  await h.api.loadWorkRecords();
+  assert.equal(h.api.recordBelongsTo(fact,{type:"step",task_id:taskId,step_id:stepId}),true);
+  assert.equal(h.api.recordBelongsTo(fact,{type:"task",task_id:taskId}),true);
+  assert.equal(h.api.recordBelongsTo(fact,{type:"project",project_id:projectId}),true);
+  const panel = h.api.progressPanel({type:"step",project_id:projectId,task_id:taskId,step_id:stepId});
+  const form = panel.children.find(x=>x.tag==="form");
+  assert.ok(form,"step quick-progress form exists");
+  const textarea = form.children.find(x=>x.tag==="textarea");
+  const date = form.children.find(x=>x.tag==="input");
+  textarea.value = "新进展：供应商承诺核实货源";
+  date.value = "2026-11-09";
+  form.handlers.get("input")[0]();
+  await form.handlers.get("submit")[0]({preventDefault(){}});
+  const created = h.writes.find(x=>x.path==="/api/work-records");
+  assert.ok(created,"quick progress writes to the single work record API");
+  assert.equal(created.body.task_id,taskId);
+  assert.equal(created.body.project_id,projectId);
+  assert.equal(created.body.action_links[0].target_id,stepId);
+  assert.equal(Object.hasOwn(created.body,"status"),false);
+  assert.equal(Object.hasOwn(created.body,"confirmed_done"),false);
+});
+
+test("P3 one original note creates distinct reviewed work records with verified excerpts", async () => {
+  const inboxId="INBOX-"+"A".repeat(32);
+  const recordId="RECORD-"+"B".repeat(32);
+  const digest="c".repeat(64);
+  const source={inbox_id:inboxId,content:"上午核对虚构报价。\n下午确认虚构交期。",
+    source_digest:digest,occurred_on:"2026-11-09",project_id:null,
+    revision:1,processed_fragment_count:0,ignored:false,finished:false,conflict:false,
+    created_at:"2026-11-09T08:00:00Z"};
+  const saved={record_id:recordId,display_id:"R-261109-BBBBBBBBBBBB",
+    content:"已核对虚构报价",revision:1,source_inbox_id:inboxId,
+    occurred_on:"2026-11-09"};
+  const h=harness([],()=>true,[],[],(path,body)=>{
+    if(path==="/api/work-records")return {ok:true,json:async()=>({saved:true,record_id:recordId,
+      display_id:saved.display_id,revision:1})};
+    return {ok:true,json:async()=>({saved:true,revision:2})};
+  },{inbox:[source],records:[saved]});
+  await h.api.loadWorkArchive();
+  h.el("work-split-source").value=inboxId;
+  h.el("work-split-lines").handlers.get("click")[0]();
+  const suggested=JSON.parse(h.el("work-split-json").value);
+  assert.equal(suggested.facts.length,2);
+  assert.equal(suggested.source_digest,digest);
+  h.el("work-split-check").handlers.get("click")[0]();
+  assert.equal(h.el("work-split-review").children.length,2);
+  const first=h.el("work-split-review").children[0];
+  const save=first.children.find(child=>child.tag==="button");
+  await save.handlers.get("click")[0]();
+  assert.equal(h.writes.length,1);
+  assert.equal(h.writes[0].path,"/api/work-records");
+  assert.equal(h.writes[0].body.source_inbox_id,inboxId);
+  assert.equal(h.writes[0].body.source_fragment.excerpt,"上午核对虚构报价。");
+  assert.equal(h.writes[0].body.source_fragment.occurrence,1);
+  assert.equal(h.writes[0].body.source_fragment.source_digest,digest);
+  assert.equal(Object.hasOwn(h.writes[0].body,"status"),false);
+  assert.equal(Object.hasOwn(h.writes[0].body,"confirmed_done"),false);
+  const rebuilt=h.el("work-split-review").children[0];
+  assert.match(rebuilt.children[0].textContent,/已保存/);
+  assert.equal(rebuilt.children.find(child=>child.tag==="button").disabled,true);
+});
+
+test("P3 rejects invented and overlapping quotes before any write and keeps follow-ups read-only", async () => {
+  const inboxId="INBOX-"+"E".repeat(32),digest="e".repeat(64);
+  const source={inbox_id:inboxId,content:"会议讨论了采购计划。\n后续核实供应商交期。",
+    occurred_on:null,project_id:null,source_digest:digest,
+    ignored:false,finished:false,conflict:false,revision:1};
+  const h=harness([],()=>true,[],[],null,{inbox:[source]});
+  await h.api.loadWorkArchive();
+  h.el("work-split-source").value=inboxId;
+  const plan={
+    version:1,inbox_id:inboxId,source_digest:digest,
+    facts:[{excerpt:"根本没说过的话",occurrence:1,
+      content:"编造的工作完成",occurred_on:"2026-11-09",outcome:null}],
+    follow_ups:[{title:"未来催供应商",due_date:null}]
+  };
+  h.el("work-split-json").value=JSON.stringify(plan);
+  h.el("work-split-check").handlers.get("click")[0]();
+  assert.match(h.el("work-split-message").textContent,/原文不存在/);
+  assert.equal(h.writes.length,0);
+  plan.facts=[{excerpt:"会议讨论了采购计划。",occurrence:1,
+    content:"已开会讨论",occurred_on:null,outcome:null},
+    {excerpt:"讨论了采购",occurrence:1,
+    content:"重复同一事件",occurred_on:null,outcome:null}];
+  h.el("work-split-json").value=JSON.stringify(plan);
+  h.el("work-split-check").handlers.get("click")[0]();
+  assert.match(h.el("work-split-message").textContent,/重叠原文/);
+  plan.facts.pop();
+  h.el("work-split-json").value=JSON.stringify(plan);
+  h.el("work-split-check").handlers.get("click")[0]();
+  assert.equal(h.el("work-split-review").children.length,2,"fact + future suggestion");
+  const first=h.el("work-split-review").children[0];
+  const save=first.children.find(child=>child.tag==="button");
+  await save.handlers.get("click")[0]();
+  assert.match(h.el("work-split-message").textContent,/补齐合法的发生日期/);
+  assert.equal(h.writes.length,0);
+  assert.match(h.el("work-split-review").children[1].textContent ||
+    h.el("work-split-review").children[1].children.map(x=>x.textContent).join(""),
+    /未来待办建议/);
+});
+
+test("integration: changing a split source cannot discard an unsaved reviewed draft", async () => {
+  const a="INBOX-"+"A".repeat(32),b="INBOX-"+"B".repeat(32);
+  const first={inbox_id:a,content:"虚构采购上午核对报价。",source_digest:"a".repeat(64),
+    revision:1,occurred_on:"2026-11-09",ignored:false,finished:false,conflict:false};
+  const second={...first,inbox_id:b,content:"虚构采购下午核对交期。",source_digest:"b".repeat(64)};
+  const h=harness([],()=>false,[],[],null,{inbox:[first,second]});
+  await h.api.loadWorkArchive();
+  h.el("work-split-source").value=a;
+  h.el("work-split-source").handlers.get("change")[0]();
+  h.el("work-split-lines").handlers.get("click")[0]();
+  h.el("work-split-check").handlers.get("click")[0]();
+  const originalJson=h.el("work-split-json").value;
+  assert.equal(h.el("work-split-review").children.length,1);
+  h.el("work-split-source").value=b;
+  h.el("work-split-source").handlers.get("change")[0]();
+  assert.equal(h.el("work-split-source").value,a);
+  assert.equal(h.el("work-split-json").value,originalJson);
+  assert.equal(h.el("work-split-review").children.length,1);
+  assert.equal(h.writes.length,0);
+});
+
+test("integration: edited AI plan must be re-reviewed before writing a fact", async () => {
+  const inboxId="INBOX-"+"C".repeat(32);
+  const source={inbox_id:inboxId,content:"虚构项目已核对报价。",source_digest:"c".repeat(64),
+    revision:1,occurred_on:"2026-11-09",ignored:false,finished:false,conflict:false};
+  const h=harness([],()=>true,[],[],null,{inbox:[source]});
+  await h.api.loadWorkArchive();
+  h.el("work-split-source").value=inboxId;
+  h.el("work-split-lines").handlers.get("click")[0]();
+  h.el("work-split-check").handlers.get("click")[0]();
+  const oldCard=h.el("work-split-review").children[0];
+  const oldSave=oldCard.children.find(node=>node.tag==="button");
+  const payload=JSON.parse(h.el("work-split-json").value);
+  payload.facts[0].content="虚构项目已经确认采购（尚未核实）";
+  h.el("work-split-json").value=JSON.stringify(payload);
+  h.el("work-split-json").handlers.get("input")[0]();
+  await oldSave.handlers.get("click")[0]();
+  assert.equal(h.writes.length,0);
+  assert.match(h.el("work-split-message").textContent,/重新点击/);
+  h.el("work-split-check").handlers.get("click")[0]();
+  const freshSave=h.el("work-split-review").children[0].children.find(node=>node.tag==="button");
+  await freshSave.handlers.get("click")[0]();
+  assert.equal(h.writes.length,1);
+  assert.equal(h.writes[0].body.content,payload.facts[0].content);
+  assert.equal(Object.hasOwn(h.writes[0].body,"status"),false);
+});
+
+test("integration: previously saved inbox fragments are marked complete on reopen", async () => {
+  const inboxId="INBOX-"+"D".repeat(32),savedId="RECORD-"+"A".repeat(32);
+  const content="上午检查虚构报价。\n下午核对虚构交期。";
+  const excerpt="上午检查虚构报价。";
+  const source={inbox_id:inboxId,content,source_digest:"d".repeat(64),
+    processed_fragment_count:1,
+    processed_fragments:[{record_id:savedId,excerpt,occurrence:1,start:0,end:excerpt.length}],
+    revision:1,occurred_on:"2026-11-09",ignored:false,finished:false,conflict:false};
+  const h=harness([],()=>true,[],[],null,{inbox:[source]});
+  await h.api.loadWorkArchive();
+  h.el("work-split-source").value=inboxId;
+  h.el("work-split-lines").handlers.get("click")[0]();
+  h.el("work-split-check").handlers.get("click")[0]();
+  const cards=h.el("work-split-review").children;
+  assert.equal(cards.length,2);
+  assert.match(cards[0].children[0].textContent,/已保存/);
+  assert.equal(cards[0].children.find(x=>x.tag==="button").disabled,true);
+  assert.equal(cards[1].children.find(x=>x.tag==="button").disabled,false);
+  const untouched=cards[0].children.find(x=>x.tag==="button");
+  await untouched.handlers.get("click")[0]();
+  assert.equal(h.writes.length,0);
+  const pending=cards[1].children.find(x=>x.tag==="button");
+  await pending.handlers.get("click")[0]();
+  assert.equal(h.writes.length,1);
+  assert.equal(h.writes[0].body.source_fragment.excerpt,"下午核对虚构交期。");
+});
+
+test("P3 project stage timeline deduplicates project task and step records and copies source-only context", async () => {
+  const projectId="PROJECT-"+"F".repeat(32);
+  const taskId="TASK-UI-STAGE";
+  const task={...sampleTask(),task_id:taskId,project_id:projectId,title:"虚构采购任务"};
+  const firstId="RECORD-"+"A".repeat(32);
+  const secondId="RECORD-"+"B".repeat(32);
+  const unrelatedId="RECORD-"+"C".repeat(32);
+  const work={
+    records:[
+      {record_id:firstId,display_id:"R-261109-AAAAAAAAAAAA",occurred_on:"2026-11-09",
+        content:"已完成虚构设备现场核查",project_id:projectId},
+      {record_id:secondId,display_id:"R-261108-BBBBBBBBBBBB",occurred_on:"2026-11-08",
+        content:"已催促虚构供应商报价",task_id:taskId,project_id:null,
+        action_links:[{target_type:"step",task_id:taskId,target_id:"STEP-"+"D".repeat(32),relation:"progress_on"}]},
+      {record_id:secondId,display_id:"R-261108-BBBBBBBBBBBB",occurred_on:"2026-11-08",
+        content:"已催促虚构供应商报价",task_id:taskId,project_id:null},
+      {record_id:unrelatedId,occurred_on:"2026-11-09",content:"另一个不相关项目",project_id:"PROJECT-"+"E".repeat(32)}
+    ],
+    task_completions:[{source_event_id:"stage-completion-0001",occurred_at:"2026-11-09T06:00:00Z",
+      task_title:"人工确认完成的虚构工作",project_id:projectId,task_id:taskId}]
+  };
+  const h=harness([task],()=>true,[{project_id:projectId,name:"虚构采购项目"}],[],null,work);
+  await h.api.refresh(true);
+  h.el("work-stage-project").value=projectId;
+  h.el("work-stage-start").value="2026-11-01";
+  h.el("work-stage-end").value="2026-11-09";
+  await h.el("work-stage-show").handlers.get("click")[0]();
+  assert.match(h.el("work-stage-message").textContent,/2 条独立工作事实、1 次人工任务完成/);
+  assert.equal(h.el("work-stage-list").children.length,2);
+  assert.equal(h.el("work-stage-copy").disabled,false);
+  await h.el("work-stage-copy").handlers.get("click")[0]();
+  const copied=h.copied.at(-1);
+  assert.match(copied,/已完成虚构设备现场核查/);
+  assert.match(copied,/已催促虚构供应商报价/);
+  assert.match(copied,/stage-completion-0001/);
+  assert.doesNotMatch(copied,/另一个不相关项目/);
+  assert.equal(h.writes.length,0,"stage generation and export are strictly read-only");
+  assert.equal(h.el("work-stage-report").disabled,false);
+  h.el("work-stage-report").handlers.get("click")[0]();
+  assert.equal(h.el("work-summary-period").value,"monthly");
+  assert.equal(h.el("work-summary-date").value,"2026-11-09");
+  assert.equal(h.el("work-summary-project").value,projectId);
+  assert.equal(h.el("work-summary-audience").value,"report");
+  assert.match(h.el("work-summary-message").textContent,/请点击.*生成来源底稿/);
+  assert.equal(h.writes.length,0,"handoff is a filter change, not a save");
+});
+
+test("saved report reselects sources only after deliberate rebuild and appends one revision", async () => {
+  const included = "RECORD-"+"A".repeat(32);
+  const excluded = "RECORD-"+"B".repeat(32);
+  const summaryId = "SUMMARY-"+"C".repeat(32);
+  const preview = {
+    period:"weekly",period_start:"2026-11-02",period_end:"2026-11-08",
+    project_id:null,body:"# 全部旧来源",
+    source_digest:"c".repeat(64),source_record_ids:[included,excluded],
+    source_completion_ids:[],record_count:2,completion_count:0,
+    record_sources:[
+      {record_id:included,occurred_on:"2026-11-05",display_id:"R-261105-AAAAAAAAAAAA",
+        content:"本周落实重要采购事项",outcome:"形成采购建议",featured:true},
+      {record_id:excluded,occurred_on:"2026-11-05",display_id:"R-261105-BBBBBBBBBBBB",
+        content:"不需要出现在汇报中的小事",outcome:null,featured:false}
+    ],
+    completion_sources:[]
+  };
+  const saved={summary_id:summaryId,revision:2,conflict:false,
+    period:"weekly",period_start:"2026-11-02",period_end:"2026-11-08",
+    project_id:null,body:"这是之前人工写的报告正文",audience:"report",
+    confirmed:true,source_record_ids:[included,excluded],source_completion_ids:[],
+    included_record_ids:[included],included_completion_ids:[],source_digest:"old-digest"};
+  const h=harness([],()=>true,[],[],null,{preview,summaries:[saved]});
+  await h.api.refresh(true);
+  await h.api.loadWorkArchive();
+  h.api.setActivePage("worklog");
+  h.api.editWorkSummary(summaryId);
+  assert.equal(h.el("work-summary-body").value,saved.body);
+  assert.equal(h.el("work-summary-edit-sources").hidden,false);
+  await h.el("work-summary-edit-sources").handlers.get("click")[0]();
+  assert.equal(h.el("work-summary-body").value,saved.body,"opening source editor does not erase wording");
+  assert.equal(h.el("work-summary-source-items").children.length,2);
+  await h.api.saveWorkSummary({preventDefault() {}});
+  assert.equal(h.writes.length,0,"cannot save stale body before reselect rebuild");
+  await h.el("work-summary-rebuild").handlers.get("click")[0]();
+  assert.match(h.el("work-summary-body").value,/本周落实重要采购事项/);
+  assert.doesNotMatch(h.el("work-summary-body").value,/不需要出现在汇报中的小事/);
+  await h.api.saveWorkSummary({preventDefault() {}});
+  assert.equal(h.writes.length,1);
+  assert.equal(h.writes[0].path,"/api/work-archive/summaries/"+summaryId+"/reselect");
+  assert.equal(h.writes[0].body.revision,2);
+  assert.equal(h.writes[0].body.confirmed_reselect,true);
+  assert.equal(h.writes[0].body.confirmed,false);
+  assert.equal(h.writes[0].body.source_digest,preview.source_digest);
+  assert.deepEqual(h.writes[0].body.included_record_ids,[included]);
+  assert.deepEqual(h.writes[0].body.source_record_ids,[included,excluded]);
+  assert.equal(h.writes[0].body.body.includes("不需要出现在汇报中的小事"),false);
 });

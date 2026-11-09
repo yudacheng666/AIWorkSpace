@@ -1750,11 +1750,11 @@ def append_step_event(data_dir: Path, event: dict) -> Path:
 
 WORK_RECORD_FIELDS = {"content", "occurred_on", "project_id", "task_id",
                       "outcome", "duration_minutes", "action_links", "featured",
-                      "source_inbox_id", "evidence_links"}
+                      "source_inbox_id", "source_fragment", "evidence_links"}
 WORK_RECORD_DEFAULTS = {"project_id": None, "task_id": None,
                         "outcome": None, "duration_minutes": None,
                         "action_links": [], "featured": False, "source_inbox_id": None,
-                        "evidence_links": []}
+                        "source_fragment": None, "evidence_links": []}
 
 
 def validate_work_record_event(value: object) -> dict:
@@ -1826,6 +1826,19 @@ def validate_work_record_event(value: object) -> dict:
             raise ValueError("invalid source inbox ID")
         if value["action"] != "create":
             raise ValueError("source inbox association is immutable")
+    if "source_fragment" in changes:
+        frag = changes["source_fragment"]
+        if (value["action"] != "create" or
+                not isinstance(changes.get("source_inbox_id"), str) or
+                not isinstance(frag, dict) or
+                set(frag) != {"excerpt", "occurrence", "source_digest"} or
+                not isinstance(frag["excerpt"], str) or
+                not 1 <= len(frag["excerpt"]) <= 4000 or
+                not frag["excerpt"].strip() or
+                type(frag["occurrence"]) is not int or not 1 <= frag["occurrence"] <= 40 or
+                not isinstance(frag["source_digest"], str) or
+                not re.fullmatch(r"[0-9a-f]{64}", frag["source_digest"])):
+            raise ValueError("invalid immutable inbox source fragment")
     if "evidence_links" in changes:
         validate_document_links(changes["evidence_links"])
     if "action_links" in changes:
@@ -2281,14 +2294,34 @@ def validate_work_archive_event(value: object, kind: str) -> dict:
         elif action == "dismiss":
             if revision != 1 or value["actor"] != "user" or changes != {"ignored": True}:
                 raise ValueError("inbox dismiss requires explicit user revision")
+        elif action == "finish":
+            if revision < 1 or value["actor"] != "user" or (
+                    set(changes) != {"finished", "record_ids"} or
+                    changes.get("finished") is not True or
+                    not isinstance(changes["record_ids"], list) or
+                    not 1 <= len(changes["record_ids"]) <= 250 or
+                    any(not isinstance(rid, str) or not WORK_RECORD_ID.fullmatch(rid)
+                        for rid in changes["record_ids"]) or
+                    len(changes["record_ids"]) != len(set(changes["record_ids"]))):
+                raise ValueError("inbox finish requires confirmed source record snapshot")
         else:
             raise ValueError("invalid inbox action")
     else:
         if action == "create":
             required = {"period", "period_start", "period_end", "project_id",
                         "body", "source_record_ids", "source_completion_ids", "confirmed"}
-            if revision != 0 or set(changes) != required:
+            optional = {"audience", "included_record_ids", "included_completion_ids",
+                        "source_digest"}
+            present_optional = set(changes) & optional
+            if revision != 0 or not required <= set(changes) or set(changes) - (required | optional):
                 raise ValueError("summary creation requires all fields")
+            if present_optional and present_optional != optional:
+                raise ValueError("summary source selection requires audience and both included lists")
+            if present_optional and changes["audience"] not in {"personal", "report"}:
+                raise ValueError("invalid summary audience")
+            if present_optional and (not isinstance(changes["source_digest"], str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", changes["source_digest"])):
+                raise ValueError("invalid summary source digest")
             if changes["period"] not in {"daily", "weekly", "monthly"}:
                 raise ValueError("invalid summary period")
             _archive_day(changes["period_start"])
@@ -2307,9 +2340,44 @@ def validate_work_archive_event(value: object, kind: str) -> dict:
                         not isinstance(item, str) or not pattern.fullmatch(item) for item in ids
                 ) or len(ids) != len(set(ids)):
                     raise ValueError("invalid summary source IDs")
+            if present_optional:
+                for included_key, source_key in (
+                        ("included_record_ids", "source_record_ids"),
+                        ("included_completion_ids", "source_completion_ids")):
+                    ids = changes[included_key]
+                    if not isinstance(ids, list) or len(ids) != len(set(ids)) or any(
+                            not isinstance(item, str) for item in ids):
+                        raise ValueError("invalid included summary IDs")
+                    if not set(ids) <= set(changes[source_key]):
+                        raise ValueError("included sources must be a subset of candidates")
         elif action == "update":
             if revision < 1 or set(changes) - {"body", "confirmed"}:
                 raise ValueError("invalid summary update fields")
+        elif action == "reselect":
+            required = {"body", "confirmed", "audience", "source_digest",
+                        "source_record_ids", "source_completion_ids",
+                        "included_record_ids", "included_completion_ids"}
+            if revision < 1 or value["actor"] != "user" or set(changes) != required:
+                raise ValueError("reselect requires a complete user-approved source snapshot")
+            if changes["confirmed"] is not False:
+                raise ValueError("source reselection clears prior human confirmation")
+            if changes["audience"] not in {"personal", "report"} or (
+                    not isinstance(changes["source_digest"], str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", changes["source_digest"])):
+                raise ValueError("invalid reselected audience or source digest")
+            for key, pattern in (("source_record_ids", WORK_RECORD_ID),
+                                 ("source_completion_ids", EVENT_ID)):
+                ids = changes[key]
+                if not isinstance(ids, list) or len(ids) > 250 or len(ids) != len(set(ids)) or any(
+                        not isinstance(i, str) or not pattern.fullmatch(i) for i in ids):
+                    raise ValueError("invalid reselection candidate IDs")
+            for included_key, source_key in (
+                    ("included_record_ids", "source_record_ids"),
+                    ("included_completion_ids", "source_completion_ids")):
+                ids = changes[included_key]
+                if not isinstance(ids, list) or len(ids) != len(set(ids)) or any(
+                        not isinstance(i, str) for i in ids) or not set(ids) <= set(changes[source_key]):
+                    raise ValueError("reselected sources must be unique candidates")
         else:
             raise ValueError("invalid summary action")
         if "body" in changes and (not isinstance(changes["body"], str) or
@@ -2367,6 +2435,13 @@ def read_work_archive_events(data_dir: Path, kind: str) -> dict:
         if kind == "inbox":
             item.setdefault("project_id", None)
             item["ignored"] = False
+            item["finished"] = False
+        else:
+            # Older summaries contain every source and have no audience field.
+            item.setdefault("audience", "personal")
+            item.setdefault("source_digest", None)
+            item.setdefault("included_record_ids", list(item["source_record_ids"]))
+            item.setdefault("included_completion_ids", list(item["source_completion_ids"]))
         by_revision: dict[int, list[dict]] = defaultdict(list)
         for event in updates[object_id]:
             by_revision[event["base_revision"]].append(event)
@@ -2395,6 +2470,23 @@ def append_work_archive_event(data_dir: Path, kind: str, event: dict) -> Path:
     return _append_json_event(data_dir, event, ARCHIVE_KIND_META[kind][2])
 
 
+def locate_inbox_fragment(source: dict, fragment: dict) -> tuple[int, int]:
+    """Locate an immutable exact quote, using 1-based nonoverlapping occurrence.
+    Character positions are computed by Python, never guessed by an AI.
+    """
+    content = source.get("content")
+    if not isinstance(content, str) or not isinstance(fragment, dict):
+        raise ValueError("inbox fragment source missing")
+    if (hashlib.sha256(content.encode("utf-8")).hexdigest() != fragment["source_digest"]):
+        raise ValueError("inbox source digest changed")
+    pos = -1
+    for _ in range(fragment["occurrence"]):
+        pos = content.find(fragment["excerpt"], pos + 1)
+        if pos < 0:
+            raise ValueError("inbox excerpt or occurrence not found in original")
+    return pos, pos + len(fragment["excerpt"])
+
+
 def read_work_inbox(data_dir: Path, records: list[dict] | None = None) -> dict:
     result = read_work_archive_events(data_dir, "inbox")
     if records is None:
@@ -2404,12 +2496,53 @@ def read_work_inbox(data_dir: Path, records: list[dict] | None = None) -> dict:
         if record.get("source_inbox_id"):
             links[record["source_inbox_id"]].append(record)
     for item in result["items"]:
+        if item.get("conflict"):
+            continue
+        item["source_digest"] = hashlib.sha256(item["content"].encode("utf-8")).hexdigest()
         attached = links.get(item["inbox_id"], [])
-        if attached:
-            item["processed_record_id"] = attached[0]["record_id"] if len(attached) == 1 else None
-            if len(attached) != 1 or attached[0].get("conflict"):
+        item["processed_fragments"] = []
+        item["processed_fragment_count"] = 0
+        if not attached:
+            if item.get("finished"):
                 item["conflict"] = True
-                result["warnings"].append(item["inbox_id"] + ": duplicate or conflicted source links")
+                result["warnings"].append(item["inbox_id"] +
+                                          ": finish is ahead of its source records")
+            continue
+        legacy = [r for r in attached if not r.get("source_fragment")]
+        fragments = [r for r in attached if r.get("source_fragment")]
+        if legacy:
+            item["processed_record_id"] = legacy[0]["record_id"]
+        spans = []
+        corrupt = len(legacy) > 1 or bool(legacy and fragments)
+        for record in fragments:
+            try:
+                if record.get("conflict"):
+                    raise ValueError("source record is conflicted")
+                start, end = locate_inbox_fragment(item, record["source_fragment"])
+                if any(start < old_end and old_start < end
+                       for old_start, old_end in spans):
+                    raise ValueError("overlapping source fragments")
+                spans.append((start, end))
+                item["processed_fragments"].append({
+                    "record_id": record["record_id"], "start": start, "end": end,
+                    "excerpt": record["source_fragment"]["excerpt"],
+                    "occurrence": record["source_fragment"]["occurrence"]
+                })
+            except (KeyError, TypeError, ValueError):
+                corrupt = True
+        item["processed_fragment_count"] = len(item["processed_fragments"])
+        if item.get("finished"):
+            # A finish event can reach a second device before the facts that
+            # were confirmed with it. Hide the inbox only after the complete
+            # immutable source set is present and nonconflicting.
+            actual = {r["record_id"] for r in fragments}
+            declared = item.get("record_ids", [])
+            if not fragments or len(actual) != len(fragments) or set(declared) != actual:
+                corrupt = True
+        if corrupt or any(r.get("conflict") for r in legacy):
+            item["conflict"] = True
+            result["warnings"].append(item["inbox_id"] +
+                                      ": overlapping, stale or conflicted source fragments")
     return result
 
 
@@ -2445,9 +2578,22 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
     state = read_work_records(data_dir)
     if state["warnings"]:
         raise LookupError("work record source has unresolved warnings; check before summarizing")
+    # An event written under a step/task belongs to its primary project's
+    # timeline too; do not duplicate or rewrite the underlying RECORD.
+    primary_tasks = {t["task_id"] for t in workspace["tasks"]
+                     if not t.get("conflict") and t.get("project_id") == project_id}
+
+    def belongs_to_project(record: dict) -> bool:
+        if project_id is None or record.get("project_id") == project_id:
+            return True
+        if record.get("task_id") in primary_tasks:
+            return True
+        return any((link.get("task_id") if link["target_type"] == "step"
+                    else link["target_id"]) in primary_tasks
+                   for link in record.get("action_links", []))
+
     records = sorted((r for r in state["records"] if not r.get("conflict")
-                      and start <= r["occurred_on"] <= end
-                      and (project_id is None or r.get("project_id") == project_id)),
+                      and start <= r["occurred_on"] <= end and belongs_to_project(r)),
                      key=lambda item: (item["occurred_on"], item["record_id"]))
     completed = []
     for event in read_task_completion_activity(data_dir, workspace):
@@ -2459,6 +2605,41 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
     if len(records) > 250 or len(completed) > 250:
         raise ValueError("too many work sources in this period; narrow project or date")
     duration = sum(r.get("duration_minutes") or 0 for r in records)
+    projects_by_id = {p["project_id"]: p for p in workspace["projects"]
+                      if not p.get("conflict")}
+    tasks_by_id = {t["task_id"]: t for t in workspace["tasks"]
+                   if not t.get("conflict")}
+    record_sources = []
+    for r in records:
+        task = tasks_by_id.get(r.get("task_id"))
+        project = projects_by_id.get(r.get("project_id"))
+        annotated = {**r}
+        label_work_associations(annotated, workspace)
+        record_sources.append({
+            "record_id": r["record_id"], "display_id": r["display_id"],
+            "revision": r["revision"], "occurred_on": r["occurred_on"],
+            "content": r["content"], "outcome": r.get("outcome"),
+            "featured": r.get("featured", False),
+            "duration_minutes": r.get("duration_minutes"),
+            "project_id": r.get("project_id"),
+            "project_name": project.get("name") if project else None,
+            "task_id": r.get("task_id"),
+            "task_title": task.get("title") if task else None,
+            "action_links": r.get("action_links", []),
+            "action_link_labels": annotated["action_link_labels"],
+            "evidence_links": r.get("evidence_links", [])
+        })
+    # The digest includes the rendered source context, not merely the IDs.
+    # A late project/task label or evidence revision must not be silently used
+    # with an already reviewed set of report inputs.
+    fingerprint_sources = {
+        "records": record_sources,
+        "completions": [{"id": e["source_event_id"], "occurred_at": e["occurred_at"],
+                          "task_title": e["task_title"]} for e in completed]
+    }
+    source_digest = hashlib.sha256(json.dumps(
+        fingerprint_sources, ensure_ascii=False, sort_keys=True,
+        separators=(",", ":")).encode("utf-8")).hexdigest()
     heading = {"daily": "日报", "weekly": "周报", "monthly": "月报"}[period]
     lines = ["# " + heading + "（来源整理底稿，非 AI 自动分析）",
              "期间：" + start + " 至 " + end,
@@ -2489,7 +2670,13 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
             "source_record_ids": [r["record_id"] for r in records],
             "source_completion_ids": [e["source_event_id"] for e in completed],
             "record_count": len(records), "completion_count": len(completed),
-            "duration_minutes": duration}
+            "duration_minutes": duration,
+            "source_digest": source_digest,
+            "record_sources": record_sources,
+            "completion_sources": [
+                {"source_event_id": e["source_event_id"], "occurred_at": e["occurred_at"],
+                 "task_title": e["task_title"]} for e in completed
+            ]}
 
 
 
@@ -4088,8 +4275,11 @@ def handler_factory(data_dir: Path):
             creating_work_record = path == "/api/work-records"
             creating_inbox = path == "/api/work-archive/inbox"
             inbox_ignore = re.fullmatch(r"/api/work-archive/inbox/(INBOX-[A-F0-9]{32})/ignore", path)
+            inbox_finish = re.fullmatch(r"/api/work-archive/inbox/(INBOX-[A-F0-9]{32})/finish", path)
             creating_summary = path == "/api/work-archive/summaries"
             summary_edit = re.fullmatch(r"/api/work-archive/summaries/(SUMMARY-[A-F0-9]{32})/update", path)
+            summary_reselect = re.fullmatch(
+                r"/api/work-archive/summaries/(SUMMARY-[A-F0-9]{32})/reselect", path)
             action_preview = path == "/api/work-archive/actions/preview"
             action_create = path == "/api/work-archive/actions/create"
             action_link = path == "/api/work-archive/actions/link"
@@ -4098,7 +4288,7 @@ def handler_factory(data_dir: Path):
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
-            if not (creating_work_record or work_record_match or creating_inbox or inbox_ignore or creating_summary or summary_edit or action_preview or action_create or action_link or task_record_match or creating_task or creating_project or task_match or recurrence_match or project_match or
+            if not (creating_work_record or work_record_match or creating_inbox or inbox_ignore or inbox_finish or creating_summary or summary_edit or summary_reselect or action_preview or action_create or action_link or task_record_match or creating_task or creating_project or task_match or recurrence_match or project_match or
                     step_create_match or step_update_match or step_reorder_match or
                     step_documents_match or step_delete_match or step_convert_match or task_convert_match or applying_update or
                     documents_match or lifecycle_match or changing_retention or review_match):
@@ -4149,7 +4339,7 @@ def handler_factory(data_dir: Path):
 
             try:
                 archive_request = (creating_work_record or work_record_match or creating_inbox or
-                                   inbox_ignore or creating_summary or summary_edit or
+                                   inbox_ignore or creating_summary or summary_edit or summary_reselect or
                                    action_preview or action_create or action_link or task_record_match)
                 payload = self.read_payload(MAX_WORK_RECORD_BODY if archive_request else MAX_BODY)
                 if task_record_match:
@@ -4325,7 +4515,8 @@ def handler_factory(data_dir: Path):
                         if old is None:
                             return self.json_response(404, {"error": "inbox item not found"})
                         if old["conflict"] or old["revision"] != payload["revision"] or (
-                                old.get("ignored") or old.get("processed_record_id")):
+                                old.get("ignored") or old.get("finished") or old.get("processed_record_id") or
+                                old.get("processed_fragment_count")):
                             return self.json_response(409, {"error": "inbox item already handled or conflicted"})
                         event = {"version": 1, "event_id": str(uuid.uuid4()),
                                  "inbox_id": old["inbox_id"], "action": "dismiss", "actor": "user",
@@ -4333,22 +4524,58 @@ def handler_factory(data_dir: Path):
                                  "changes": {"ignored": True}}
                         append_work_archive_event(data_dir, "inbox", event)
                     return self.json_response(200, {"saved": True, "revision": old["revision"] + 1})
+                if inbox_finish:
+                    if set(payload) != {"revision", "confirmed_finish"} or (
+                            type(payload["revision"]) is not int or
+                            payload["confirmed_finish"] is not True):
+                        raise ValueError("finishing inbox requires explicit user confirmation")
+                    with _write_lock:
+                        state = read_work_inbox(data_dir)
+                        item = next((x for x in state["items"]
+                                     if x["inbox_id"] == inbox_finish.group(1)), None)
+                        if item is None:
+                            return self.json_response(404, {"error": "inbox item not found"})
+                        if (item["conflict"] or item["revision"] != payload["revision"] or
+                                item.get("ignored") or item.get("finished") or
+                                item.get("processed_record_id") or
+                                not item.get("processed_fragment_count")):
+                            return self.json_response(409, {
+                                "error": "inbox needs valid saved fragments and current revision"})
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "inbox_id": item["inbox_id"], "action": "finish",
+                                 "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": item["revision"],
+                                 "changes": {
+                                     "finished": True,
+                                     "record_ids": sorted(fragment["record_id"]
+                                                          for fragment in item["processed_fragments"])}}
+                        append_work_archive_event(data_dir, "inbox", event)
+                    return self.json_response(200, {
+                        "saved": True, "revision": item["revision"] + 1,
+                        "record_count": item["processed_fragment_count"]})
                 if creating_summary:
                     required = {"period", "day", "project_id", "body", "confirmed",
                                 "source_record_ids", "source_completion_ids"}
-                    if set(payload) != required:
+                    optional = {"audience", "included_record_ids", "included_completion_ids",
+                        "source_digest"}
+                    provided_optional = set(payload) & optional
+                    if not required <= set(payload) or set(payload) - (required | optional) or (
+                            provided_optional and provided_optional != optional):
                         raise ValueError("invalid work summary input")
                     with _write_lock:
                         workspace = read_workspace(data_dir)
                         preview = preview_work_review(data_dir, workspace, payload["period"],
                                                       payload["day"], payload["project_id"])
                         if (payload["source_record_ids"] != preview["source_record_ids"] or
-                                payload["source_completion_ids"] != preview["source_completion_ids"]):
+                                payload["source_completion_ids"] != preview["source_completion_ids"] or
+                                (provided_optional and payload["source_digest"] != preview["source_digest"])):
                             return self.json_response(409, {"error": "summary sources changed; regenerate"})
                         sid = "SUMMARY-" + uuid.uuid4().hex.upper()
                         changes = {key: preview[key] for key in (
                             "period", "period_start", "period_end", "project_id",
                             "source_record_ids", "source_completion_ids")}
+                        if provided_optional:
+                            changes.update({key: payload[key] for key in optional})
                         changes["body"] = payload["body"]
                         changes["confirmed"] = payload["confirmed"]
                         event = {"version": 1, "event_id": str(uuid.uuid4()),
@@ -4356,6 +4583,50 @@ def handler_factory(data_dir: Path):
                                  "timestamp": utc_now(), "base_revision": 0, "changes": changes}
                         append_work_archive_event(data_dir, "summary", event)
                     return self.json_response(201, {"saved": True, "summary_id": sid, "revision": 1})
+                if summary_reselect:
+                    required = {"revision", "audience", "source_digest", "body", "confirmed",
+                                "source_record_ids", "source_completion_ids",
+                                "included_record_ids", "included_completion_ids",
+                                "confirmed_reselect"}
+                    if set(payload) != required or payload["confirmed_reselect"] is not True or (
+                            type(payload["revision"]) is not int or payload["revision"] < 1):
+                        raise ValueError("summary reselection requires explicit approval and revision")
+                    # Validate syntax and source-set membership before comparing the
+                    # digest against live state: malformed input is 400, while a
+                    # well-formed stale snapshot is 409.
+                    changes = {key: value for key, value in payload.items()
+                               if key not in {"revision", "confirmed_reselect"}}
+                    event = {"version": 1, "event_id": str(uuid.uuid4()),
+                             "summary_id": summary_reselect.group(1), "action": "reselect",
+                             "actor": "user", "timestamp": utc_now(),
+                             "base_revision": payload["revision"], "changes": changes}
+                    validate_work_archive_event(event, "summary")
+                    with _write_lock:
+                        state = read_work_archive_events(data_dir, "summary")
+                        prior = next((x for x in state["items"]
+                                      if x["summary_id"] == summary_reselect.group(1)), None)
+                        if prior is None:
+                            return self.json_response(404, {"error": "summary not found"})
+                        if prior["conflict"] or prior["revision"] != payload["revision"]:
+                            return self.json_response(409, {"error": "summary changed or conflicted; reopen"})
+                        if state["warnings"]:
+                            return self.json_response(409, {"error": "summary source history needs review"})
+                        # The original period and project are immutable; new sources are
+                        # allowed only after a fresh preview and explicit reselection.
+                        workspace = read_workspace(data_dir)
+                        preview = preview_work_review(data_dir, workspace, prior["period"],
+                                                      prior["period_start"], prior.get("project_id"))
+                        if (payload["source_record_ids"] != preview["source_record_ids"] or
+                                payload["source_completion_ids"] != preview["source_completion_ids"] or
+                                payload["source_digest"] != preview["source_digest"]):
+                            return self.json_response(409, {
+                                "error": "summary sources changed; regenerate and select again"})
+                        # The prevalidated event is committed only after the
+                        # summary revision and complete source digest match.
+                        append_work_archive_event(data_dir, "summary", event)
+                    return self.json_response(200, {
+                        "saved": True, "revision": prior["revision"] + 1,
+                        "reselection": True, "confirmed": False})
                 if summary_edit:
                     if (set(payload) - {"revision", "body", "confirmed"} or
                             "revision" not in payload or
@@ -4401,8 +4672,26 @@ def handler_factory(data_dir: Path):
                             if source_id:
                                 inbox = read_work_inbox(data_dir, state["records"])
                                 source = next((i for i in inbox["items"] if i["inbox_id"] == source_id), None)
-                                if source is None or source.get("ignored") or source.get("conflict") or source.get("processed_record_id"):
+                                if source is None or source.get("ignored") or source.get("finished") or source.get("conflict") or source.get("processed_record_id"):
                                     return self.json_response(409, {"error": "inbox source is not available"})
+                                fragment = changes.get("source_fragment")
+                                if fragment is not None:
+                                    # Validation is performed by the same event schema and
+                                    # against the original source before any new event is written.
+                                    probe = {"version": 1, "event_id": str(uuid.uuid4()),
+                                             "record_id": new_id, "action": "create",
+                                             "actor": "user", "timestamp": utc_now(),
+                                             "base_revision": 0, "changes": changes}
+                                    validate_work_record_event(probe)
+                                    start, end = locate_inbox_fragment(source, fragment)
+                                    for old in source.get("processed_fragments", []):
+                                        if start < old["end"] and old["start"] < end:
+                                            return self.json_response(409, {
+                                                "error": "source fragment already recorded or overlaps",
+                                                "existing_record_id": old["record_id"]})
+                                elif source.get("processed_fragment_count"):
+                                    return self.json_response(409, {
+                                        "error": "inbox already split into fragments; use reviewed fragment source"})
                         else:
                             new_id = work_record_match.group(1)
                             prior = next((r for r in state["records"]

@@ -178,3 +178,7 @@ work_archive 原有 record_events 外新增 inbox_events、summary_events。所�
 ### 10.3 验收边界
 
 新增 Python HTTP 合同/时间与项目校验/来源溯源/数据文件字节不变/冲突冻结，Node UI 复制路径和异常，Windows Chromium 真浏览器剪贴板及读写保护。准确 SHA CI 是候选的发布门槛，不能代替公司 Windows 8770 和真实 Google Drive 离线/重连测试。与 #40→#41→#42→#43 的累积链路保持 Draft，统一体验之前不合并。
+
+## 8. 2026-11-09 统一进展时间线增量设计
+
+本文件原 2.3/2.4 分阶段协议保持历史有效。项目／任务／步骤快速记录以及每份报告独立的 personal/report 来源筛选，按新文档 [统一工作时间线 V2](UNIFIED_WORK_TIMELINE_V2.md) 实施；不另建日志事件目录，也不覆盖历史 RECORD 或 SUMMARY。

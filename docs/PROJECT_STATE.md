@@ -1,5 +1,64 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-09：P1–P3 隔离体验交接就绪（继续「下一步」，仍不发布）
+
+- **GitHub CI 核对**：本轮沿用准确产品／测试 SHA `16ea3b9c1cb7f187391ce5be33b9e82cb491137f` 与 [Actions #42621080984](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42621080984)，3/3 SUCCESS。Ubuntu Python 275（31 skipped）/Node 124 PASS；Windows Python 275（29 skipped）/Node 124 PASS；Windows Chromium 应用 E2E 26 PASS、更新回滚 E2E 3 PASS；后续仅文档更新，**不重复启动测试，不把文档 SHA 冒充代码受测 SHA**。
+- **真实产物核对**：同一 Actions run 已实际上传 [AIWorkSpace-UI-V2-isolated-preview](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42621080984/artifacts/13675288528)（Artifact ID 13675288528，尚未过期）及更新 E2E 证据；GitHub job 已执行 `python preview/launch_isolated.py --check`。启动器使用 Windows 临时目录／随机 localhost 端口和空白 `test-data-only`，正常按 Enter 结束时清理。GitHub CI ZIP 中随包的旧 README 曾引用已过时的 PR #12，**已在分支中修正** `preview/README_独立测试版.md` 和 `docs/WORK_ARCHIVE_USER_GUIDE.md` 的下载链接、版本范围、安全约束及体验步骤；用户以当前分支在线文档／本回执为准，ZIP 中旧文档不代表旧代码。
+- **阶段结论**：P1–P3 功能已经达到**隔离体验 READY**，可以收集实际可用性反馈；**生产发布 NOT READY / NOT TESTED**：真实双电脑 Google Drive 离线／重连、旧客户端混合格式、公司 Windows 8770 正式安装权限和真实工作数据链路未经独立验收。仍只有 Draft PR #50，main/VERSION 2.8.4，未得到合并授权，不转 Ready、不合并、不部署、不修改真实数据。
+- **下一步**：用户用虚构数据集中体验，重点反馈入口是否易懂、多事实逐条核对、草稿及重复保护、项目事件线和报告版筛选；根据反馈仅定向修改并按准确 SHA 做增量测试。正式启用前先统一客户端版本、备份，并单独执行缺失的实际同步安全验收。
+
+## 2026-11-09：P1–P3 整合体验验收（代码候选已通过 CI，仍未发布）
+
+- **用户要求**：「进行下一步」。按上一阶段计划开展 P1/P2/P3 集成、安全和体验包验收；延续不用 Work、GitHub 开发与持续记忆规则。基线 main `8a4a4babb07ac0012721f35224c84da5d298df26`（v2.8.4）；当前只有 [Draft PR #50](https://github.com/yudacheng666/AIWorkSpace/pull/50)，未获得合并／发布授权。
+- **实际整合修复**：
+  1. 拆分草稿从一条原文切换到另一条时，如已修改内容须明确确认才可放弃；ChatGPT JSON 在通过核对之后如再被修改，旧核对结果不允许继续保存，必须重新核对。
+  2. 重开／网络中断后恢复同一 INBOX 原文时，使用服务端已保存 `processed_fragments` 的字符区间精确识别先前已创建的 RECORD，标记「已保存」、禁用重复创建。原有重叠／不实原文仍拒绝。
+  3. 工作记录顶部添加简洁「我要」快捷导航：事实补记、零碎笔记整理、项目阶段线、个人／汇报总结；项目阶段线新增「用该项目生成月度汇报」，仅把项目与阶段结束日期所在月份带入 P2 汇报版，保留逐条勾选和明确保存，不把多月完整阶段线静默发送或写入报告。
+  4. 跨设备一致性安全补强：`INBOX.finish` 事件必须永久保存本人本次确认的准确 `record_ids` 集合；读取时核对当前可见来源片段与其完全一致。完成标志先到、事实迟到、额外记录晚到均标记来源冲突，不允许显示为已整理，所有源文件到齐后自动只读恢复正确投影，不覆盖任何旧事件。完成 POST 仍必须由用户明确触发且 revision 有效。
+- **新增自动化验收**：Node 覆盖未保存草稿切换取消、AI JSON 改后重新核对、已保存片段重开禁止重复、项目阶段→月度汇报筛选；Windows Chromium 扩展真实用户链路「原始笔记 → 两条事实 → 确认整理 → 项目阶段线 → 月度汇报选材 → 保存」，并核验原任务、原 INBOX 与 RECORD 事件未覆盖；Python 额外覆盖 finish 来源清单协议，模拟某个 RECORD 晚同步时显示冲突，文件到齐后恢复并校验审计源编号。
+- **准确产品／测试 SHA**：`16ea3b9c1cb7f187391ce5be33b9e82cb491137f`，对应 [GitHub Actions #42621080984](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42621080984) **3/3 SUCCESS**。Ubuntu Python 275 项（31 预期跳过）、Node 124/124 PASS；Windows Python 275 项（29 预期跳过）、Node 124/124 PASS；Windows 真正 Chromium 工作台 E2E 26 PASS、更新／回滚 3 PASS。
+- **隔离体验附件已核实存在**：同一 CI run 的 `AIWorkSpace-UI-V2-isolated-preview`（GitHub Artifacts ID `13675288528`，约 161 KB）尚未过期；另有 `windows-update-e2e-evidence`。该包是隔离体验而非正式更新程序，请从上方 Actions run 的 Artifacts 区取用并按 `docs/WORK_ARCHIVE_USER_GUIDE.md` 操作，不要直接指向真实 Drive 数据目录或覆盖本机现有 8770。
+- **发布边界**：所有 GitHub 测试与体验包均使用虚构隔离数据；**没有合并 PR、升级本机、变更正式 main/VERSION、接触真实 Google Drive 数据**。GitHub Runner 中模拟迟到源事件和 Windows 真实 Chromium **不等于**真实公司 Windows 两台电脑在 Drive 断网／重连／混合版本下的实测，仍列 **NOT TESTED**。PR 继续 Draft 待用户集中体验和明确合并决定；高风险真实数据上线仍需独立安全门槛或用户批准例外，不能把已通过 CI 表述成所有环境的生产就绪。
+- **规则同步**：整合协议、体验步骤与安全要求更新在 `docs/UNIFIED_WORK_TIMELINE_V2.md`、`docs/WORK_ARCHIVE_USER_GUIDE.md`、`docs/REQUIREMENTS.md`、`docs/DECISIONS.md`；这些只是最后的 `[skip ci]` 文档更新，不得用文档 HEAD 冒充上述测试产品 SHA。
+
+
+
+## 2026-11-09：统一工作记录 P3（多事实拆分、跟进建议、项目阶段线）开发及 CI 验收
+
+- **用户指示**：「继续开发，不用 Work」。基于 main `8a4a4babb07ac0012721f35224c84da5d298df26`（2.8.4）的现有 Draft [PR #50](https://github.com/yudacheng666/AIWorkSpace/pull/50) 继续开发，未使用 Work；未创建平行 PR、未改 main/VERSION、未升级真实 Windows 8770、未接触真实 Google Drive 业务数据。
+- **P3 新功能**：
+  1. 一条 INBOX 原文可以经用户核对拆分为多个独立事实 RECORD。增加 create-only `source_fragment={excerpt,occurrence,source_digest}`，与不可变 `source_inbox_id` 联用；后端从原文验证精确引文与原文 SHA256、区间不交叉。相同或重叠片段 POST 拒绝 409；非法引文／指纹拒绝 400；跨电脑晚到重叠来源只读投影冻结为冲突，不用时间戳覆盖。老 1:1 整理保持兼容，禁止与多片段混写。
+  2. 工作记录界面新增「拆分多条事实」：按换行生成可编辑建议、用户主动复制给 ChatGPT 并粘贴结构化 JSON，限制 10 条事实 + 5 条未来待办。逐条核对发生日期、事实与成果后才独立保存；未来待办不会当已发生事实，保存来源后可送入原有任务查重／人工确认流程，不自动创建、完成任务。
+  3. 保存部分事实后可继续整理；用户明确点击「确认此笔记已整理完」追加 INBOX `finish` 事件，检查现有 revision、有已保存片段及无冲突；不覆盖原笔记，已整理原文不能忽略或再次追加。
+  4. 新增只读「项目阶段事件线」，按项目／最多 184 天把项目本身、任务、步骤的 RECORD 与人工确认完成事件汇总，以来源 ID 去重、按实际发生日期归组。复制到 ChatGPT 前重新读取和对照来源；对外汇报仍通过 P2 的报告选材，绝不把全部日常事实自动对外发布。
+- **准确产品／测试 SHA**：`0cbe47a9592c63645959838fd113dc02b68ae496`，对应 [GitHub Actions #42618478005](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42618478005) **3/3 SUCCESS**：Ubuntu Python 274 项（31 预期跳过）、Node 121/121 PASS；Windows Python 274 项（29 预期跳过）、Node 121/121 PASS；Windows 实际应用 Chromium E2E **26 PASS**、Windows 更新及回滚 **3 PASS**。新增真实浏览器专项从保存原文、分两条工作事实、逐条提交、确认整理完毕，直到项目阶段线只读复制。Python 新增非法／重复／跨片段／晚同步冲突／完成确认及原文件字节保护，Node 新增拆分核对／来源校验／待办分离／阶段线去重和只读导出。
+- **中间失败与修正**：候选 `c09670dceac1ff3d8f390860efb4eb7d409024e8` 的 Windows Chromium E2E 因新增测试遗漏 `append_project_event` 导入而失败；测试导入修正后准确 SHA `0cbe47a...` 三组全部成功，不用旧失败 SHA 代替最终结果。此前通过的 P1/P2 回归一并在本 SHA 运行；不额外消耗 Codex 重跑同一脚本。
+- **持久化文件**：`docs/UNIFIED_WORK_TIMELINE_V2.md` 第 10 节、`docs/REQUIREMENTS.md`、`docs/DECISIONS.md`、`docs/WORK_ARCHIVE_USER_GUIDE.md`，以及产品 `app.py`、`web/index.html` 和三组自动化测试文件。最后文档 [skip ci] 只是记忆更新，不可作为产品 CI SHA。
+- **剩余边界与下一步**：PR #50 仍 Open/Draft，等待用户决定何时审阅、合并；公司真实 Windows 8770 部署、两台电脑 Google Drive 离线/重连及旧客户端同时写入、真实数据写入／修复仍 **NOT TESTED**。当前 ChatGPT 语义拆分需要用户主动复制／粘贴及人工审核；没有后台无人值守 AI、付费 API 或连接器自动写回的虚假声明。若继续下一阶段，应先复核当前准确 PR HEAD、项目记忆及待办需求，并增量验收。
+
+
+
+## 2026-11-09：统一时间线 P2 报告阶段补强（PR #50 Draft，CI 已通过）
+
+- **用户要求**：「继续开发第二阶段，不用 Work」。直接通过 GitHub 连接器开发；未使用 Work、未访问或修改本机 8770 和真实 Google Drive 业务数据。
+- **实际基线**：main 仍 `8a4a4babb07ac0012721f35224c84da5d298df26`（VERSION=2.8.4）；开放 PR 只有 [#50](https://github.com/yudacheng666/AIWorkSpace/pull/50)，保持 Draft/Open，未合并。本轮沿用现有未合并分支 `feat/20261109-unified-work-timeline-reports`，不创建平行冲突实现。
+- **P2 产品修订**：①历史已保存 SUMMARY 可显式重新选材，先拉取最新候选、保留旧正文、用户确认重建后通过单独 `/api/work-archive/summaries/{id}/reselect` 追加新事件；旧版本字节不变，新版本 `confirmed=false`。②来源卡补齐 RECORD ID、项目／任务／步骤关联标签及证据名称，增加「只选重点」、已选与候选数量；保留全选／全不选／逐条选择。③服务端 `source_digest` 包括渲染的来源上下文，即使 RECORD ID 未变，项目名称／任务标题／证据／记录内容改变也会使旧报告来源快照失效。④重新选材先严格校验输入结构，非法 ID、重复来源、畸形 digest 返回 400，合法但已过时快照返回 409；拒绝写入，避免误将非法请求称为同步冲突。⑤复制 ChatGPT 的汇报资料仍只包含本次选中来源，不自动调用模型或改业务状态。
+- **测试补齐**：新增 Python 集成覆盖项目改名后报告来源指纹变化和 409、来源标签精确关联与多级汇总不重复，以及原有历史总结事件审计和 400/409；Node UI 覆盖「全部／重点／无」来源选择、选中数、业务标签、证据可见性；Windows 真实 Chromium 新增从虚构记录生成汇报、保存、重开历史汇报、明确重建并追加修订，检查旧 SUMMARY、原 RECORD 和 TASK 事件字节均保留。
+- **准确最终代码／测试 SHA**：`ff9086248d4f8aac5c6bd036a019185e3c7434df`。对应 [GitHub Actions #42596239582](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42596239582) **3/3 SUCCESS**：Ubuntu Python 271（30 预期 SKIP）、Node 118/118 PASS；Windows Python 271（28 预期 SKIP）、Node 118/118 PASS；Windows Chromium 实际应用 E2E 25 PASS，更新／回滚 E2E 3 PASS。此前 P2 中间 SHA `bbbe52548bee4582f258fba07317f97255503b8f` 的「畸形 digest 被误分类为 409」失败已通过预校验修复，不能引用旧失败 SHA 冒充终版。
+- **发布与边界**：本轮仅 GitHub Draft PR 候选代码和模拟数据 CI 验收；没有用户合并批准，未修改 main/VERSION，也未升级真实工作台。公司 Windows 实机安装、真实双电脑 Google Drive 离线／重连同步、旧客户端混用和真实数据安全仍 **NOT TESTED**；不得将云端 Chromium PASS 视为这些项目的实测。
+- **下一步**：保留 PR #50 Draft 待用户集中体验与合并决定。后续 P3 才考虑 ChatGPT 原话多事实拆分、幂等来源分段、建议沟通跟进及项目阶段汇总；需要单独审计协议与开发验收，不能把 P2 当成已经有后台 AI 自动日报。
+
+
+## 2026-11-09：统一进展时间线及个人／汇报版选择（开发候选，待 CI）
+
+- **用户新增要求**：项目、任务、步骤内直接快速记录进展；同一 RECORD 进入步骤、任务、项目及个人时间线，并可在更高层级和其他工作事件中去重汇总。工作总结区分个人版／汇报版，每份报告可以逐条选中／取消来源；取消只影响该份报告，不从个人工作轨迹或原始事件中删除。
+- **基线**：仓库 `main` 的最新版本为 2.8.4，开始时 main 最新文档提交 `8a4a4babb07ac0012721f35224c84da5d298df26`，开放 PR 0；本轮开发独立分支 `feat/20261109-unified-work-timeline-reports`。
+- **设计和代码**：新增 `docs/UNIFIED_WORK_TIMELINE_V2.md`；沿用已有 `work_archive/record_events`、`action_links` 实现项目／任务／步骤上下文快速记录和短时间线；项目级报告也纳入步骤／任务关联事实。SUMMARY 新增可选 `audience`、`included_record_ids`、`included_completion_ids`，保留历史全量 `source_*_ids` 作为来源审计；旧 SUMMARY 按个人版且全部来源兼容读取。网页可切换个人／汇报版，选中／取消、全选／全取消、重建底稿；复制 ChatGPT 分析说明仅携带本次选中来源。
+- **准确产品／测试 SHA**：`40c8541fe59ac951d981a41b2392950336abdcbf`，对应 [GitHub Actions #42592658300](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42592658300) **3/3 SUCCESS**。Ubuntu Python 265（29 个预期 SKIP）与 Node 117/117 PASS；Windows Python 265（27 个预期 SKIP）与 Node 117/117 PASS；Windows 实际应用 Chromium E2E 24 PASS、更新／回滚 3 PASS。新增 Python 用虚构数据覆盖多级关联同一 RECORD、汇报选中子集和原候选全集、旧 SUMMARY 兼容、非法来源和迟到变化拒绝、原 task/step 字节和状态不变；新增 Node 覆盖步骤快速记录单次写入多级可见和汇报 AI 复制只含选中来源。旧候选最初的测试 schema 不一致、旧前端 DOM 夹具和旧 Chromium 断言问题均已修复并在准确 SHA 完整复验通过。
+- **安全边界**：新事件遵守原 validator/revision/409/追加式原文保留；不自动变更 status/done；不使用付费 AI API；不合并 main、不更新真实 Windows 8770、不写入真实 Google Drive 任务数据。真实双电脑 Drive 离线重连和本机安装仍属于独立 NOT TESTED。
+- **PR 与下一步**：[Draft PR #50](https://github.com/yudacheng666/AIWorkSpace/pull/50) 已创建并保持 Open/Draft。待用户审阅并明确批准后才可合并 main；公司 Windows 8770、真实 Google Drive 双电脑离线／重连、真实数据写入均未执行或验收。
+
+
 ## 2026-11-08：2.8.4 正式发布—通知信箱可读性与任务列标题下拉箭头（PR #49 已合并）
 
 - **用户反馈**：四处截图批注指出任务列标题下拉箭头应紧跟标题；通知消息中的「这条记录」没有说明具体对象；「建议」没有说明用户应在哪个任务、哪一步执行；「原始文件／原始记录」属于开发术语，用户不知道它指什么、为何要保留。

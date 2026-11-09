@@ -208,6 +208,141 @@ class WorkArchiveHTTPTests(unittest.TestCase):
             "content": "不应允许以忽略来源补录", "occurred_on": "2026-11-05",
             "source_inbox_id": new["inbox_id"]})[0], 409)
 
+    def test_one_inbox_many_verified_fragments_and_finish(self):
+        raw = "上午核对虚构报价。\n下午召开项目讨论。\n后续需要跟进合同。"
+        code, created = self.call("POST", "/api/work-archive/inbox", {
+            "content": raw, "occurred_on": "2026-11-05", "project_id": PROJECT})
+        self.assertEqual(code, 201, created)
+        inbox_id = created["inbox_id"]
+        _, state = self.call("GET", "/api/work-archive")
+        source = state["inbox"][0]
+        digest = source["source_digest"]
+        original = next((self.dir/"work_archive"/"inbox_events").glob("*.json"))
+        original_bytes = original.read_bytes()
+
+        def fact(excerpt, content, occurrence=1):
+            return {"content": content, "occurred_on": "2026-11-05",
+                    "project_id": PROJECT, "source_inbox_id": inbox_id,
+                    "source_fragment": {"excerpt": excerpt, "occurrence": occurrence,
+                                        "source_digest": digest}}
+        first = fact("上午核对虚构报价。", "已核对报价但未确认定标")
+        second = fact("下午召开项目讨论。", "已召开项目讨论")
+        code, saved1 = self.call("POST", "/api/work-records", first)
+        self.assertEqual(code, 201, saved1)
+        code, saved2 = self.call("POST", "/api/work-records", second)
+        self.assertEqual(code, 201, saved2)
+        self.assertNotEqual(saved1["record_id"], saved2["record_id"])
+        self.assertEqual(self.call("POST", "/api/work-records", first)[0], 409)
+        self.assertEqual(self.call("POST", "/api/work-records", fact(
+            "核对虚构报价", "重叠引用不得再次创建"))[0], 409)
+        self.assertEqual(self.call("POST", "/api/work-records", fact(
+            "不在原文中的话", "不可凭空引用"))[0], 400)
+        self.assertEqual(self.call("POST", "/api/work-records", fact(
+            "后续需要跟进合同。", "AI 猜测了指纹") |
+            {"source_fragment":{"excerpt":"后续需要跟进合同。","occurrence":1,
+                                 "source_digest":"f"*64}})[0], 400)
+        self.assertEqual(self.call("POST", "/api/work-records", fact(
+            "后续需要跟进合同。", "非法字段") | {"status": "done"})[0], 400)
+        _, archive = self.call("GET", "/api/work-archive")
+        item = archive["inbox"][0]
+        self.assertFalse(item["conflict"])
+        self.assertEqual(item["processed_fragment_count"], 2)
+        self.assertIsNone(item.get("processed_record_id"))
+        self.assertEqual(len(item["processed_fragments"]), 2)
+        self.assertEqual(self.call("POST",
+            "/api/work-archive/inbox/" + inbox_id + "/ignore",
+            {"revision": 1, "confirmed_ignore": True})[0], 409)
+        self.assertEqual(self.call("POST",
+            "/api/work-archive/inbox/" + inbox_id + "/finish",
+            {"revision": 1, "confirmed_finish": False})[0], 400)
+        code, finished = self.call("POST",
+            "/api/work-archive/inbox/" + inbox_id + "/finish",
+            {"revision": 1, "confirmed_finish": True})
+        self.assertEqual(code, 200, finished)
+        self.assertEqual(self.call("POST", "/api/work-records", fact(
+            "后续需要跟进合同。", "不允许完成后新增片段"))[0], 409)
+        self.assertEqual(self.call("POST",
+            "/api/work-archive/inbox/" + inbox_id + "/finish",
+            {"revision": 1, "confirmed_finish": True})[0], 409)
+        _, archive = self.call("GET", "/api/work-archive")
+        self.assertTrue(archive["inbox"][0]["finished"])
+        self.assertFalse(archive["inbox"][0]["conflict"])
+        finish_events = [json.loads(p.read_text("utf-8"))
+            for p in (self.dir/"work_archive"/"inbox_events").glob("*.json")]
+        approved = next(x for x in finish_events if x["action"] == "finish")
+        self.assertEqual(set(approved["changes"]["record_ids"]),
+                         {saved1["record_id"], saved2["record_id"]})
+        self.assertEqual(finished["record_count"], 2)
+        # A second device may observe finish before the second fact is synced.
+        # It must display a conflict, not a falsely completed archive item.
+        path = next(p for p in (self.dir/"work_archive"/"record_events").glob("*.json")
+            if json.loads(p.read_text("utf-8"))["record_id"] == saved2["record_id"])
+        held = self.dir / "delayed-record-event.json"
+        path.rename(held)
+        try:
+            _, partial = self.call("GET", "/api/work-archive")
+            self.assertTrue(partial["inbox"][0]["conflict"])
+            self.assertTrue(partial["warnings"])
+            self.assertEqual(partial["inbox"][0]["processed_fragment_count"], 1)
+        finally:
+            held.rename(path)
+        _, recovered = self.call("GET", "/api/work-archive")
+        self.assertTrue(recovered["inbox"][0]["finished"])
+        self.assertFalse(recovered["inbox"][0]["conflict"])
+        self.assertFalse(recovered["warnings"])
+        self.assertEqual(original.read_bytes(), original_bytes)
+        self.assertEqual(len(list((self.dir/"work_archive"/"record_events").glob("*.json"))), 2)
+        self.assertEqual(self.task_bytes, {p.name:p.read_bytes()
+            for p in (self.dir/"events").glob("*.json")})
+        self.assertEqual(self.step_bytes, {p.name:p.read_bytes()
+            for p in (self.dir/"step_events").glob("*.json")})
+        self.assertEqual(app.read_workspace(self.dir)["tasks"][0]["status"], "todo")
+
+    def test_finish_schema_rejects_unpinned_or_injected_source_lists(self):
+        saved="RECORD-"+"A"*32
+        value=event("inbox","finish",1,
+                    {"finished":True,"record_ids":[saved]},
+                    eid="finalize-pinned-record-list")
+        self.assertEqual(app.validate_work_archive_event(value,"inbox"),value)
+        for changes in (
+            {"finished":True},
+            {"finished":True,"record_ids":[]},
+            {"finished":True,"record_ids":[saved,saved]},
+            {"finished":True,"record_ids":["RECORD-wrong"]},
+            {"finished":True,"record_ids":[saved],"status":"done"},
+        ):
+            with self.subTest(changes=changes),self.assertRaises(ValueError):
+                app.validate_work_archive_event(
+                    event("inbox","finish",1,changes,
+                          eid="bad-finish-source-check"),"inbox")
+
+    def test_identical_quotes_need_distinct_occurrence_and_conflicting_duplicate_freezes(self):
+        raw = "例会结束。例会结束。"
+        code, created = self.call("POST", "/api/work-archive/inbox", {
+            "content":raw, "occurred_on":"2026-11-05"})
+        self.assertEqual(code, 201)
+        digest = self.call("GET", "/api/work-archive")[1]["inbox"][0]["source_digest"]
+        def payload(n):
+            return {"content":"已记录第"+str(n)+"段例会", "occurred_on":"2026-11-05",
+                    "source_inbox_id":created["inbox_id"],
+                    "source_fragment":{"excerpt":"例会结束。","occurrence":n,"source_digest":digest}}
+        self.assertEqual(self.call("POST", "/api/work-records", payload(1))[0], 201)
+        self.assertEqual(self.call("POST", "/api/work-records", payload(2))[0], 201)
+        self.assertEqual(self.call("POST", "/api/work-records", payload(3))[0], 400)
+        _, archive = self.call("GET", "/api/work-archive")
+        self.assertEqual(archive["inbox"][0]["processed_fragment_count"], 2)
+        self.assertFalse(archive["inbox"][0]["conflict"])
+        # Simulate a delayed second device writing the same quote; the
+        # reducer reports a warning and freezes this inbox, not a winner.
+        app.append_work_record_event(self.dir, {
+            "version":1,"event_id":"late-duplicate-fragment-test",
+            "record_id":"RECORD-"+"A"*32,"action":"create","actor":"user",
+            "timestamp":STAMP,"base_revision":0,"changes":payload(1)})
+        _, archive = self.call("GET", "/api/work-archive")
+        self.assertTrue(archive["inbox"][0]["conflict"])
+        self.assertTrue(archive["warnings"])
+        self.assertEqual(self.call("POST", "/api/work-records", payload(1))[0], 409)
+
     def test_summary_preview_save_edit_sources_and_conflicts(self):
         code, created = self.call("POST", "/api/work-records", {
             "content": "11月5日核对虚构交期", "occurred_on": "2026-11-05",
