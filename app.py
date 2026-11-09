@@ -2287,7 +2287,8 @@ def validate_work_archive_event(value: object, kind: str) -> dict:
         if action == "create":
             required = {"period", "period_start", "period_end", "project_id",
                         "body", "source_record_ids", "source_completion_ids", "confirmed"}
-            optional = {"audience", "included_record_ids", "included_completion_ids"}
+            optional = {"audience", "included_record_ids", "included_completion_ids",
+                        "source_digest"}
             present_optional = set(changes) & optional
             if revision != 0 or not required <= set(changes) or set(changes) - (required | optional):
                 raise ValueError("summary creation requires all fields")
@@ -2295,6 +2296,9 @@ def validate_work_archive_event(value: object, kind: str) -> dict:
                 raise ValueError("summary source selection requires audience and both included lists")
             if present_optional and changes["audience"] not in {"personal", "report"}:
                 raise ValueError("invalid summary audience")
+            if present_optional and (not isinstance(changes["source_digest"], str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", changes["source_digest"])):
+                raise ValueError("invalid summary source digest")
             if changes["period"] not in {"daily", "weekly", "monthly"}:
                 raise ValueError("invalid summary period")
             _archive_day(changes["period_start"])
@@ -2386,6 +2390,7 @@ def read_work_archive_events(data_dir: Path, kind: str) -> dict:
         else:
             # Older summaries contain every source and have no audience field.
             item.setdefault("audience", "personal")
+            item.setdefault("source_digest", None)
             item.setdefault("included_record_ids", list(item["source_record_ids"]))
             item.setdefault("included_completion_ids", list(item["source_completion_ids"]))
         by_revision: dict[int, list[dict]] = defaultdict(list)
@@ -2493,6 +2498,17 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
     if len(records) > 250 or len(completed) > 250:
         raise ValueError("too many work sources in this period; narrow project or date")
     duration = sum(r.get("duration_minutes") or 0 for r in records)
+    fingerprint_sources = {
+        "records": [{"id": r["record_id"], "revision": r["revision"],
+                     "content": r["content"], "occurred_on": r["occurred_on"],
+                     "outcome": r.get("outcome"), "featured": r.get("featured"),
+                     "action_links": r.get("action_links", [])} for r in records],
+        "completions": [{"id": e["source_event_id"], "occurred_at": e["occurred_at"],
+                          "task_title": e["task_title"]} for e in completed]
+    }
+    source_digest = hashlib.sha256(json.dumps(
+        fingerprint_sources, ensure_ascii=False, sort_keys=True,
+        separators=(",", ":")).encode("utf-8")).hexdigest()
     heading = {"daily": "日报", "weekly": "周报", "monthly": "月报"}[period]
     lines = ["# " + heading + "（来源整理底稿，非 AI 自动分析）",
              "期间：" + start + " 至 " + end,
@@ -2524,6 +2540,7 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
             "source_completion_ids": [e["source_event_id"] for e in completed],
             "record_count": len(records), "completion_count": len(completed),
             "duration_minutes": duration,
+            "source_digest": source_digest,
             "record_sources": [
                 {"record_id": r["record_id"], "display_id": r["display_id"],
                  "occurred_on": r["occurred_on"], "content": r["content"],
@@ -4380,7 +4397,8 @@ def handler_factory(data_dir: Path):
                 if creating_summary:
                     required = {"period", "day", "project_id", "body", "confirmed",
                                 "source_record_ids", "source_completion_ids"}
-                    optional = {"audience", "included_record_ids", "included_completion_ids"}
+                    optional = {"audience", "included_record_ids", "included_completion_ids",
+                        "source_digest"}
                     provided_optional = set(payload) & optional
                     if not required <= set(payload) or set(payload) - (required | optional) or (
                             provided_optional and provided_optional != optional):
@@ -4390,7 +4408,8 @@ def handler_factory(data_dir: Path):
                         preview = preview_work_review(data_dir, workspace, payload["period"],
                                                       payload["day"], payload["project_id"])
                         if (payload["source_record_ids"] != preview["source_record_ids"] or
-                                payload["source_completion_ids"] != preview["source_completion_ids"]):
+                                payload["source_completion_ids"] != preview["source_completion_ids"] or
+                                (provided_optional and payload["source_digest"] != preview["source_digest"])):
                             return self.json_response(409, {"error": "summary sources changed; regenerate"})
                         sid = "SUMMARY-" + uuid.uuid4().hex.upper()
                         changes = {key: preview[key] for key in (
