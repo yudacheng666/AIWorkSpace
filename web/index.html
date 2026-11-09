@@ -1493,6 +1493,97 @@
       }
       return result;
     }
+
+    function recordBelongsTo(record, scope) {
+      if (record.conflict) return false;
+      const links = record.action_links || [];
+      if (scope.type === "step") return links.some(link =>
+        link.target_type === "step" && link.task_id === scope.task_id &&
+        link.target_id === scope.step_id);
+      if (scope.type === "task") return record.task_id === scope.task_id || links.some(link =>
+        (link.target_type === "task" && link.target_id === scope.task_id) ||
+        (link.target_type === "step" && link.task_id === scope.task_id));
+      if (record.project_id === scope.project_id) return true;
+      const ids = [record.task_id, ...links.map(link =>
+        link.target_type === "step" ? link.task_id : link.target_id)].filter(Boolean);
+      return ids.some(id => current.some(task => task.task_id === id &&
+        !task.conflict && task.project_id === scope.project_id));
+    }
+
+    // Contextual progress posts to the existing append-only work record API.
+    function progressPanel(scope) {
+      const box = element("details", "progress-panel");
+      box.append(element("summary", "", "进展记录 · 快速填写"));
+      const matched = workRecords.filter(record => recordBelongsTo(record, scope));
+      if (!matched.length) box.append(element("p", "work-archive-hint", "暂无进展记录"));
+      for (const record of matched.slice(0, 3))
+        box.append(element("p", "progress-entry",
+          record.occurred_on + " · " + record.display_id + " · " + record.content));
+      const more = element("button", "secondary-action", "查看完整时间线");
+      more.type = "button";
+      more.addEventListener("click", () => {
+        if (unsavedProgressEditors.size) {
+          window.alert("请先保存或清空进展草稿，再查看时间线。"); return;
+        }
+        if (scope.type !== "project" && !closeTaskDetail()) return;
+        if (!setActivePage("worklog")) return;
+        workFocusedTaskId = scope.type === "task" ? scope.task_id : "";
+        workFocusedStepId = scope.type === "step" ? scope.step_id : "";
+        $("work-filter-project").value = scope.type === "project" ? scope.project_id : "";
+        renderWorkRecords();
+      });
+      box.append(more);
+      const form = element("form", "progress-form");
+      const day = element("input");
+      day.type = "date"; day.required = true; day.value = localDayISO(new Date());
+      day.setAttribute("aria-label", "实际发生日期");
+      const content = element("textarea");
+      content.required = true; content.maxLength = 4000;
+      content.setAttribute("aria-label", "进展内容");
+      content.placeholder = "记录已发生的进展或沟通；不会自动改变任务状态";
+      const save = element("button", "save", "保存进展");
+      save.type = "submit"; save.disabled = !!scope.disabled;
+      const msg = element("p", "work-archive-hint");
+      form.append(day, content, save, msg);
+      const snapshot = () => ({day:day.value,text:content.value});
+      const watcher = watchUnsavedEditor(form, snapshot, unsavedProgressEditors);
+      form.addEventListener("submit", async event => {
+        event.preventDefault();
+        if (isSaving || scope.disabled || !content.value.trim() || !day.value) return;
+        const sent = snapshot();
+        const payload = {content:sent.text.trim(),occurred_on:sent.day,
+          project_id:scope.project_id||null,task_id:scope.task_id||null};
+        if (scope.type === "step") payload.action_links = [{target_type:"step",
+          target_id:scope.step_id,task_id:scope.task_id,relation:"progress_on"}];
+        isSaving = true; save.disabled = true;
+        msg.textContent = "正在保存…";
+        try {
+          const response = await fetch("/api/work-records", {method:"POST",
+            headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "HTTP " + response.status);
+          if (JSON.stringify(snapshot()) === JSON.stringify(sent)) {
+            content.value = "";
+            watcher.markClean();
+            await loadWorkRecords();
+            if (!unsavedTaskEditors.size && !unsavedProgressEditors.size) {
+              renderProjectInspector();
+              renderOpenTaskDetail();
+            }
+          } else {
+            watcher.markClean(sent);
+            msg.textContent = "已保存提交的进展；新输入草稿仍保留。";
+            await loadWorkRecords();
+          }
+        } catch (error) {
+          msg.textContent = "保存失败：" + error.message + "，草稿已保留。";
+        } finally { isSaving = false; save.disabled = !!scope.disabled; }
+      });
+      if (scope.disabled) msg.textContent = "目标存在冲突，禁止直接写入。";
+      box.append(form);
+      return box;
+    }
+
     function renderProjectInspector() {
       const target=$("project-inspector"),project=availableProjects().find(p=>p.project_id===selectedProjectId);
       if(!project){target.hidden=true;target.replaceChildren();return;}
