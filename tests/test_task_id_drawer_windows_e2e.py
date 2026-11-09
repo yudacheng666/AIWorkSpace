@@ -25,7 +25,7 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from app import append_event, append_step_event, append_work_record_event, handler_factory, read_workspace, list_data_reviews  # noqa: E402
+from app import append_event, append_step_event, append_work_record_event, append_project_event, handler_factory, read_workspace, list_data_reviews  # noqa: E402
 
 
 @unittest.skipUnless(
