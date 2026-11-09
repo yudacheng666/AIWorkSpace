@@ -746,6 +746,13 @@
     .topbar-actions > .refresh-top { width:38px; padding:0; font-size:19px; }
 
     @media(max-width:1100px) {.work-meta {grid-template-columns:repeat(2,minmax(130px,1fr))}.work-filters {grid-template-columns:repeat(2,minmax(120px,1fr))}}
+    .progress-panel{border:1px solid #d9e5ef;border-radius:10px;margin:12px 0;padding:10px;background:#fbfcfe}
+    .progress-panel summary{cursor:pointer;font-weight:600;font-size:13px}
+    .progress-entry{font-size:12px;line-height:1.6;border-bottom:1px solid #e9eef4;overflow-wrap:anywhere;padding:6px 0}
+    .progress-form{display:grid;gap:8px;margin-top:10px}
+    .progress-form input{max-width:175px}
+    .progress-form textarea{width:100%;min-height:72px;box-sizing:border-box}
+    .progress-form button{justify-self:start}
     .work-archive-row{display:flex;align-items:end;flex-wrap:wrap;gap:10px;margin:10px 0}
     .work-archive-row label{display:grid;gap:5px;flex:1;min-width:130px;font-size:12px;color:#53677f}
     .work-archive-row input,.work-archive-row select,.work-archive-row textarea,.work-archive-textarea{
@@ -1329,6 +1336,8 @@
     let activePage = "overview";
     let notificationItems = [];
     let workRecords = [];
+    const unsavedProgressEditors = new Set();
+    let workFocusedStepId = "";
     let workTaskCompletions = [];
     let editingRecordId = "";
     let workDraftLinks = [];
