@@ -4,7 +4,7 @@
 
 ## 获取经过 CI 验证的体验包
 
-- 版本依据：GitHub Draft [PR #50](https://github.com/yudacheng666/AIWorkSpace/pull/50)；产品／测试 SHA `16ea3b9c1cb7f187391ce5be33b9e82cb491137f`。
+- 历史体验包来源：原 [PR #50](https://github.com/yudacheng666/AIWorkSpace/pull/50) 的受测产品／测试 SHA `16ea3b9c1cb7f187391ce5be33b9e82cb491137f`；PR 已合并并以 **v2.9.0** 正式发布到 GitHub main。本 ZIP 仍仅供隔离测试，不替代正式升级。
 - CI：[Actions #42621080984](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42621080984) 3/3 SUCCESS（Ubuntu、Windows、Windows 真实 Chromium）。
 - [下载 AIWorkSpace-UI-V2-isolated-preview ZIP](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42621080984/artifacts/13675288528)。此 ZIP 的旧随包说明可能仍引用早期 PR #12；**正确的版本和操作依据是本文及上面的 SHA**，启动代码已按本 SHA 在 CI 验证。GitHub 下载 Artifacts 可能需要登录账号。
 
@@ -23,4 +23,4 @@
 - **报告真实性**：项目阶段线同一 RECORD 只计一次；「用该项目生成月度汇报」只预填该月份及项目，不自动挑选事实、不自动保存；需手动核对并勾选正式汇报来源。
 - **安全边界**：不使用真实公司记录、私有文件链接或真实供应商资料；体验包中的更新按钮不要点击；不要把此 ZIP 复制到正式数据目录或将其作为日常版本。
 
-GitHub 云端模拟了完成确认先到、部分 RECORD 后到的场景，并测试记录补齐后解除冲突；**这不等于**实际两台公司电脑的 Google Drive 断网／重连／旧客户端混用已通过验收。这些保持 NOT TESTED。PR #50 目前仍 Draft，main 版本仍为 2.8.4。
+GitHub 云端模拟了完成确认先到、部分 RECORD 后到的场景，并测试记录补齐后解除冲突；**这不等于**实际两台公司电脑的 Google Drive 断网／重连／旧客户端混用已通过验收。这些保持 NOT TESTED。PR #50 已合并、main 版本为 2.9.0；本测试包对应历史受测 SHA，不代表真实双机 Google Drive 验收。
