@@ -250,3 +250,7 @@
 - **决定**：收到用户明确“直接合并发布”授权后，对唯一开放 PR #50 完成规则、变更、秘密扫描及准确 CI 复核；先补齐正式 `VERSION=2.9.0`，完成新 SHA 三组测试，再解除 Draft 并按普通 merge 合入 main；不重复触发同 SHA 的 Codex 自动化。
 - **证据**：发布候选 `9200f0e64d778261e1cc0c92ec6e56c1c7503d7b`，[Actions #42624895831](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42624895831) 3/3 SUCCESS。merge SHA `8c5a782b13976b9e0f0030b3661d8b4e803f434d`，[main Actions #42625332966](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42625332966) 3/3 SUCCESS；main VERSION 2.9.0，开放 PR=0。
 - **原因与约束**：P1–P3 已整合为一条受来源校验和审计保护的工作记录体系；原分支未更新 VERSION 会令正式更新版本识别不清，因此在合并前修正并复验。GitHub 发布与真实公司 Windows 8770 部署、Google Drive 实际数据变更分离；真实双机离线／重连、旧客户端混用以及真实数据安全仍 NOT TESTED，不因 CI 成功默认为已验收。任何生产数据修复需独立备份、确认及合法审计流程。
+
+## D-20261109-TAILSCALE-01：按用户要求解除私有手机访问限制（v2.9.1）
+
+2026-11-09 用户明确“修改发布”。D012 的“远程访问暂缓”至此由本决策替代，但**不开放公网**。Windows 仍仅监听 127.0.0.1；每台安装通过不入 Git 的 `.aiworkspace-tailnet-access.json` 显式指定唯一 HTTPS Tailscale DNS origin，默认禁用。仅认可 Tailscale Serve 来自本机反向代理的准确 Host/X-Forwarded-Host/X-Forwarded-Proto 与身份头；Funnel 没有身份头必须拒绝。HTTPS 远程写入强制同源 Origin，避免跨站提交。部署时必须检查 Serve 状态为 Tailnet only、Funnel 未开启；无独立账号系统，故用户必须限制 Tailnet 设备授权。配置独立于 Drive 业务数据和 GitHub 自动更新白名单；真实用户手机验证及强身份账户权限管理仍未完成。依据：https://tailscale.com/docs/features/tailscale-serve。

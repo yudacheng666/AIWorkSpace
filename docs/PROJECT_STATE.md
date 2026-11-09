@@ -1,3 +1,9 @@
+# 2026-11-09：Tailscale Serve 私有手机访问 v2.9.1 候选（CI 待核验）
+
+- 用户指示：“修改发布”。最新已核对 main 由 `36ca0374330153dc5deaa90a8b3ec963554389c7` 起步、`VERSION=2.9.0`，开放 PR=0；原 `app.py` 的 `local_request_allowed` 明确拒绝外部 Host/Origin 导致手机 `local requests only`。
+- 在 `feature/tailscale-serve-private-access-291` 独立分支添加每安装独立的可选 Tailnet 配置、Serve 身份头/HTTPS/Host/Origin 校验、拒绝 Funnel、保留本机只监听/更新白名单与默认拒绝；Python 模拟真实 HTTP 请求增量用例及操作指南，候选版本 2.9.1。
+- **本条是 CI 提交前的开发记录，不是 PASS/发布声明。** 合并前必须核对准确 HEAD、完整 Actions 工作流和安全测试；未操作真实公司 Windows、手机或 Google Drive。正式 GitHub 合并不自动修改实际本机 8770；本机需更新程序、启用本机配置并重启。
+
 # AIWorkSpace｜当前项目状态
 
 ## 2026-11-09：2.9.0 正式 GitHub 发布（PR #50 已合并）

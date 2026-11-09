@@ -1,3 +1,11 @@
+# 2026-11-09：手机 Tailscale Serve 私有访问（v2.9.1）
+
+- 用户已在 Windows 电脑通过 `tailscale serve --bg 8770` 设置私有 HTTPS 代理；手机访问返回 `{"error":"local requests only"}`，根因是原本仅接受 localhost Host/Origin。
+- 新增**每台安装独立、明确选择加入**的 `.aiworkspace-tailnet-access.json`，仅允许一个完整的 HTTPS `device.tailnet.ts.net` Origin；配置不放入业务数据目录、不上传 GitHub、不在更新文件白名单中，缺失配置保持原默认拒绝。
+- HTTP 仍只监听 `127.0.0.1`；仅接受来自 loopback、具有 Tailscale Serve HTTPS 转发域名/协议、非空身份头的私有代理请求；远端写入需精确同源 Origin，缺失/跨站拒绝。Funnel 因不带身份头而拒绝，即使其代理将 Host 改为 loopback。
+- 禁止自动启用公网、改监听到 `0.0.0.0` 或依赖任意 `X-Forwarded-*` 作为身份证明。Tailscale ACL、设备共享、手机丢失风险仍由用户管理，工作台本身不声称提供独立账户验证。
+- 保留本地浏览器现有操作、事件写入校验、更新回滚、数据隔离；新增配置校验/GET/POST/CSRF/Funnel 拒绝/默认拒绝测试。仅 GitHub 发布，实机手机连通性仍需本地启用后验证。
+
 # AIWorkSpace｜产品需求 V1
 
 状态：**用户已确认**（2026-10-27）。本文件记录产品需求，不代表全部功能已开发。
