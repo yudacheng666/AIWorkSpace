@@ -266,6 +266,30 @@ class WorkArchiveHTTPTests(unittest.TestCase):
             {"revision": 1, "confirmed_finish": True})[0], 409)
         _, archive = self.call("GET", "/api/work-archive")
         self.assertTrue(archive["inbox"][0]["finished"])
+        self.assertFalse(archive["inbox"][0]["conflict"])
+        finish_events = [json.loads(p.read_text("utf-8"))
+            for p in (self.dir/"work_archive"/"inbox_events").glob("*.json")]
+        approved = next(x for x in finish_events if x["action"] == "finish")
+        self.assertEqual(set(approved["changes"]["record_ids"]),
+                         {saved1["record_id"], saved2["record_id"]})
+        self.assertEqual(finished["record_count"], 2)
+        # A second device may observe finish before the second fact is synced.
+        # It must display a conflict, not a falsely completed archive item.
+        path = next(p for p in (self.dir/"work_archive"/"record_events").glob("*.json")
+            if json.loads(p.read_text("utf-8"))["record_id"] == saved2["record_id"])
+        held = self.dir / "delayed-record-event.json"
+        path.rename(held)
+        try:
+            _, partial = self.call("GET", "/api/work-archive")
+            self.assertTrue(partial["inbox"][0]["conflict"])
+            self.assertTrue(partial["warnings"])
+            self.assertEqual(partial["inbox"][0]["processed_fragment_count"], 1)
+        finally:
+            held.rename(path)
+        _, recovered = self.call("GET", "/api/work-archive")
+        self.assertTrue(recovered["inbox"][0]["finished"])
+        self.assertFalse(recovered["inbox"][0]["conflict"])
+        self.assertFalse(recovered["warnings"])
         self.assertEqual(original.read_bytes(), original_bytes)
         self.assertEqual(len(list((self.dir/"work_archive"/"record_events").glob("*.json"))), 2)
         self.assertEqual(self.task_bytes, {p.name:p.read_bytes()
@@ -273,6 +297,24 @@ class WorkArchiveHTTPTests(unittest.TestCase):
         self.assertEqual(self.step_bytes, {p.name:p.read_bytes()
             for p in (self.dir/"step_events").glob("*.json")})
         self.assertEqual(app.read_workspace(self.dir)["tasks"][0]["status"], "todo")
+
+    def test_finish_schema_rejects_unpinned_or_injected_source_lists(self):
+        saved="RECORD-"+"A"*32
+        value=event("inbox","finish",1,
+                    {"finished":True,"record_ids":[saved]},
+                    eid="finalize-pinned-record-list")
+        self.assertEqual(app.validate_work_archive_event(value,"inbox"),value)
+        for changes in (
+            {"finished":True},
+            {"finished":True,"record_ids":[]},
+            {"finished":True,"record_ids":[saved,saved]},
+            {"finished":True,"record_ids":["RECORD-wrong"]},
+            {"finished":True,"record_ids":[saved],"status":"done"},
+        ):
+            with self.subTest(changes=changes),self.assertRaises(ValueError):
+                app.validate_work_archive_event(
+                    event("inbox","finish",1,changes,
+                          eid="bad-finish-source-check"),"inbox")
 
     def test_identical_quotes_need_distinct_occurrence_and_conflicting_duplicate_freezes(self):
         raw = "例会结束。例会结束。"
