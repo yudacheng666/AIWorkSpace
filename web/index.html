@@ -751,6 +751,10 @@
     .work-summary-source-item input{width:16px;height:16px;margin:1px}
     .work-summary-source-item span{overflow-wrap:anywhere;line-height:1.6}
     .work-summary-source-item small{display:block;color:#53677f;font-size:11px;line-height:1.65;margin-top:3px;overflow-wrap:anywhere}
+    .work-quick-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0 14px}
+    .work-quick-nav span{font-size:12px;color:#556981}
+    .work-quick-nav a{font-size:12px;text-decoration:none;border:1px solid #d8e4ef;background:#fff;color:#235d9b;border-radius:7px;padding:6px 10px}
+    .work-quick-nav a:hover,.work-quick-nav a:focus-visible{background:#eef5fc;border-color:#82acd6}
     .work-stage-day{margin:10px 0;border:1px solid #dae5f2;border-radius:10px;padding:10px 13px;background:var(--surface,#fff)}
     .work-stage-day strong{display:block;margin-bottom:8px}
     .work-stage-event{font-size:12px;line-height:1.6;margin:7px 0;overflow-wrap:anywhere}
@@ -936,6 +940,13 @@
       <div class="page-heading">
         <div><h1>工作记录</h1><p class="subtitle">做过的临时工作直接补记；历史事实无需先建立待办任务。</p></div>
       </div>
+      <nav class="work-quick-nav" aria-label="工作记录常用操作">
+        <span>我要：</span>
+        <a href="#work-create-heading">补记已做的事</a>
+        <a href="#work-inbox-heading">整理零碎笔记</a>
+        <a href="#work-stage-heading">查看项目阶段线</a>
+        <a href="#work-summary-heading">写个人或汇报总结</a>
+      </nav>
       <section class="work-card" aria-labelledby="work-create-heading">
         <h2 id="work-create-heading">补记已做工作</h2>
         <form class="work-record-form" id="work-record-form">
