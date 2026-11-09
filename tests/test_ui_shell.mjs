@@ -1946,7 +1946,10 @@ test("ChatGPT weekly analysis copies only selected report sources and does not w
     record_count:2,completion_count:1,
     record_sources:[
       {record_id:recordId,display_id:"R-261105-AAAAAAAAAAAA",
-        occurred_on:"2026-11-05",content:"重要项目成果",outcome:"完成阶段成果",featured:true},
+        occurred_on:"2026-11-05",content:"重要项目成果",outcome:"完成阶段成果",featured:true,
+        project_name:"虚构采购项目",task_title:"报价审核",
+        action_link_labels:[{label:"报价审核 / 核实供应商"}],
+        evidence_links:[{title:"虚构报价附件",url:"https://drive.google.com/file/d/fiction/view"}]},
       {record_id:ignoredId,display_id:"R-261105-BBBBBBBBBBBB",
         occurred_on:"2026-11-05",content:"不应出现在汇报里的日常琐事",outcome:null,featured:false}
     ],
@@ -1960,8 +1963,23 @@ test("ChatGPT weekly analysis copies only selected report sources and does not w
   h.el("work-summary-date").value="2026-11-05";
   h.el("work-summary-audience").value="report";
   await h.api.generateWorkSummary();
+  assert.match(h.el("work-summary-source-count").textContent,/已选 2 \/ 3/);
+  const importantInfo = h.el("work-summary-source-items").children[0].children[1].children[0].textContent;
+  assert.match(importantInfo,/R-261105-AAAAAAAAAAAA/);
+  assert.match(importantInfo,/虚构采购项目/);
+  assert.match(importantInfo,/报价审核 \/ 核实供应商/);
+  assert.match(importantInfo,/虚构报价附件/);
+  h.el("work-summary-select-all").handlers.get("click")[0]();
+  assert.match(h.el("work-summary-source-count").textContent,/已选 3 \/ 3/);
+  assert.match(h.el("work-summary-body").value,/不应出现在汇报里的日常琐事/);
+  h.el("work-summary-select-important").handlers.get("click")[0]();
+  assert.match(h.el("work-summary-source-count").textContent,/已选 2 \/ 3/);
   assert.match(h.el("work-summary-body").value,/重要项目成果/);
   assert.doesNotMatch(h.el("work-summary-body").value,/不应出现在汇报里的日常琐事/);
+  h.el("work-summary-select-none").handlers.get("click")[0]();
+  assert.match(h.el("work-summary-source-count").textContent,/已选 0 \/ 3/);
+  assert.doesNotMatch(h.el("work-summary-body").value,/重要项目成果/);
+  h.el("work-summary-select-important").handlers.get("click")[0]();
   await h.el("work-summary-copy-sources").handlers.get("click")[0]();
   assert.match(h.copied.at(-1),/重要项目成果/);
   assert.doesNotMatch(h.copied.at(-1),/不应出现在汇报里的日常琐事/);
