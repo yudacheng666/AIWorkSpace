@@ -5532,6 +5532,10 @@
       resetWorkSummary();
     });
     $("work-summary-copy").addEventListener("click", async () => {
+      if (workSummaryPreview && !workSummarySelectionApplied) {
+        $("work-summary-message").textContent = "请先根据最新勾选重建底稿，再复制本次总结。";
+        return;
+      }
       const body = $("work-summary-body").value.trim();
       if (!body) {
         $("work-summary-message").textContent = "请先生成或输入总结正文。";
@@ -6079,7 +6083,7 @@
     loadUpdateStatus();
 
     $("refresh").addEventListener("click", () => { refresh(true, true); if (activePage === "trash") loadTrash(); });
-    refresh(true);
+    refresh(true).then(() => loadWorkRecords());
     setInterval(() => refresh(false), 5000);
   </script>
 </body>
