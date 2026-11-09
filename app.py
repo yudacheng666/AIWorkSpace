@@ -2466,9 +2466,22 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
     state = read_work_records(data_dir)
     if state["warnings"]:
         raise LookupError("work record source has unresolved warnings; check before summarizing")
+    # An event written under a step/task belongs to its primary project's
+    # timeline too; do not duplicate or rewrite the underlying RECORD.
+    primary_tasks = {t["task_id"] for t in workspace["tasks"]
+                     if not t.get("conflict") and t.get("project_id") == project_id}
+
+    def belongs_to_project(record: dict) -> bool:
+        if project_id is None or record.get("project_id") == project_id:
+            return True
+        if record.get("task_id") in primary_tasks:
+            return True
+        return any((link.get("task_id") if link["target_type"] == "step"
+                    else link["target_id"]) in primary_tasks
+                   for link in record.get("action_links", []))
+
     records = sorted((r for r in state["records"] if not r.get("conflict")
-                      and start <= r["occurred_on"] <= end
-                      and (project_id is None or r.get("project_id") == project_id)),
+                      and start <= r["occurred_on"] <= end and belongs_to_project(r)),
                      key=lambda item: (item["occurred_on"], item["record_id"]))
     completed = []
     for event in read_task_completion_activity(data_dir, workspace):
