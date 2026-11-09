@@ -58,7 +58,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
           "query-status", "query-date-field", "new-task-project", "new-task-related",
           "new-task-priority", "task-sort", "task-date-field", "calendar-granularity", "project-sort",
           "work-record-project", "work-record-task", "work-filter-project",
-          "work-inbox-project", "work-split-source", "work-summary-period", "work-summary-project", "work-summary-audience",
+          "work-inbox-project", "work-split-source", "work-stage-project", "work-summary-period", "work-summary-project", "work-summary-audience",
           "work-link-target", "work-link-relation", "work-action-source",
           "work-task-convert-source", "work-portfolio-project"]);
         elements.set(id, node(selects.has(id) ? "select" : "div"));
@@ -2116,6 +2116,45 @@ test("P3 rejects invented and overlapping quotes before any write and keeps foll
   assert.match(h.el("work-split-review").children[1].textContent ||
     h.el("work-split-review").children[1].children.map(x=>x.textContent).join(""),
     /未来待办建议/);
+});
+
+test("P3 project stage timeline deduplicates project task and step records and copies source-only context", async () => {
+  const projectId="PROJECT-"+"F".repeat(32);
+  const taskId="TASK-UI-STAGE";
+  const task={...sampleTask(),task_id:taskId,project_id:projectId,title:"虚构采购任务"};
+  const firstId="RECORD-"+"A".repeat(32);
+  const secondId="RECORD-"+"B".repeat(32);
+  const unrelatedId="RECORD-"+"C".repeat(32);
+  const work={
+    records:[
+      {record_id:firstId,display_id:"R-261109-AAAAAAAAAAAA",occurred_on:"2026-11-09",
+        content:"已完成虚构设备现场核查",project_id:projectId},
+      {record_id:secondId,display_id:"R-261108-BBBBBBBBBBBB",occurred_on:"2026-11-08",
+        content:"已催促虚构供应商报价",task_id:taskId,project_id:null,
+        action_links:[{target_type:"step",task_id:taskId,target_id:"STEP-"+"D".repeat(32),relation:"progress_on"}]},
+      {record_id:secondId,display_id:"R-261108-BBBBBBBBBBBB",occurred_on:"2026-11-08",
+        content:"已催促虚构供应商报价",task_id:taskId,project_id:null},
+      {record_id:unrelatedId,occurred_on:"2026-11-09",content:"另一个不相关项目",project_id:"PROJECT-"+"E".repeat(32)}
+    ],
+    task_completions:[{source_event_id:"stage-completion-0001",occurred_at:"2026-11-09T06:00:00Z",
+      task_title:"人工确认完成的虚构工作",project_id:projectId,task_id:taskId}]
+  };
+  const h=harness([task],()=>true,[{project_id:projectId,name:"虚构采购项目"}],[],null,work);
+  await h.api.refresh(true);
+  h.el("work-stage-project").value=projectId;
+  h.el("work-stage-start").value="2026-11-01";
+  h.el("work-stage-end").value="2026-11-09";
+  await h.el("work-stage-show").handlers.get("click")[0]();
+  assert.match(h.el("work-stage-message").textContent,/2 条独立工作事实、1 次人工任务完成/);
+  assert.equal(h.el("work-stage-list").children.length,2);
+  assert.equal(h.el("work-stage-copy").disabled,false);
+  await h.el("work-stage-copy").handlers.get("click")[0]();
+  const copied=h.copied.at(-1);
+  assert.match(copied,/已完成虚构设备现场核查/);
+  assert.match(copied,/已催促虚构供应商报价/);
+  assert.match(copied,/stage-completion-0001/);
+  assert.doesNotMatch(copied,/另一个不相关项目/);
+  assert.equal(h.writes.length,0,"stage generation and export are strictly read-only");
 });
 
 test("saved report reselects sources only after deliberate rebuild and appends one revision", async () => {
