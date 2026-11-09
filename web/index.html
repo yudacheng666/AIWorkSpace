@@ -1077,6 +1077,7 @@
             </select></label>
             <label>项目范围<select id="work-summary-project"><option value="">全部项目</option></select></label>
             <button type="button" id="work-summary-generate">生成来源底稿</button>
+            <button type="button" id="work-summary-edit-sources" hidden>重新选择历史总结来源</button>
           </div>
           <div id="work-summary-source-panel" hidden>
             <p class="work-archive-hint">逐条决定哪些事实用于本次总结／AI 分析；取消不会删除个人工作记录。</p>
@@ -1369,6 +1370,7 @@
     let workSummarySelectionApplied = true;
     let workSummaryGeneratedBody = "";
     let editingSummaryId = "";
+    let workSummaryReselectMode = false;
     let workActionPreview = null;
     let taskViewMode = "list";
     let taskMonthCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -5249,7 +5251,7 @@
     function rebuildSelectedSummary(force = false) {
       if (!workSummaryPreview) return;
       const currentBody = $("work-summary-body").value;
-      if (currentBody !== workSummaryGeneratedBody && !force) {
+      if ((workSummaryReselectMode || currentBody !== workSummaryGeneratedBody) && !force) {
         workSummarySelectionApplied = false;
         $("work-summary-message").textContent =
           "选用来源已改变，但正文有人工编辑。请点击「按勾选重建底稿」确认替换正文，再人工修改；当前不可保存或复制未经同步的分析。";
@@ -5271,7 +5273,7 @@
 
     function renderSummarySourceChoices() {
       const panel = $("work-summary-source-panel");
-      panel.hidden = !workSummaryPreview || !!editingSummaryId;
+      panel.hidden = !workSummaryPreview || (!!editingSummaryId && !workSummaryReselectMode);
       const target = $("work-summary-source-items");
       target.replaceChildren();
       if (panel.hidden) return;
@@ -5327,6 +5329,8 @@
     const workSummaryWatcher = watchUnsavedEditor($("work-summary-form"), workSummarySnapshot, unsavedPersistentEditors);
     function resetWorkSummary() {
       editingSummaryId = "";
+      workSummaryReselectMode = false;
+      $("work-summary-edit-sources").hidden = true;
       workSummaryPreview = null;
       workSummaryIncludedRecords.clear();
       workSummaryIncludedCompletions.clear();
@@ -5385,6 +5389,8 @@
       if (unsavedPersistentEditors.has($("work-summary-form")) &&
           !window.confirm("当前总结尚未保存，确定舍弃草稿并编辑其他总结吗？")) return;
       editingSummaryId = id;
+      workSummaryReselectMode = false;
+      $("work-summary-edit-sources").hidden = false;
       workSummaryPreview = null;
       workSummarySelectionApplied = true;
       workSummaryGeneratedBody = "";
@@ -5408,6 +5414,51 @@
       $("work-summary-message").textContent = "正在修订已有总结；修改会追加历史事件，不覆盖旧版本。";
       $("work-summary-body").focus();
     }
+    async function reselectSavedWorkSummary() {
+      if (isSaving || !editingSummaryId) return;
+      const prior = workSummaryItems.find(item => item.summary_id === editingSummaryId);
+      if (!prior || prior.conflict) return;
+      if (unsavedPersistentEditors.has($("work-summary-form")) &&
+          !window.confirm("已有未保存的修改。重新载入来源后需要重建正文，确定继续吗？")) return;
+      $("work-summary-edit-sources").disabled = true;
+      try {
+        const qs = "?period=" + encodeURIComponent(prior.period) +
+          "&day=" + encodeURIComponent(prior.period_start) +
+          "&project_id=" + encodeURIComponent(prior.project_id || "");
+        const response = await fetch("/api/work-archive/preview" + qs,{cache:"no-store"});
+        const fresh = await response.json();
+        if (!response.ok) throw new Error(fresh.error || "HTTP " + response.status);
+        if (!fresh.source_digest || !Array.isArray(fresh.source_record_ids) ||
+            !Array.isArray(fresh.source_completion_ids)) throw new Error("来源未完整同步");
+        workSummaryPreview = fresh;
+        workSummaryReselectMode = true;
+        workSummaryIncludedRecords = new Set((prior.included_record_ids || prior.source_record_ids || [])
+          .filter(id => fresh.source_record_ids.includes(id)));
+        workSummaryIncludedCompletions = new Set(
+          (prior.included_completion_ids || prior.source_completion_ids || [])
+            .filter(id => fresh.source_completion_ids.includes(id)));
+        const disappeared = (prior.included_record_ids || prior.source_record_ids || [])
+          .filter(id => !fresh.source_record_ids.includes(id)).length +
+          (prior.included_completion_ids || prior.source_completion_ids || [])
+            .filter(id => !fresh.source_completion_ids.includes(id)).length;
+        $("work-summary-audience").disabled = false;
+        $("work-summary-confirm").checked = false;
+        $("work-summary-confirm").disabled = true;
+        $("work-summary-save").textContent = "保存重新选材（转为待核对）";
+        // The original manually edited text remains visible until the user
+        // explicitly rebuilds; never silently replace or merge it.
+        workSummaryGeneratedBody = prior.body || "";
+        workSummarySelectionApplied = false;
+        renderSummarySourceChoices();
+        workSummaryWatcher.check();
+        $("work-summary-message").textContent =
+          "已载入当前候选来源。原总结正文和原始版本未改；勾选后必须点击「按勾选重建底稿」再保存。"+
+          (disappeared ? " 原先选中的 "+disappeared+" 条来源当前不在范围内，请核对后再保存。" : "");
+      } catch (error) {
+        $("work-summary-message").textContent = "无法重新选择来源："+error.message+"；旧总结保持不变。";
+      } finally { $("work-summary-edit-sources").disabled = false; }
+    }
+    $("work-summary-edit-sources").addEventListener("click", reselectSavedWorkSummary);
     function renderWorkSummaries() {
       const container = $("work-summary-list");
       container.replaceChildren();
@@ -5427,6 +5478,11 @@
           (summary.audience === "report" ? "汇报版" : "个人版") + " · " +
           summary.period_start + " 至 " + summary.period_end +
           (summary.confirmed ? " · 已核对" : " · 草稿")));
+        card.append(element("p", "work-archive-hint",
+          "本次选用 " + (summary.included_record_ids || summary.source_record_ids || []).length +
+          "/" + (summary.source_record_ids || []).length + " 条记录 · " +
+          (summary.included_completion_ids || summary.source_completion_ids || []).length +
+          "/" + (summary.source_completion_ids || []).length + " 次已确认完成"));
         card.append(element("p", "", (summary.body || "").slice(0,260) +
           ((summary.body || "").length > 260 ? "…" : "")));
         const edit = element("button", "", summary.conflict ? "存在冲突，禁止修改" : "打开 / 修订");
