@@ -751,6 +751,9 @@
     .work-summary-source-item input{width:16px;height:16px;margin:1px}
     .work-summary-source-item span{overflow-wrap:anywhere;line-height:1.6}
     .work-summary-source-item small{display:block;color:#53677f;font-size:11px;line-height:1.65;margin-top:3px;overflow-wrap:anywhere}
+    .work-stage-day{margin:10px 0;border:1px solid #dae5f2;border-radius:10px;padding:10px 13px;background:var(--surface,#fff)}
+    .work-stage-day strong{display:block;margin-bottom:8px}
+    .work-stage-event{font-size:12px;line-height:1.6;margin:7px 0;overflow-wrap:anywhere}
     .work-split-review-item{border:1px solid #dce6f1;border-radius:10px;padding:12px;margin:10px 0;background:var(--surface,#fff)}
     .work-split-review-item strong{font-size:13px}
     .work-split-review-item blockquote{font-size:12px;margin:9px 0;padding:8px 10px;border-left:3px solid #a8bad0;color:#4b5d70;white-space:pre-wrap;overflow-wrap:anywhere}
@@ -1007,6 +1010,19 @@
         <div class="work-timeline" id="work-record-list" aria-live="polite">
           <div class="work-entry-empty">进入此页后读取工作记录…</div>
         </div>
+      </section>
+      <section class="work-card" aria-labelledby="work-stage-heading">
+        <h2 id="work-stage-heading">项目阶段事件线</h2>
+        <p class="work-archive-hint">按实际发生日，把同一项目的工作事实、任务与步骤进展、已人工确认完成的事件合成一条可追溯时间线，不重复统计。此处属于完整个人记录；正式对外汇报请使用上方「汇报版」逐条选材。</p>
+        <div class="work-archive-row">
+          <label>项目<select id="work-stage-project"><option value="">请选择项目</option></select></label>
+          <label>起始日期<input id="work-stage-start" type="date"></label>
+          <label>结束日期<input id="work-stage-end" type="date"></label>
+          <button type="button" id="work-stage-show">查看阶段事件线</button>
+          <button type="button" id="work-stage-copy" disabled>复制来源供 ChatGPT 整理</button>
+        </div>
+        <p id="work-stage-message" class="work-archive-hint" role="status" aria-live="polite"></p>
+        <div id="work-stage-list" aria-live="polite"></div>
       </section>
       <section class="work-card" aria-labelledby="work-action-heading">
         <h2 id="work-action-heading">从工作记录安排后续待办</h2>
@@ -1386,6 +1402,7 @@
     let workSplitParts = [];
     let workSplitFollowUps = [];
     let workSplitSelectedSource = "";
+    let workStagePreview = null;
     const unsavedProgressEditors = new Set();
     let workFocusedStepId = "";
     let workTaskCompletions = [];
