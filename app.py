@@ -4256,6 +4256,7 @@ def handler_factory(data_dir: Path):
             creating_work_record = path == "/api/work-records"
             creating_inbox = path == "/api/work-archive/inbox"
             inbox_ignore = re.fullmatch(r"/api/work-archive/inbox/(INBOX-[A-F0-9]{32})/ignore", path)
+            inbox_finish = re.fullmatch(r"/api/work-archive/inbox/(INBOX-[A-F0-9]{32})/finish", path)
             creating_summary = path == "/api/work-archive/summaries"
             summary_edit = re.fullmatch(r"/api/work-archive/summaries/(SUMMARY-[A-F0-9]{32})/update", path)
             summary_reselect = re.fullmatch(
@@ -4268,7 +4269,7 @@ def handler_factory(data_dir: Path):
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
-            if not (creating_work_record or work_record_match or creating_inbox or inbox_ignore or creating_summary or summary_edit or summary_reselect or action_preview or action_create or action_link or task_record_match or creating_task or creating_project or task_match or recurrence_match or project_match or
+            if not (creating_work_record or work_record_match or creating_inbox or inbox_ignore or inbox_finish or creating_summary or summary_edit or summary_reselect or action_preview or action_create or action_link or task_record_match or creating_task or creating_project or task_match or recurrence_match or project_match or
                     step_create_match or step_update_match or step_reorder_match or
                     step_documents_match or step_delete_match or step_convert_match or task_convert_match or applying_update or
                     documents_match or lifecycle_match or changing_retention or review_match):
@@ -4504,6 +4505,31 @@ def handler_factory(data_dir: Path):
                                  "changes": {"ignored": True}}
                         append_work_archive_event(data_dir, "inbox", event)
                     return self.json_response(200, {"saved": True, "revision": old["revision"] + 1})
+                if inbox_finish:
+                    if set(payload) != {"revision", "confirmed_finish"} or (
+                            type(payload["revision"]) is not int or
+                            payload["confirmed_finish"] is not True):
+                        raise ValueError("finishing inbox requires explicit user confirmation")
+                    with _write_lock:
+                        state = read_work_inbox(data_dir)
+                        item = next((x for x in state["items"]
+                                     if x["inbox_id"] == inbox_finish.group(1)), None)
+                        if item is None:
+                            return self.json_response(404, {"error": "inbox item not found"})
+                        if (item["conflict"] or item["revision"] != payload["revision"] or
+                                item.get("ignored") or item.get("finished") or
+                                item.get("processed_record_id") or
+                                not item.get("processed_fragment_count")):
+                            return self.json_response(409, {
+                                "error": "inbox needs valid saved fragments and current revision"})
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "inbox_id": item["inbox_id"], "action": "finish",
+                                 "actor": "user", "timestamp": utc_now(),
+                                 "base_revision": item["revision"],
+                                 "changes": {"finished": True}}
+                        append_work_archive_event(data_dir, "inbox", event)
+                    return self.json_response(200, {
+                        "saved": True, "revision": item["revision"] + 1})
                 if creating_summary:
                     required = {"period", "day", "project_id", "body", "confirmed",
                                 "source_record_ids", "source_completion_ids"}
