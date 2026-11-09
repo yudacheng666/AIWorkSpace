@@ -4491,7 +4491,8 @@ def handler_factory(data_dir: Path):
                         if old is None:
                             return self.json_response(404, {"error": "inbox item not found"})
                         if old["conflict"] or old["revision"] != payload["revision"] or (
-                                old.get("ignored") or old.get("processed_record_id")):
+                                old.get("ignored") or old.get("processed_record_id") or
+                                old.get("processed_fragment_count")):
                             return self.json_response(409, {"error": "inbox item already handled or conflicted"})
                         event = {"version": 1, "event_id": str(uuid.uuid4()),
                                  "inbox_id": old["inbox_id"], "action": "dismiss", "actor": "user",
