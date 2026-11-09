@@ -5502,6 +5502,29 @@
     }
     $("work-summary-form").addEventListener("submit", saveWorkSummary);
     $("work-summary-generate").addEventListener("click", generateWorkSummary);
+    $("work-summary-audience").addEventListener("change", () => {
+      if (!workSummaryPreview || editingSummaryId) return;
+      applySummaryAudienceDefaults();
+      workSummaryWatcher.check();
+    });
+    $("work-summary-select-all").addEventListener("click", () => {
+      if (!workSummaryPreview) return;
+      workSummaryIncludedRecords = new Set(workSummaryPreview.source_record_ids);
+      workSummaryIncludedCompletions = new Set(workSummaryPreview.source_completion_ids);
+      renderSummarySourceChoices(); rebuildSelectedSummary();
+    });
+    $("work-summary-select-none").addEventListener("click", () => {
+      if (!workSummaryPreview) return;
+      workSummaryIncludedRecords.clear(); workSummaryIncludedCompletions.clear();
+      renderSummarySourceChoices(); rebuildSelectedSummary();
+    });
+    $("work-summary-rebuild").addEventListener("click", () => {
+      if (!workSummaryPreview) return;
+      if ($("work-summary-body").value !== workSummaryGeneratedBody &&
+          !window.confirm("按新的来源勾选重建底稿将替换当前手工编辑的正文，确定继续吗？")) return;
+      rebuildSelectedSummary(true);
+      $("work-summary-message").textContent = "底稿已按本次选中的来源重建；可继续手工修改。";
+    });
     $("work-summary-cancel").addEventListener("click", () => {
       if (isSaving) return;
       if (unsavedPersistentEditors.has($("work-summary-form")) &&
