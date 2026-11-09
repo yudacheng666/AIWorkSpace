@@ -114,6 +114,40 @@ class UnifiedTimelineReportTests(unittest.TestCase):
         self.assertEqual(self.original_step, {p.name: p.read_bytes()
                                               for p in (self.root / "step_events").glob("*.json")})
 
+    def test_source_cards_show_business_context_and_digest_tracks_project_rename(self):
+        ordinary, important = self.create_facts()
+        endpoint = "/api/work-archive/preview?period=daily&day=2026-11-09"
+        code, first = self.call("GET", endpoint)
+        self.assertEqual(code, 200)
+        row = next(r for r in first["record_sources"]
+                   if r["record_id"] == important)
+        self.assertEqual(row["project_name"], "虚构采购项目")
+        self.assertEqual(row["task_title"], "虚构报价回收")
+        self.assertEqual(row["revision"], 1)
+        self.assertIn("催问供应商",
+                      " ".join(x["label"] for x in row["action_link_labels"]))
+        self.assertEqual(len(first["source_record_ids"]), 2,
+                         "step plus task associations must not duplicate the record")
+        sid, saved_preview = self._save_report(record_id=important)
+        self.assertEqual(first["source_digest"], saved_preview["source_digest"])
+        app.append_project_event(self.root, {
+            "version": 1, "event_id": "progress-project-rename",
+            "project_id": PROJECT, "action": "update", "actor": "user",
+            "timestamp": STAMP, "base_revision": 1,
+            "changes": {"name": "虚构设备升级项目"}})
+        _, second = self.call("GET", endpoint)
+        self.assertEqual(second["source_record_ids"], first["source_record_ids"])
+        self.assertEqual(next(r for r in second["record_sources"]
+                             if r["record_id"] == ordinary)["project_name"],
+                         "虚构设备升级项目")
+        self.assertNotEqual(first["source_digest"], second["source_digest"],
+                            "context changes must invalidate an old source snapshot")
+        url = "/api/work-archive/summaries/" + sid + "/reselect"
+        self.assertEqual(self.call("POST", url,
+                         self._reselect_payload(1, saved_preview, included=[important]))[0], 409)
+        self.assertEqual(len(list((self.root / "work_archive" /
+                                  "summary_events").glob("*.json"))), 1)
+
     def test_invalid_selection_and_source_changes_fail_closed(self):
         regular, important = self.create_facts()
         _, preview = self.call("GET", "/api/work-archive/preview?period=daily&day=2026-11-09")
