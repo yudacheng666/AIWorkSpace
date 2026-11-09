@@ -5,9 +5,9 @@
 - **用户新增要求**：项目、任务、步骤内直接快速记录进展；同一 RECORD 进入步骤、任务、项目及个人时间线，并可在更高层级和其他工作事件中去重汇总。工作总结区分个人版／汇报版，每份报告可以逐条选中／取消来源；取消只影响该份报告，不从个人工作轨迹或原始事件中删除。
 - **基线**：仓库 `main` 的最新版本为 2.8.4，开始时 main 最新文档提交 `8a4a4babb07ac0012721f35224c84da5d298df26`，开放 PR 0；本轮开发独立分支 `feat/20261109-unified-work-timeline-reports`。
 - **设计和代码**：新增 `docs/UNIFIED_WORK_TIMELINE_V2.md`；沿用已有 `work_archive/record_events`、`action_links` 实现项目／任务／步骤上下文快速记录和短时间线；项目级报告也纳入步骤／任务关联事实。SUMMARY 新增可选 `audience`、`included_record_ids`、`included_completion_ids`，保留历史全量 `source_*_ids` 作为来源审计；旧 SUMMARY 按个人版且全部来源兼容读取。网页可切换个人／汇报版，选中／取消、全选／全取消、重建底稿；复制 ChatGPT 分析说明仅携带本次选中来源。
-- **测试范围**：新 `tests/test_unified_timeline_reports.py` 使用隔离虚构数据验证多对象链接仍为单条 RECORD、报告选中子集、旧摘要读取、非法源选择、候选变化拒绝、原 task/step 字节及状态不变。需要按准确 HEAD CI 验证 Ubuntu/Windows Python、Node UI 和 Windows Chromium；当前不能写 PASS。
+- **准确产品／测试 SHA**：`40c8541fe59ac951d981a41b2392950336abdcbf`，对应 [GitHub Actions #42592658300](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42592658300) **3/3 SUCCESS**。Ubuntu Python 265（29 个预期 SKIP）与 Node 117/117 PASS；Windows Python 265（27 个预期 SKIP）与 Node 117/117 PASS；Windows 实际应用 Chromium E2E 24 PASS、更新／回滚 3 PASS。新增 Python 用虚构数据覆盖多级关联同一 RECORD、汇报选中子集和原候选全集、旧 SUMMARY 兼容、非法来源和迟到变化拒绝、原 task/step 字节和状态不变；新增 Node 覆盖步骤快速记录单次写入多级可见和汇报 AI 复制只含选中来源。旧候选最初的测试 schema 不一致、旧前端 DOM 夹具和旧 Chromium 断言问题均已修复并在准确 SHA 完整复验通过。
 - **安全边界**：新事件遵守原 validator/revision/409/追加式原文保留；不自动变更 status/done；不使用付费 AI API；不合并 main、不更新真实 Windows 8770、不写入真实 Google Drive 任务数据。真实双电脑 Drive 离线重连和本机安装仍属于独立 NOT TESTED。
-- **下一步**：创建 Draft PR、查看准确产品/测试 SHA 的 GitHub Actions；修复失败测试和产品缺陷，只复测受影响范围。用户批准前保持候选，不发布部署。
+- **PR 与下一步**：[Draft PR #50](https://github.com/yudacheng666/AIWorkSpace/pull/50) 已创建并保持 Open/Draft。待用户审阅并明确批准后才可合并 main；公司 Windows 8770、真实 Google Drive 双电脑离线／重连、真实数据写入均未执行或验收。
 
 
 ## 2026-11-08：2.8.4 正式发布—通知信箱可读性与任务列标题下拉箭头（PR #49 已合并）
