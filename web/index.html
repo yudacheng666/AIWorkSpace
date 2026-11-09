@@ -5468,6 +5468,7 @@
         : {period:snapshot.period,day:snapshot.day,
            project_id:snapshot.project_id || null,body:snapshot.body,
            confirmed:snapshot.confirmed,audience:snapshot.audience,
+           source_digest:workSummaryPreview.source_digest,
            source_record_ids:workSummaryPreview.source_record_ids,
            source_completion_ids:workSummaryPreview.source_completion_ids,
            included_record_ids:workSummaryPreview.source_record_ids.filter(id =>
@@ -5569,7 +5570,8 @@
         const response = await fetch("/api/work-archive/preview" + qs, {cache:"no-store"});
         const fresh = await response.json();
         if (!response.ok) throw new Error(fresh.error || "HTTP " + response.status);
-        if (JSON.stringify(fresh.source_record_ids) !==
+        if (fresh.source_digest !== workSummaryPreview.source_digest ||
+            JSON.stringify(fresh.source_record_ids) !==
               JSON.stringify(workSummaryPreview.source_record_ids) ||
             JSON.stringify(fresh.source_completion_ids) !==
               JSON.stringify(workSummaryPreview.source_completion_ids)) {
