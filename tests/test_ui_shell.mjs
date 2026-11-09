@@ -2118,6 +2118,80 @@ test("P3 rejects invented and overlapping quotes before any write and keeps foll
     /未来待办建议/);
 });
 
+test("integration: changing a split source cannot discard an unsaved reviewed draft", async () => {
+  const a="INBOX-"+"A".repeat(32),b="INBOX-"+"B".repeat(32);
+  const first={inbox_id:a,content:"虚构采购上午核对报价。",source_digest:"a".repeat(64),
+    revision:1,occurred_on:"2026-11-09",ignored:false,finished:false,conflict:false};
+  const second={...first,inbox_id:b,content:"虚构采购下午核对交期。",source_digest:"b".repeat(64)};
+  const h=harness([],()=>false,[],[],null,{inbox:[first,second]});
+  await h.api.loadWorkArchive();
+  h.el("work-split-source").value=a;
+  h.el("work-split-source").handlers.get("change")[0]();
+  h.el("work-split-lines").handlers.get("click")[0]();
+  h.el("work-split-check").handlers.get("click")[0]();
+  const originalJson=h.el("work-split-json").value;
+  assert.equal(h.el("work-split-review").children.length,1);
+  h.el("work-split-source").value=b;
+  h.el("work-split-source").handlers.get("change")[0]();
+  assert.equal(h.el("work-split-source").value,a);
+  assert.equal(h.el("work-split-json").value,originalJson);
+  assert.equal(h.el("work-split-review").children.length,1);
+  assert.equal(h.writes.length,0);
+});
+
+test("integration: edited AI plan must be re-reviewed before writing a fact", async () => {
+  const inboxId="INBOX-"+"C".repeat(32);
+  const source={inbox_id:inboxId,content:"虚构项目已核对报价。",source_digest:"c".repeat(64),
+    revision:1,occurred_on:"2026-11-09",ignored:false,finished:false,conflict:false};
+  const h=harness([],()=>true,[],[],null,{inbox:[source]});
+  await h.api.loadWorkArchive();
+  h.el("work-split-source").value=inboxId;
+  h.el("work-split-lines").handlers.get("click")[0]();
+  h.el("work-split-check").handlers.get("click")[0]();
+  const oldCard=h.el("work-split-review").children[0];
+  const oldSave=oldCard.children.find(node=>node.tag==="button");
+  const payload=JSON.parse(h.el("work-split-json").value);
+  payload.facts[0].content="虚构项目已经确认采购（尚未核实）";
+  h.el("work-split-json").value=JSON.stringify(payload);
+  h.el("work-split-json").handlers.get("input")[0]();
+  await oldSave.handlers.get("click")[0]();
+  assert.equal(h.writes.length,0);
+  assert.match(h.el("work-split-message").textContent,/重新点击/);
+  h.el("work-split-check").handlers.get("click")[0]();
+  const freshSave=h.el("work-split-review").children[0].children.find(node=>node.tag==="button");
+  await freshSave.handlers.get("click")[0]();
+  assert.equal(h.writes.length,1);
+  assert.equal(h.writes[0].body.content,payload.facts[0].content);
+  assert.equal(Object.hasOwn(h.writes[0].body,"status"),false);
+});
+
+test("integration: previously saved inbox fragments are marked complete on reopen", async () => {
+  const inboxId="INBOX-"+"D".repeat(32),savedId="RECORD-"+"A".repeat(32);
+  const content="上午检查虚构报价。\n下午核对虚构交期。";
+  const excerpt="上午检查虚构报价。";
+  const source={inbox_id:inboxId,content,source_digest:"d".repeat(64),
+    processed_fragment_count:1,
+    processed_fragments:[{record_id:savedId,excerpt,occurrence:1,start:0,end:excerpt.length}],
+    revision:1,occurred_on:"2026-11-09",ignored:false,finished:false,conflict:false};
+  const h=harness([],()=>true,[],[],null,{inbox:[source]});
+  await h.api.loadWorkArchive();
+  h.el("work-split-source").value=inboxId;
+  h.el("work-split-lines").handlers.get("click")[0]();
+  h.el("work-split-check").handlers.get("click")[0]();
+  const cards=h.el("work-split-review").children;
+  assert.equal(cards.length,2);
+  assert.match(cards[0].children[0].textContent,/已保存/);
+  assert.equal(cards[0].children.find(x=>x.tag==="button").disabled,true);
+  assert.equal(cards[1].children.find(x=>x.tag==="button").disabled,false);
+  const untouched=cards[0].children.find(x=>x.tag==="button");
+  await untouched.handlers.get("click")[0]();
+  assert.equal(h.writes.length,0);
+  const pending=cards[1].children.find(x=>x.tag==="button");
+  await pending.handlers.get("click")[0]();
+  assert.equal(h.writes.length,1);
+  assert.equal(h.writes[0].body.source_fragment.excerpt,"下午核对虚构交期。");
+});
+
 test("P3 project stage timeline deduplicates project task and step records and copies source-only context", async () => {
   const projectId="PROJECT-"+"F".repeat(32);
   const taskId="TASK-UI-STAGE";
@@ -2155,6 +2229,14 @@ test("P3 project stage timeline deduplicates project task and step records and c
   assert.match(copied,/stage-completion-0001/);
   assert.doesNotMatch(copied,/另一个不相关项目/);
   assert.equal(h.writes.length,0,"stage generation and export are strictly read-only");
+  assert.equal(h.el("work-stage-report").disabled,false);
+  h.el("work-stage-report").handlers.get("click")[0]();
+  assert.equal(h.el("work-summary-period").value,"monthly");
+  assert.equal(h.el("work-summary-date").value,"2026-11-09");
+  assert.equal(h.el("work-summary-project").value,projectId);
+  assert.equal(h.el("work-summary-audience").value,"report");
+  assert.match(h.el("work-summary-message").textContent,/请点击.*生成来源底稿/);
+  assert.equal(h.writes.length,0,"handoff is a filter change, not a save");
 });
 
 test("saved report reselects sources only after deliberate rebuild and appends one revision", async () => {
