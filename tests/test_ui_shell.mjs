@@ -58,7 +58,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
           "query-status", "query-date-field", "new-task-project", "new-task-related",
           "new-task-priority", "task-sort", "task-date-field", "calendar-granularity", "project-sort",
           "work-record-project", "work-record-task", "work-filter-project",
-          "work-inbox-project", "work-summary-period", "work-summary-project", "work-summary-audience",
+          "work-inbox-project", "work-split-source", "work-summary-period", "work-summary-project", "work-summary-audience",
           "work-link-target", "work-link-relation", "work-action-source",
           "work-task-convert-source", "work-portfolio-project"]);
         elements.set(id, node(selects.has(id) ? "select" : "div"));
@@ -2037,6 +2037,85 @@ test("one step progress note belongs to step task and project timelines without 
   assert.equal(created.body.action_links[0].target_id,stepId);
   assert.equal(Object.hasOwn(created.body,"status"),false);
   assert.equal(Object.hasOwn(created.body,"confirmed_done"),false);
+});
+
+test("P3 one original note creates distinct reviewed work records with verified excerpts", async () => {
+  const inboxId="INBOX-"+"A".repeat(32);
+  const recordId="RECORD-"+"B".repeat(32);
+  const digest="c".repeat(64);
+  const source={inbox_id:inboxId,content:"上午核对虚构报价。\n下午确认虚构交期。",
+    source_digest:digest,occurred_on:"2026-11-09",project_id:null,
+    revision:1,processed_fragment_count:0,ignored:false,finished:false,conflict:false,
+    created_at:"2026-11-09T08:00:00Z"};
+  const saved={record_id:recordId,display_id:"R-261109-BBBBBBBBBBBB",
+    content:"已核对虚构报价",revision:1,source_inbox_id:inboxId,
+    occurred_on:"2026-11-09"};
+  const h=harness([],()=>true,[],[],(path,body)=>{
+    if(path==="/api/work-records")return {ok:true,json:async()=>({saved:true,record_id:recordId,
+      display_id:saved.display_id,revision:1})};
+    return {ok:true,json:async()=>({saved:true,revision:2})};
+  },{inbox:[source],records:[saved]});
+  await h.api.loadWorkArchive();
+  h.el("work-split-source").value=inboxId;
+  h.el("work-split-lines").handlers.get("click")[0]();
+  const suggested=JSON.parse(h.el("work-split-json").value);
+  assert.equal(suggested.facts.length,2);
+  assert.equal(suggested.source_digest,digest);
+  h.el("work-split-check").handlers.get("click")[0]();
+  assert.equal(h.el("work-split-review").children.length,2);
+  const first=h.el("work-split-review").children[0];
+  const save=first.children.find(child=>child.tag==="button");
+  await save.handlers.get("click")[0]();
+  assert.equal(h.writes.length,1);
+  assert.equal(h.writes[0].path,"/api/work-records");
+  assert.equal(h.writes[0].body.source_inbox_id,inboxId);
+  assert.equal(h.writes[0].body.source_fragment.excerpt,"上午核对虚构报价。");
+  assert.equal(h.writes[0].body.source_fragment.occurrence,1);
+  assert.equal(h.writes[0].body.source_fragment.source_digest,digest);
+  assert.equal(Object.hasOwn(h.writes[0].body,"status"),false);
+  assert.equal(Object.hasOwn(h.writes[0].body,"confirmed_done"),false);
+  const rebuilt=h.el("work-split-review").children[0];
+  assert.match(rebuilt.children[0].textContent,/已保存/);
+  assert.equal(rebuilt.children.find(child=>child.tag==="button").disabled,true);
+});
+
+test("P3 rejects invented and overlapping quotes before any write and keeps follow-ups read-only", async () => {
+  const inboxId="INBOX-"+"E".repeat(32),digest="e".repeat(64);
+  const source={inbox_id:inboxId,content:"会议讨论了采购计划。\n后续核实供应商交期。",
+    occurred_on:null,project_id:null,source_digest:digest,
+    ignored:false,finished:false,conflict:false,revision:1};
+  const h=harness([],()=>true,[],[],null,{inbox:[source]});
+  await h.api.loadWorkArchive();
+  h.el("work-split-source").value=inboxId;
+  const plan={
+    version:1,inbox_id:inboxId,source_digest:digest,
+    facts:[{excerpt:"根本没说过的话",occurrence:1,
+      content:"编造的工作完成",occurred_on:"2026-11-09",outcome:null}],
+    follow_ups:[{title:"未来催供应商",due_date:null}]
+  };
+  h.el("work-split-json").value=JSON.stringify(plan);
+  h.el("work-split-check").handlers.get("click")[0]();
+  assert.match(h.el("work-split-message").textContent,/原文不存在/);
+  assert.equal(h.writes.length,0);
+  plan.facts=[{excerpt:"会议讨论了采购计划。",occurrence:1,
+    content:"已开会讨论",occurred_on:null,outcome:null},
+    {excerpt:"讨论了采购",occurrence:1,
+    content:"重复同一事件",occurred_on:null,outcome:null}];
+  h.el("work-split-json").value=JSON.stringify(plan);
+  h.el("work-split-check").handlers.get("click")[0]();
+  assert.match(h.el("work-split-message").textContent,/重叠原文/);
+  plan.facts.pop();
+  h.el("work-split-json").value=JSON.stringify(plan);
+  h.el("work-split-check").handlers.get("click")[0]();
+  assert.equal(h.el("work-split-review").children.length,2,"fact + future suggestion");
+  const first=h.el("work-split-review").children[0];
+  const save=first.children.find(child=>child.tag==="button");
+  await save.handlers.get("click")[0]();
+  assert.match(h.el("work-split-message").textContent,/补齐合法的发生日期/);
+  assert.equal(h.writes.length,0);
+  assert.match(h.el("work-split-review").children[1].textContent ||
+    h.el("work-split-review").children[1].children.map(x=>x.textContent).join(""),
+    /未来待办建议/);
 });
 
 test("saved report reselects sources only after deliberate rebuild and appends one revision", async () => {
