@@ -1,5 +1,20 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-09：统一工作记录 P3（多事实拆分、跟进建议、项目阶段线）开发及 CI 验收
+
+- **用户指示**：「继续开发，不用 Work」。基于 main `8a4a4babb07ac0012721f35224c84da5d298df26`（2.8.4）的现有 Draft [PR #50](https://github.com/yudacheng666/AIWorkSpace/pull/50) 继续开发，未使用 Work；未创建平行 PR、未改 main/VERSION、未升级真实 Windows 8770、未接触真实 Google Drive 业务数据。
+- **P3 新功能**：
+  1. 一条 INBOX 原文可以经用户核对拆分为多个独立事实 RECORD。增加 create-only `source_fragment={excerpt,occurrence,source_digest}`，与不可变 `source_inbox_id` 联用；后端从原文验证精确引文与原文 SHA256、区间不交叉。相同或重叠片段 POST 拒绝 409；非法引文／指纹拒绝 400；跨电脑晚到重叠来源只读投影冻结为冲突，不用时间戳覆盖。老 1:1 整理保持兼容，禁止与多片段混写。
+  2. 工作记录界面新增「拆分多条事实」：按换行生成可编辑建议、用户主动复制给 ChatGPT 并粘贴结构化 JSON，限制 10 条事实 + 5 条未来待办。逐条核对发生日期、事实与成果后才独立保存；未来待办不会当已发生事实，保存来源后可送入原有任务查重／人工确认流程，不自动创建、完成任务。
+  3. 保存部分事实后可继续整理；用户明确点击「确认此笔记已整理完」追加 INBOX `finish` 事件，检查现有 revision、有已保存片段及无冲突；不覆盖原笔记，已整理原文不能忽略或再次追加。
+  4. 新增只读「项目阶段事件线」，按项目／最多 184 天把项目本身、任务、步骤的 RECORD 与人工确认完成事件汇总，以来源 ID 去重、按实际发生日期归组。复制到 ChatGPT 前重新读取和对照来源；对外汇报仍通过 P2 的报告选材，绝不把全部日常事实自动对外发布。
+- **准确产品／测试 SHA**：`0cbe47a9592c63645959838fd113dc02b68ae496`，对应 [GitHub Actions #42618478005](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42618478005) **3/3 SUCCESS**：Ubuntu Python 274 项（31 预期跳过）、Node 121/121 PASS；Windows Python 274 项（29 预期跳过）、Node 121/121 PASS；Windows 实际应用 Chromium E2E **26 PASS**、Windows 更新及回滚 **3 PASS**。新增真实浏览器专项从保存原文、分两条工作事实、逐条提交、确认整理完毕，直到项目阶段线只读复制。Python 新增非法／重复／跨片段／晚同步冲突／完成确认及原文件字节保护，Node 新增拆分核对／来源校验／待办分离／阶段线去重和只读导出。
+- **中间失败与修正**：候选 `c09670dceac1ff3d8f390860efb4eb7d409024e8` 的 Windows Chromium E2E 因新增测试遗漏 `append_project_event` 导入而失败；测试导入修正后准确 SHA `0cbe47a...` 三组全部成功，不用旧失败 SHA 代替最终结果。此前通过的 P1/P2 回归一并在本 SHA 运行；不额外消耗 Codex 重跑同一脚本。
+- **持久化文件**：`docs/UNIFIED_WORK_TIMELINE_V2.md` 第 10 节、`docs/REQUIREMENTS.md`、`docs/DECISIONS.md`、`docs/WORK_ARCHIVE_USER_GUIDE.md`，以及产品 `app.py`、`web/index.html` 和三组自动化测试文件。最后文档 [skip ci] 只是记忆更新，不可作为产品 CI SHA。
+- **剩余边界与下一步**：PR #50 仍 Open/Draft，等待用户决定何时审阅、合并；公司真实 Windows 8770 部署、两台电脑 Google Drive 离线/重连及旧客户端同时写入、真实数据写入／修复仍 **NOT TESTED**。当前 ChatGPT 语义拆分需要用户主动复制／粘贴及人工审核；没有后台无人值守 AI、付费 API 或连接器自动写回的虚假声明。若继续下一阶段，应先复核当前准确 PR HEAD、项目记忆及待办需求，并增量验收。
+
+
+
 ## 2026-11-09：统一时间线 P2 报告阶段补强（PR #50 Draft，CI 已通过）
 
 - **用户要求**：「继续开发第二阶段，不用 Work」。直接通过 GitHub 连接器开发；未使用 Work、未访问或修改本机 8770 和真实 Google Drive 业务数据。
