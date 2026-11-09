@@ -5340,6 +5340,7 @@
       $("work-summary-source-items").replaceChildren();
       $("work-summary-audience").value = "personal";
       $("work-summary-audience").disabled = false;
+      $("work-summary-confirm").disabled = false;
       $("work-summary-period").value = "daily";
       $("work-summary-date").value = localDayISO(new Date());
       $("work-summary-project").value = "";
@@ -5405,6 +5406,7 @@
       $("work-summary-project").value = summary.project_id || "";
       $("work-summary-body").value = summary.body || "";
       $("work-summary-confirm").checked = !!summary.confirmed;
+      $("work-summary-confirm").disabled = false;
       $("work-summary-period").disabled = true;
       $("work-summary-date").disabled = true;
       $("work-summary-project").disabled = true;
@@ -5501,7 +5503,7 @@
         $("work-summary-message").textContent = "总结正文不能为空。";
         return;
       }
-      if (!editingSummaryId && !workSummarySelectionApplied) {
+      if (workSummaryPreview && !workSummarySelectionApplied) {
         $("work-summary-message").textContent =
           "来源勾选和正文不一致；请先点击「按勾选重建底稿」再保存。";
         return;
@@ -5520,19 +5522,24 @@
         $("work-summary-message").textContent = "总结范围已改变，请重新生成来源底稿。";
         return;
       }
-      const payload = prior
-        ? {revision:prior.revision,body:snapshot.body,confirmed:snapshot.confirmed}
+      const selectedSources = workSummaryPreview ? {
+        audience:snapshot.audience, source_digest:workSummaryPreview.source_digest,
+        source_record_ids:workSummaryPreview.source_record_ids,
+        source_completion_ids:workSummaryPreview.source_completion_ids,
+        included_record_ids:workSummaryPreview.source_record_ids.filter(id =>
+          workSummaryIncludedRecords.has(id)),
+        included_completion_ids:workSummaryPreview.source_completion_ids.filter(id =>
+          workSummaryIncludedCompletions.has(id))} : {};
+      const payload = prior && workSummaryReselectMode
+        ? {revision:prior.revision, body:snapshot.body, confirmed:false,
+           confirmed_reselect:true, ...selectedSources}
+        : prior ? {revision:prior.revision,body:snapshot.body,confirmed:snapshot.confirmed}
         : {period:snapshot.period,day:snapshot.day,
            project_id:snapshot.project_id || null,body:snapshot.body,
-           confirmed:snapshot.confirmed,audience:snapshot.audience,
-           source_digest:workSummaryPreview.source_digest,
-           source_record_ids:workSummaryPreview.source_record_ids,
-           source_completion_ids:workSummaryPreview.source_completion_ids,
-           included_record_ids:workSummaryPreview.source_record_ids.filter(id =>
-             workSummaryIncludedRecords.has(id)),
-           included_completion_ids:workSummaryPreview.source_completion_ids.filter(id =>
-             workSummaryIncludedCompletions.has(id))};
-      const path = prior ? "/api/work-archive/summaries/" + prior.summary_id + "/update"
+           confirmed:snapshot.confirmed,...selectedSources};
+      const path = prior
+        ? "/api/work-archive/summaries/" + prior.summary_id +
+          (workSummaryReselectMode ? "/reselect" : "/update")
         : "/api/work-archive/summaries";
       isSaving = true;
       $("work-summary-save").disabled = true;
@@ -5561,7 +5568,15 @@
     $("work-summary-form").addEventListener("submit", saveWorkSummary);
     $("work-summary-generate").addEventListener("click", generateWorkSummary);
     $("work-summary-audience").addEventListener("change", () => {
-      if (!workSummaryPreview || editingSummaryId) return;
+      if (!workSummaryPreview) return;
+      if (workSummaryReselectMode) {
+        workSummarySelectionApplied = false;
+        workSummaryWatcher.check();
+        $("work-summary-message").textContent =
+          "已切换报告用途；请核对勾选来源并点击「按勾选重建底稿」。";
+        return;
+      }
+      if (editingSummaryId) return;
       applySummaryAudienceDefaults();
       workSummaryWatcher.check();
     });
@@ -5610,9 +5625,9 @@
 
     async function copyWorkAnalysisSources() {
       const snapshot = workSummarySnapshot();
-      if (!workSummaryPreview || editingSummaryId) {
+      if (!workSummaryPreview || (editingSummaryId && !workSummaryReselectMode)) {
         $("work-summary-message").textContent =
-          "请先退出历史总结编辑，生成本次来源底稿并勾选记录后再复制 AI 分析资料。";
+          "请先生成来源底稿，或在历史总结中点击「重新选择历史总结来源」，然后勾选记录再复制 AI 分析资料。";
         return;
       }
       if (!workSummarySelectionApplied) {
