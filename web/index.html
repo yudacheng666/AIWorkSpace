@@ -1557,10 +1557,10 @@
       const form = element("form", "progress-form");
       const day = element("input");
       day.type = "date"; day.required = true; day.value = localDayISO(new Date());
-      day.setAttribute("aria-label", "实际发生日期");
+      day.title = "实际发生日期";
       const content = element("textarea");
       content.required = true; content.maxLength = 4000;
-      content.setAttribute("aria-label", "进展内容");
+      content.title = "进展内容";
       content.placeholder = "记录已发生的进展或沟通；不会自动改变任务状态";
       const save = element("button", "save", "保存进展");
       save.type = "submit"; save.disabled = !!scope.disabled;
