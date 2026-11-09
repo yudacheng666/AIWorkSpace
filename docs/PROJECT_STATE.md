@@ -1,3 +1,11 @@
+# 2026-11-09：Tailscale Serve 私有访问 v2.9.1 已正式发布（PR #51）
+
+- **用户明确授权**：“修改发布”；目标是修复手机经 Serve HTTPS 进入 Windows AIWorkSpace 8770 返回 `{"error":"local requests only"}`，但必须维持非公网、仅私有 Tailnet 的安全边界。
+- **核验基线**：修复前 main `36ca0374330153dc5deaa90a8b3ec963554389c7` / VERSION 2.9.0，无其他开放 PR。修复在独立分支 `feature/tailscale-serve-private-access-291`，包含可选 per-install 配置、Tailscale Serve 身份/HTTPS/Host/Origin 校验、Funnel/跨站拒绝、回归测试和部署说明；默认继续监听 `127.0.0.1`，不修改任何业务事件数据。
+- **准确受测候选 SHA** `65f5d414491b8f36a2c3996bd4ec15b0a5fbdef0`，对应 [PR CI #42640288878](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42640288878) **3/3 SUCCESS**：Ubuntu/Windows Python + Node、Windows Chromium UI E2E 与更新/回滚。
+- **正式合并**：[PR #51](https://github.com/yudacheng666/AIWorkSpace/pull/51) 以 GitHub 原生普通 merge 合并，准确 merge SHA `4ee095848ba2043a4fae281d7ddf459fdcc68cae`；合并时 `main/VERSION=2.9.1`，开放 PR 为 0。该准确 SHA 的 [主干 CI #42640737211](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42640737211) **3/3 SUCCESS**，含 Windows 真实 Chromium E2E 和更新/回滚。
+- **真实设备部署/验收边界**：GitHub 发布不等于自动升级公司 Windows 8770；未连接用户实际 iPhone/Safari、未改本机 Tailscale ACL/Funnel、未对真实 Google Drive 业务数据执行任何操作。须用户按 [手机私有访问指南](TAILSCALE_PRIVATE_ACCESS.md) 在本机 `app.py` 目录创建 `.aiworkspace-tailnet-access.json` 指定 HTTPS Serve 精确 Origin，并升级/重启程序后实机测试。未启用配置时仍保持原 localhost 拒绝。Funnel 必须关闭，且不得为手机访问将服务开放到 `0.0.0.0`。后续仅文档记录的提交可带 `[skip ci]`，不能拿文档 SHA 冒充产品受测 SHA。
+
 # 2026-11-09：Tailscale Serve 私有手机访问 v2.9.1 候选（CI 待核验）
 
 - 用户指示：“修改发布”。最新已核对 main 由 `36ca0374330153dc5deaa90a8b3ec963554389c7` 起步、`VERSION=2.9.0`，开放 PR=0；原 `app.py` 的 `local_request_allowed` 明确拒绝外部 Host/Origin 导致手机 `local requests only`。
