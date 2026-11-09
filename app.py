@@ -2287,8 +2287,14 @@ def validate_work_archive_event(value: object, kind: str) -> dict:
         if action == "create":
             required = {"period", "period_start", "period_end", "project_id",
                         "body", "source_record_ids", "source_completion_ids", "confirmed"}
-            if revision != 0 or set(changes) != required:
+            optional = {"audience", "included_record_ids", "included_completion_ids"}
+            present_optional = set(changes) & optional
+            if revision != 0 or not required <= set(changes) or set(changes) - (required | optional):
                 raise ValueError("summary creation requires all fields")
+            if present_optional and present_optional != optional:
+                raise ValueError("summary source selection requires audience and both included lists")
+            if present_optional and changes["audience"] not in {"personal", "report"}:
+                raise ValueError("invalid summary audience")
             if changes["period"] not in {"daily", "weekly", "monthly"}:
                 raise ValueError("invalid summary period")
             _archive_day(changes["period_start"])
@@ -2307,6 +2313,16 @@ def validate_work_archive_event(value: object, kind: str) -> dict:
                         not isinstance(item, str) or not pattern.fullmatch(item) for item in ids
                 ) or len(ids) != len(set(ids)):
                     raise ValueError("invalid summary source IDs")
+            if present_optional:
+                for included_key, source_key in (
+                        ("included_record_ids", "source_record_ids"),
+                        ("included_completion_ids", "source_completion_ids")):
+                    ids = changes[included_key]
+                    if not isinstance(ids, list) or len(ids) != len(set(ids)) or any(
+                            not isinstance(item, str) for item in ids):
+                        raise ValueError("invalid included summary IDs")
+                    if not set(ids) <= set(changes[source_key]):
+                        raise ValueError("included sources must be a subset of candidates")
         elif action == "update":
             if revision < 1 or set(changes) - {"body", "confirmed"}:
                 raise ValueError("invalid summary update fields")
@@ -2367,6 +2383,11 @@ def read_work_archive_events(data_dir: Path, kind: str) -> dict:
         if kind == "inbox":
             item.setdefault("project_id", None)
             item["ignored"] = False
+        else:
+            # Older summaries contain every source and have no audience field.
+            item.setdefault("audience", "personal")
+            item.setdefault("included_record_ids", list(item["source_record_ids"]))
+            item.setdefault("included_completion_ids", list(item["source_completion_ids"]))
         by_revision: dict[int, list[dict]] = defaultdict(list)
         for event in updates[object_id]:
             by_revision[event["base_revision"]].append(event)
@@ -2489,7 +2510,17 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
             "source_record_ids": [r["record_id"] for r in records],
             "source_completion_ids": [e["source_event_id"] for e in completed],
             "record_count": len(records), "completion_count": len(completed),
-            "duration_minutes": duration}
+            "duration_minutes": duration,
+            "record_sources": [
+                {"record_id": r["record_id"], "display_id": r["display_id"],
+                 "occurred_on": r["occurred_on"], "content": r["content"],
+                 "outcome": r.get("outcome"), "featured": r.get("featured", False)}
+                for r in records
+            ],
+            "completion_sources": [
+                {"source_event_id": e["source_event_id"], "occurred_at": e["occurred_at"],
+                 "task_title": e["task_title"]} for e in completed
+            ]}
 
 
 
@@ -4336,7 +4367,10 @@ def handler_factory(data_dir: Path):
                 if creating_summary:
                     required = {"period", "day", "project_id", "body", "confirmed",
                                 "source_record_ids", "source_completion_ids"}
-                    if set(payload) != required:
+                    optional = {"audience", "included_record_ids", "included_completion_ids"}
+                    provided_optional = set(payload) & optional
+                    if not required <= set(payload) or set(payload) - (required | optional) or (
+                            provided_optional and provided_optional != optional):
                         raise ValueError("invalid work summary input")
                     with _write_lock:
                         workspace = read_workspace(data_dir)
@@ -4349,6 +4383,8 @@ def handler_factory(data_dir: Path):
                         changes = {key: preview[key] for key in (
                             "period", "period_start", "period_end", "project_id",
                             "source_record_ids", "source_completion_ids")}
+                        if provided_optional:
+                            changes.update({key: payload[key] for key in optional})
                         changes["body"] = payload["body"]
                         changes["confirmed"] = payload["confirmed"]
                         event = {"version": 1, "event_id": str(uuid.uuid4()),
