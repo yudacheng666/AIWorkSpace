@@ -746,6 +746,10 @@
     .topbar-actions > .refresh-top { width:38px; padding:0; font-size:19px; }
 
     @media(max-width:1100px) {.work-meta {grid-template-columns:repeat(2,minmax(130px,1fr))}.work-filters {grid-template-columns:repeat(2,minmax(120px,1fr))}}
+    .work-summary-source-items{display:grid;gap:8px;margin-bottom:12px;max-height:310px;overflow:auto}
+    .work-summary-source-item{display:grid;grid-template-columns:18px minmax(0,1fr);gap:10px;padding:9px;border:1px solid #e2e8f1;border-radius:8px;font-size:12px;cursor:pointer}
+    .work-summary-source-item input{width:16px;height:16px;margin:1px}
+    .work-summary-source-item span{overflow-wrap:anywhere;line-height:1.6}
     .progress-panel{border:1px solid #d9e5ef;border-radius:10px;margin:12px 0;padding:10px;background:#fbfcfe}
     .progress-panel summary{cursor:pointer;font-weight:600;font-size:13px}
     .progress-entry{font-size:12px;line-height:1.6;border-bottom:1px solid #e9eef4;overflow-wrap:anywhere;padding:6px 0}
@@ -1067,8 +1071,21 @@
               <select id="work-summary-period"><option value="daily">日报</option><option value="weekly">周报</option><option value="monthly">月报</option></select>
             </label>
             <label>包含日期<input id="work-summary-date" type="date" required></label>
+            <label>用途<select id="work-summary-audience">
+              <option value="personal">个人版（默认全部记录）</option>
+              <option value="report">汇报版（可精选重点）</option>
+            </select></label>
             <label>项目范围<select id="work-summary-project"><option value="">全部项目</option></select></label>
             <button type="button" id="work-summary-generate">生成来源底稿</button>
+          </div>
+          <div id="work-summary-source-panel" hidden>
+            <p class="work-archive-hint">逐条决定哪些事实用于本次总结／AI 分析；取消不会删除个人工作记录。</p>
+            <div class="work-archive-row">
+              <button type="button" id="work-summary-select-all">全部加入</button>
+              <button type="button" id="work-summary-select-none">全部取消</button>
+              <button type="button" id="work-summary-rebuild">按勾选重建底稿</button>
+            </div>
+            <div id="work-summary-source-items" class="work-summary-source-items"></div>
           </div>
           <label for="work-summary-body">总结正文（可编辑）</label>
           <textarea id="work-summary-body" class="work-archive-textarea" maxlength="12000" placeholder="先选择周期并生成底稿，再核实和补充。" required></textarea>
@@ -1347,6 +1364,10 @@
     let workInboxItems = [];
     let workSummaryItems = [];
     let workSummaryPreview = null;
+    let workSummaryIncludedRecords = new Set();
+    let workSummaryIncludedCompletions = new Set();
+    let workSummarySelectionApplied = true;
+    let workSummaryGeneratedBody = "";
     let editingSummaryId = "";
     let workActionPreview = null;
     let taskViewMode = "list";
