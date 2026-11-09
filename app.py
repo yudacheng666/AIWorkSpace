@@ -2294,6 +2294,9 @@ def validate_work_archive_event(value: object, kind: str) -> dict:
         elif action == "dismiss":
             if revision != 1 or value["actor"] != "user" or changes != {"ignored": True}:
                 raise ValueError("inbox dismiss requires explicit user revision")
+        elif action == "finish":
+            if revision < 1 or value["actor"] != "user" or changes != {"finished": True}:
+                raise ValueError("inbox finish requires explicit user revision")
         else:
             raise ValueError("invalid inbox action")
     else:
@@ -2425,6 +2428,7 @@ def read_work_archive_events(data_dir: Path, kind: str) -> dict:
         if kind == "inbox":
             item.setdefault("project_id", None)
             item["ignored"] = False
+            item["finished"] = False
         else:
             # Older summaries contain every source and have no audience field.
             item.setdefault("audience", "personal")
@@ -4491,7 +4495,7 @@ def handler_factory(data_dir: Path):
                         if old is None:
                             return self.json_response(404, {"error": "inbox item not found"})
                         if old["conflict"] or old["revision"] != payload["revision"] or (
-                                old.get("ignored") or old.get("processed_record_id") or
+                                old.get("ignored") or old.get("finished") or old.get("processed_record_id") or
                                 old.get("processed_fragment_count")):
                             return self.json_response(409, {"error": "inbox item already handled or conflicted"})
                         event = {"version": 1, "event_id": str(uuid.uuid4()),
@@ -4619,7 +4623,7 @@ def handler_factory(data_dir: Path):
                             if source_id:
                                 inbox = read_work_inbox(data_dir, state["records"])
                                 source = next((i for i in inbox["items"] if i["inbox_id"] == source_id), None)
-                                if source is None or source.get("ignored") or source.get("conflict") or source.get("processed_record_id"):
+                                if source is None or source.get("ignored") or source.get("finished") or source.get("conflict") or source.get("processed_record_id"):
                                     return self.json_response(409, {"error": "inbox source is not available"})
                                 fragment = changes.get("source_fragment")
                                 if fragment is not None:
