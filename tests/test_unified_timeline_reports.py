@@ -138,6 +138,127 @@ class UnifiedTimelineReportTests(unittest.TestCase):
         self.assertEqual(self.call("POST", "/api/work-archive/summaries", base)[0], 409)
         self.assertFalse((self.root / "work_archive" / "summary_events").exists())
 
+    def _save_report(self, *, record_id=None):
+        _, preview = self.call("GET", "/api/work-archive/preview?period=daily&day=2026-11-09")
+        included = [record_id] if record_id else []
+        code, saved = self.call("POST", "/api/work-archive/summaries", {
+            "period": "daily", "day": "2026-11-09", "project_id": None,
+            "body": "已人工确认旧总结", "confirmed": True,
+            "audience": "report", "source_digest": preview["source_digest"],
+            "source_record_ids": preview["source_record_ids"],
+            "source_completion_ids": preview["source_completion_ids"],
+            "included_record_ids": included, "included_completion_ids": []})
+        self.assertEqual(code, 201, saved)
+        return saved["summary_id"], preview
+
+    def _reselect_payload(self, revision, preview, *, included=None):
+        return {"revision": revision, "audience": "report",
+                "body": "# 新版汇报\n人工审核后只保留所选来源", "confirmed": False,
+                "confirmed_reselect": True,
+                "source_digest": preview["source_digest"],
+                "source_record_ids": preview["source_record_ids"],
+                "source_completion_ids": preview["source_completion_ids"],
+                "included_record_ids": included or [], "included_completion_ids": []}
+
+    def test_reselect_history_appends_new_revision_while_preserving_old_bytes(self):
+        ordinary, important = self.create_facts()
+        summary_id, original = self._save_report(record_id=important)
+        directory = self.root / "work_archive" / "summary_events"
+        old_files = {p.name: p.read_bytes() for p in directory.glob("*.json")}
+        # The saved report has already been checked. Reselection must unconfirm it.
+        code, updated = self.call("POST",
+                                  "/api/work-archive/summaries/" + summary_id + "/reselect",
+                                  self._reselect_payload(1, original, included=[ordinary]))
+        self.assertEqual(code, 200, updated)
+        self.assertEqual(updated["revision"], 2)
+        _, state = self.call("GET", "/api/work-archive")
+        summary = state["summaries"][0]
+        self.assertEqual(summary["revision"], 2)
+        self.assertEqual(summary["included_record_ids"], [ordinary])
+        self.assertEqual(set(summary["source_record_ids"]), {ordinary, important})
+        self.assertEqual(summary["audience"], "report")
+        self.assertFalse(summary["confirmed"], "new source set must be reviewed again")
+        self.assertEqual(len(list(directory.glob("*.json"))), 2)
+        for name, data in old_files.items():
+            self.assertEqual((directory / name).read_bytes(), data)
+        self.assertEqual(self.original_task, {p.name: p.read_bytes()
+                                              for p in (self.root / "events").glob("*.json")})
+        self.assertEqual(self.original_step, {p.name: p.read_bytes()
+                                              for p in (self.root / "step_events").glob("*.json")})
+        self.assertEqual(len(app.read_work_records(self.root)["records"]), 2)
+        self.assertEqual(self.call("POST",
+            "/api/work-archive/summaries/" + summary_id + "/reselect",
+            self._reselect_payload(1, original, included=[important]))[0], 409)
+
+    def test_reselect_requires_explicit_approval_and_valid_source_ids(self):
+        ordinary, important = self.create_facts()
+        summary_id, preview = self._save_report(record_id=important)
+        url = "/api/work-archive/summaries/" + summary_id + "/reselect"
+        valid = self._reselect_payload(1, preview, included=[ordinary])
+        for bad in (
+            {**valid, "confirmed_reselect": False},
+            {**valid, "confirmed": True},
+            {**valid, "included_record_ids": [ordinary, ordinary]},
+            {**valid, "included_record_ids": ["RECORD-" + "F" * 32]},
+            {**valid, "included_completion_ids": ["evt-not-in-candidates"]},
+            {**valid, "source_digest": "garbage"},
+            {**valid, "audience": "unauthorized"},
+            {k: v for k, v in valid.items() if k != "source_record_ids"},
+        ):
+            with self.subTest(bad=bad):
+                self.assertEqual(self.call("POST", url, bad)[0], 400)
+        files = list((self.root / "work_archive" / "summary_events").glob("*.json"))
+        self.assertEqual(len(files), 1)
+        event = {"version": 1, "event_id": "forged-reselection-0001",
+                 "summary_id": summary_id, "action": "reselect",
+                 "actor": "chatgpt", "timestamp": STAMP, "base_revision": 1,
+                 "changes": {k: v for k, v in valid.items()
+                             if k not in {"revision", "confirmed_reselect"}}}
+        with self.assertRaises(ValueError):
+            app.validate_work_archive_event(event, "summary")
+
+    def test_reselect_rejects_late_source_edits_even_if_id_list_unchanged(self):
+        ordinary, important = self.create_facts()
+        summary_id, preview = self._save_report(record_id=important)
+        report_url = "/api/work-archive/summaries/" + summary_id + "/reselect"
+        edit_url = "/api/work-records/" + ordinary + "/update"
+        self.assertEqual(self.call("POST", edit_url, {
+            "revision": 1, "content": "内容已被另一台设备修订"})[0], 200)
+        # Candidate IDs are identical but digest must reveal this content revision.
+        self.assertEqual(self.call("POST", report_url,
+            self._reselect_payload(1, preview, included=[important]))[0], 409)
+        self.assertEqual(len(list((self.root / "work_archive" /
+                                   "summary_events").glob("*.json"))), 1)
+        _, fresh = self.call("GET", "/api/work-archive/preview?period=daily&day=2026-11-09")
+        self.assertEqual(fresh["source_record_ids"], preview["source_record_ids"])
+        self.assertNotEqual(fresh["source_digest"], preview["source_digest"])
+        self.assertEqual(self.call("POST", report_url,
+            self._reselect_payload(1, fresh, included=[important]))[0], 200)
+
+    def test_legacy_summary_can_be_explicitly_reselected_without_rewriting_legacy_event(self):
+        ordinary, _ = self.create_facts()
+        summary_id = "SUMMARY-" + "D" * 32
+        root = {"version": 1, "event_id": "legacy-create-reselection",
+                "summary_id": summary_id, "action": "create", "actor": "user",
+                "timestamp": STAMP, "base_revision": 0,
+                "changes": {"period": "daily", "period_start": "2026-11-09",
+                            "period_end": "2026-11-09", "project_id": None,
+                            "body": "旧版总结", "confirmed": True,
+                            "source_record_ids": [ordinary],
+                            "source_completion_ids": []}}
+        app.append_work_archive_event(self.root, "summary", root)
+        original = next((self.root / "work_archive" / "summary_events").glob("*.json"))
+        original_bytes = original.read_bytes()
+        _, preview = self.call("GET", "/api/work-archive/preview?period=daily&day=2026-11-09")
+        self.assertEqual(self.call("POST",
+            "/api/work-archive/summaries/" + summary_id + "/reselect",
+            self._reselect_payload(1, preview, included=[ordinary]))[0], 200)
+        self.assertEqual(original.read_bytes(), original_bytes)
+        _, state = self.call("GET", "/api/work-archive")
+        self.assertEqual(state["summaries"][0]["revision"], 2)
+        self.assertEqual(state["summaries"][0]["included_record_ids"], [ordinary])
+        self.assertFalse(state["summaries"][0]["confirmed"])
+
     def test_legacy_summary_without_audience_is_personal_all_sources(self):
         regular, _ = self.create_facts()
         event = {"version": 1, "event_id": "legacy-summary-create",
