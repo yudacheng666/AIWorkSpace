@@ -105,7 +105,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask, progressPanel, recordBelongsTo})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes,
@@ -1985,4 +1985,38 @@ test("featured achievement context copies only server-verified source data and s
   assert.equal(bad.copied.length,0);
   assert.match(bad.el("work-portfolio-message").textContent,/未复制成果来源/);
   assert.equal(bad.writes.length,0);
+});
+
+test("one step progress note belongs to step task and project timelines without task status writes", async () => {
+  const projectId = "PROJECT-" + "A".repeat(32);
+  const stepId = "STEP-" + "B".repeat(32);
+  const taskId = "TASK-UI-PROGRESS";
+  const task = {...sampleTask(),task_id:taskId,project_id:projectId,steps:[
+    {step_id:stepId,task_id:taskId,title:"催报价",status:"todo",revision:1}
+  ]};
+  const fact = {record_id:"RECORD-"+"C".repeat(32),occurred_on:"2026-11-09",
+    content:"已向供应商催促报价",project_id:projectId,task_id:taskId,
+    action_links:[{target_type:"step",target_id:stepId,task_id:taskId,relation:"progress_on"}]};
+  const h = harness([task],()=>true,[{project_id:projectId,name:"虚构采购"}],[],null,{records:[fact]});
+  await h.api.refresh(true);
+  await h.api.loadWorkRecords();
+  assert.equal(h.api.recordBelongsTo(fact,{type:"step",task_id:taskId,step_id:stepId}),true);
+  assert.equal(h.api.recordBelongsTo(fact,{type:"task",task_id:taskId}),true);
+  assert.equal(h.api.recordBelongsTo(fact,{type:"project",project_id:projectId}),true);
+  const panel = h.api.progressPanel({type:"step",project_id:projectId,task_id:taskId,step_id:stepId});
+  const form = panel.children.find(x=>x.tag==="form");
+  assert.ok(form,"step quick-progress form exists");
+  const textarea = form.children.find(x=>x.tag==="textarea");
+  const date = form.children.find(x=>x.tag==="input");
+  textarea.value = "新进展：供应商承诺核实货源";
+  date.value = "2026-11-09";
+  form.handlers.get("input")[0]();
+  await form.handlers.get("submit")[0]({preventDefault(){}});
+  const created = h.writes.find(x=>x.path==="/api/work-records");
+  assert.ok(created,"quick progress writes to the single work record API");
+  assert.equal(created.body.task_id,taskId);
+  assert.equal(created.body.project_id,projectId);
+  assert.equal(created.body.action_links[0].target_id,stepId);
+  assert.equal(Object.hasOwn(created.body,"status"),false);
+  assert.equal(Object.hasOwn(created.body,"confirmed_done"),false);
 });
