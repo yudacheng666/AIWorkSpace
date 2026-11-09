@@ -5323,6 +5323,7 @@
         confirmed:$("work-summary-confirm").checked};
     }
     $("work-summary-date").value = localDayISO(new Date());
+    $("work-summary-audience").value = "personal";
     const workSummaryWatcher = watchUnsavedEditor($("work-summary-form"), workSummarySnapshot, unsavedPersistentEditors);
     function resetWorkSummary() {
       editingSummaryId = "";
