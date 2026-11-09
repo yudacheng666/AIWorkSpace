@@ -5411,7 +5411,7 @@
       const container = $("work-inbox-list");
       container.replaceChildren();
       const pending = workInboxItems.filter(item =>
-        !item.ignored && !item.processed_record_id && !item.conflict);
+        !item.ignored && !item.finished && !item.processed_record_id && !item.conflict);
       $("work-inbox-count").textContent = pending.length + " 条待整理";
       if (!workInboxItems.length) {
         container.append(element("p", "work-archive-hint", "暂无原始笔记。"));
@@ -5420,10 +5420,20 @@
       for (const item of workInboxItems) {
         const card = element("article", "work-inbox-item");
         const status = item.conflict ? "需要核查" :
-          item.processed_record_id ? "已整理" : item.ignored ? "已忽略" : "待整理";
+          item.processed_record_id || item.finished ? "已整理" :
+          item.ignored ? "已忽略" :
+          item.processed_fragment_count ? "已拆出 "+item.processed_fragment_count+" 条事实，待确认整理完毕" :
+          "待整理";
         card.append(element("strong", "", status + " · " + localActivityDay(item.created_at)));
         card.append(element("p", "", item.content || "创建记录尚未同步"));
-        if (!item.ignored && !item.processed_record_id && !item.conflict) {
+        if (!item.ignored && !item.finished && !item.processed_record_id && !item.conflict) {
+          if (item.source_digest) {
+            const split = element("button", "", "拆分多条事实");
+            split.type = "button";
+            split.addEventListener("click", () => useSplitSource(item));
+            card.append(split);
+          }
+          if (!item.processed_fragment_count) {
           const use = element("button", "", "整理成工作记录");
           use.type = "button";
           use.addEventListener("click", () => {
@@ -5440,6 +5450,31 @@
             $("work-record-content").focus();
           });
           card.append(use);
+          }
+          if (item.processed_fragment_count) {
+            const finish=element("button","","确认此笔记已整理完");
+            finish.type="button";
+            finish.addEventListener("click",async()=>{
+              if(isSaving)return;
+              if($("work-split-source").value===item.inbox_id &&
+                 unsavedPersistentEditors.has($("work-split-form"))) {
+                $("work-inbox-message").textContent="请先保存或清空此笔记的拆分草稿，再确认已整理完。";return;
+              }
+              if(!window.confirm("已核对此原文相关的工作事实？确认后将把笔记标为已整理完，原文与记录都保留；不会自动创建任务。"))return;
+              isSaving=true;finish.disabled=true;
+              try{
+                const response=await fetch("/api/work-archive/inbox/"+item.inbox_id+"/finish",{
+                  method:"POST",headers:{"Content-Type":"application/json"},
+                  body:JSON.stringify({revision:item.revision,confirmed_finish:true})});
+                const result=await response.json();
+                if(!response.ok)throw Error(result.error||"HTTP "+response.status);
+                await loadWorkArchive();
+                $("work-inbox-message").textContent="已确认整理完毕；原文和全部工作记录保留。";
+              }catch(error){$("work-inbox-message").textContent="无法完成整理："+error.message;}
+              finally{isSaving=false;finish.disabled=false;}
+            });
+            card.append(finish);
+          } else {
           const ignore = element("button", "", "忽略笔记");
           ignore.type = "button";
           ignore.addEventListener("click", async () => {
@@ -5460,6 +5495,7 @@
             }
           });
           card.append(ignore);
+          }
         }
         container.append(card);
       }
@@ -6025,6 +6061,7 @@
         workInboxItems = result.inbox || [];
         workSummaryItems = result.summaries || [];
         renderWorkInbox();
+        renderWorkSplitSources();
         renderWorkSummaries();
         if (result.warnings?.length) {
           $("work-inbox-message").textContent = "有 " + result.warnings.length +
