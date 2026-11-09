@@ -1463,6 +1463,71 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual((self.data_dir / "events" /
                           "evt_v201-chromium-create-001.json").read_bytes(), original_task)
 
+    def test_multi_fact_inbox_and_project_stage_in_real_chromium(self):
+        """P3 uses a real browser, original inbox, per-fact audit and read-only stage."""
+        project_id = "PROJECT-" + "F" * 32
+        append_project_event(self.data_dir, {
+            "version":1,"event_id":"p3-chromium-project-0001",
+            "project_id":project_id,"action":"create","actor":"user",
+            "timestamp":"2026-11-09T08:00:00Z","base_revision":0,
+            "changes":{"name":"虚构阶段采购项目"}})
+        original_task = (self.data_dir/"events"/
+                         "evt_v201-chromium-create-001.json").read_bytes()
+        page=self._open_browser(open_detail=False)
+        page.locator("#nav-worklog").click()
+        page.locator("#work-inbox-content").fill(
+            "上午联系虚构供应商询问报价。\n下午参加虚构项目评审。")
+        page.locator("#work-inbox-date").fill("2026-11-09")
+        page.locator("#work-inbox-project").select_option(project_id)
+        page.locator("#work-inbox-submit").click()
+        expect(page.locator("#work-inbox-count")).to_have_text("1 条待整理", timeout=10000)
+        initial = next((self.data_dir/"work_archive"/"inbox_events").glob("*.json"))
+        original_inbox = initial.read_bytes()
+
+        page.locator("#work-inbox-list").get_by_role(
+            "button", name="拆分多条事实").click()
+        page.locator("#work-split-lines").click()
+        page.locator("#work-split-check").click()
+        expect(page.locator("#work-split-review .work-split-review-item")).to_have_count(2)
+        page.locator("#work-split-review .work-split-review-item").first.get_by_role(
+            "button", name="核对后保存这一条").click()
+        expect(page.locator("#work-split-message")).to_contain_text("已保存第 1 条", timeout=10000)
+        page.locator("#work-split-review .work-split-review-item").nth(1).get_by_role(
+            "button", name="核对后保存这一条").click()
+        expect(page.locator("#work-split-message")).to_contain_text("已保存第 2 条", timeout=10000)
+        facts=list((self.data_dir/"work_archive"/"record_events").glob("*.json"))
+        self.assertEqual(len(facts),2)
+        self.assertEqual({json.loads(p.read_text("utf-8"))["changes"]["source_fragment"]["excerpt"]
+                         for p in facts},
+                         {"上午联系虚构供应商询问报价。","下午参加虚构项目评审。"})
+
+        page.once("dialog",lambda dialog: dialog.accept())
+        page.locator("#work-split-clear").click()
+        page.once("dialog",lambda dialog: dialog.accept())
+        page.locator("#work-inbox-list").get_by_role(
+            "button", name="确认此笔记已整理完").click()
+        expect(page.locator("#work-inbox-count")).to_have_text("0 条待整理",timeout=10000)
+        self.assertEqual(len(list((self.data_dir/"work_archive"/"inbox_events").glob("*.json"))),2)
+        self.assertEqual(initial.read_bytes(),original_inbox)
+        self.assertEqual((self.data_dir/"events"/
+                          "evt_v201-chromium-create-001.json").read_bytes(),original_task)
+        self.assertEqual(len(list((self.data_dir/"work_archive"/"record_events").glob("*.json"))),2)
+
+        page.locator("#work-stage-project").select_option(project_id)
+        page.locator("#work-stage-start").fill("2026-11-09")
+        page.locator("#work-stage-end").fill("2026-11-09")
+        page.locator("#work-stage-show").click()
+        expect(page.locator("#work-stage-message")).to_contain_text("2 条独立工作事实",timeout=10000)
+        expect(page.locator("#work-stage-list .work-stage-day")).to_have_count(1)
+        before_copy=self._file_hashes()
+        page.locator("#work-stage-copy").click()
+        expect(page.locator("#work-stage-message")).to_contain_text("已复制当前核对",timeout=10000)
+        copied=page.evaluate("navigator.clipboard.readText()")
+        self.assertIn("上午联系虚构供应商询问报价",copied)
+        self.assertIn("下午参加虚构项目评审",copied)
+        self.assertEqual(self._file_hashes(),before_copy,
+                         "stage copy must not write or silently create reports")
+
     def test_source_linked_weekly_analysis_and_featured_portfolio_copy_are_read_only(self):
         """Windows real Chromium: source IDs survive clipboard handoff without extra events."""
         record_id = "RECORD-" + "B" * 32
