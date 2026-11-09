@@ -1750,11 +1750,11 @@ def append_step_event(data_dir: Path, event: dict) -> Path:
 
 WORK_RECORD_FIELDS = {"content", "occurred_on", "project_id", "task_id",
                       "outcome", "duration_minutes", "action_links", "featured",
-                      "source_inbox_id", "evidence_links"}
+                      "source_inbox_id", "source_fragment", "evidence_links"}
 WORK_RECORD_DEFAULTS = {"project_id": None, "task_id": None,
                         "outcome": None, "duration_minutes": None,
                         "action_links": [], "featured": False, "source_inbox_id": None,
-                        "evidence_links": []}
+                        "source_fragment": None, "evidence_links": []}
 
 
 def validate_work_record_event(value: object) -> dict:
@@ -1826,6 +1826,19 @@ def validate_work_record_event(value: object) -> dict:
             raise ValueError("invalid source inbox ID")
         if value["action"] != "create":
             raise ValueError("source inbox association is immutable")
+    if "source_fragment" in changes:
+        frag = changes["source_fragment"]
+        if (value["action"] != "create" or
+                not isinstance(changes.get("source_inbox_id"), str) or
+                not isinstance(frag, dict) or
+                set(frag) != {"excerpt", "occurrence", "source_digest"} or
+                not isinstance(frag["excerpt"], str) or
+                not 1 <= len(frag["excerpt"]) <= 4000 or
+                not frag["excerpt"].strip() or
+                type(frag["occurrence"]) is not int or not 1 <= frag["occurrence"] <= 40 or
+                not isinstance(frag["source_digest"], str) or
+                not re.fullmatch(r"[0-9a-f]{64}", frag["source_digest"])):
+            raise ValueError("invalid immutable inbox source fragment")
     if "evidence_links" in changes:
         validate_document_links(changes["evidence_links"])
     if "action_links" in changes:
@@ -2446,6 +2459,23 @@ def append_work_archive_event(data_dir: Path, kind: str, event: dict) -> Path:
     return _append_json_event(data_dir, event, ARCHIVE_KIND_META[kind][2])
 
 
+def locate_inbox_fragment(source: dict, fragment: dict) -> tuple[int, int]:
+    """Locate an immutable exact quote, using 1-based nonoverlapping occurrence.
+    Character positions are computed by Python, never guessed by an AI.
+    """
+    content = source.get("content")
+    if not isinstance(content, str) or not isinstance(fragment, dict):
+        raise ValueError("inbox fragment source missing")
+    if (hashlib.sha256(content.encode("utf-8")).hexdigest() != fragment["source_digest"]):
+        raise ValueError("inbox source digest changed")
+    pos = -1
+    for _ in range(fragment["occurrence"]):
+        pos = content.find(fragment["excerpt"], pos + 1)
+        if pos < 0:
+            raise ValueError("inbox excerpt or occurrence not found in original")
+    return pos, pos + len(fragment["excerpt"])
+
+
 def read_work_inbox(data_dir: Path, records: list[dict] | None = None) -> dict:
     result = read_work_archive_events(data_dir, "inbox")
     if records is None:
@@ -2455,12 +2485,41 @@ def read_work_inbox(data_dir: Path, records: list[dict] | None = None) -> dict:
         if record.get("source_inbox_id"):
             links[record["source_inbox_id"]].append(record)
     for item in result["items"]:
+        if item.get("conflict"):
+            continue
+        item["source_digest"] = hashlib.sha256(item["content"].encode("utf-8")).hexdigest()
         attached = links.get(item["inbox_id"], [])
-        if attached:
-            item["processed_record_id"] = attached[0]["record_id"] if len(attached) == 1 else None
-            if len(attached) != 1 or attached[0].get("conflict"):
-                item["conflict"] = True
-                result["warnings"].append(item["inbox_id"] + ": duplicate or conflicted source links")
+        item["processed_fragments"] = []
+        item["processed_fragment_count"] = 0
+        if not attached:
+            continue
+        legacy = [r for r in attached if not r.get("source_fragment")]
+        fragments = [r for r in attached if r.get("source_fragment")]
+        if legacy:
+            item["processed_record_id"] = legacy[0]["record_id"]
+        spans = []
+        corrupt = len(legacy) > 1 or bool(legacy and fragments)
+        for record in fragments:
+            try:
+                if record.get("conflict"):
+                    raise ValueError("source record is conflicted")
+                start, end = locate_inbox_fragment(item, record["source_fragment"])
+                if any(start < old_end and old_start < end
+                       for old_start, old_end in spans):
+                    raise ValueError("overlapping source fragments")
+                spans.append((start, end))
+                item["processed_fragments"].append({
+                    "record_id": record["record_id"], "start": start, "end": end,
+                    "excerpt": record["source_fragment"]["excerpt"],
+                    "occurrence": record["source_fragment"]["occurrence"]
+                })
+            except (KeyError, TypeError, ValueError):
+                corrupt = True
+        item["processed_fragment_count"] = len(item["processed_fragments"])
+        if corrupt or any(r.get("conflict") for r in legacy):
+            item["conflict"] = True
+            result["warnings"].append(item["inbox_id"] +
+                                      ": overlapping, stale or conflicted source fragments")
     return result
 
 
@@ -4561,6 +4620,24 @@ def handler_factory(data_dir: Path):
                                 source = next((i for i in inbox["items"] if i["inbox_id"] == source_id), None)
                                 if source is None or source.get("ignored") or source.get("conflict") or source.get("processed_record_id"):
                                     return self.json_response(409, {"error": "inbox source is not available"})
+                                fragment = changes.get("source_fragment")
+                                if fragment is not None:
+                                    # Validation is performed by the same event schema and
+                                    # against the original source before any new event is written.
+                                    probe = {"version": 1, "event_id": str(uuid.uuid4()),
+                                             "record_id": new_id, "action": "create",
+                                             "actor": "user", "timestamp": utc_now(),
+                                             "base_revision": 0, "changes": changes}
+                                    validate_work_record_event(probe)
+                                    start, end = locate_inbox_fragment(source, fragment)
+                                    for old in source.get("processed_fragments", []):
+                                        if start < old["end"] and old["start"] < end:
+                                            return self.json_response(409, {
+                                                "error": "source fragment already recorded or overlaps",
+                                                "existing_record_id": old["record_id"]})
+                                elif source.get("processed_fragment_count"):
+                                    return self.json_response(409, {
+                                        "error": "inbox already split into fragments; use reviewed fragment source"})
                         else:
                             new_id = work_record_match.group(1)
                             prior = next((r for r in state["records"]
