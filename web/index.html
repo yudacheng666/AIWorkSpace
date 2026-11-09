@@ -751,6 +751,12 @@
     .work-summary-source-item input{width:16px;height:16px;margin:1px}
     .work-summary-source-item span{overflow-wrap:anywhere;line-height:1.6}
     .work-summary-source-item small{display:block;color:#53677f;font-size:11px;line-height:1.65;margin-top:3px;overflow-wrap:anywhere}
+    .work-split-review-item{border:1px solid #dce6f1;border-radius:10px;padding:12px;margin:10px 0;background:var(--surface,#fff)}
+    .work-split-review-item strong{font-size:13px}
+    .work-split-review-item blockquote{font-size:12px;margin:9px 0;padding:8px 10px;border-left:3px solid #a8bad0;color:#4b5d70;white-space:pre-wrap;overflow-wrap:anywhere}
+    .work-split-review-item textarea{display:block;width:100%;min-height:70px;box-sizing:border-box;margin:8px 0}
+    .work-split-review-item input[type=date]{max-width:180px;margin:6px 8px}
+    .work-split-review-item .save{margin-top:8px}
     .progress-panel{border:1px solid #d9e5ef;border-radius:10px;margin:12px 0;padding:10px;background:#fbfcfe}
     .progress-panel summary{cursor:pointer;font-weight:600;font-size:13px}
     .progress-entry{font-size:12px;line-height:1.6;border-bottom:1px solid #e9eef4;overflow-wrap:anywhere;padding:6px 0}
@@ -1063,6 +1069,26 @@
         <p id="work-inbox-message" role="status" aria-live="polite"></p>
         <div id="work-inbox-list" aria-live="polite"></div>
       </section>
+      <section class="work-card" aria-labelledby="work-split-heading">
+        <h2 id="work-split-heading">一段笔记拆分为多条工作事实</h2>
+        <p class="work-archive-hint">原文始终保留。可按换行拆分，或主动复制原文给 ChatGPT 整理，再粘贴建议逐条核对。未来待办只提出建议，不会当作已经完成的工作。</p>
+        <form id="work-split-form">
+          <div class="work-archive-row">
+            <label>选择原始笔记<select id="work-split-source"><option value="">请选择待整理笔记</option></select></label>
+            <button type="button" id="work-split-lines">按换行拆分</button>
+            <button type="button" id="work-split-copy">复制给 ChatGPT 整理</button>
+          </div>
+          <label for="work-split-json">ChatGPT 整理建议 JSON（最多 10 条事实、5 条后续行动）</label>
+          <textarea id="work-split-json" class="work-archive-textarea" maxlength="22000" rows="5" spellcheck="false"
+            placeholder='{"version":1,"inbox_id":"INBOX-...","source_digest":"...","facts":[{"excerpt":"原文中的一句话","occurrence":1,"content":"已发生的事实","occurred_on":"2026-11-09","outcome":null}],"follow_ups":[]}'></textarea>
+          <div class="work-archive-row">
+            <button type="button" id="work-split-check">核对拆分建议（不保存）</button>
+            <button type="button" id="work-split-clear">清空拆分草稿</button>
+          </div>
+        </form>
+        <p id="work-split-message" role="status" aria-live="polite"></p>
+        <div id="work-split-review" aria-live="polite"></div>
+      </section>
       <section class="work-card" aria-labelledby="work-summary-heading">
         <h2 id="work-summary-heading">工作总结</h2>
         <p class="work-archive-hint">先根据真实记录生成可核对的底稿，再本人修改，或复制给 ChatGPT 分析。此处不会自行生成未经核实的业绩。</p>
@@ -1357,6 +1383,9 @@
     let activePage = "overview";
     let notificationItems = [];
     let workRecords = [];
+    let workSplitParts = [];
+    let workSplitFollowUps = [];
+    let workSplitSelectedSource = "";
     const unsavedProgressEditors = new Set();
     let workFocusedStepId = "";
     let workTaskCompletions = [];
