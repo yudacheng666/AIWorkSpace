@@ -4465,6 +4465,16 @@ def handler_factory(data_dir: Path):
                     if set(payload) != required or payload["confirmed_reselect"] is not True or (
                             type(payload["revision"]) is not int or payload["revision"] < 1):
                         raise ValueError("summary reselection requires explicit approval and revision")
+                    # Validate syntax and source-set membership before comparing the
+                    # digest against live state: malformed input is 400, while a
+                    # well-formed stale snapshot is 409.
+                    changes = {key: value for key, value in payload.items()
+                               if key not in {"revision", "confirmed_reselect"}}
+                    event = {"version": 1, "event_id": str(uuid.uuid4()),
+                             "summary_id": summary_reselect.group(1), "action": "reselect",
+                             "actor": "user", "timestamp": utc_now(),
+                             "base_revision": payload["revision"], "changes": changes}
+                    validate_work_archive_event(event, "summary")
                     with _write_lock:
                         state = read_work_archive_events(data_dir, "summary")
                         prior = next((x for x in state["items"]
@@ -4485,14 +4495,8 @@ def handler_factory(data_dir: Path):
                                 payload["source_digest"] != preview["source_digest"]):
                             return self.json_response(409, {
                                 "error": "summary sources changed; regenerate and select again"})
-                        changes = {key: value for key, value in payload.items()
-                                   if key not in {"revision", "confirmed_reselect"}}
-                        # No content is overwritten: the old version remains a full
-                        # immutable event; this append produces the next revision.
-                        event = {"version": 1, "event_id": str(uuid.uuid4()),
-                                 "summary_id": prior["summary_id"], "action": "reselect",
-                                 "actor": "user", "timestamp": utc_now(),
-                                 "base_revision": prior["revision"], "changes": changes}
+                        # The prevalidated event is committed only after the
+                        # summary revision and complete source digest match.
                         append_work_archive_event(data_dir, "summary", event)
                     return self.json_response(200, {
                         "saved": True, "revision": prior["revision"] + 1,
