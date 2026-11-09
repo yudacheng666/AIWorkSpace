@@ -1528,6 +1528,35 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(self._file_hashes(),before_copy,
                          "stage copy must not write or silently create reports")
 
+        # End-to-end P3 -> P2: reuse the chosen project, but scope the
+        # report to the month containing the stage end (not a multi-month span).
+        page.locator("#work-stage-report").click()
+        expect(page.locator("#work-summary-period")).to_have_value("monthly")
+        expect(page.locator("#work-summary-project")).to_have_value(project_id)
+        expect(page.locator("#work-summary-date")).to_have_value("2026-11-09")
+        expect(page.locator("#work-summary-audience")).to_have_value("report")
+        self.assertEqual(self._file_hashes(), before_copy,
+                         "handoff must not silently create a summary")
+        page.locator("#work-summary-generate").click()
+        expect(page.locator("#work-summary-source-items input")).to_have_count(2)
+        expect(page.locator("#work-summary-source-count")).to_contain_text("已选 0 / 2")
+        page.locator("#work-summary-select-all").click()
+        expect(page.locator("#work-summary-source-count")).to_contain_text("已选 2 / 2")
+        page.locator("#work-summary-confirm").check()
+        page.locator("#work-summary-save").click()
+        expect(page.locator("#work-summary-message")).to_contain_text(
+            "总结已保存", timeout=10000)
+        summaries = list((self.data_dir/"work_archive"/"summary_events").glob("*.json"))
+        self.assertEqual(len(summaries), 1)
+        saved = json.loads(summaries[0].read_text("utf-8"))
+        self.assertEqual(saved["changes"]["audience"], "report")
+        self.assertEqual(len(saved["changes"]["source_record_ids"]), 2)
+        self.assertEqual(len(saved["changes"]["included_record_ids"]), 2)
+        self.assertEqual((self.data_dir/"events"/
+                          "evt_v201-chromium-create-001.json").read_bytes(), original_task)
+        self.assertEqual(initial.read_bytes(), original_inbox)
+        self.assertEqual(len(list((self.data_dir/"work_archive"/"record_events").glob("*.json"))), 2)
+
     def test_source_linked_weekly_analysis_and_featured_portfolio_copy_are_read_only(self):
         """Windows real Chromium: source IDs survive clipboard handoff without extra events."""
         record_id = "RECORD-" + "B" * 32
