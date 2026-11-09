@@ -5422,8 +5422,10 @@
           continue;
         }
         const title = ({daily:"日报",weekly:"周报",monthly:"月报"}[summary.period] || "总结");
-        card.append(element("strong", "", title + " · " + summary.period_start +
-          " 至 " + summary.period_end + (summary.confirmed ? " · 已核对" : " · 草稿")));
+        card.append(element("strong", "", title + " · " +
+          (summary.audience === "report" ? "汇报版" : "个人版") + " · " +
+          summary.period_start + " 至 " + summary.period_end +
+          (summary.confirmed ? " · 已核对" : " · 草稿")));
         card.append(element("p", "", (summary.body || "").slice(0,260) +
           ((summary.body || "").length > 260 ? "…" : "")));
         const edit = element("button", "", summary.conflict ? "存在冲突，禁止修改" : "打开 / 修订");
@@ -5440,6 +5442,11 @@
       const snapshot = workSummarySnapshot();
       if (!snapshot.body.trim()) {
         $("work-summary-message").textContent = "总结正文不能为空。";
+        return;
+      }
+      if (!editingSummaryId && !workSummarySelectionApplied) {
+        $("work-summary-message").textContent =
+          "来源勾选和正文不一致；请先点击「按勾选重建底稿」再保存。";
         return;
       }
       const prior = editingSummaryId
@@ -5460,9 +5467,13 @@
         ? {revision:prior.revision,body:snapshot.body,confirmed:snapshot.confirmed}
         : {period:snapshot.period,day:snapshot.day,
            project_id:snapshot.project_id || null,body:snapshot.body,
-           confirmed:snapshot.confirmed,
+           confirmed:snapshot.confirmed,audience:snapshot.audience,
            source_record_ids:workSummaryPreview.source_record_ids,
-           source_completion_ids:workSummaryPreview.source_completion_ids};
+           source_completion_ids:workSummaryPreview.source_completion_ids,
+           included_record_ids:workSummaryPreview.source_record_ids.filter(id =>
+             workSummaryIncludedRecords.has(id)),
+           included_completion_ids:workSummaryPreview.source_completion_ids.filter(id =>
+             workSummaryIncludedCompletions.has(id))};
       const path = prior ? "/api/work-archive/summaries/" + prior.summary_id + "/update"
         : "/api/work-archive/summaries";
       isSaving = true;
