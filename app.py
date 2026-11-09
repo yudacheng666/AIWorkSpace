@@ -2295,8 +2295,15 @@ def validate_work_archive_event(value: object, kind: str) -> dict:
             if revision != 1 or value["actor"] != "user" or changes != {"ignored": True}:
                 raise ValueError("inbox dismiss requires explicit user revision")
         elif action == "finish":
-            if revision < 1 or value["actor"] != "user" or changes != {"finished": True}:
-                raise ValueError("inbox finish requires explicit user revision")
+            if revision < 1 or value["actor"] != "user" or (
+                    set(changes) != {"finished", "record_ids"} or
+                    changes.get("finished") is not True or
+                    not isinstance(changes["record_ids"], list) or
+                    not 1 <= len(changes["record_ids"]) <= 250 or
+                    any(not isinstance(rid, str) or not WORK_RECORD_ID.fullmatch(rid)
+                        for rid in changes["record_ids"]) or
+                    len(changes["record_ids"]) != len(set(changes["record_ids"]))):
+                raise ValueError("inbox finish requires confirmed source record snapshot")
         else:
             raise ValueError("invalid inbox action")
     else:
@@ -2496,6 +2503,10 @@ def read_work_inbox(data_dir: Path, records: list[dict] | None = None) -> dict:
         item["processed_fragments"] = []
         item["processed_fragment_count"] = 0
         if not attached:
+            if item.get("finished"):
+                item["conflict"] = True
+                result["warnings"].append(item["inbox_id"] +
+                                          ": finish is ahead of its source records")
             continue
         legacy = [r for r in attached if not r.get("source_fragment")]
         fragments = [r for r in attached if r.get("source_fragment")]
@@ -2520,6 +2531,14 @@ def read_work_inbox(data_dir: Path, records: list[dict] | None = None) -> dict:
             except (KeyError, TypeError, ValueError):
                 corrupt = True
         item["processed_fragment_count"] = len(item["processed_fragments"])
+        if item.get("finished"):
+            # A finish event can reach a second device before the facts that
+            # were confirmed with it. Hide the inbox only after the complete
+            # immutable source set is present and nonconflicting.
+            actual = {r["record_id"] for r in fragments}
+            declared = item.get("record_ids", [])
+            if not fragments or len(actual) != len(fragments) or set(declared) != actual:
+                corrupt = True
         if corrupt or any(r.get("conflict") for r in legacy):
             item["conflict"] = True
             result["warnings"].append(item["inbox_id"] +
@@ -4526,10 +4545,14 @@ def handler_factory(data_dir: Path):
                                  "inbox_id": item["inbox_id"], "action": "finish",
                                  "actor": "user", "timestamp": utc_now(),
                                  "base_revision": item["revision"],
-                                 "changes": {"finished": True}}
+                                 "changes": {
+                                     "finished": True,
+                                     "record_ids": sorted(fragment["record_id"]
+                                                          for fragment in item["processed_fragments"])}}
                         append_work_archive_event(data_dir, "inbox", event)
                     return self.json_response(200, {
-                        "saved": True, "revision": item["revision"] + 1})
+                        "saved": True, "revision": item["revision"] + 1,
+                        "record_count": item["processed_fragment_count"]})
                 if creating_summary:
                     required = {"period", "day", "project_id", "body", "confirmed",
                                 "source_record_ids", "source_completion_ids"}
