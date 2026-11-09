@@ -121,7 +121,8 @@ class UnifiedTimelineReportTests(unittest.TestCase):
                 "body": "真实工作来源", "confirmed": False,
                 "source_record_ids": preview["source_record_ids"],
                 "source_completion_ids": preview["source_completion_ids"],
-                "audience": "report", "included_record_ids": [important],
+                "audience": "report", "source_digest": preview["source_digest"],
+                "included_record_ids": [important],
                 "included_completion_ids": []}
         for bad in (
             base | {"included_record_ids": [important, important]},
