@@ -2502,6 +2502,8 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
         "records": [{"id": r["record_id"], "revision": r["revision"],
                      "content": r["content"], "occurred_on": r["occurred_on"],
                      "outcome": r.get("outcome"), "featured": r.get("featured"),
+                     "duration_minutes": r.get("duration_minutes"),
+                     "evidence_links": r.get("evidence_links", []),
                      "action_links": r.get("action_links", [])} for r in records],
         "completions": [{"id": e["source_event_id"], "occurred_at": e["occurred_at"],
                           "task_title": e["task_title"]} for e in completed]
@@ -2544,7 +2546,11 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
             "record_sources": [
                 {"record_id": r["record_id"], "display_id": r["display_id"],
                  "occurred_on": r["occurred_on"], "content": r["content"],
-                 "outcome": r.get("outcome"), "featured": r.get("featured", False)}
+                 "outcome": r.get("outcome"), "featured": r.get("featured", False),
+                 "duration_minutes": r.get("duration_minutes"),
+                 "project_id": r.get("project_id"), "task_id": r.get("task_id"),
+                 "action_links": r.get("action_links", []),
+                 "evidence_links": r.get("evidence_links", [])}
                 for r in records
             ],
             "completion_sources": [
