@@ -2020,3 +2020,52 @@ test("one step progress note belongs to step task and project timelines without 
   assert.equal(Object.hasOwn(created.body,"status"),false);
   assert.equal(Object.hasOwn(created.body,"confirmed_done"),false);
 });
+
+test("saved report reselects sources only after deliberate rebuild and appends one revision", async () => {
+  const included = "RECORD-"+"A".repeat(32);
+  const excluded = "RECORD-"+"B".repeat(32);
+  const summaryId = "SUMMARY-"+"C".repeat(32);
+  const preview = {
+    period:"weekly",period_start:"2026-11-02",period_end:"2026-11-08",
+    project_id:null,body:"# 全部旧来源",
+    source_digest:"c".repeat(64),source_record_ids:[included,excluded],
+    source_completion_ids:[],record_count:2,completion_count:0,
+    record_sources:[
+      {record_id:included,occurred_on:"2026-11-05",display_id:"R-261105-AAAAAAAAAAAA",
+        content:"本周落实重要采购事项",outcome:"形成采购建议",featured:true},
+      {record_id:excluded,occurred_on:"2026-11-05",display_id:"R-261105-BBBBBBBBBBBB",
+        content:"不需要出现在汇报中的小事",outcome:null,featured:false}
+    ],
+    completion_sources:[]
+  };
+  const saved={summary_id:summaryId,revision:2,conflict:false,
+    period:"weekly",period_start:"2026-11-02",period_end:"2026-11-08",
+    project_id:null,body:"这是之前人工写的报告正文",audience:"report",
+    confirmed:true,source_record_ids:[included,excluded],source_completion_ids:[],
+    included_record_ids:[included],included_completion_ids:[],source_digest:"old-digest"};
+  const h=harness([],()=>true,[],[],null,{preview,summaries:[saved]});
+  await h.api.refresh(true);
+  await h.api.loadWorkArchive();
+  h.api.setActivePage("worklog");
+  h.api.editWorkSummary(summaryId);
+  assert.equal(h.el("work-summary-body").value,saved.body);
+  assert.equal(h.el("work-summary-edit-sources").hidden,false);
+  await h.el("work-summary-edit-sources").handlers.get("click")[0]();
+  assert.equal(h.el("work-summary-body").value,saved.body,"opening source editor does not erase wording");
+  assert.equal(h.el("work-summary-source-items").children.length,2);
+  await h.api.saveWorkSummary({preventDefault() {}});
+  assert.equal(h.writes.length,0,"cannot save stale body before reselect rebuild");
+  await h.el("work-summary-rebuild").handlers.get("click")[0]();
+  assert.match(h.el("work-summary-body").value,/本周落实重要采购事项/);
+  assert.doesNotMatch(h.el("work-summary-body").value,/不需要出现在汇报中的小事/);
+  await h.api.saveWorkSummary({preventDefault() {}});
+  assert.equal(h.writes.length,1);
+  assert.equal(h.writes[0].path,"/api/work-archive/summaries/"+summaryId+"/reselect");
+  assert.equal(h.writes[0].body.revision,2);
+  assert.equal(h.writes[0].body.confirmed_reselect,true);
+  assert.equal(h.writes[0].body.confirmed,false);
+  assert.equal(h.writes[0].body.source_digest,preview.source_digest);
+  assert.deepEqual(h.writes[0].body.included_record_ids,[included]);
+  assert.deepEqual(h.writes[0].body.source_record_ids,[included,excluded]);
+  assert.equal(h.writes[0].body.body.includes("不需要出现在汇报中的小事"),false);
+});
