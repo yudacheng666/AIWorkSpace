@@ -5317,6 +5317,9 @@
     function workSummarySnapshot() {
       return {period:$("work-summary-period").value, day:$("work-summary-date").value,
         project_id:$("work-summary-project").value, body:$("work-summary-body").value,
+        audience:$("work-summary-audience").value,
+        included_record_ids:[...workSummaryIncludedRecords].sort(),
+        included_completion_ids:[...workSummaryIncludedCompletions].sort(),
         confirmed:$("work-summary-confirm").checked};
     }
     $("work-summary-date").value = localDayISO(new Date());
@@ -5324,6 +5327,14 @@
     function resetWorkSummary() {
       editingSummaryId = "";
       workSummaryPreview = null;
+      workSummaryIncludedRecords.clear();
+      workSummaryIncludedCompletions.clear();
+      workSummarySelectionApplied = true;
+      workSummaryGeneratedBody = "";
+      $("work-summary-source-panel").hidden = true;
+      $("work-summary-source-items").replaceChildren();
+      $("work-summary-audience").value = "personal";
+      $("work-summary-audience").disabled = false;
       $("work-summary-period").value = "daily";
       $("work-summary-date").value = localDayISO(new Date());
       $("work-summary-project").value = "";
@@ -5355,7 +5366,9 @@
         const reply = await response.json();
         if (!response.ok) throw new Error(reply.error || "HTTP " + response.status);
         workSummaryPreview = reply;
+        workSummaryGeneratedBody = reply.body;
         $("work-summary-body").value = reply.body;
+        applySummaryAudienceDefaults();
         $("work-summary-confirm").checked = false;
         workSummaryWatcher.check();
         $("work-summary-message").textContent = "已生成来源底稿：" + reply.record_count +
@@ -5372,6 +5385,14 @@
           !window.confirm("当前总结尚未保存，确定舍弃草稿并编辑其他总结吗？")) return;
       editingSummaryId = id;
       workSummaryPreview = null;
+      workSummarySelectionApplied = true;
+      workSummaryGeneratedBody = "";
+      workSummaryIncludedRecords = new Set(summary.included_record_ids || summary.source_record_ids || []);
+      workSummaryIncludedCompletions = new Set(summary.included_completion_ids || summary.source_completion_ids || []);
+      $("work-summary-source-panel").hidden = true;
+      $("work-summary-source-items").replaceChildren();
+      $("work-summary-audience").value = summary.audience || "personal";
+      $("work-summary-audience").disabled = true;
       $("work-summary-period").value = summary.period;
       $("work-summary-date").value = summary.period_start;
       $("work-summary-project").value = summary.project_id || "";
