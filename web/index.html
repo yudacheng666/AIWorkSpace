@@ -5213,6 +5213,107 @@
     }
     $("work-inbox-form").addEventListener("submit", saveWorkInbox);
 
+
+    function selectedSummaryText() {
+      const preview = workSummaryPreview;
+      if (!preview) return "";
+      const chosenRecords = (preview.record_sources || []).filter(item =>
+        workSummaryIncludedRecords.has(item.record_id));
+      const chosenCompletions = (preview.completion_sources || []).filter(item =>
+        workSummaryIncludedCompletions.has(item.source_event_id));
+      if ($("work-summary-audience").value === "personal" &&
+          chosenRecords.length === preview.source_record_ids.length &&
+          chosenCompletions.length === preview.source_completion_ids.length) return preview.body;
+      const type = {daily:"日报",weekly:"周报",monthly:"月报"}[preview.period] || "总结";
+      const audience = $("work-summary-audience").value === "report" ? "汇报版" : "个人版";
+      const lines = ["# " + type + " · " + audience + "（已选来源底稿，非 AI 自动分析）",
+        "期间：" + preview.period_start + " 至 " + preview.period_end,
+        "本次选用：" + chosenRecords.length + " 条工作记录、" +
+          chosenCompletions.length + " 次已确认完成；未选来源不纳入本报告分析。", "",
+        "## 已发生工作"];
+      for (const r of chosenRecords) {
+        lines.push("- [" + r.occurred_on + "] " + r.content.replace(/\n/g, " ").trim() +
+          "（来源：" + r.display_id + "）");
+        if (r.outcome) lines.push("  成果：" + r.outcome.replace(/\n/g, " ").trim());
+      }
+      if (!chosenRecords.length) lines.push("- 本次未选工作记录");
+      lines.push("", "## 已确认完成的任务");
+      for (const e of chosenCompletions)
+        lines.push("- [" + e.occurred_at.slice(0,10) + " UTC] " + e.task_title +
+          "（来源：" + e.source_event_id + "）");
+      if (!chosenCompletions.length) lines.push("- 本次未选任务完成");
+      lines.push("", "## 总结与后续行动（请本人／ChatGPT 核实后填写）", "");
+      return lines.join("\n");
+    }
+
+    function rebuildSelectedSummary(force = false) {
+      if (!workSummaryPreview) return;
+      const currentBody = $("work-summary-body").value;
+      if (currentBody !== workSummaryGeneratedBody && !force) {
+        workSummarySelectionApplied = false;
+        $("work-summary-message").textContent =
+          "选用来源已改变，但正文有人工编辑。请点击「按勾选重建底稿」确认替换正文，再人工修改；当前不可保存或复制未经同步的分析。";
+        workSummaryWatcher.check();
+        return;
+      }
+      const body = selectedSummaryText();
+      if (body.length > 12000) {
+        workSummarySelectionApplied = false;
+        $("work-summary-message").textContent = "选用内容过长，请减少来源后重建。";
+        return;
+      }
+      $("work-summary-body").value = body;
+      workSummaryGeneratedBody = body;
+      workSummarySelectionApplied = true;
+      $("work-summary-confirm").checked = false;
+      workSummaryWatcher.check();
+    }
+
+    function renderSummarySourceChoices() {
+      const panel = $("work-summary-source-panel");
+      panel.hidden = !workSummaryPreview || !!editingSummaryId;
+      const target = $("work-summary-source-items");
+      target.replaceChildren();
+      if (panel.hidden) return;
+      const choices = [
+        ...(workSummaryPreview.record_sources || []).map(r => ({
+          id:r.record_id, kind:"record", title:r.occurred_on+" · "+r.content,
+          important:!!(r.featured||r.outcome), reason:r.featured?"已人工精选成果":r.outcome?"填写了成果":"普通工作事实"
+        })),
+        ...(workSummaryPreview.completion_sources || []).map(e => ({
+          id:e.source_event_id,kind:"completion",
+          title:e.occurred_at.slice(0,10)+" · "+e.task_title,
+          important:true,reason:"已人工确认任务完成"
+        }))
+      ];
+      for (const item of choices) {
+        const label = element("label", "work-summary-source-item");
+        const check = element("input");
+        check.type = "checkbox";
+        const selected = item.kind === "record" ? workSummaryIncludedRecords :
+          workSummaryIncludedCompletions;
+        check.checked = selected.has(item.id);
+        check.addEventListener("change", () => {
+          if (check.checked) selected.add(item.id);
+          else selected.delete(item.id);
+          rebuildSelectedSummary();
+        });
+        label.append(check,element("span", "", item.title+" · "+item.reason));
+        target.append(label);
+      }
+      if (!choices.length) target.append(element("p", "work-archive-hint", "本期无可选来源。"));
+    }
+
+    function applySummaryAudienceDefaults() {
+      if (!workSummaryPreview) return;
+      const isReport = $("work-summary-audience").value === "report";
+      workSummaryIncludedRecords = new Set((workSummaryPreview.record_sources||[])
+        .filter(r => !isReport || r.featured || r.outcome).map(r => r.record_id));
+      workSummaryIncludedCompletions = new Set(workSummaryPreview.source_completion_ids);
+      renderSummarySourceChoices();
+      rebuildSelectedSummary();
+    }
+
     function workSummarySnapshot() {
       return {period:$("work-summary-period").value, day:$("work-summary-date").value,
         project_id:$("work-summary-project").value, body:$("work-summary-body").value,
