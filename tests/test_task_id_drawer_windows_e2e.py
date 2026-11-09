@@ -1380,6 +1380,89 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
 
 
 
+    def test_report_source_selection_and_historical_reselection_in_real_chromium(self):
+        """P2: one real browser report revision, no mutation of original fact events."""
+        highlight_id = "RECORD-" + "D" * 32
+        ordinary_id = "RECORD-" + "E" * 32
+        for eid, rid, text, outcome in (
+            ("p2-chromium-important-0001", highlight_id,
+             "虚构采购项目取得阶段结果", "形成书面建议"),
+            ("p2-chromium-ordinary-0001", ordinary_id,
+             "虚构日常会议签到", None),
+        ):
+            changes = {"content": text, "occurred_on": "2026-11-05"}
+            if outcome:
+                changes["outcome"] = outcome
+            append_work_record_event(self.data_dir, {
+                "version": 1, "event_id": eid, "record_id": rid,
+                "action": "create", "actor": "user",
+                "timestamp": "2026-11-05T08:00:00Z",
+                "base_revision": 0, "changes": changes,
+            })
+        facts_before = {p.name: p.read_bytes() for p in
+                        (self.data_dir / "work_archive" / "record_events").glob("*.json")}
+        original_task = (self.data_dir / "events" /
+                         "evt_v201-chromium-create-001.json").read_bytes()
+        page = self._open_browser(open_detail=False)
+        page.locator("#nav-worklog").click()
+        page.locator("#work-summary-period").select_option("weekly")
+        page.locator("#work-summary-date").fill("2026-11-05")
+        page.locator("#work-summary-audience").select_option("report")
+        page.locator("#work-summary-generate").click()
+        expect(page.locator("#work-summary-source-count")).to_contain_text("已选 1 / 2")
+        expect(page.locator("#work-summary-source-items input")).to_have_count(2)
+        expect(page.locator("#work-summary-body")).to_have_value(
+            re.compile("虚构采购项目取得阶段结果"))
+        self.assertNotIn("虚构日常会议签到",
+                         page.locator("#work-summary-body").input_value())
+        page.locator("#work-summary-select-all").click()
+        expect(page.locator("#work-summary-source-count")).to_contain_text("已选 2 / 2")
+        page.locator("#work-summary-select-important").click()
+        expect(page.locator("#work-summary-source-count")).to_contain_text("已选 1 / 2")
+        page.locator("#work-summary-confirm").check()
+        page.locator("#work-summary-save").click()
+        expect(page.locator("#work-summary-message")).to_contain_text("总结已保存", timeout=10000)
+        directory = self.data_dir / "work_archive" / "summary_events"
+        saved_files = list(directory.glob("*.json"))
+        self.assertEqual(len(saved_files), 1)
+        original_summary = {p.name: p.read_bytes() for p in saved_files}
+        initial = json.loads(saved_files[0].read_text("utf-8"))
+        self.assertEqual(initial["changes"]["included_record_ids"], [highlight_id])
+        self.assertEqual(set(initial["changes"]["source_record_ids"]),
+                         {highlight_id, ordinary_id})
+
+        page.locator("#work-summary-list .work-summary-item button").first.click()
+        previous_body = page.locator("#work-summary-body").input_value()
+        self.assertIn("虚构采购项目取得阶段结果", previous_body)
+        page.locator("#work-summary-edit-sources").click()
+        expect(page.locator("#work-summary-source-count")).to_contain_text("已选 1 / 2")
+        self.assertEqual(page.locator("#work-summary-body").input_value(), previous_body,
+                         "opening historical source selection must keep manual text")
+        page.locator("#work-summary-select-all").click()
+        expect(page.locator("#work-summary-source-count")).to_contain_text("已选 2 / 2")
+        page.locator("#work-summary-rebuild").click()
+        expect(page.locator("#work-summary-body")).to_have_value(
+            re.compile("虚构日常会议签到"))
+        page.locator("#work-summary-save").click()
+        expect(page.locator("#work-summary-message")).to_contain_text("总结已保存", timeout=10000)
+        new_files = list(directory.glob("*.json"))
+        self.assertEqual(len(new_files), 2)
+        for name, data in original_summary.items():
+            self.assertEqual((directory / name).read_bytes(), data)
+        added = [json.loads(p.read_text("utf-8")) for p in new_files
+                 if p.name not in original_summary]
+        self.assertEqual(len(added), 1)
+        self.assertEqual(added[0]["action"], "reselect")
+        self.assertEqual(added[0]["base_revision"], 1)
+        self.assertEqual(set(added[0]["changes"]["included_record_ids"]),
+                         {highlight_id, ordinary_id})
+        self.assertFalse(added[0]["changes"]["confirmed"])
+        for name, data in facts_before.items():
+            self.assertEqual((self.data_dir / "work_archive" /
+                              "record_events" / name).read_bytes(), data)
+        self.assertEqual((self.data_dir / "events" /
+                          "evt_v201-chromium-create-001.json").read_bytes(), original_task)
+
     def test_source_linked_weekly_analysis_and_featured_portfolio_copy_are_read_only(self):
         """Windows real Chromium: source IDs survive clipboard handoff without extra events."""
         record_id = "RECORD-" + "B" * 32
