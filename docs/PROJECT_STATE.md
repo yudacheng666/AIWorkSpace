@@ -1,5 +1,12 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-09：P1–P3 隔离体验交接就绪（继续「下一步」，仍不发布）
+
+- **GitHub CI 核对**：本轮沿用准确产品／测试 SHA `16ea3b9c1cb7f187391ce5be33b9e82cb491137f` 与 [Actions #42621080984](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42621080984)，3/3 SUCCESS。Ubuntu Python 275（31 skipped）/Node 124 PASS；Windows Python 275（29 skipped）/Node 124 PASS；Windows Chromium 应用 E2E 26 PASS、更新回滚 E2E 3 PASS；后续仅文档更新，**不重复启动测试，不把文档 SHA 冒充代码受测 SHA**。
+- **真实产物核对**：同一 Actions run 已实际上传 [AIWorkSpace-UI-V2-isolated-preview](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42621080984/artifacts/13675288528)（Artifact ID 13675288528，尚未过期）及更新 E2E 证据；GitHub job 已执行 `python preview/launch_isolated.py --check`。启动器使用 Windows 临时目录／随机 localhost 端口和空白 `test-data-only`，正常按 Enter 结束时清理。GitHub CI ZIP 中随包的旧 README 曾引用已过时的 PR #12，**已在分支中修正** `preview/README_独立测试版.md` 和 `docs/WORK_ARCHIVE_USER_GUIDE.md` 的下载链接、版本范围、安全约束及体验步骤；用户以当前分支在线文档／本回执为准，ZIP 中旧文档不代表旧代码。
+- **阶段结论**：P1–P3 功能已经达到**隔离体验 READY**，可以收集实际可用性反馈；**生产发布 NOT READY / NOT TESTED**：真实双电脑 Google Drive 离线／重连、旧客户端混合格式、公司 Windows 8770 正式安装权限和真实工作数据链路未经独立验收。仍只有 Draft PR #50，main/VERSION 2.8.4，未得到合并授权，不转 Ready、不合并、不部署、不修改真实数据。
+- **下一步**：用户用虚构数据集中体验，重点反馈入口是否易懂、多事实逐条核对、草稿及重复保护、项目事件线和报告版筛选；根据反馈仅定向修改并按准确 SHA 做增量测试。正式启用前先统一客户端版本、备份，并单独执行缺失的实际同步安全验收。
+
 ## 2026-11-09：P1–P3 整合体验验收（代码候选已通过 CI，仍未发布）
 
 - **用户要求**：「进行下一步」。按上一阶段计划开展 P1/P2/P3 集成、安全和体验包验收；延续不用 Work、GitHub 开发与持续记忆规则。基线 main `8a4a4babb07ac0012721f35224c84da5d298df26`（v2.8.4）；当前只有 [Draft PR #50](https://github.com/yudacheng666/AIWorkSpace/pull/50)，未获得合并／发布授权。
