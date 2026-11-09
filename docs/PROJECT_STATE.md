@@ -1,5 +1,15 @@
 # AIWorkSpace｜当前项目状态
 
+## 2026-11-09：2.9.0 正式 GitHub 发布（PR #50 已合并）
+
+- **用户授权**：“回顾开发规则和开发进度，直接合并发布”。依 AGENTS.md 先核对规则、全部开放 PR、主干 SHA 与准确测试证据：唯一开放 PR 为 [#50](https://github.com/yudacheng666/AIWorkSpace/pull/50)，基于 main `8a4a4babb07ac0012721f35224c84da5d298df26`、可合并、无依赖或其它待合 PR。
+- **发布内容**：整合 P1 项目／任务／步骤快速进展与统一去重时间线、P2 个人及汇报版日周月总结（候选全集、人工勾选来源、历史报告明确重选、来源指纹与不可变审计）、P3 原文多事实拆分／人工核验／重复保护、项目阶段线和项目月度汇报快捷入口。零付费模型 API、无后台自动写回；任务状态与原业务事件不会因日志或选材改变。
+- **版本修正**：PR 分支先由 `VERSION=2.8.4` 升至 `2.9.0`，新候选提交 `9200f0e64d778261e1cc0c92ec6e56c1c7503d7b` 触发 [Actions #42624895831](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42624895831) **3/3 SUCCESS**。此前准确产品／测试提交 `16ea3b9c1cb7f187391ce5be33b9e82cb491137f` 的 [Actions #42621080984](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42621080984) **3/3 SUCCESS**：Ubuntu Python 275（31 SKIP）与 Node 124 PASS；Windows Python 275（29 SKIP）与 Node 124 PASS；Windows 真实 Chromium E2E 26 PASS、更新／回滚 3 PASS。到 2.9.0 发布候选的差异仅有 VERSION 与 Markdown 文档。
+- **合并结果**：PR #50 从 Draft 标记 Ready 后以普通 merge 成功合入 main，准确 merge SHA `8c5a782b13976b9e0f0030b3661d8b4e803f434d`；main `VERSION=2.9.0`，PR #50 closed/merged，开放 PR=0。该 merge SHA 的主干 [Actions #42625332966](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42625332966) **3/3 SUCCESS**，Ubuntu/Windows Python+Node 与 Windows 真实应用 Chromium E2E、更新／回滚均成功。后续发布文档提交仅 `[skip ci]`，不能作为已测试产品 SHA。
+- **发布与数据边界**：GitHub 代码发布已完成；未自动升级本机 8770，未读取、写入、删除、修复真实 Google Drive 任务／记录，也未对公司电脑进行实际部署。真实双电脑 Google Drive 离线／重连、旧客户端混合写入、公司 Windows 安装及真实数据协议仍 **NOT TESTED**。本轮合并批准不等于真实数据异常修复或绕过安全门槛。
+- **下一步**：真实使用前备份数据与程序，检查多台电脑使用版本并安排同步安全验收；同一 Drive 目录避免新旧客户端同时写入。用户在工作台「系统设置 → 检查更新／立即更新」主动升级，GitHub merge 不会自动更新实际电脑；P1–P3 集中体验和文案优化可在此正式基线上进行。
+
+
 ## 2026-11-09：P1–P3 隔离体验交接就绪（继续「下一步」，仍不发布）
 
 - **GitHub CI 核对**：本轮沿用准确产品／测试 SHA `16ea3b9c1cb7f187391ce5be33b9e82cb491137f` 与 [Actions #42621080984](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42621080984)，3/3 SUCCESS。Ubuntu Python 275（31 skipped）/Node 124 PASS；Windows Python 275（29 skipped）/Node 124 PASS；Windows Chromium 应用 E2E 26 PASS、更新回滚 E2E 3 PASS；后续仅文档更新，**不重复启动测试，不把文档 SHA 冒充代码受测 SHA**。
