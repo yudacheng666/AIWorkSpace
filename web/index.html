@@ -1586,6 +1586,7 @@
 
     function renderProjectInspector() {
       const target=$("project-inspector"),project=availableProjects().find(p=>p.project_id===selectedProjectId);
+      if ([...unsavedProgressEditors].some(form => target.contains(form))) return;
       if(!project){target.hidden=true;target.replaceChildren();return;}
       const tasks=projectTasks(project.project_id);
       const title=element("h3","",project.name+" · "+project.project_id);
@@ -1662,6 +1663,9 @@
       const actions=element("div","project-card-actions");
       const detail=element("button","","查看项目任务");
       detail.type="button";detail.addEventListener("click",()=>{
+        if (unsavedProgressEditors.size) {
+          window.alert("请先保存或清空当前进展草稿。"); return;
+        }
         selectedProjectId=project.project_id;renderProjectInspector();
       });
       const go=element("button","","进入任务列表");
@@ -2782,6 +2786,7 @@
         $("task-detail-content").replaceChildren();
         return false;
       }
+      if ([...unsavedProgressEditors].some(form => $("task-detail-drawer").contains(form))) return true;
       $("task-detail-title").textContent = task.title || "任务详情";
       $("task-detail-id").textContent = taskDisplayId(task);
       $("task-id-feedback").textContent = "";
@@ -2793,6 +2798,10 @@
     function openTaskDetail(taskId) {
       if (activeDetailTaskId && activeDetailTaskId !== taskId && unsavedTaskEditors.size &&
           !confirmDiscardUnsaved()) return false;
+      if (activeDetailTaskId && activeDetailTaskId !== taskId &&
+          [...unsavedProgressEditors].some(form => $("task-detail-drawer").contains(form))) {
+        window.alert("请先保存或清空进展草稿再切换任务。"); return false;
+      }
       if (activeDetailTaskId === taskId) return true;
       activeDetailTaskId = taskId;
       return renderTaskDetail(taskId);
@@ -4923,6 +4932,9 @@
         renderWorkRecords();
         renderWorkOutcomes();
         populateWorkActionSources();
+        if (!unsavedProgressEditors.size && !unsavedTaskEditors.size) {
+          renderProjectInspector(); renderOpenTaskDetail();
+        }
         if (state.warnings?.length) {
           $("work-record-count").textContent += " · " + state.warnings.length + " 条数据提醒";
         }
