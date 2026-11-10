@@ -36,7 +36,11 @@ API_COMMIT_URL = f"https://api.github.com/repos/{REPOSITORY}/commits/main"
 RAW_VERSION_URL = f"https://raw.githubusercontent.com/{REPOSITORY}/{{commit}}/VERSION"
 ARCHIVE_URL = f"https://api.github.com/repos/{REPOSITORY}/zipball/{{commit}}"
 USER_AGENT = "AIWorkSpace-Updater/1"
-APP_FILES = ("app.py", "updater.py", "VERSION", "web/index.html")
+APP_FILES = (
+    "app.py", "updater.py", "desktop_launcher.py",
+    "setup_desktop_shortcuts.vbs", "start_aiworkspace.vbs", "stop_aiworkspace.vbs",
+    "VERSION", "web/index.html",
+)
 BUILD_INFO_NAME = ".aiworkspace-build.json"
 UPDATE_STATE_NAME = ".aiworkspace-update-state.json"
 BACKUP_FILES = APP_FILES + (BUILD_INFO_NAME, UPDATE_STATE_NAME)

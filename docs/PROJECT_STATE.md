@@ -1,3 +1,13 @@
+# 2026-11-10：Windows 轻量桌面启动器 2.9.2 候选（PR #52 Draft，CI 通过）
+
+- **用户目标**：Windows 双击桌面快捷方式即可启动/关闭 AIWorkSpace，不再每次使用 PowerShell；不制作 EXE/安装包，不引入第三方依赖，不改变本地 Python Web 架构、8770 端口、Google Drive 数据目录或 Tailscale 私有访问。
+- **基线**：main `8664a3b81e67513e7101a3ac5f8562491818ca43`，正式 VERSION=2.9.1；独立分支 `feature/desktop-launcher-292`；[Draft PR #52](https://github.com/yudacheng666/AIWorkSpace/pull/52)。
+- **实现**：新增 Python 标准库启动管理程序与三个 VBS 入口（首次设置、启动、关闭）；首次设置每台电脑创建两个桌面快捷方式并把配置保存在 LocalAppData；优先 pythonw 后台启动、检查重复实例/端口/健康状态、服务就绪后打开浏览器；随机控制凭证只允许直接 loopback 安全关闭；日志、状态、锁不进入 Google Drive 数据目录。
+- **兼容旧更新器**：2.9.1 updater 只安装原有四个文件，会忽略 ZIP 中新增文件。2.9.2 的 `app.py` 因此内嵌四个启动器文件并在首次启动时原子补齐缺失项；新 updater 再负责这些文件的正常升级、备份和回滚。测试核对内嵌文件与仓库版本一致，并确认不会覆盖已存在文件。
+- **最终产品/测试 SHA**：`5fb595c473d28518c0892ee2f0e8360e0776a254`；[GitHub Actions #42791328366](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42791328366) **3/3 SUCCESS**：Ubuntu Python 299（32 skipped）+ Node UI 124 PASS；Windows Python 299（29 skipped）+ Node UI 124 PASS（含 VBS 语法检查）；Windows Chromium 更新/回滚 3 PASS、工作台 E2E 26 PASS、隔离预览启动包检查通过。
+- **发布/部署边界**：PR #52 仍 Draft/Open，未合并；main 仍为 2.9.1。未在用户电脑创建快捷方式、未升级本机 8770、未访问/修改/删除真实 Google Drive 数据。CI 不等于两台用户电脑的实机部署验收。
+- **下一步**：等待用户明确批准合并。合并后由用户通过现有更新机制升级至 2.9.2；每台电脑首次运行 `setup_desktop_shortcuts.vbs`，输入/粘贴现有数据根目录完整路径；首次切换时关闭旧 PowerShell 服务一次，之后使用桌面快捷方式。
+
 # 2026-11-09：Tailscale Serve 私有访问 v2.9.1 已正式发布（PR #51）
 
 - **用户明确授权**：“修改发布”；目标是修复手机经 Serve HTTPS 进入 Windows AIWorkSpace 8770 返回 `{"error":"local requests only"}`，但必须维持非公网、仅私有 Tailnet 的安全边界。

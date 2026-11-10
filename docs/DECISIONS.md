@@ -254,3 +254,13 @@
 ## D-20261109-TAILSCALE-01：按用户要求解除私有手机访问限制（v2.9.1）
 
 2026-11-09 用户明确“修改发布”。D012 的“远程访问暂缓”至此由本决策替代，但**不开放公网**。Windows 仍仅监听 127.0.0.1；每台安装通过不入 Git 的 `.aiworkspace-tailnet-access.json` 显式指定唯一 HTTPS Tailscale DNS origin，默认禁用。仅认可 Tailscale Serve 来自本机反向代理的准确 Host/X-Forwarded-Host/X-Forwarded-Proto 与身份头；Funnel 没有身份头必须拒绝。HTTPS 远程写入强制同源 Origin，避免跨站提交。部署时必须检查 Serve 状态为 Tailnet only、Funnel 未开启；无独立账号系统，故用户必须限制 Tailnet 设备授权。配置独立于 Drive 业务数据和 GitHub 自动更新白名单；真实用户手机验证及强身份账户权限管理仍未完成。依据：https://tailscale.com/docs/features/tailscale-serve。
+
+
+## 2026-11-10：D-20261110-DESKTOP-START-01（Windows 轻量桌面启动）
+
+- 不制作 EXE、不制作安装程序、不新增依赖；采用 VBS 桌面快捷方式调用 Python 标准库启动管理程序。首次设置脚本只在每台电脑创建两个快捷方式，并将数据目录配置保存在本机 LocalAppData；真实数据路径不写入公开仓库。
+- 启动管理程序检查现有实例、端口占用和 `/api/health`，确认服务就绪后才打开浏览器；能识别旧版本的只读更新状态接口，避免旧 PowerShell 服务运行时再启动第二个实例。
+- 安全关闭不按 PID/端口强杀进程。每次启动生成随机控制凭证，服务端只接受直接 loopback、无 Tailscale/代理转发头且凭证匹配的关闭请求；旧 PowerShell 手动实例没有凭证，首次切换时必须手动关闭一次。
+- 运行状态与有上限的日志放在 LocalAppData，绝不写入 Google Drive 数据目录。新增启动脚本加入 updater 白名单；回滚必须恢复旧文件，或删除升级前不存在的新脚本。
+- **旧更新器兼容**：2.9.1 的 updater 仅安装原有四个白名单文件，并会忽略归档中的新增文件。为避免首次升级后缺少启动入口，2.9.2 的 `app.py` 内嵌四个启动器文件的可信副本，并在首次启动时原子补齐缺失文件；2.9.2 之后的新 updater 再将这些文件纳入标准白名单、备份和回滚。回归测试必须验证嵌入副本与仓库文件一致，且不覆盖已存在文件。
+- 桌面快捷方式不设置为 Windows 登录自动启动；用户每次需要使用时双击启动，关闭时使用对应快捷方式。

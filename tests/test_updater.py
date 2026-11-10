@@ -26,6 +26,10 @@ OLD_FILES = {
 NEW_FILES = {
     "app.py": "from __future__ import annotations\nNEW_BUILD = True\n",
     "updater.py": "from __future__ import annotations\nNEW_UPDATER = True\n",
+    "desktop_launcher.py": "from __future__ import annotations\nNEW_LAUNCHER = True\n",
+    "setup_desktop_shortcuts.vbs": "Option Explicit\n",
+    "start_aiworkspace.vbs": "Option Explicit\n",
+    "stop_aiworkspace.vbs": "Option Explicit\n",
     "VERSION": "1.0.0\n",
     "web/index.html": "<!doctype html><title>new build</title>\n",
 }
@@ -302,6 +306,30 @@ class UpdaterTests(unittest.TestCase):
         self.assertTrue((raised.exception.backup_dir / "manifest.json").is_file())
         self.assert_data_unchanged()
 
+
+
+    def test_rollback_removes_new_launcher_files_from_an_old_install(self):
+        stage = self.make_stage()
+        backup = updater.apply_staged_update(
+            self.root, self.data_dir, stage, COMMIT, self.base / "rollback-backups"
+        )
+        new_launcher_files = (
+            "desktop_launcher.py",
+            "setup_desktop_shortcuts.vbs",
+            "start_aiworkspace.vbs",
+            "stop_aiworkspace.vbs",
+        )
+        for relative in new_launcher_files:
+            self.assertTrue((self.root / relative).is_file())
+        manifest = json.loads((backup / "manifest.json").read_text(encoding="utf-8"))
+        for relative in new_launcher_files:
+            self.assertFalse(manifest["files"][relative]["exists"])
+        updater.rollback_from_backup(self.root, self.data_dir, backup)
+        for relative in new_launcher_files:
+            self.assertFalse((self.root / relative).exists())
+        for relative, value in OLD_FILES.items():
+            self.assertEqual((self.root / relative).read_text(encoding="utf-8"), value)
+        self.assert_data_unchanged()
 
 if __name__ == "__main__":
     unittest.main()
