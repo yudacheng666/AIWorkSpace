@@ -87,11 +87,10 @@ MsgBox U("8BBE,7F6E,5B8C,6210,FF0C,5DF2,5728,684C,9762,521B,5EFA,4E24,4E2A,5FEB,
        vbInformation, U("0041,0049,0020,5DE5,4F5C,53F0,9996,6B21,8BBE,7F6E")
 
 Function JsonEscape(value)
-    value = Replace(value, "", "\")
-    value = Replace(value, Chr(34), "" & Chr(34))
-    value = Replace(value, vbCr, "")
-    value = Replace(value, vbLf, "
-")
+    value = Replace(value, "\", "\\")
+    value = Replace(value, Chr(34), "\" & Chr(34))
+    value = Replace(value, vbCr, "\r")
+    value = Replace(value, vbLf, "\n")
     JsonEscape = value
 End Function
 
