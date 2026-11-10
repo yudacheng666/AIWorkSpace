@@ -5,7 +5,7 @@
 - **实现**：新增 Python 标准库启动管理程序与三个 VBS 入口（首次设置、启动、关闭）；首次设置每台电脑创建两个桌面快捷方式并把配置保存在 LocalAppData；优先 pythonw 后台启动、检查重复实例/端口/健康状态、服务就绪后打开浏览器；随机控制凭证只允许直接 loopback 安全关闭；日志、状态、锁不进入 Google Drive 数据目录。
 - **兼容旧更新器**：2.9.1 updater 只安装原有四个文件，会忽略 ZIP 中新增文件。2.9.2 的 `app.py` 内嵌四个启动器文件并在首次启动时原子补齐缺失项；新 updater 再负责这些文件的正常升级、备份和回滚。测试核对内嵌文件与仓库版本一致，并确认不会覆盖已存在文件。
 - **候选自动化验收**：最终产品/测试 SHA：`5fb595c473d28518c0892ee2f0e8360e0776a254`；[PR Actions #42791328366](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42791328366) **3/3 SUCCESS**：Ubuntu Python 299（32 skipped）+ Node UI 124 PASS；Windows Python 299（29 skipped）+ Node UI 124 PASS（含 VBS 语法检查）；Windows Chromium 更新/回滚 3 PASS、工作台 E2E 26 PASS、隔离预览启动包检查通过。
-- **主干验证**：合并提交 `4ad1bcae7449e498df2395380ed150ed8e53282c` 的 push Actions #42793149239 已触发；最终结果待回写。文档状态更新提交使用 `[skip ci]`，不改变产品代码。
+- **主干验证**：合并提交 `4ad1bcae7449e498df2395380ed150ed8e53282c` 的 push Actions [#42793149239](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42793149239) **3/3 SUCCESS**：Ubuntu Python 299（32 skipped）+ Node UI 124/124 PASS；Windows Python 299（29 skipped）+ Node UI 124/124 PASS（VBS 语法检查 PASS）；Windows Chromium 更新/回滚 3/3 PASS、工作台 E2E 26 项运行通过、隔离预览启动包检查 PASS。文档状态更新提交使用 `[skip ci]`，不改变产品代码。
 - **部署边界**：GitHub 主干已正式发布 2.9.2；尚未在用户电脑执行更新、创建桌面快捷方式或重启本机 8770。未读取、修改或删除真实 Google Drive 工作台数据。CI 不等于两台用户电脑的实机部署验收。
 - **下一步**：用户通过现有软件更新机制检查并安装 2.9.2；每台 Windows 电脑首次运行 `setup_desktop_shortcuts.vbs`，输入/粘贴现有数据根目录完整路径；若旧 PowerShell 服务仍在运行，首次切换时手动关闭旧窗口一次。之后日常只需双击桌面「AI 工作台」或「关闭 AI 工作台」。
 
