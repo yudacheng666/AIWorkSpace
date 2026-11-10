@@ -185,8 +185,9 @@ class DesktopLauncherTests(unittest.TestCase):
         popen.assert_called_once()
         command = popen.call_args.args[0]
         options = popen.call_args.kwargs
-        self.assertEqual(Path(command[1]).resolve(), (self.root / "app.py").resolve())
-        self.assertIn(str(self.data), command)
+        self.assertTrue(os.path.samefile(command[1], self.root / "app.py"))
+        data_dir_arg = command[command.index("--data-dir") + 1]
+        self.assertTrue(os.path.samefile(data_dir_arg, self.data))
         self.assertEqual(options["cwd"], str(self.root))
         self.assertTrue(options["env"]["AIWORKSPACE_LAUNCHER_TOKEN"])
         self.assertTrue(options["env"]["AIWORKSPACE_LAUNCHER_STATE_DIR"])
