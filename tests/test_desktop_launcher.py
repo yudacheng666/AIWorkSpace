@@ -185,7 +185,7 @@ class DesktopLauncherTests(unittest.TestCase):
         popen.assert_called_once()
         command = popen.call_args.args[0]
         options = popen.call_args.kwargs
-        self.assertEqual(command[1], str(self.root / "app.py"))
+        self.assertEqual(Path(command[1]).resolve(), (self.root / "app.py").resolve())
         self.assertIn(str(self.data), command)
         self.assertEqual(options["cwd"], str(self.root))
         self.assertTrue(options["env"]["AIWORKSPACE_LAUNCHER_TOKEN"])
