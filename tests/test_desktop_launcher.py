@@ -188,7 +188,7 @@ class DesktopLauncherTests(unittest.TestCase):
         self.assertTrue(os.path.samefile(command[1], self.root / "app.py"))
         data_dir_arg = command[command.index("--data-dir") + 1]
         self.assertTrue(os.path.samefile(data_dir_arg, self.data))
-        self.assertEqual(options["cwd"], str(self.root))
+        self.assertTrue(os.path.samefile(options["cwd"], self.root))
         self.assertTrue(options["env"]["AIWORKSPACE_LAUNCHER_TOKEN"])
         self.assertTrue(options["env"]["AIWORKSPACE_LAUNCHER_STATE_DIR"])
         browser.assert_called_once()
