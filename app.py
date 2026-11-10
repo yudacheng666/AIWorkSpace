@@ -5432,7 +5432,7 @@ def ensure_desktop_launcher_assets(root: Path | str = ROOT) -> None:
             prefix=f".{name}.", suffix=".tmp", dir=root_path
         )
         try:
-            with os.fdopen(fd, "w", encoding="utf-8", newline="\\n") as stream:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
                 stream.write(content)
                 stream.flush()
                 os.fsync(stream.fileno())
@@ -5509,6 +5509,7 @@ def main():
                 or _path_is_within(data_path, state_dir)):
             parser.error("desktop launcher state must be outside the program and data folders")
 
+    ensure_desktop_launcher_assets(ROOT)
     args.data_dir.mkdir(parents=True, exist_ok=True)
     server = ThreadingHTTPServer(
         ("127.0.0.1", args.port),
