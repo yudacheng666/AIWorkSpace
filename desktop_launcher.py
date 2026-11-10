@@ -162,6 +162,7 @@ def _append_log(message: str) -> None:
 
 def _rotate_log() -> None:
     path = log_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists() or path.stat().st_size <= MAX_LOG_BYTES:
         return
     backup = path.with_name(path.name + ".1")

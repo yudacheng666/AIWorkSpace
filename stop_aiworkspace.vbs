@@ -4,19 +4,19 @@ Dim fso, shell, root, pythonExe, command
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set shell = CreateObject("WScript.Shell")
 root = fso.GetParentFolderName(WScript.ScriptFullName)
+
 If WScript.Arguments.Count > 0 Then
     If LCase(WScript.Arguments(0)) = "--syntax-check" Then WScript.Quit 0
 End If
 
-
 If Not fso.FileExists(root & "\desktop_launcher.py") Then
-    MsgBox "找不到 AIWorkSpace 启动管理程序。", vbCritical, "AI 工作台"
+    MsgBox U("627E,4E0D,5230,0020,0041,0049,0057,006F,0072,006B,0053,0070,0061,0063,0065,0020,542F,52A8,7BA1,7406,7A0B,5E8F,3002"), vbCritical, U("0041,0049,0020,5DE5,4F5C,53F0")
     WScript.Quit 1
 End If
 
 pythonExe = FindPython()
 If Len(pythonExe) = 0 Then
-    MsgBox "找不到 Python。请确认本机 Python 仍正常安装。", vbCritical, "AI 工作台"
+    MsgBox U("627E,4E0D,5230,0020,0050,0079,0074,0068,006F,006E,3002,8BF7,786E,8BA4,672C,673A,0020,0050,0079,0074,0068,006F,006E,0020,4ECD,6B63,5E38,5B89,88C5,3002"), vbCritical, U("0041,0049,0020,5DE5,4F5C,53F0")
     WScript.Quit 1
 End If
 
@@ -102,4 +102,14 @@ End Function
 
 Function Quote(value)
     Quote = Chr(34) & value & Chr(34)
+End Function
+
+Function U(hexCodes)
+    Dim parts, i, result
+    parts = Split(hexCodes, ",")
+    result = ""
+    For i = 0 To UBound(parts)
+        result = result & ChrW(CLng("&H" & parts(i)))
+    Next
+    U = result
 End Function

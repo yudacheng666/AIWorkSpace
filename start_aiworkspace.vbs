@@ -4,25 +4,25 @@ Dim fso, shell, root, configPath, pythonExe, command
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set shell = CreateObject("WScript.Shell")
 root = fso.GetParentFolderName(WScript.ScriptFullName)
+
 If WScript.Arguments.Count > 0 Then
     If LCase(WScript.Arguments(0)) = "--syntax-check" Then WScript.Quit 0
 End If
 
 configPath = shell.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\AIWorkSpace\launcher.json"
-
 If Not fso.FileExists(root & "\app.py") Or Not fso.FileExists(root & "\desktop_launcher.py") Then
-    MsgBox "找不到 AIWorkSpace 程序文件。请从程序文件夹中的桌面启动脚本运行。", vbCritical, "AI 工作台"
+    MsgBox U("627E,4E0D,5230,0020,0041,0049,0057,006F,0072,006B,0053,0070,0061,0063,0065,0020,7A0B,5E8F,6587,4EF6,3002,8BF7,4ECE,7A0B,5E8F,6587,4EF6,5939,4E2D,7684,684C,9762,542F,52A8,811A,672C,8FD0,884C,3002"), vbCritical, U("0041,0049,0020,5DE5,4F5C,53F0")
     WScript.Quit 1
 End If
 
 If Not fso.FileExists(configPath) Then
-    MsgBox "尚未完成首次设置。请先双击 setup_desktop_shortcuts.vbs。", vbInformation, "AI 工作台"
+    MsgBox U("5C1A,672A,5B8C,6210,9996,6B21,8BBE,7F6E,3002,8BF7,5148,53CC,51FB,0020,0073,0065,0074,0075,0070,005F,0064,0065,0073,006B,0074,006F,0070,005F,0073,0068,006F,0072,0074,0063,0075,0074,0073,002E,0076,0062,0073,3002"), vbInformation, U("0041,0049,0020,5DE5,4F5C,53F0")
     WScript.Quit 1
 End If
 
 pythonExe = FindPython()
 If Len(pythonExe) = 0 Then
-    MsgBox "找不到 Python。请确认已安装 Python 3，或检查本机 Python 安装目录。", vbCritical, "AI 工作台"
+    MsgBox U("627E,4E0D,5230,0020,0050,0079,0074,0068,006F,006E,3002,8BF7,786E,8BA4,5DF2,5B89,88C5,0020,0050,0079,0074,0068,006F,006E,0020,0033,FF0C,6216,68C0,67E5,672C,673A,0020,0050,0079,0074,0068,006F,006E,0020,5B89,88C5,76EE,5F55,3002"), vbCritical, U("0041,0049,0020,5DE5,4F5C,53F0")
     WScript.Quit 1
 End If
 
@@ -108,4 +108,14 @@ End Function
 
 Function Quote(value)
     Quote = Chr(34) & value & Chr(34)
+End Function
+
+Function U(hexCodes)
+    Dim parts, i, result
+    parts = Split(hexCodes, ",")
+    result = ""
+    For i = 0 To UBound(parts)
+        result = result & ChrW(CLng("&H" & parts(i)))
+    Next
+    U = result
 End Function

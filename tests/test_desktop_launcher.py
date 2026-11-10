@@ -275,6 +275,17 @@ class DesktopLauncherTests(unittest.TestCase):
             desktop_launcher.stop(wait_timeout=0.2, poll_interval=0.02)
         self.assertTrue(self.server_thread.is_alive())
 
+    def test_log_rotation_keeps_only_one_backup(self):
+        path = desktop_launcher.log_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x" * (desktop_launcher.MAX_LOG_BYTES + 1))
+        backup = path.with_name(path.name + ".1")
+        backup.write_text("old backup", encoding="utf-8")
+        desktop_launcher._rotate_log()
+        self.assertFalse(path.exists())
+        self.assertEqual(backup.stat().st_size, desktop_launcher.MAX_LOG_BYTES + 1)
+        self.assertFalse(path.with_name(path.name + ".2").exists())
+
     def test_old_manually_started_service_is_never_stopped(self):
         with patch.object(
             desktop_launcher, "identify_existing_service", return_value="legacy"
@@ -308,6 +319,7 @@ class DesktopLauncherTests(unittest.TestCase):
             content = (repo / name).read_text(encoding="utf-8").lower()
             self.assertNotIn("powershell", content)
             self.assertNotIn("cmd.exe", content)
+            self.assertTrue(content.isascii(), f"{name} must remain ASCII for Windows Script Host")
         start_script = (repo / "start_aiworkspace.vbs").read_text(encoding="utf-8")
         self.assertIn("shell.Run command, 0, False", start_script)
         setup_script = (repo / "setup_desktop_shortcuts.vbs").read_text(encoding="utf-8")
