@@ -16,7 +16,7 @@ from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import desktop_launcher
-from app import handler_factory
+from app import ensure_desktop_launcher_assets, handler_factory
 
 
 class DesktopLauncherTests(unittest.TestCase):
@@ -84,6 +84,30 @@ class DesktopLauncherTests(unittest.TestCase):
                 "token": token,
             }),
             encoding="utf-8",
+        )
+
+    def test_legacy_updater_bootstrap_materializes_launcher_assets(self):
+        bootstrap_root = self.base / "bootstrap-app"
+        bootstrap_root.mkdir()
+        ensure_desktop_launcher_assets(bootstrap_root)
+
+        repo_root = Path(__file__).resolve().parents[1]
+        for name in (
+            "desktop_launcher.py",
+            "setup_desktop_shortcuts.vbs",
+            "start_aiworkspace.vbs",
+            "stop_aiworkspace.vbs",
+        ):
+            generated = (bootstrap_root / name).read_text(encoding="utf-8")
+            tracked = (repo_root / name).read_text(encoding="utf-8")
+            self.assertEqual(generated.replace("\\r\\n", "\\n"), tracked.replace("\\r\\n", "\\n"))
+
+        preserved = bootstrap_root / "start_aiworkspace.vbs"
+        preserved.write_text("local content must not be overwritten", encoding="utf-8")
+        ensure_desktop_launcher_assets(bootstrap_root)
+        self.assertEqual(
+            preserved.read_text(encoding="utf-8"),
+            "local content must not be overwritten",
         )
 
     def test_load_config_preserves_existing_data_root_and_port(self):
