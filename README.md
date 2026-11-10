@@ -101,7 +101,7 @@
 
 1. 确认 Google Drive 桌面版已启动，现有 AIWorkSpace 数据文件夹已同步到本机。
 2. 在 AIWorkSpace 程序文件夹中双击 `setup_desktop_shortcuts.vbs`。
-3. 在弹出的输入框中粘贴**现有数据根目录的完整路径**（可从文件资源管理器地址栏复制），不要输入其中的 `events`、`project_events` 或 `step_events` 子文件夹路径。程序会检查目录位置，并把本机配置保存到 `%LOCALAPPDATA%\\AIWorkSpace\\launcher.json`；这个配置不进入 Google Drive，也不会提交到 GitHub。
+3. 在弹出的输入框中粘贴**现有数据根目录的完整路径**（可从文件资源管理器地址栏复制），不要输入其中的 `events`、`project_events` 或 `step_events` 子文件夹路径。程序会检查目录位置，并把本机配置保存到 `%LOCALAPPDATA%\AIWorkSpace\launcher.json`；这个配置不进入 Google Drive，也不会提交到 GitHub。
 4. 设置脚本会在桌面创建「AI 工作台」和「关闭 AI 工作台」两个快捷方式。
 
 从正式版 2.9.1 升级时，旧更新器不会安装新增文件；2.9.2 的首次启动会从程序内嵌资源自动补齐桌面启动脚本，然后由新更新器接管后续升级和回滚。这个兼容步骤不需要额外安装程序，也不会触碰数据目录。
