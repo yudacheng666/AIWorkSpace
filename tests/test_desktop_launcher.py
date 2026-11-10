@@ -100,7 +100,7 @@ class DesktopLauncherTests(unittest.TestCase):
         ):
             generated = (bootstrap_root / name).read_text(encoding="utf-8")
             tracked = (repo_root / name).read_text(encoding="utf-8")
-            self.assertEqual(generated.replace("\\r\\n", "\\n"), tracked.replace("\\r\\n", "\\n"))
+            self.assertEqual(generated, tracked)
 
         preserved = bootstrap_root / "start_aiworkspace.vbs"
         preserved.write_text("local content must not be overwritten", encoding="utf-8")
