@@ -29,7 +29,7 @@
   - Windows：Python 299 项（29 skipped），Node UI 124/124 PASS；包括三个 VBS 脚本的 Windows Script Host 语法检查
   - Windows Chromium：更新/回滚 3/3 PASS，工作台 UI E2E 26/26 PASS，隔离预览启动包检查通过
 - 早期 Windows CI 曾发现 VBS JSON 转义错误及 Windows 路径断言问题，均已修正；最终候选 SHA 的三组 Actions 全部通过。
-- 主干合并提交 `4ad1bcae7449e498df2395380ed150ed8e53282c` 的 push Actions #42793149239 已触发，最终结果待回写。
+- 主干合并提交 `4ad1bcae7449e498df2395380ed150ed8e53282c` 的 push Actions [#42793149239](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42793149239)：**3/3 SUCCESS**；Ubuntu/Windows Python 均 299 项通过（各 32/29 个设计性 SKIP），Node UI 各 124/124 PASS；Windows Chromium 更新/回滚 3/3 PASS、工作台 E2E 26 项运行通过、隔离预览启动包检查 PASS。
 
 ## 当前部署边界
 - GitHub main 已正式包含 2.9.2；尚未在用户电脑执行更新、创建快捷方式或重启本机 8770。
