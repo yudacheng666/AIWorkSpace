@@ -10,6 +10,7 @@ import argparse
 import calendar
 import difflib
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -4142,7 +4143,8 @@ def read_tailnet_origin(root: Path) -> str | None:
     return validate_tailnet_origin(config["tailscale_origin"])
 
 
-def handler_factory(data_dir: Path, tailscale_origin: str | None = None):
+def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
+                    control_token: str | None = None):
     if tailscale_origin is not None:
         validate_tailnet_origin(tailscale_origin)
     tailscale_host = tailscale_origin.removeprefix("https://") if tailscale_origin else None
@@ -4216,6 +4218,8 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None):
             if not self.local_request_allowed():
                 return self.json_response(403, {"error": "local requests only"})
             path = urlsplit(self.path).path
+            if path == "/api/health":
+                return self.json_response(200, {"service": "AIWorkSpace", "status": "ok"})
             if path == "/api/tasks":
                 with _write_lock:
                     expire_trashed_tasks(data_dir)
@@ -4315,6 +4319,21 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None):
 
         def do_POST(self):
             path = unquote(urlsplit(self.path).path)
+            if path == "/api/local/shutdown":
+                if not self.local_request_allowed():
+                    return self.json_response(403, {"error": "local requests only"})
+                forwarded = any(self.headers.get_all(name) for name in (
+                    "X-Forwarded-Host", "X-Forwarded-Proto", "X-Forwarded-For",
+                    "Tailscale-User-Login", "Tailscale-User-Name"))
+                if self.client_address[0] not in {"127.0.0.1", "::1"} or forwarded:
+                    return self.json_response(403, {"error": "direct local shutdown only"})
+                supplied_token = self.headers.get("X-AIWorkSpace-Control-Token", "")
+                if (not control_token or
+                        not hmac.compare_digest(supplied_token, control_token)):
+                    return self.json_response(403, {"error": "shutdown not authorized"})
+                self.json_response(202, {"accepted": True})
+                threading.Thread(target=self.server.shutdown, daemon=True).start()
+                return
             task_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/update", path)
             recurrence_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/recurrence", path)
             documents_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/documents", path)
@@ -5388,6 +5407,44 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None):
     return Handler
 
 
+def _path_is_within(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
+def _write_launcher_state(state_dir: Path, token: str, port: int) -> Path:
+    state_dir.mkdir(parents=True, exist_ok=True)
+    state_path = state_dir / "service.json"
+    temp_path = state_path.with_name(f".{state_path.name}.{uuid.uuid4().hex}.tmp")
+    payload = {"service": "AIWorkSpace", "pid": os.getpid(), "port": port, "token": token}
+    try:
+        with temp_path.open("w", encoding="utf-8", newline="\n") as stream:
+            json.dump(payload, stream, ensure_ascii=False)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temp_path, state_path)
+    finally:
+        try:
+            temp_path.unlink()
+        except FileNotFoundError:
+            pass
+    return state_path
+
+
+def _remove_launcher_state(state_path: Path, token: str) -> None:
+    try:
+        payload = json.loads(state_path.read_text(encoding="utf-8"))
+        if (isinstance(payload, dict) and payload.get("token") == token
+                and payload.get("pid") == os.getpid()):
+            state_path.unlink()
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        pass
+
+
 def main():
     parser = argparse.ArgumentParser(description="Local AIWorkSpace task viewer/editor")
     parser.add_argument("--data-dir", type=Path, default=ROOT / "data")
@@ -5397,20 +5454,43 @@ def main():
         tailscale_origin = read_tailnet_origin(ROOT)
     except ValueError as exc:
         parser.error(str(exc))
+
+    control_token = os.environ.get("AIWORKSPACE_LAUNCHER_TOKEN", "")
+    state_dir_raw = os.environ.get("AIWORKSPACE_LAUNCHER_STATE_DIR", "")
+    if bool(control_token) != bool(state_dir_raw):
+        parser.error("desktop launcher control configuration is incomplete")
+
+    state_dir = None
+    if control_token:
+        state_dir = Path(state_dir_raw).expanduser().resolve()
+        root_path = ROOT.resolve()
+        data_path = args.data_dir.expanduser().resolve()
+        if (state_dir == root_path or _path_is_within(state_dir, root_path)
+                or _path_is_within(root_path, state_dir)
+                or state_dir == data_path or _path_is_within(state_dir, data_path)
+                or _path_is_within(data_path, state_dir)):
+            parser.error("desktop launcher state must be outside the program and data folders")
+
     args.data_dir.mkdir(parents=True, exist_ok=True)
     server = ThreadingHTTPServer(
-        ("127.0.0.1", args.port), handler_factory(args.data_dir, tailscale_origin))
-    print(f"AIWorkSpace: http://127.0.0.1:{server.server_port}/")
-    if tailscale_origin:
-        print(f"Tailnet-only via Tailscale Serve: {tailscale_origin}/")
-    else:
-        print("Local-only demo. No AI credentials or public network endpoint.")
+        ("127.0.0.1", args.port),
+        handler_factory(args.data_dir, tailscale_origin, control_token or None))
+    state_path = None
     try:
+        if state_dir is not None:
+            state_path = _write_launcher_state(state_dir, control_token, server.server_port)
+        print(f"AIWorkSpace: http://127.0.0.1:{server.server_port}/", flush=True)
+        if tailscale_origin:
+            print(f"Tailnet-only via Tailscale Serve: {tailscale_origin}/", flush=True)
+        else:
+            print("Local-only demo. No AI credentials or public network endpoint.", flush=True)
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
         server.server_close()
+        if state_path is not None:
+            _remove_launcher_state(state_path, control_token)
 
 
 if __name__ == "__main__":

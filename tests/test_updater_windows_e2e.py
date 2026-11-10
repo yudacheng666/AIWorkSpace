@@ -40,7 +40,11 @@ LATEST_VERSION = "1.0.1"
 API_URL = "https://api.github.com/repos/yudacheng666/AIWorkSpace/commits/main"
 RAW_PREFIX = "https://raw.githubusercontent.com/yudacheng666/AIWorkSpace/"
 ARCHIVE_URL = f"https://api.github.com/repos/yudacheng666/AIWorkSpace/zipball/{COMMIT}"
-APP_FILES = ("app.py", "updater.py", "VERSION", "web/index.html")
+APP_FILES = (
+    "app.py", "updater.py", "desktop_launcher.py",
+    "setup_desktop_shortcuts.vbs", "start_aiworkspace.vbs", "stop_aiworkspace.vbs",
+    "VERSION", "web/index.html",
+)
 
 # Loaded by sitecustomize in the actual app, helper, and restarted app processes.
 # Unknown HTTPS requests are blocked, while the helper's loopback health checks

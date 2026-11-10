@@ -85,6 +85,12 @@ class NativeWindowsUpdateTests(unittest.TestCase):
         self.stage.joinpath("updater.py").write_bytes(Path(updater.__file__).read_bytes())
         self.stage.joinpath("VERSION").write_text("1.0.0\n", encoding="utf-8")
         self.stage.joinpath("web/index.html").write_text("<p>new</p>", encoding="utf-8")
+        for relative in updater.APP_FILES:
+            if relative in {"app.py", "updater.py", "VERSION", "web/index.html"}:
+                continue
+            target = self.stage / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("# new launcher asset fixture\n", encoding="utf-8")
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.bind(("127.0.0.1", 0))
             self.port = sock.getsockname()[1]
