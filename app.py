@@ -2169,7 +2169,14 @@ def read_work_records(data_dir: Path) -> dict:
                 record["conflict"] = True
                 warnings.append(record_id + ": concurrent work record edits")
                 break
-            record.update(candidates[0]["changes"])
+            changes = candidates[0]["changes"]
+            if record.get("record_type", "progress") == "decision" and (
+                    {"content", "outcome", "record_type"} & set(changes)):
+                record["conflict"] = True
+                warnings.append(
+                    record_id + ": decision record content/outcome/type is immutable")
+                break
+            record.update(changes)
             record["updated_at"] = candidates[0]["timestamp"]
             record["revision"] += 1
         if by_revision:
