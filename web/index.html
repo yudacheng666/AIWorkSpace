@@ -1676,6 +1676,7 @@
         option.value = value; kind.append(option);
       }
       kindLabel.append(kind);
+      kind.value = "progress";
       const contentLabel = element("label", "", "记录内容（必填）");
       const content = element("textarea");
       content.required = true; content.maxLength = 4000;
@@ -4991,7 +4992,7 @@
 
     function workFormSnapshot() {
       return {content: $("work-record-content").value, occurred_on: $("work-record-date").value,
-        record_type: $("work-record-type").value,
+        record_type: $("work-record-type").value || "progress",
         project_id: $("work-record-project").value, task_id: $("work-record-task").value,
         outcome: $("work-record-outcome").value, duration_minutes: $("work-record-minutes").value,
         featured: $("work-record-featured").checked, action_links: workDraftLinks.map(link => ({...link})),
