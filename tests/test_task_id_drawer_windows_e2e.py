@@ -25,7 +25,7 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from app import append_event, append_step_event, append_work_record_event, append_project_event, handler_factory, read_workspace, list_data_reviews  # noqa: E402
+from app import append_event, append_step_event, append_work_record_event, append_project_event, handler_factory, read_workspace, read_work_records, list_data_reviews  # noqa: E402
 
 
 @unittest.skipUnless(
@@ -1263,6 +1263,52 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(original_task_event.read_bytes(), original_bytes)
 
 
+
+    def test_object_descriptions_and_decision_records_in_real_chromium(self):
+        """Descriptions stay object context; decisions are records, not extra steps or statuses."""
+        step_id = "STEP-" + "C" * 32
+        append_step_event(self.data_dir, {
+            "version": 1, "event_id": "typed-record-step-create-001",
+            "task_id": self.task_id, "step_id": step_id,
+            "action": "create", "actor": "user",
+            "timestamp": "2026-11-11T09:00:00Z", "base_revision": 0,
+            "changes": {"title": "虚构步骤：确认零件情况", "position": 1},
+        })
+        page = self._open_browser(open_detail=True)
+
+        task_description = page.locator("#task-detail-drawer .object-description").nth(0)
+        task_description.locator("summary").click()
+        task_description.locator("textarea").fill("背景：评估是否向供应商转卖零件。")
+        task_description.get_by_role("button", name="保存说明").click()
+        expect(task_description.locator("summary")).to_have_text("任务说明")
+
+        step_description = page.locator("#task-detail-drawer .object-description").nth(1)
+        step_description.locator("summary").click()
+        step_description.locator("textarea").fill("步骤背景：核实零件是否仍有内部用途。")
+        step_description.get_by_role("button", name="保存说明").click()
+        expect(step_description.locator("summary")).to_have_text("步骤说明")
+
+        task_progress = page.locator("#task-detail-drawer .progress-panel-wrap").last
+        task_progress.locator("details.progress-panel > summary").click()
+        form = task_progress.locator("form.progress-form")
+        form.locator("select").select_option("decision")
+        form.locator("input[type=date]").fill("2026-11-11")
+        form.locator("textarea").nth(0).fill("评估是否向供应商转卖零件")
+        form.locator("textarea").nth(1).fill("不卖")
+        form.get_by_role("button", name="保存记录").click()
+        expect(page.locator("#task-detail-drawer .current-conclusion-text")).to_have_text("不卖")
+
+        workspace = read_workspace(self.data_dir)
+        task = next(item for item in workspace["tasks"] if item["task_id"] == self.task_id)
+        step = next(item for item in task["steps"] if item["step_id"] == step_id)
+        self.assertEqual(task["description"], "背景：评估是否向供应商转卖零件。")
+        self.assertEqual(step["description"], "步骤背景：核实零件是否仍有内部用途。")
+        self.assertEqual(task["status"], "todo", "a decision record must not complete a task")
+        self.assertEqual(len(task["steps"]), 1, "a decision record must not create a step")
+        records = read_work_records(self.data_dir)["records"]
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["record_type"], "decision")
+        self.assertEqual(records[0]["outcome"], "不卖")
 
     def test_task_to_work_record_ui_is_confirmed_atomic_and_keeps_task_history(self):
         """Real Chromium: cancellation must not write, one confirmed conversion does."""
