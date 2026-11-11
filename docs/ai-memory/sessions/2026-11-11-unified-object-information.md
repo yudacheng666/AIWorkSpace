@@ -9,7 +9,7 @@
 - 开始时 main 开放 PR：0；本次尚未合并、发布或部署。
 
 ## 用户确认的产品决策
-- 项目、任务、步骤均有统一「说明」；说明是稳定背景，不是进展事件。
+- 项目、任务、步骤均有统一「说明」；说明是稳定背景，不是进展事件；总结时作为独立标注的 object_contexts 提供给 AI 理解背景，不计入工作事实或成果。
 - 项目、任务、步骤共用同一 RECORD 记录入口，不增加独立记事本系统，不为记事或结论创建步骤。
 - RECORD 类型：progress、communication、decision、note；旧记录缺省 progress。
 - decision 的 content 保存背景／判断，outcome 保存结论；详情顶部按首次保存时间（created_at）投影最近一条有效决策为当前结论，旧决策保留为独立历史；补记发生日期或后续元数据更新不改变当前决策。decision 的 content/outcome/record_type 不允许原记录覆盖，更正或新判断必须新增 RECORD。
