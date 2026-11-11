@@ -5078,6 +5078,10 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                                 return self.json_response(404, {"error": "work record not found"})
                             if prior["conflict"] or prior["revision"] != payload["revision"]:
                                 return self.json_response(409, {"error": "work record changed or conflicted; refresh"})
+                            if prior.get("record_type", "progress") == "decision" and (
+                                    {"content", "outcome", "record_type"} & set(changes)):
+                                return self.json_response(409, {
+                                    "error": "decision records are immutable; create a new decision to preserve history"})
                             changes = {key: val for key, val in changes.items()
                                        if val != prior.get(key)}
                             if not changes:
