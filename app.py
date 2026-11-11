@@ -2896,6 +2896,17 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
                     add_object_context("task", linked_task["task_id"],
                                        linked_task.get("title", ""),
                                        linked_task.get("description", ""))
+    for event in completed:
+        task = tasks_by_id.get(event.get("task_id"))
+        project_for_completion = projects_by_id.get(
+            event.get("project_id") or (task.get("project_id") if task else None))
+        if project_for_completion:
+            add_object_context("project", project_for_completion["project_id"],
+                               project_for_completion["name"],
+                               project_for_completion.get("description", ""))
+        if task:
+            add_object_context("task", task["task_id"], task.get("title", ""),
+                               task.get("description", ""))
     context_order = {"project": 0, "task": 1, "step": 2}
     all_object_contexts = sorted(
         context_by_key.values(),
