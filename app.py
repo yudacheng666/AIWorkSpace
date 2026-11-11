@@ -2863,7 +2863,7 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
         if key in context_by_key:
             return
         context = {"object_type": kind, "object_id": object_id,
-                   "title": title, "description": description.strip()}
+                   "title": str(title or object_id), "description": description.strip()}
         if parent_task_id:
             context["parent_task_id"] = parent_task_id
         context_by_key[key] = context
