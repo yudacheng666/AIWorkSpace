@@ -6,8 +6,8 @@
 - 正式版本：2.9.2；开发分支候选版本：2.10.0
 - 开发分支：`feature/20261111-unified-object-information`
 - 开放 PR：仅 Draft PR #53，base 为 main；未合并、未发布、未部署。
-- 本轮最终产品／测试 SHA：`ad9e392d26ce91623551c5896b7a28ee616b4296`。
-- 对应 [GitHub Actions #42959727208](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42959727208) 第 2 次尝试：**3/3 SUCCESS**。最终结果只对应上述产品／测试 SHA；后续记忆文档提交不改变产品代码。
+- 本轮最终产品／测试 SHA：`5add5a5357c2d9090449e0abf01c082dd355d990`。
+- 对应 [GitHub Actions #42964771816](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42964771816) 第 2 次尝试：**3/3 SUCCESS**；第 2 次只重跑第 1 次失败的 Windows Python Job，Ubuntu 与 Chromium 已通过 Job 不重复运行。最终结果只对应上述产品／测试 SHA；后续记忆文档提交不改变产品代码。
 
 ## 用户批准的需求基线
 - 项目、任务、步骤使用统一说明、记录与结论能力；不增加独立记事本模块，不为记录进展创建无意义步骤。
@@ -20,15 +20,17 @@
 - 已完成：读取并遵守 AGENTS.md、REQUIREMENTS.md、PROJECT_STATE.md、DECISIONS.md 和最新会话记录；核实 main、全部开放 PR、PR #53、分支和测试证据。
 - 已实现：项目／任务／步骤独立说明事件与统一详情 UI；统一 RECORD 快速记录入口和四种类别；按首次保存时间投影当前决策；个人版／汇报版来源选择；说明进入总结和 AI 背景上下文；task↔step 说明继承。
 - 已加固：decision 的 content/outcome/record_type 在 API 和底层 reducer 双层不可变；直接或晚到的违规事件冻结并提示冲突；最新决策本身冲突时不回退展示旧结论；继承说明来源冲突时将冻结标记传递给转换目标，避免静默丢失说明；冲突提示准确指向完整工作轨迹。
+- 已优化展示：项目／任务／步骤的记录与结论区域紧跟对象说明，位于执行步骤／关联内容之前；仅 outcome 非空时标为「当前结论」，未填写 outcome 时明确显示「尚未填写明确结论」，不把背景／判断冒充结论。
 - 公开仓库检查：本轮新增测试／示例已改为虚构的「方案 A」等通用内容；新增差异扫描未发现真实公司／人员信息、内部文件链接、Google Drive 私有 ID、密钥或用户真实业务描述。
 
 ## 最终自动化测试证据
-- [Actions #42959727208](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42959727208)，第 2 次尝试，准确 SHA：`ad9e392d26ce91623551c5896b7a28ee616b4296`。
-- Ubuntu Python：308 项，33 项平台性 skip，其余通过；Node UI：128/128 PASS。
-- Windows Python：308 项，30 项平台性 skip，其余通过；Node UI：128/128 PASS。
+- [Actions #42964771816](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42964771816)，第 2 次尝试，准确 SHA：`5add5a5357c2d9090449e0abf01c082dd355d990`，**3/3 SUCCESS**。
+- Ubuntu Python：308 项，33 项平台性 skip，其余通过；Node UI：129/129 PASS。
+- Windows Python：308 项，30 项平台性 skip，其余通过；Node UI：129/129 PASS。
 - Windows 真实应用／Chromium：更新与回滚 3 项通过；工作台真实浏览器 E2E 27 项通过；隔离预览启动包检查通过。
-- 第 1 次尝试中 Windows Python 的一个既有 HTTP 测试发生 `WinError 10053` 连接中断；按规则只重跑失败的 Windows Python Job，第 2 次尝试通过。未修改该无关业务代码。
-- 新增关键回归：`test_decision_immutability_is_enforced_by_the_reducer`、`test_conversion_keeps_inherited_description_conflict_visible`、`test_object_descriptions_and_decision_records_in_real_chromium`；均在最终 SHA 的 Actions 中通过。
+- 前一候选 SHA `94810700acda419b088d61bb6423f54e3fd172e5` 的 Chromium E2E 首次发现测试仍使用旧布局的 `.last` 选择器，误选步骤记录面板；已改为定位任务级 `.first`，并在最终 SHA 的 Chromium E2E 通过。
+- 最终 SHA 的 Actions 第 1 次尝试中，既有 Windows HTTP 测试 `test_create_rejects_untrusted_origin_and_host` 遇到 `WinError 10053` 连接中断；按规则只重跑失败的 Windows Python Job，第 2 次通过。未修改无关业务代码。
+- 新增关键回归：decision reducer 不可变性、转换来源说明冲突冻结、无 outcome 时不冒充当前结论、当前结论位于执行步骤之前、真实 Chromium 说明与 decision 记录流程（不自动完成任务、不创建步骤）；均在最终 SHA 的 Actions 中通过。
 
 ## 风险与边界
 - 不修改 main、不合并、不发布、不访问真实 Google Drive 工作数据、不部署用户电脑 8770。
