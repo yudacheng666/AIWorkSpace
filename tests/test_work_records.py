@@ -279,6 +279,9 @@ class WorkRecordHTTPTests(unittest.TestCase):
         self.assertIn("结论：不卖", preview["body"])
         self.assertEqual({item["object_type"] for item in preview["object_contexts"]},
                          {"project", "task"})
+        self.assertEqual(len(preview["record_sources"]), 1)
+        self.assertEqual(preview["record_count"], 1,
+                         "object descriptions are context, not work events")
         self.assertIn("项目背景：评估零件处置事项", preview["body"])
         self.assertIn("任务目标：判断是否转卖零件", preview["body"])
         analysis = app.work_analysis_context(
