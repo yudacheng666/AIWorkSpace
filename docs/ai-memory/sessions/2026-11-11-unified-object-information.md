@@ -1,10 +1,10 @@
-# 2026-11-11｜统一对象说明与工作记录类别（PR #53 候选完成，待独立验收）
+# 2026-11-11｜统一对象说明与工作记录类别（PR #53 候选完成，ChatGPT 定向同步故障注入通过）
 
 ## 开发基线
 - 仓库：`yudacheng666/AIWorkSpace`
 - 基线 main：`9f98f1b11abe57ccf3c43d40aa43ad8b341afe62`
 - 分支：`feature/20261111-unified-object-information`
-- 最终产品／测试 SHA：`5add5a5357c2d9090449e0abf01c082dd355d990`
+- 最终产品／测试 SHA：`996f44f231f49b8402f216518545a8b2476cf201`
 - 候选版本：`2.10.0`
 - 开始时 main 开放 PR：0；本次创建 Draft PR #53，当前仍未合并、发布或部署。
 
@@ -29,20 +29,26 @@
   - 说明草稿加入现有离开／刷新保护；并发或继承来源 revision 过期时停止写入。
 - 测试：
   - `tests/test_work_records.py`：旧记录默认类型、类型校验、decision preview、说明 revision/冲突/隔离存储。
+  - `tests/test_sync_fault_injection.py`：五类合成双设备文件同步故障注入（延迟／乱序、并发冲突的两种到达顺序、重复事件幂等、旧客户端决策不可覆盖）。
   - `tests/test_app.py`：task↔step 转换说明继承及继承来源 revision 过期保护。
   - `tests/test_unified_timeline_reports.py`：record_type 进入来源卡和 source_digest。
   - `tests/test_ui_shell.mjs`：快速记录类别、当前结论、无 outcome 的未定状态、说明编辑、转换继承 token、汇报默认选择。
   - `tests/test_task_id_drawer_windows_e2e.py`：新增真实 Windows Chromium 流程，验证说明、decision 记录、结论显示顺序、不自动完成任务、不创建额外步骤。
 
 ## 最终测试状态
-- 最终产品／测试 SHA：`5add5a5357c2d9090449e0abf01c082dd355d990`。
-- [GitHub Actions #42964771816](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42964771816) 第 2 次尝试 **3/3 SUCCESS**：
-  - Ubuntu Python 308 项（33 skipped）通过；Node UI 129/129 PASS。
-  - Windows Python 308 项（30 skipped）通过；Node UI 129/129 PASS。
+- 最终产品／测试 SHA：`996f44f231f49b8402f216518545a8b2476cf201`。
+- [GitHub Actions #42967921372](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42967921372) 第 1 次尝试 **3/3 SUCCESS**：
+  - Ubuntu Python 313 项（33 skipped）通过；Node UI 129/129 PASS。
+  - Windows Python 313 项（30 skipped）通过；Node UI 129/129 PASS。
   - Windows 真实应用／Chromium：更新回滚 3 项通过；工作台 E2E 27 项通过；隔离预览启动包检查通过。
-- 新增关键回归在最终 SHA 均通过：decision reducer 不可变性、转换来源说明冲突冻结、无 outcome 不冒充当前结论、当前结论位于步骤之前、真实 Chromium 说明与 decision 记录流程（不自动完成任务、不创建步骤）。
-- 前一候选 SHA `94810700acda419b088d61bb6423f54e3fd172e5` 的 Chromium E2E 首次发现测试仍使用旧布局的 `.last` 选择器，误选步骤记录面板；已改为定位任务级 `.first`，最终 SHA 的 Chromium E2E 通过。
-- 最终 SHA 的 Actions 第 1 次尝试中，既有 Windows HTTP 测试 `test_create_rejects_untrusted_origin_and_host` 遇到 `WinError 10053`；只重跑失败的 Windows Python Job 后，第 2 次通过。未修改无关业务代码。
+- 新增 `tests/test_sync_fault_injection.py` 五项通过：工作记录创建及前置 revision 晚到后恢复；对象说明乱序文件到达后恢复；双设备同 revision 并发编辑在延迟兄弟事件到达后冻结，并验证 A→B／B→A 两种到达顺序最终一致；相同事件重复副本不增加 revision；旧客户端缺少 `record_type` 时仍不能覆盖 decision 的 content/outcome。
+- 既有关键回归也通过：decision reducer 不可变性、转换来源说明冲突冻结、无 outcome 不冒充当前结论、当前结论位于步骤之前、真实 Chromium 说明与 decision 记录流程（不自动完成任务、不创建步骤）。
+- 一次性验收例外：用户明确批准本轮不使用 Codex；ChatGPT 编写定向故障注入测试，GitHub Actions 在 Ubuntu／Windows 验证。长期 `AGENTS.md` 规则不变。
+- **边界**：仅用临时文件夹模拟两设备事件文件复制、延迟、乱序和重复；未连接 Google Drive 云服务，未验证用户真实双电脑离线／重连、客户端同步状态或旧版实机客户端。对端冲突事件未同步到本机前，本机只能显示已见单一分支；双方文件都到达后 reducer 才能冻结冲突。
+- 本轮最终 SHA 为 `996f44f231f49b8402f216518545a8b2476cf201`；前一测试 SHA `5de55795803460abe22496b8b4a7cc54cf3ef4ea` 的初轮测试通过，但最终以加强双到达顺序断言后的 SHA 和 Actions 为准。
+
+## 本轮验收方式
+- 用户批准：PR #53 一次性不使用 Codex，改由 ChatGPT 编写定向同步故障注入测试，并由 GitHub Actions 在 Ubuntu／Windows 执行；不改变未来项目的默认 Codex 风险分级规则。
 
 ## 安全与发布边界
 - 未读取、修改、迁移或上传真实 Google Drive 工作台数据。
@@ -55,4 +61,6 @@
 - 公开差异已扫描；本次新增测试数据均为虚构示例，未提交用户真实采购事项、真实人员／公司信息、私有 Drive 链接或密钥。
 - 未读取、修改、迁移或上传真实 Google Drive 工作台数据；未操作用户电脑的 8770 服务。
 - PR #53 仍为 Draft / Open；main 未改变，未合并、未发布、未部署。
-- 独立 Codex 探索性验收及真实双电脑 Google Drive 离线／晚同步仍 **NOT TESTED**。这是高风险持久化功能的剩余验收缺口，须在合并前补齐，或等待用户明确批准例外。
+- 按用户明确批准的一次性例外，本轮未调用 Codex；ChatGPT 定向同步故障注入和准确 SHA CI 已通过。该例外不改变 `AGENTS.md` 长期规则。
+- 真实 Google Drive 云服务、用户真实双电脑离线／重连、客户端待同步状态及旧版本实机客户端仍 **NOT TESTED**；临时目录测试不能替代生产设备验收。
+- PR #53 仍 Draft / Open，main 未改变；本轮未获合并、发布或部署授权，等待用户另行决定。
