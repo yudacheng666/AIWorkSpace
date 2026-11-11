@@ -1272,7 +1272,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
             "task_id": self.task_id, "step_id": step_id,
             "action": "create", "actor": "user",
             "timestamp": "2026-11-11T09:00:00Z", "base_revision": 0,
-            "changes": {"title": "虚构步骤：确认零件情况", "position": 1},
+            "changes": {"title": "虚构步骤：核实事项情况", "position": 1},
         })
         page = self._open_browser(open_detail=True)
 
@@ -1284,7 +1284,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
 
         step_description = page.locator("#task-detail-drawer .object-description").nth(1)
         step_description.locator("summary").click()
-        step_description.locator("textarea").fill("步骤背景：核实零件是否仍有内部用途。")
+        step_description.locator("textarea").fill("步骤背景：核实方案是否仍有实际用途。")
         step_description.get_by_role("button", name="保存说明").click()
         expect(step_description.locator("summary")).to_have_text("步骤说明")
 
@@ -1302,7 +1302,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         task = next(item for item in workspace["tasks"] if item["task_id"] == self.task_id)
         step = next(item for item in task["steps"] if item["step_id"] == step_id)
         self.assertEqual(task["description"], "背景：评估是否采用方案A。")
-        self.assertEqual(step["description"], "步骤背景：核实零件是否仍有内部用途。")
+        self.assertEqual(step["description"], "步骤背景：核实方案是否仍有实际用途。")
         self.assertEqual(task["status"], "todo", "a decision record must not complete a task")
         self.assertEqual(len(task["steps"]), 1, "a decision record must not create a step")
         records = read_work_records(self.data_dir)["records"]

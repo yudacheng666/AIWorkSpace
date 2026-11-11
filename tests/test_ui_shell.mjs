@@ -2352,6 +2352,7 @@ test("a newer conflicted decision suppresses an older current conclusion", async
   assert.equal(panel.children[0].className,"current-conclusion current-conclusion--warning");
   const warningText = panel.children[0].children[1].textContent;
   assert.match(warningText,/暂不展示旧结论/);
+  assert.match(warningText,/完整工作轨迹/);
   assert.doesNotMatch(warningText,/采用/);
 });
 

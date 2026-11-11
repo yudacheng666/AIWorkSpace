@@ -1633,7 +1633,7 @@
         const warning = element("section", "current-conclusion current-conclusion--warning");
         warning.append(element("small", "current-conclusion-label", "当前结论暂不可确认"));
         warning.append(element("p", "current-conclusion-text",
-          "最近一条决策记录存在同步冲突，已暂不展示旧结论。请先在通知信箱核查。"));
+          "最近一条决策记录存在同步冲突，已暂不展示旧结论。请在完整工作轨迹中核查这条记录。"));
         warning.append(element("small", "current-conclusion-meta",
           latestDecision.display_id || ""));
         wrap.append(warning);
@@ -1652,7 +1652,7 @@
       box.append(element("summary", "", "记录与结论 · 快速填写"));
       if (!matched.length) box.append(element("p", "work-archive-hint",
         related.some(record => record.conflict)
-          ? "有记录存在同步冲突，暂未展示；请先在通知信箱核查。"
+          ? "有记录存在同步冲突，暂未展示；请在完整工作轨迹中查看冲突记录。"
           : "暂无记录。进展、沟通、决策或随手记都可以直接写在这里，不必新建步骤。"));
       for (const record of matched.slice(0, 3)) {
         const entry = element("div", "progress-entry");
