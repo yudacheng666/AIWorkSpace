@@ -1,3 +1,17 @@
+# 2026-11-11｜AIWorkSpace 2.10.0 正式 GitHub 发布（PR #53）
+
+- **用户授权**：在批准 PR #53 不使用 Codex、改由 ChatGPT 增加定向同步故障注入并完成准确 SHA 的 Actions 验收后，用户明确指示「发布」，构成此次合并授权；不改变后续项目的长期测试风险分级。
+- **发布前核验**：main `9f98f1b11abe57ccf3c43d40aa43ad8b341afe62`，正式 VERSION 2.9.2，唯一开放 PR #53；无依赖阻塞或其他漏合 PR。PR 头 `7bff5df3a33ad1b9c20aea3662ca68065c27b5d0` 相比最终产品／测试 SHA 仅增加文档记忆，不修改产品或测试代码。
+- **发布内容**：项目、任务、步骤共享说明、进展／沟通／决策结论／记事；decision 结论独立于 done，无法覆盖原决策；说明与记录采用追加式、revision 和冲突保护；个人与汇报版按需选择事件。
+- **候选证据**：产品／测试 SHA `996f44f231f49b8402f216518545a8b2476cf201`；[PR Actions #42967921372](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42967921372) **3/3 SUCCESS**，含 5 项定向合成双设备同步故障注入。
+- **正式合并**：PR #53 Draft → Ready → 普通 Merge 成功；准确 **main merge SHA `887cb4a8a026073d6a8fa33c68ccf2779b287a2a`**；`main/VERSION=2.10.0`；PR #53 closed/merged，剩余开放 PR **0**。
+- **主干精确测试证据**：[main Actions #42969378317](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42969378317)，固定 merge SHA **3/3 SUCCESS（attempt 1）**：Ubuntu Python 313（33 skip）+ Node UI 129/129 PASS；Windows Python 313（30 skip）+ Node UI 129/129 PASS；Windows Chromium 真实应用更新／回滚 3 项和工作台 E2E 27 项 PASS，隔离预览包检查 PASS。
+- **后续文档提交**：仅更新 README／项目状态／决策／当日会话记忆，使用 `[skip ci]`，不改变受测产品代码；不得将此文档 SHA 冒充 merge SHA 的 CI 证据。
+- **未测试及部署边界**：未修改真实 Google Drive 任务／记录数据，未更新、重启用户电脑上的 8770 服务，未连接真实两台电脑执行 Drive 离线／重连或旧版本混用验收。此次用户「发布」仅包含 GitHub main 正式发布，**不代表用户本机已部署**；Google Drive 真正双设备同步、旧客户端实机行为继续 NOT TESTED。
+- **下一步**：用户通过工作台已有更新机制自行检查更新并升级到 2.10.0；共享同一个 Drive 数据目录的电脑应尽量先统一版本、保留备份，避免旧客户端混用；需要真实双机同步验收时单独安排，不主动写入真实数据。
+
+---
+
 # 2026-11-11｜统一对象信息与工作记录类别（PR #53 候选完成，定向同步故障注入与 CI 通过，待用户审批）
 
 ## 基线

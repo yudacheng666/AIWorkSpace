@@ -64,3 +64,11 @@
 - 按用户明确批准的一次性例外，本轮未调用 Codex；ChatGPT 定向同步故障注入和准确 SHA CI 已通过。该例外不改变 `AGENTS.md` 长期规则。
 - 真实 Google Drive 云服务、用户真实双电脑离线／重连、客户端待同步状态及旧版本实机客户端仍 **NOT TESTED**；临时目录测试不能替代生产设备验收。
 - PR #53 仍 Draft / Open，main 未改变；本轮未获合并、发布或部署授权，等待用户另行决定。
+
+## 2026-11-11｜最终发布记录（后续状态覆盖本会话中旧 Draft 描述）
+
+- 用户明确指示「发布」；发布前 main `9f98f1b11abe57ccf3c43d40aa43ad8b341afe62`、唯一开放 PR #53、候选 VERSION 2.10.0，已检查依赖与准确测试。
+- PR #53 Draft → Ready → 普通 Merge 完成。正式 main SHA：`887cb4a8a026073d6a8fa33c68ccf2779b287a2a`，正式 `VERSION=2.10.0`，开放 PR 0。
+- 最终受测产品／测试 SHA：`996f44f231f49b8402f216518545a8b2476cf201`；[候选 Actions #42967921372](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42967921372) 3/3 PASS；[主干 Actions #42969378317](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42969378317) 对 merge SHA 3/3 SUCCESS。
+- 本次跳过 Codex 已由用户单独批准，并由五项双设备事件文件故障注入测试补齐特定风险；不是取消以后的风险验收规则。
+- 仅 GitHub main 发布：未更新本机 8770，未更改真实 Google Drive 数据，真实双电脑 Drive 离线／重连和旧版混用仍 NOT TESTED。未来交接应以本段及 PROJECT_STATE 顶部最新发布记录为准，勿将前面的开发阶段 Draft 描述当作现状。

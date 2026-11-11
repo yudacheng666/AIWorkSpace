@@ -296,3 +296,10 @@
 - 该例外仅针对 PR #53，不改变 `AGENTS.md` 的长期风险分级、准确 SHA、CI 优先和测试去重规则；未来高风险事项仍按规则执行，除非用户再次明确批准例外。
 - 测试只模拟本地事件文件同步，不代表 Google Drive 云服务、用户真实双电脑离线／重连、同步客户端状态或旧版实机客户端已验收。对端冲突文件尚未同步到本机前，本机只能显示本地已见分支；双方事件到达后 reducer 冻结冲突。该可见性边界必须在发布汇报中明确，不得声称已验证生产双机同步。
 - 本次批准不包含合并、发布或部署授权；PR #53 继续 Draft，等待用户另行批准合并。
+
+## 2026-11-11：D-20261111-RELEASE-2.10.0（用户批准正式合并发布）
+
+- 用户先批准 PR #53 一次性不用 Codex，由 ChatGPT 新增定向故障注入并在 GitHub Actions 验收；后来明确指示「发布」，据此批准将合格的 PR #53 合并 main。
+- 已核验唯一开放 PR #53、依赖与 VERSION；产品／测试 SHA `996f44f231f49b8402f216518545a8b2476cf201` 的 [Actions #42967921372](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42967921372) 3/3 SUCCESS，后续 PR 提交仅修改 Markdown 记忆。已按普通 merge 合并，main merge SHA `887cb4a8a026073d6a8fa33c68ccf2779b287a2a`、VERSION 2.10.0，剩余开放 PR 0。
+- [main Actions #42969378317](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42969378317) 对准确 merge SHA **3/3 SUCCESS**（Ubuntu／Windows Python + Node、Windows 真实 Chromium、更新回滚）。不再派 Codex 重复同覆盖用例。
+- GitHub main 发布与用户 Windows 8770 实机部署／Google Drive 数据修改分离。真实双电脑离线重连、旧客户端混合版本、生产数据同步 **NOT TESTED**，不把模拟故障注入扩展成实机验收。

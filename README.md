@@ -2,7 +2,7 @@
 
 > **远程私有访问（v2.9.1）**：新增可选 Tailscale Serve 模式。默认仍仅限本机、仅监听 `127.0.0.1`，不支持 Tailscale Funnel 公网入口。启用方法与回退见 [手机私有访问操作说明](docs/TAILSCALE_PRIVATE_ACCESS.md)。此功能仅随正式 GitHub 更新交付；不会远程修改已有 Windows/Google Drive 工作台。
 
-> **当前 main 正式版本：AIWorkSpace 2.9.2（2026-11-10）**。PR #52 已合入 main，正式版本提供桌面快捷启动方式；用户无需每次打开 PowerShell，也无需安装 EXE 或生成额外安装垃圾。当前开发分支 `feature/20261111-unified-object-information` 的版本候选为 **2.10.0**，正在统一项目／任务／步骤说明、进展／沟通／决策／记事记录和当前结论展示。**2.10.0 尚未合并、发布或部署**；真实 Google Drive 数据未读取、修改或迁移，真实双电脑同步仍需独立验收。
+> **当前 main 正式版本：AIWorkSpace 2.10.0（2026-11-11）**。[PR #53](https://github.com/yudacheng666/AIWorkSpace/pull/53) 已按用户「发布」指示合并；项目／任务／步骤现在统一支持说明、进展、沟通、决策／结论与记事。结论独立于任务完成状态，历史决策保留，未填写明确结论时不冒充已有决定。正式合并 SHA `887cb4a8a026073d6a8fa33c68ccf2779b287a2a`；[main GitHub Actions #42969378317](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42969378317) **3/3 SUCCESS**。此前 2.9.2 的无安装程序桌面快捷启动方式继续保留。**GitHub 发布不代表已经升级用户电脑或修改 Google Drive 真实数据**；真实双电脑 Drive 离线／重连仍未进行实机验收。
 
 > **正式发布：AIWorkSpace 2.8.4（2026-11-08）**。用户明确要求「发布」，[PR #49](https://github.com/yudacheng666/AIWorkSpace/pull/49) 已经从 Draft 转 Ready 后合入 `main`，合并 SHA `54f3a2e873f71bc619c3b579b52c88c2dae495ca`，`VERSION=2.8.4`，开放 PR **0**。本版将任务列表列标题下拉箭头放在标题旁，通知信箱明确说明关联任务和收到的步骤操作；针对新增／修改／删除分别提示可执行的核对办法，将「暂不修复，保留原始记录」改为「暂不处理这项操作」，解释不会修改现有任务和步骤、只保存决定和备注。准确产品/测试 SHA `0480b0c620093ad289119a750b5b143153c65b18` 的 [PR CI #42449989908](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42449989908) 3/3 SUCCESS；**合并后准确 SHA `54f3a2e873f71bc619c3b579b52c88c2dae495ca` 的 [GitHub Actions #42450534930](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42450534930) 再次 3/3 SUCCESS**（Ubuntu/Windows Python + Node、Windows 真实应用 Chromium E2E 与更新/回滚）。没有访问或改写真实 Google Drive 数据，也没有升级用户电脑上的 8770 工作台；需用户在本机通过系统设置检查更新。
 
