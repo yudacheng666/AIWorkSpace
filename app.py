@@ -1430,6 +1430,191 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
         resolve_step_status(task)
 
 
+def validate_object_detail_event(value: object) -> dict:
+    """Validate append-only descriptions without extending legacy task/project/step events."""
+    if not isinstance(value, dict):
+        raise ValueError("object detail event must be an object")
+    object_type = value.get("object_type")
+    if not isinstance(object_type, str) or object_type not in {"project", "task", "step"}:
+        raise ValueError("invalid object detail type")
+    required = {"version", "event_id", "object_type", "object_id", "action",
+                "actor", "timestamp", "base_revision", "changes"}
+    if object_type == "step":
+        required.add("task_id")
+    if set(value) != required or value.get("version") != 1:
+        raise ValueError("invalid object detail event fields")
+    if not isinstance(value.get("event_id"), str) or not EVENT_ID.fullmatch(value["event_id"]):
+        raise ValueError("invalid object detail event_id")
+    object_id = value.get("object_id")
+    pattern = {"project": PROJECT_ID, "task": TASK_ID, "step": STEP_ID}[object_type]
+    if not isinstance(object_id, str) or not pattern.fullmatch(object_id):
+        raise ValueError("invalid object detail object_id")
+    if object_type == "step" and (
+            not isinstance(value.get("task_id"), str) or not TASK_ID.fullmatch(value["task_id"])):
+        raise ValueError("invalid object detail parent task_id")
+    if value.get("action") != "set" or not isinstance(value.get("actor"), str) or value["actor"] not in {"user", "chatgpt"}:
+        raise ValueError("object detail requires a set action and known actor")
+    stamp = value.get("timestamp")
+    if not isinstance(stamp, str):
+        raise ValueError("object detail timestamp required")
+    try:
+        if datetime.fromisoformat(stamp.replace("Z", "+00:00")).tzinfo is None:
+            raise ValueError("timezone required")
+    except ValueError as exc:
+        raise ValueError("invalid object detail timestamp") from exc
+    revision = value.get("base_revision")
+    if type(revision) is not int or revision < 0:
+        raise ValueError("invalid object detail revision")
+    changes = value.get("changes")
+    if not isinstance(changes, dict) or set(changes) != {"description"}:
+        raise ValueError("object detail changes must contain only description")
+    description = changes["description"]
+    if not isinstance(description, str) or len(description) > 4000:
+        raise ValueError("object description must be at most 4000 characters")
+    return value
+
+
+def object_detail_key(event: dict) -> tuple:
+    object_type = event["object_type"]
+    if object_type == "step":
+        return (object_type, event["task_id"], event["object_id"])
+    return (object_type, None, event["object_id"])
+
+
+def read_object_details(data_dir: Path) -> dict:
+    """Reduce independent, append-only description events; keep conflicts local to one object."""
+    directory = data_dir / OBJECT_DETAIL_DIR
+    if not directory.exists():
+        return {"objects": {}, "warnings": []}
+    grouped: dict[tuple, list[dict]] = defaultdict(list)
+    seen: dict[str, dict] = {}
+    collisions: dict[str, set[tuple]] = defaultdict(set)
+    warnings: list[str] = []
+    for path in sorted(directory.glob("*.json")):
+        if not path.is_file():
+            continue
+        try:
+            if path.stat().st_size > MAX_WORK_RECORD_BODY:
+                raise ValueError("object detail file too large")
+            event = validate_object_detail_event(
+                json.loads(path.read_text(encoding="utf-8-sig")))
+            key = object_detail_key(event)
+            previous = seen.get(event["event_id"])
+            if previous is not None:
+                if previous == event:
+                    warnings.append(path.name + ": identical object detail event duplicated; ignored")
+                    continue
+                collisions[event["event_id"]].update({object_detail_key(previous), key})
+                warnings.append(path.name + ": conflicting object detail event_id")
+            else:
+                seen[event["event_id"]] = event
+            grouped[key].append(event)
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
+            warnings.append(path.name + ": " + str(exc))
+    objects: dict[tuple, dict] = {}
+    for key, events in grouped.items():
+        by_revision: dict[int, list[dict]] = defaultdict(list)
+        for event in events:
+            by_revision[event["base_revision"]].append(event)
+        revision = 0
+        description = ""
+        conflict = False
+        while revision in by_revision:
+            candidates = by_revision.pop(revision)
+            if len(candidates) != 1:
+                conflict = True
+                warnings.append(str(key) + ": concurrent object description edits at revision " +
+                                str(revision))
+                break
+            description = candidates[0]["changes"]["description"]
+            revision += 1
+        if by_revision:
+            conflict = True
+            warnings.append(str(key) + ": object description edits are missing or out of order")
+        objects[key] = {"description": description, "revision": revision,
+                        "conflict": conflict}
+    for event_id, keys in collisions.items():
+        for key in keys:
+            detail = objects.setdefault(key, {"description": "", "revision": 0,
+                                               "conflict": False})
+            detail["conflict"] = True
+            warnings.append(str(key) + ": object detail event_id " + event_id +
+                            " has conflicting content")
+    return {"objects": objects, "warnings": warnings}
+
+
+def apply_object_details(data_dir: Path, projects: list[dict], tasks: list[dict],
+                         conversions: list[dict] | None = None,
+                         active_hidden_tasks: set[str] | None = None,
+                         active_hidden_steps: set[tuple[str, str]] | None = None,
+                         hidden_target_tasks: set[str] | None = None,
+                         hidden_target_steps: set[tuple[str, str]] | None = None,
+                         warnings: list[str] | None = None) -> None:
+    """Attach descriptions and carry them through verified task/step moves."""
+    state = read_object_details(data_dir)
+    if warnings is not None:
+        warnings.extend(state["warnings"])
+    explicit = state["objects"]
+    effective = dict(explicit)
+    active_hidden_tasks = active_hidden_tasks or set()
+    active_hidden_steps = active_hidden_steps or set()
+    hidden_target_tasks = hidden_target_tasks or set()
+    hidden_target_steps = hidden_target_steps or set()
+    edges: list[tuple[tuple, tuple]] = []
+    for event in conversions or []:
+        if event.get("_conversion_conflict"):
+            continue
+        source, target = event["source"], event["target"]
+        if source["kind"] == "step":
+            source_key = ("step", source["task_id"], source["item_id"])
+            target_key = ("task", None, target["item_id"])
+            active = ((source["task_id"], source["item_id"]) in active_hidden_steps
+                      and target["item_id"] not in hidden_target_tasks)
+        else:
+            source_key = ("task", None, source["task_id"])
+            target_key = ("step", target["task_id"], target["item_id"])
+            active = (source["task_id"] in active_hidden_tasks
+                      and (target["task_id"], target["item_id"]) not in hidden_target_steps)
+        if active:
+            edges.append((source_key, target_key))
+    # Conversion chains can arrive in any Drive filename order. Iterate the
+    # already-validated active graph until inherited descriptions reach targets.
+    for _ in range(len(edges) + 1):
+        changed = False
+        for source_key, target_key in edges:
+            if target_key in explicit or target_key in effective or source_key not in effective:
+                continue
+            source_detail = effective[source_key]
+            if source_detail.get("conflict"):
+                continue
+            effective[target_key] = {
+                "description": source_detail.get("description", ""),
+                "revision": 0,
+                "conflict": False,
+                "inherited_from": source_detail.get("inherited_from") or source_key,
+            }
+            changed = True
+        if not changed:
+            break
+
+    def attach(item: dict, key: tuple) -> None:
+        detail = effective.get(key)
+        item["description"] = detail.get("description", "") if detail else ""
+        item["description_revision"] = (
+            detail.get("revision", 0) if key in explicit else 0)
+        item["description_conflict"] = bool(detail and detail.get("conflict"))
+        item["description_inherited"] = bool(detail and detail.get("inherited_from"))
+        if item["description_inherited"]:
+            item["description_inherited_from"] = detail["inherited_from"]
+
+    for project in projects:
+        attach(project, ("project", None, project["project_id"]))
+    for task in tasks:
+        attach(task, ("task", None, task["task_id"]))
+        for step in task.get("steps", []):
+            attach(step, ("step", task["task_id"], step["step_id"]))
+
+
 def read_workspace(data_dir: Path, include_trashed: bool = False,
                    hide_work_record_sources: bool = True) -> dict:
     """Reduce independent event files; never silently choose a concurrent edit."""
@@ -1446,6 +1631,7 @@ def read_workspace(data_dir: Path, include_trashed: bool = False,
         tasks: list[dict] = []
         warnings.extend(project_state["warnings"])
         read_steps(data_dir, tasks, warnings, conversions)
+        apply_object_details(data_dir, project_state["projects"], tasks, [], warnings=warnings)
         return {"tasks": tasks, "projects": project_state["projects"], "warnings": warnings}
 
     for path in sorted(event_dir.glob("*.json")):
@@ -1647,6 +1833,8 @@ def read_workspace(data_dir: Path, include_trashed: bool = False,
     hidden_tasks, hidden_steps, hidden_target_tasks, hidden_target_steps = resolve_conversion_events(
         tasks, conversions, warnings, purged_ids
     )
+    active_hidden_tasks = set(hidden_tasks)
+    active_hidden_steps = set(hidden_steps)
     hidden_tasks |= hidden_target_tasks
     tasks = [task for task in tasks if task["task_id"] not in hidden_tasks]
     for task in tasks:
@@ -1669,6 +1857,10 @@ def read_workspace(data_dir: Path, include_trashed: bool = False,
     warnings.extend(project_state["warnings"])
     if not include_trashed:
         tasks = [task for task in tasks if not task.get("trashed_at")]
+    apply_object_details(
+        data_dir, project_state["projects"], tasks, conversions,
+        active_hidden_tasks, active_hidden_steps,
+        hidden_target_tasks, hidden_target_steps, warnings)
     return {"tasks": tasks, "projects": project_state["projects"], "warnings": warnings}
 
 
@@ -1749,13 +1941,20 @@ def append_step_event(data_dir: Path, event: dict) -> Path:
 
 
 
+OBJECT_DETAIL_DIR = "work_archive/object_detail_events"
+WORK_RECORD_TYPES = {"progress", "communication", "decision", "note"}
+WORK_RECORD_TYPE_LABELS = {
+    "progress": "进展", "communication": "沟通",
+    "decision": "决策／结论", "note": "记事"
+}
 WORK_RECORD_FIELDS = {"content", "occurred_on", "project_id", "task_id",
                       "outcome", "duration_minutes", "action_links", "featured",
-                      "source_inbox_id", "source_fragment", "evidence_links"}
+                      "source_inbox_id", "source_fragment", "evidence_links", "record_type"}
 WORK_RECORD_DEFAULTS = {"project_id": None, "task_id": None,
                         "outcome": None, "duration_minutes": None,
                         "action_links": [], "featured": False, "source_inbox_id": None,
-                        "source_fragment": None, "evidence_links": []}
+                        "source_fragment": None, "evidence_links": [],
+                        "record_type": "progress"}
 
 
 def validate_work_record_event(value: object) -> dict:
@@ -1795,6 +1994,10 @@ def validate_work_record_event(value: object) -> dict:
             raise ValueError("work record creation requires content and occurred_on")
     elif revision == 0:
         raise ValueError("work record update requires an existing revision")
+    if "record_type" in changes and (
+            not isinstance(changes["record_type"], str) or
+            changes["record_type"] not in WORK_RECORD_TYPES):
+        raise ValueError("invalid work record type")
     if "content" in changes:
         text = changes["content"]
         if not isinstance(text, str) or not 1 <= len(text.strip()) <= 4000:
@@ -1982,6 +2185,11 @@ def read_work_records(data_dir: Path) -> dict:
     records.sort(key=lambda item: (item.get("occurred_on") or "",
                                    item.get("created_at") or "", item["record_id"]), reverse=True)
     return {"records": records, "warnings": warnings}
+
+
+def append_object_detail_event(data_dir: Path, event: dict) -> Path:
+    validate_object_detail_event(event)
+    return _append_json_event(data_dir, event, OBJECT_DETAIL_DIR)
 
 
 def append_work_record_event(data_dir: Path, event: dict) -> Path:
@@ -2619,6 +2827,7 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
         record_sources.append({
             "record_id": r["record_id"], "display_id": r["display_id"],
             "revision": r["revision"], "occurred_on": r["occurred_on"],
+            "record_type": r.get("record_type", "progress"),
             "content": r["content"], "outcome": r.get("outcome"),
             "featured": r.get("featured", False),
             "duration_minutes": r.get("duration_minutes"),
@@ -2650,10 +2859,13 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
              "",
              "## 已发生工作"]
     for record in records:
-        lines.append("- [" + record["occurred_on"] + "] " +
+        record_type = record.get("record_type", "progress")
+        type_label = WORK_RECORD_TYPE_LABELS.get(record_type, WORK_RECORD_TYPE_LABELS["progress"])
+        lines.append("- [" + record["occurred_on"] + "] [" + type_label + "] " +
                      record["content"].replace("\n", " ").strip())
         if record.get("outcome"):
-            lines.append("  成果：" + record["outcome"].replace("\n", " ").strip())
+            outcome_label = "结论：" if record_type == "decision" else "成果／结果："
+            lines.append("  " + outcome_label + record["outcome"].replace("\n", " ").strip())
     if not records:
         lines.append("- 无工作记录")
     lines.append("")
@@ -2690,6 +2902,7 @@ def _analysis_record_sources(records: list[dict]) -> list[dict]:
     return [
         {"record_id": record["record_id"], "display_id": record["display_id"],
          "occurred_on": record["occurred_on"],
+         "record_type": record.get("record_type", "progress"),
          "content": record["content"], "outcome": record.get("outcome"),
          "duration_minutes": record.get("duration_minutes"),
          "project_id": record.get("project_id"),
@@ -4354,6 +4567,7 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
             task_convert_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/convert-to-step", path)
             work_record_match = re.fullmatch(r"/api/work-records/(RECORD-[A-F0-9]{32})/update", path)
             creating_work_record = path == "/api/work-records"
+            creating_object_detail = path == "/api/object-details"
             creating_inbox = path == "/api/work-archive/inbox"
             inbox_ignore = re.fullmatch(r"/api/work-archive/inbox/(INBOX-[A-F0-9]{32})/ignore", path)
             inbox_finish = re.fullmatch(r"/api/work-archive/inbox/(INBOX-[A-F0-9]{32})/finish", path)
@@ -4369,7 +4583,7 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
-            if not (creating_work_record or work_record_match or creating_inbox or inbox_ignore or inbox_finish or creating_summary or summary_edit or summary_reselect or action_preview or action_create or action_link or task_record_match or creating_task or creating_project or task_match or recurrence_match or project_match or
+            if not (creating_work_record or creating_object_detail or work_record_match or creating_inbox or inbox_ignore or inbox_finish or creating_summary or summary_edit or summary_reselect or action_preview or action_create or action_link or task_record_match or creating_task or creating_project or task_match or recurrence_match or project_match or
                     step_create_match or step_update_match or step_reorder_match or
                     step_documents_match or step_delete_match or step_convert_match or task_convert_match or applying_update or
                     documents_match or lifecycle_match or changing_retention or review_match):
@@ -4419,10 +4633,71 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                         _update_lock.release()
 
             try:
-                archive_request = (creating_work_record or work_record_match or creating_inbox or
+                archive_request = (creating_work_record or creating_object_detail or work_record_match or creating_inbox or
                                    inbox_ignore or creating_summary or summary_edit or summary_reselect or
                                    action_preview or action_create or action_link or task_record_match)
                 payload = self.read_payload(MAX_WORK_RECORD_BODY if archive_request else MAX_BODY)
+                if creating_object_detail:
+                    object_type = payload.get("object_type")
+                    required = {"object_type", "object_id", "revision", "description"}
+                    if object_type == "step":
+                        required.add("task_id")
+                    if set(payload) != required or type(payload.get("revision")) is not int or payload["revision"] < 0:
+                        raise ValueError("object detail requires exact target, revision and description fields")
+                    if not isinstance(payload.get("description"), str) or len(payload["description"]) > 4000:
+                        raise ValueError("object description must be at most 4000 characters")
+                    description = payload["description"].strip()
+                    with _write_lock:
+                        workspace = read_workspace(data_dir, include_trashed=True)
+                        target = None
+                        parent = None
+                        if object_type == "project":
+                            target = next((item for item in workspace["projects"]
+                                           if item["project_id"] == payload["object_id"]), None)
+                        elif object_type == "task":
+                            target = next((item for item in workspace["tasks"]
+                                           if item["task_id"] == payload["object_id"]), None)
+                        elif object_type == "step":
+                            parent = next((item for item in workspace["tasks"]
+                                           if item["task_id"] == payload["task_id"]), None)
+                            if parent is not None:
+                                target = next((item for item in parent.get("steps", [])
+                                               if item["step_id"] == payload["object_id"]), None)
+                        else:
+                            raise ValueError("invalid object detail type")
+                        if target is None:
+                            return self.json_response(404, {"error": "object not found or not synchronized"})
+                        if (target.get("conflict") or target.get("description_conflict") or
+                                target.get("trashed_at") or target.get("deleted_at") or
+                                (object_type == "project" and target.get("missing")) or
+                                (parent is not None and (parent.get("conflict") or parent.get("trashed_at")))):
+                            return self.json_response(409, {"error": "object changed or needs conflict review"})
+                        detail_state = read_object_details(data_dir)
+                        if object_type == "step":
+                            key = ("step", payload["task_id"], payload["object_id"])
+                        else:
+                            key = (object_type, None, payload["object_id"])
+                        prior = detail_state["objects"].get(
+                            key, {"description": "", "revision": 0, "conflict": False})
+                        if prior["conflict"]:
+                            return self.json_response(409, {"error": "object description has a conflict"})
+                        if prior["revision"] != payload["revision"]:
+                            return self.json_response(409, {"error": "object description changed; refresh"})
+                        if description == target.get("description", ""):
+                            return self.json_response(200, {
+                                "saved": False, "revision": prior["revision"]})
+                        event = {
+                            "version": 1, "event_id": str(uuid.uuid4()),
+                            "object_type": object_type, "object_id": payload["object_id"],
+                            "action": "set", "actor": "user", "timestamp": utc_now(),
+                            "base_revision": prior["revision"],
+                            "changes": {"description": description},
+                        }
+                        if object_type == "step":
+                            event["task_id"] = payload["task_id"]
+                        append_object_detail_event(data_dir, event)
+                    return self.json_response(200, {
+                        "saved": True, "revision": prior["revision"] + 1})
                 if task_record_match:
                     required = {"revision", "occurred_on", "content", "outcome",
                                 "duration_minutes", "confirmed_move"}
@@ -4746,6 +5021,7 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                         state = read_work_records(data_dir)
                         changes = {key: val for key, val in payload.items() if key != "revision"}
                         if creating_work_record:
+                            changes.setdefault("record_type", "progress")
                             new_id = "RECORD-" + uuid.uuid4().hex.upper()
                             revision = 0
                             action = "create"
