@@ -70,6 +70,14 @@ class WorkRecordValidationTests(unittest.TestCase):
         self.assertEqual(app.work_record_display_id(RECORD, "2026-11-05T03:25:00Z"),
                          "R-261105-AAAAAAAAAAAA")
 
+    def test_record_type_is_optional_for_legacy_and_rejects_unknown_values(self):
+        self.assertEqual(app.validate_work_record_event(work_event()), work_event())
+        for value in ("unknown", None, [], {}):
+            with self.subTest(record_type=value), self.assertRaises(ValueError):
+                app.validate_work_record_event(work_event(changes={
+                    "content": "评估是否转卖零件", "occurred_on": "2026-11-11",
+                    "record_type": value}))
+
 
 class WorkRecordReducerTests(unittest.TestCase):
     def setUp(self):
@@ -106,6 +114,19 @@ class WorkRecordReducerTests(unittest.TestCase):
         self.assertEqual(legacy_bytes, {p.name: p.read_bytes()
                                        for p in (self.data_dir / "events").glob("*.json")})
         self.assertEqual(app.read_workspace(self.data_dir)["tasks"][0]["status"], "todo")
+
+    def test_legacy_record_defaults_to_progress_and_decision_updates_keep_same_record_id(self):
+        app.append_work_record_event(self.data_dir, work_event())
+        first = app.read_work_records(self.data_dir)["records"][0]
+        self.assertEqual(first["record_type"], "progress")
+        app.append_work_record_event(self.data_dir, work_event(
+            "work-decision-update", "update", 1,
+            {"record_type": "decision", "outcome": "不卖"}))
+        revised = app.read_work_records(self.data_dir)["records"][0]
+        self.assertEqual(revised["record_type"], "decision")
+        self.assertEqual(revised["outcome"], "不卖")
+        self.assertEqual(revised["record_id"], first["record_id"])
+        self.assertEqual(revised["revision"], 2)
 
     def test_conflict_bad_event_and_partial_sync_fail_closed(self):
         app.append_work_record_event(self.data_dir, work_event())
@@ -226,6 +247,94 @@ class WorkRecordHTTPTests(unittest.TestCase):
         _, payload = self.call("GET", "/api/work-records")
         self.assertEqual(len(payload["task_completions"]), 1)
         self.assertEqual(payload["records"], [])
+
+    def test_decision_record_type_flows_into_preview_and_rejects_unknown_type(self):
+        body = {"content": "评估是否向供应商转卖零件", "occurred_on": "2026-11-11",
+                "record_type": "decision", "outcome": "不卖",
+                "project_id": PROJECT, "task_id": TASK}
+        code, created = self.call("POST", "/api/work-records", body)
+        self.assertEqual(code, 201, created)
+        _, state = self.call("GET", "/api/work-records")
+        self.assertEqual(state["records"][0]["record_type"], "decision")
+        endpoint = ("/api/work-archive/preview?period=daily&day=2026-11-11&project_id=" + PROJECT)
+        code, preview = self.call("GET", endpoint)
+        self.assertEqual(code, 200)
+        self.assertEqual(preview["record_sources"][0]["record_type"], "decision")
+        self.assertIn("[决策／结论]", preview["body"])
+        self.assertIn("结论：不卖", preview["body"])
+        self.assertEqual(self.call("POST", "/api/work-records",
+            {**body, "record_type": "unrecognized"})[0], 400)
+
+    def test_object_descriptions_use_separate_revisioned_events(self):
+        task_event_bytes = {p.name:p.read_bytes() for p in (self.data_dir / "events").glob("*.json")}
+        project_event_bytes = {p.name:p.read_bytes() for p in
+                               (self.data_dir / "project_events").glob("*.json")}
+        step_id = "STEP-" + "C" * 32
+        app.append_step_event(self.data_dir, {
+            "version":1,"event_id":"work-step-create-0001","task_id":TASK,
+            "step_id":step_id,"action":"create","actor":"user",
+            "timestamp":"2026-11-11T00:00:00Z","base_revision":0,
+            "changes":{"title":"虚构步骤","position":1}})
+        code, saved = self.call("POST", "/api/object-details", {
+            "object_type":"project","object_id":PROJECT,"revision":0,
+            "description":"项目背景"})
+        self.assertEqual(code, 200, saved)
+        self.assertEqual(saved["revision"], 1)
+        code, saved = self.call("POST", "/api/object-details", {
+            "object_type":"task","object_id":TASK,"revision":0,
+            "description":"任务目标"})
+        self.assertEqual(code, 200, saved)
+        code, saved = self.call("POST", "/api/object-details", {
+            "object_type":"step","object_id":step_id,"task_id":TASK,
+            "revision":0,"description":"步骤说明"})
+        self.assertEqual(code, 200, saved)
+        self.assertEqual(self.call("POST", "/api/object-details", {
+            "object_type":"step","object_id":step_id,"task_id":"TASK-WRONG",
+            "revision":0,"description":"错误父任务"})[0], 404)
+        self.assertEqual(self.call("POST", "/api/object-details", {
+            "object_type":"task","object_id":TASK,"revision":0,
+            "description":"过期覆盖"})[0], 409)
+        code, workspace = self.call("GET", "/api/tasks")
+        self.assertEqual(code, 200)
+        self.assertEqual(workspace["projects"][0]["description"], "项目背景")
+        task = next(item for item in workspace["tasks"] if item["task_id"] == TASK)
+        self.assertEqual(task["description"], "任务目标")
+        self.assertEqual(task["steps"][0]["description"], "步骤说明")
+        code, cleared = self.call("POST", "/api/object-details", {
+            "object_type":"project","object_id":PROJECT,"revision":1,"description":""})
+        self.assertEqual(code, 200, cleared)
+        self.assertEqual(cleared["revision"], 2)
+        self.assertEqual(task_event_bytes, {p.name:p.read_bytes()
+                                           for p in (self.data_dir / "events").glob("*.json")})
+        self.assertEqual(project_event_bytes, {p.name:p.read_bytes()
+                                              for p in (self.data_dir / "project_events").glob("*.json")})
+        self.assertEqual(len(list((self.data_dir / "work_archive" /
+                                   "object_detail_events").glob("*.json"))), 4)
+
+    def test_object_description_concurrent_revisions_freeze_only_target(self):
+        app.append_object_detail_event(self.data_dir, {
+            "version":1,"event_id":"object-task-desc-0001","object_type":"task",
+            "object_id":TASK,"action":"set","actor":"user",
+            "timestamp":"2026-11-11T00:00:00Z","base_revision":0,
+            "changes":{"description":"版本 A"}})
+        app.append_object_detail_event(self.data_dir, {
+            "version":1,"event_id":"object-task-desc-0002","object_type":"task",
+            "object_id":TASK,"action":"set","actor":"user",
+            "timestamp":"2026-11-11T00:01:00Z","base_revision":0,
+            "changes":{"description":"版本 B"}})
+        app.append_object_detail_event(self.data_dir, {
+            "version":1,"event_id":"object-project-desc-0001","object_type":"project",
+            "object_id":PROJECT,"action":"set","actor":"user",
+            "timestamp":"2026-11-11T00:02:00Z","base_revision":0,
+            "changes":{"description":"项目说明"}})
+        workspace = app.read_workspace(self.data_dir)
+        task = next(item for item in workspace["tasks"] if item["task_id"] == TASK)
+        project = next(item for item in workspace["projects"] if item["project_id"] == PROJECT)
+        self.assertTrue(task["description_conflict"])
+        self.assertEqual(task["description"], "")
+        self.assertFalse(project["description_conflict"])
+        self.assertEqual(project["description"], "项目说明")
+        self.assertEqual(task["status"], "todo")
 
 
 if __name__ == "__main__":
