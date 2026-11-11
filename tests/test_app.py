@@ -1464,6 +1464,11 @@ class ServerTests(unittest.TestCase):
         append_step_event(self.data_dir, step_event(
             "convert-step-fields", step_id=step_id, action="update", revision=1,
             changes={"status": "doing", "document_links": [link]}, actor="user"))
+        app_module.append_object_detail_event(self.data_dir, {
+            "version": 1, "event_id": "convert-step-description-0001",
+            "object_type": "step", "object_id": step_id, "task_id": "TASK-DEMO-001",
+            "action": "set", "actor": "user", "timestamp": "2026-11-11T00:00:00Z",
+            "base_revision": 0, "changes": {"description": "原步骤背景说明"}})
         original_task_bytes = {
             path.name: path.read_bytes() for path in (self.data_dir / "events").glob("*.json")
         }
@@ -1484,6 +1489,7 @@ class ServerTests(unittest.TestCase):
                           child["due_date"], child["follow_up_date"]),
                          ("升级为子任务", "doing", "2026-11-06", "2026-11-08", "2026-11-09"))
         self.assertEqual(child["document_links"], [link])
+        self.assertEqual(child["description"], "原步骤背景说明")
         self.assertIn(child["task_id"], parent["child_task_ids"])
         self.assertEqual(len(list((self.data_dir / "conversion_events").glob("*.json"))), 1)
         self.assertEqual({path.name: path.read_bytes() for path in (self.data_dir / "events").glob("*.json")},
@@ -1503,6 +1509,11 @@ class ServerTests(unittest.TestCase):
         })
         self.assertEqual(status, 201)
         source_id = created["task_id"]
+        app_module.append_object_detail_event(self.data_dir, {
+            "version": 1, "event_id": "convert-task-description-0001",
+            "object_type": "task", "object_id": source_id,
+            "action": "set", "actor": "user", "timestamp": "2026-11-11T00:00:00Z",
+            "base_revision": 0, "changes": {"description": "原任务背景说明"}})
         code, result = self.post_json(f"/api/tasks/{source_id}/convert-to-step", {
             "revision": 1, "target_parent_task_id": "TASK-DEMO-001",
             "target_step_order_revision": 0, "confirmed_move": True
@@ -1517,6 +1528,7 @@ class ServerTests(unittest.TestCase):
                          ("待转换末级任务", "todo", "2026-11-12", "2026-11-14", "2026-11-15"))
         self.assertEqual(step["converted_task_metadata"]["owner"], "采购")
         self.assertEqual(step["converted_task_metadata"]["priority"], "high")
+        self.assertEqual(step["description"], "原任务背景说明")
 
         code, promoted = self.post_json(
             f"/api/tasks/TASK-DEMO-001/steps/{result['step_id']}/convert-to-task",
@@ -1532,6 +1544,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual((restored["owner"], restored["priority"], restored["planned_date"],
                           restored["due_date"], restored["follow_up_date"]),
                          ("采购", "high", "2026-11-12", "2026-11-14", "2026-11-15"))
+        self.assertEqual(restored["description"], "原任务背景说明")
         self.assertEqual(len(list((self.data_dir / "conversion_events").glob("*.json"))), 2)
 
     def test_tampered_conversion_ledger_cannot_invent_content_or_completion(self):
