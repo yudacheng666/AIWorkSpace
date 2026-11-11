@@ -1594,6 +1594,7 @@ test("work record quick capture is separate from task creation and includes hist
   assert.equal(h.writes.length, 1);
   assert.equal(h.writes[0].path, "/api/work-records");
   assert.equal(h.writes[0].body.occurred_on, "2026-10-29");
+  assert.equal(h.writes[0].body.record_type, "progress");
   assert.equal(h.writes[0].body.duration_minutes, 45);
   assert.equal(h.writes[0].body.outcome, "交期确认");
   assert.ok(!("status" in h.writes[0].body));
