@@ -4648,7 +4648,7 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                     if object_type == "step":
                         required.add("task_id")
                     inherited_fields = {"inherited_from", "inherited_revision"}
-                    if (set(payload) not in {frozenset(required), frozenset(required | inherited_fields)}
+                    if (frozenset(payload) not in {frozenset(required), frozenset(required | inherited_fields)}
                             or type(payload.get("revision")) is not int or payload["revision"] < 0):
                         raise ValueError("object detail requires exact target, revision and description fields")
                     if (("inherited_from" in payload) != ("inherited_revision" in payload) or
