@@ -2336,6 +2336,19 @@ test("decision records surface the current conclusion and notes stay optional in
   assert.equal(write.body.outcome,"暂不采用");
 });
 
+test("a decision without an outcome is not mislabeled as the current conclusion", async () => {
+  const task = sampleTask();
+  const pending = {record_id:"RECORD-"+"E".repeat(32),display_id:"R-261111-EEEEEEEEEEEE",
+    content:"正在评估是否采用方案A",outcome:null,record_type:"decision",
+    occurred_on:"2026-11-11",created_at:"2026-11-11T04:00:00Z",
+    updated_at:"2026-11-11T04:00:00Z",task_id:task.task_id,project_id:null,conflict:false};
+  const h = harness([task],()=>true,[],[],null,{records:[pending]});
+  await h.api.loadWorkRecords();
+  const panel = h.api.progressPanel({type:"task",task_id:task.task_id});
+  assert.equal(panel.children[0].children[0].textContent,"最近决策记录（尚未填写明确结论）");
+  assert.equal(panel.children[0].children[1].textContent,"正在评估是否采用方案A");
+});
+
 test("a newer conflicted decision suppresses an older current conclusion", async () => {
   const task = sampleTask();
   const older = {record_id:"RECORD-"+ "A".repeat(32),display_id:"R-261111-AAAAAAAAAAAA",

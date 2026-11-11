@@ -397,7 +397,7 @@
 2. 为避免旧版客户端因任务／步骤／项目事件出现未知字段而冻结业务对象，说明采用独立追加式对象详情事件，存于 `work_archive/object_detail_events/`；按 project/task/step 类型和稳定对象 ID 关联，使用 revision、唯一 event_id、时间戳和冲突检测。不得覆盖或改写原 task、step、project 事件。旧客户端忽略该目录，不影响原有任务编辑。
 3. 任务、步骤和项目使用同一套快速「记录与结论」入口，复用现有 `work_archive/record_events/` 与 RECORD ID、action_links，不创建独立记事本数据库，也不要求用户为记录进展新建步骤。
 4. RECORD 新增可选 `record_type`：`progress`（进展）、`communication`（沟通）、`decision`（决策／结论）、`note`（随手记）。历史事件缺少该字段时默认 `progress`。类别是事实属性，不是任务状态，不改变 todo/doing/blocked/done。
-5. 决策记录使用现有 `content` 描述背景或判断，`outcome` 可填写明确结论／处理结果。对象详情顶部展示该对象最近一条有效 decision 记录作为「当前结论」；按记录首次保存时间（created_at）确定，不按补记的 occurred_on 或后续元数据 updated_at 误选。新决策成为当前展示时，旧决策仍保留为独立 RECORD，不覆盖历史，不另存重复的 conclusion 字段；decision 的 content/outcome/record_type 不允许原记录覆盖，更正或新判断必须新增 RECORD。
+5. 决策记录使用现有 `content` 描述背景或判断，`outcome` 可填写明确结论／处理结果。对象详情的说明之后、执行步骤之前展示最近一条有效 decision 记录；仅当 outcome 有明确内容时标为「当前结论」，若 outcome 为空则标为「最近决策记录（尚未填写明确结论）」，不得把 content 中的背景／判断误标为最终结论。按记录首次保存时间（created_at）确定，不按补记的 occurred_on 或后续元数据 updated_at 误选。新决策成为当前展示时，旧决策仍保留为独立 RECORD，不覆盖历史，不另存重复的 conclusion 字段；decision 的 content/outcome/record_type 不允许原记录覆盖，更正或新判断必须新增 RECORD。
 6. 随手记仍是个人工作轨迹中的合法记录。个人版默认包含全部事实；汇报版「只选重点」默认不推荐普通 note，但用户仍可手动勾选。decision、人工精选或明确填写 outcome 的记录可作为重点推荐，最终选择仍由用户决定。
 7. record_type 必须进入工作轨迹显示、项目阶段线、报告来源卡、source_digest 和主动复制给 ChatGPT 的分析上下文；对象说明作为单独的 object_contexts 进入总结预览、source_digest 和 AI 分析上下文，但不进入 RECORD 来源清单、不计入工作事实数量。发生日期 occurred_on 与实际录入／修改时间 created_at/updated_at 保持分离。
 8. 步骤↔任务转换后，原对象说明应通过已有 conversion_events 的有效映射继续投影到转换目标；目标有自己的说明事件时以目标说明为准。转换历史和原事件字节保持不变。

@@ -1297,6 +1297,14 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         form.locator("textarea").nth(1).fill("暂不采用")
         form.get_by_role("button", name="保存记录").click()
         expect(page.locator("#task-detail-drawer .current-conclusion-text")).to_have_text("暂不采用")
+        conclusion_before_steps = page.locator("#task-detail-drawer").evaluate("""drawer => {
+            const conclusion = drawer.querySelector(".current-conclusion");
+            const steps = drawer.querySelector(".steps-panel");
+            return Boolean(conclusion && steps &&
+                (conclusion.compareDocumentPosition(steps) & Node.DOCUMENT_POSITION_FOLLOWING));
+        }""")
+        self.assertTrue(conclusion_before_steps,
+                        "the current decision should be visible before the execution steps")
 
         workspace = read_workspace(self.data_dir)
         task = next(item for item in workspace["tasks"] if item["task_id"] == self.task_id)

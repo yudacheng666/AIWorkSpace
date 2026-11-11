@@ -1638,11 +1638,18 @@
           latestDecision.display_id || ""));
         wrap.append(warning);
       } else if (latestDecision) {
+        const outcome = typeof latestDecision.outcome === "string"
+          ? latestDecision.outcome.trim() : "";
+        const hasConclusion = !!outcome;
         const conclusion = element("section", "current-conclusion");
-        conclusion.append(element("small", "current-conclusion-label",
-          scope.type === "project" ? "最近项目决策" : "当前结论"));
+        const label = hasConclusion
+          ? (scope.type === "project" ? "最近项目决策" : "当前结论")
+          : (scope.type === "project"
+            ? "最近项目决策（尚未填写明确结论）"
+            : "最近决策记录（尚未填写明确结论）");
+        conclusion.append(element("small", "current-conclusion-label", label));
         conclusion.append(element("p", "current-conclusion-text",
-          latestDecision.outcome || latestDecision.content));
+          hasConclusion ? outcome : latestDecision.content));
         conclusion.append(element("small", "current-conclusion-meta",
           latestDecision.occurred_on + "（发生） · " + localActivityDay(latestDecision.created_at) +
           "（录入） · " + latestDecision.display_id));
@@ -1867,8 +1874,9 @@
       }
       const go=element("button","","在任务列表中查看");
       go.type="button";go.addEventListener("click",()=>openProjectTasks(project.project_id));
-      target.replaceChildren(title,objectDescriptionPanel("project",project),...blocks,
-        progressPanel({type:"project",project_id:project.project_id,disabled:!!(project.conflict||project.missing)}),go);target.hidden=false;
+      target.replaceChildren(title,objectDescriptionPanel("project",project),
+        progressPanel({type:"project",project_id:project.project_id,disabled:!!(project.conflict||project.missing)}),
+        ...blocks,go);target.hidden=false;
     }
     function renderProjects() {
       const all=availableProjects();
@@ -2128,7 +2136,10 @@
           Object.values(dateControls).forEach(input => {input.disabled = task.conflict || step.conflict;});
         }
       });
-      content.append(form, objectDescriptionPanel("step", step, task.task_id, !!task.conflict), documentPanel(task, step));
+      content.append(form, objectDescriptionPanel("step", step, task.task_id, !!task.conflict),
+        progressPanel({type:"step",project_id:task.project_id,task_id:task.task_id,
+          step_id:step.step_id,disabled:!!(task.conflict||step.conflict)}),
+        documentPanel(task, step));
       row.append(content);
       const actions = element("div", "step-actions");
       const up = element("button", "", "上移");
@@ -2210,7 +2221,6 @@
       });
       actions.append(up, down, convertStep, removeStep);
       row.append(actions);
-      row.append(progressPanel({type:"step",project_id:task.project_id,task_id:task.task_id,step_id:step.step_id,disabled:!!(task.conflict||step.conflict)}));
       if (step.conflict) {
         const candidates = (step.conflict_candidates || []).map(candidate => {
           const changes = candidate.changes || {};
@@ -2540,8 +2550,9 @@
       if (!children.length) childList.append(element("p", "step-empty",
         "暂无子任务。可在其他任务的详情中指定本任务为上级。"));
       childPanel.append(childList);
-      card.append(top, form, objectDescriptionPanel("task", task), recurrencePanel(task), stepPanel(task), childPanel,
-        progressPanel({type:"task",project_id:task.project_id,task_id:task.task_id,disabled:!!task.conflict}),taskToStepPanel(task));
+      card.append(top, form, objectDescriptionPanel("task", task),
+        progressPanel({type:"task",project_id:task.project_id,task_id:task.task_id,disabled:!!task.conflict}),
+        recurrencePanel(task), stepPanel(task), childPanel, taskToStepPanel(task));
       if (Array.isArray(task.document_links) && task.document_links.length) {
         card.append(legacyDocumentPanel(task));
       }
