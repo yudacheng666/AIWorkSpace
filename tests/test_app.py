@@ -1529,6 +1529,21 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(step["converted_task_metadata"]["owner"], "采购")
         self.assertEqual(step["converted_task_metadata"]["priority"], "high")
         self.assertEqual(step["description"], "原任务背景说明")
+        self.assertTrue(step["description_inherited"])
+        self.assertEqual(step["description_inherited_revision"], 1)
+        inherited_token = step["description_inherited_from"]
+        stale_code, _ = self.post_json("/api/object-details", {
+            "object_type": "step", "object_id": step["step_id"],
+            "task_id": "TASK-DEMO-001", "revision": 0,
+            "inherited_from": inherited_token, "inherited_revision": 0,
+            "description": "过期的继承说明"})
+        self.assertEqual(stale_code, 409)
+        saved_code, saved_detail = self.post_json("/api/object-details", {
+            "object_type": "step", "object_id": step["step_id"],
+            "task_id": "TASK-DEMO-001", "revision": 0,
+            "inherited_from": inherited_token, "inherited_revision": 1,
+            "description": "转换后补充说明"})
+        self.assertEqual(saved_code, 200, saved_detail)
 
         code, promoted = self.post_json(
             f"/api/tasks/TASK-DEMO-001/steps/{result['step_id']}/convert-to-task",
@@ -1544,7 +1559,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual((restored["owner"], restored["priority"], restored["planned_date"],
                           restored["due_date"], restored["follow_up_date"]),
                          ("采购", "high", "2026-11-12", "2026-11-14", "2026-11-15"))
-        self.assertEqual(restored["description"], "原任务背景说明")
+        self.assertEqual(restored["description"], "转换后补充说明")
         self.assertEqual(len(list((self.data_dir / "conversion_events").glob("*.json"))), 2)
 
     def test_tampered_conversion_ledger_cannot_invent_content_or_completion(self):
