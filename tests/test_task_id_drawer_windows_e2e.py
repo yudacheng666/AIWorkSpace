@@ -1278,7 +1278,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
 
         task_description = page.locator("#task-detail-drawer .object-description").nth(0)
         task_description.locator("summary").click()
-        task_description.locator("textarea").fill("背景：评估是否向供应商转卖零件。")
+        task_description.locator("textarea").fill("背景：评估是否采用方案A。")
         task_description.get_by_role("button", name="保存说明").click()
         expect(task_description.locator("summary")).to_have_text("任务说明")
 
@@ -1293,22 +1293,22 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         form = task_progress.locator("form.progress-form")
         form.locator("select").select_option("decision")
         form.locator("input[type=date]").fill("2026-11-11")
-        form.locator("textarea").nth(0).fill("评估是否向供应商转卖零件")
-        form.locator("textarea").nth(1).fill("不卖")
+        form.locator("textarea").nth(0).fill("评估是否采用方案A")
+        form.locator("textarea").nth(1).fill("暂不采用")
         form.get_by_role("button", name="保存记录").click()
-        expect(page.locator("#task-detail-drawer .current-conclusion-text")).to_have_text("不卖")
+        expect(page.locator("#task-detail-drawer .current-conclusion-text")).to_have_text("暂不采用")
 
         workspace = read_workspace(self.data_dir)
         task = next(item for item in workspace["tasks"] if item["task_id"] == self.task_id)
         step = next(item for item in task["steps"] if item["step_id"] == step_id)
-        self.assertEqual(task["description"], "背景：评估是否向供应商转卖零件。")
+        self.assertEqual(task["description"], "背景：评估是否采用方案A。")
         self.assertEqual(step["description"], "步骤背景：核实零件是否仍有内部用途。")
         self.assertEqual(task["status"], "todo", "a decision record must not complete a task")
         self.assertEqual(len(task["steps"]), 1, "a decision record must not create a step")
         records = read_work_records(self.data_dir)["records"]
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["record_type"], "decision")
-        self.assertEqual(records[0]["outcome"], "不卖")
+        self.assertEqual(records[0]["outcome"], "暂不采用")
 
     def test_task_to_work_record_ui_is_confirmed_atomic_and_keeps_task_history(self):
         """Real Chromium: cancellation must not write, one confirmed conversion does."""
