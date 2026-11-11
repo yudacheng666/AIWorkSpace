@@ -2851,15 +2851,16 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
     # Bound the exported context so large projects cannot overwhelm the review.
     steps_by_key = {
         (task["task_id"], step["step_id"]): step
-        for task in workspace["tasks"] for step in task.get("steps", [])
+        for task in workspace["tasks"] if not task.get("conflict")
+        for step in task.get("steps", []) if not step.get("conflict")
     }
-    context_by_key: dict[tuple[str, str], dict] = {}
+    context_by_key: dict[tuple[str, str, str], dict] = {}
 
     def add_object_context(kind: str, object_id: str, title: str,
                            description: str, parent_task_id: str | None = None) -> None:
         if not isinstance(description, str) or not description.strip():
             return
-        key = (kind, object_id)
+        key = (kind, parent_task_id or "", object_id)
         if key in context_by_key:
             return
         context = {"object_type": kind, "object_id": object_id,
@@ -2898,7 +2899,8 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
     context_order = {"project": 0, "task": 1, "step": 2}
     all_object_contexts = sorted(
         context_by_key.values(),
-        key=lambda item: (context_order.get(item["object_type"], 9), item["object_id"]))
+        key=lambda item: (context_order.get(item["object_type"], 9),
+                         item.get("parent_task_id", ""), item["object_id"]))
     object_contexts = []
     object_context_chars = 0
     object_contexts_omitted = 0
