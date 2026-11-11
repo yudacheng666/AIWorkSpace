@@ -4,7 +4,7 @@
 - 仓库：`yudacheng666/AIWorkSpace`
 - 基线 main：`9f98f1b11abe57ccf3c43d40aa43ad8b341afe62`
 - 分支：`feature/20261111-unified-object-information`
-- 当前代码 SHA（测试前）：`5f5d27665ad16ee10be03616590eebeca4f6d6b9`
+- 当前代码 SHA（测试前）：`dd8b6f01e94175065febc729975d1c043d9c23a3`
 - 候选版本：`2.10.0`
 - 开始时 main 开放 PR：0；本次尚未合并、发布或部署。
 
