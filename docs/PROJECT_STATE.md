@@ -5,20 +5,22 @@
 - main：`9f98f1b11abe57ccf3c43d40aa43ad8b341afe62`
 - 正式版本：2.9.2
 - 开发分支：`feature/20261111-unified-object-information`
-- 开始时开放 PR：0；PR #50 的 P1–P3 统一时间线已合并，PR #52 的 2.9.2 桌面启动器已合并。
+- 开始时开放 PR：0；PR #50 的 P1–P3 统一时间线已合并，PR #52 的 2.9.2 桌面启动器已合并；本轮新增 Draft PR #53，尚未合并。
 - main 最新准确 SHA 的 Actions：`42793149239`，3/3 SUCCESS；Ubuntu/Windows Python 299 项、Node UI 124/124，Windows Chromium 更新/回滚 3/3、工作台 E2E 26 项通过。以上为既有基线证据，不代替本次变更测试。
 
 ## 用户批准的需求基线
 - 项目、任务、步骤使用统一说明、记录与结论能力；不增加独立记事本模块，不为记录进展创建无意义步骤。
 - 说明是稳定对象上下文，采用 `work_archive/object_detail_events/` 追加式事件，避免扩展旧业务事件 schema；task↔step 转换保留说明。
-- RECORD 增加 progress/communication/decision/note 类别；旧记录缺省 progress。decision 的 outcome 用于当前结论展示，旧决策保留历史。
+- RECORD 增加 progress/communication/decision/note 类别；旧记录缺省 progress。decision 的 outcome 用于当前结论展示；决策内容／结论不可覆盖，修正必须新增记录，旧决策保留历史。
 - 个人版完整保留记录；汇报版「只选重点」默认不推荐普通 note，用户仍可手动选择。
 - record_type 进入项目阶段线、总结来源指纹和 ChatGPT 分析上下文；AI 只在用户确认后写入。
 
 ## 开发进度
 - 已完成：仓库规则、需求、决策、当前代码、历史 PR、main SHA 和 CI 基线复核；确认 P1–P3 已实现，当前缺口为对象说明、记录类别及当前决策展示。
-- 进行中：对象说明事件 reducer/API、项目/任务/步骤详情 UI、四类快速记录、报告默认选材及转换说明投影。
-- 未完成：本分支代码、测试、准确 SHA CI、Draft PR、独立风险验收。
+- 已完成代码与自动化用例：对象说明独立事件 reducer/API、项目/任务/步骤详情 UI、四类快速记录、当前决策投影、汇报版默认选材、task↔step 说明继承；decision 原记录不可覆盖，修订创建新 RECORD。
+- 本轮最新代码／测试 SHA：`dd8b6f01e94175065febc729975d1c043d9c23a3`；其后仅有 Markdown 记忆文档更新。
+- PR #53 已创建为 Draft；该准确 SHA 的 GitHub Actions 仍待最终核验，尚无本轮 PASS 声明。
+- 未完成：最终 SHA CI、公开仓库敏感信息复核、真实双电脑 Google Drive 同步验收。
 
 ## 风险与边界
 - 不修改 main、不合并、不发布、不访问真实 Google Drive 工作数据、不部署用户电脑 8770。
@@ -26,10 +28,10 @@
 - 真实双电脑 Google Drive 断网／晚同步、旧客户端混用仍需独立验收；GitHub CI 不等于生产数据验收。
 
 ## 下一步
-1. 完成对象说明 append-only 事件、冲突 reducer 和 API；验证 step/task 转换继承说明。
-2. 完成统一记录类别、当前决策展示及工作总结/阶段线/ChatGPT 上下文传递。
-3. 补充 Python、Node UI、Windows Chromium 用例；检查公开仓库敏感信息和 updater 资源一致性。
-4. 以新准确 SHA 运行 GitHub Actions；只修复并复测受影响范围，创建 Draft PR，汇报证据并等待用户批准。
+1. 以 PR #53 最终准确 HEAD 运行 GitHub Actions，核验 Ubuntu/Windows Python+Node 和 Windows Chromium。
+2. 只修复失败或未覆盖项；修复后以新 SHA 运行受影响回归，不重复同 SHA 已通过测试。
+3. 检查公开仓库敏感信息、版本文件和 updater 资源一致性；记录准确 SHA 与 run ID。
+4. 保持 PR #53 Draft，不合并、不发布、不部署；真实双电脑 Google Drive 离线／晚同步另行验收，等待用户明确批准。
 
 ---
 
