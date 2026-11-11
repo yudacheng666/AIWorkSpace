@@ -1746,7 +1746,7 @@
       return wrap;
     }
 
-    function objectDescriptionPanel(objectType, target, taskId = null) {
+    function objectDescriptionPanel(objectType, target, taskId = null, parentConflict = false) {
       const panel = element("details", "object-description");
       const typeLabel = objectType === "project" ? "项目说明" :
         objectType === "step" ? "步骤说明" : "任务说明";
@@ -1759,7 +1759,7 @@
       textarea.rows = 3; textarea.maxLength = 4000;
       textarea.value = target.description || "";
       textarea.placeholder = "填写这项工作的背景、目标、范围或需要长期保留的上下文……";
-      const disabled = !!(target.conflict || target.description_conflict ||
+      const disabled = !!(parentConflict || target.conflict || target.description_conflict ||
         target.missing || target.trashed_at);
       textarea.disabled = disabled;
       label.append(textarea);
@@ -2107,7 +2107,7 @@
           Object.values(dateControls).forEach(input => {input.disabled = task.conflict || step.conflict;});
         }
       });
-      content.append(form, objectDescriptionPanel("step", step, task.task_id), documentPanel(task, step));
+      content.append(form, objectDescriptionPanel("step", step, task.task_id, !!task.conflict), documentPanel(task, step));
       row.append(content);
       const actions = element("div", "step-actions");
       const up = element("button", "", "上移");
