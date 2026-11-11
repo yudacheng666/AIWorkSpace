@@ -799,6 +799,7 @@
     .current-conclusion { border:1px solid var(--line, #ddd); border-left:4px solid var(--accent, #2674a8); border-radius:10px; background:var(--surface, #fff); padding:10px 12px; }
     .current-conclusion-label,.current-conclusion-meta { display:block; color:var(--muted, #666); font-size:12px; }
     .current-conclusion-text { margin:5px 0; font-weight:650; white-space:pre-wrap; }
+    .current-conclusion--warning { border-left-color:var(--warning, #a66a1f); }
     .progress-entry { display:grid; gap:4px; }
     .progress-entry-type { display:inline-block; width:max-content; padding:2px 7px; border-radius:999px; background:var(--surface-soft, #f5f5f5); color:var(--muted, #666); font-size:12px; }
     .progress-entry-meta { color:var(--muted, #666); font-size:12px; }
@@ -985,7 +986,7 @@
             </label>
           </div>
           <label for="work-record-outcome">成果／结论（可选）
-            <textarea id="work-record-outcome" maxlength="2000" rows="2" placeholder="决策类记录可填写最终结论；例如：不向供应商转卖零件。"></textarea>
+            <textarea id="work-record-outcome" maxlength="2000" rows="2" placeholder="决策类记录可填写最终结论；例如：暂不采用该方案。"></textarea>
           </label>
           <label class="work-check"><input type="checkbox" id="work-record-featured"> 归入我的成果库（可用于未来项目总结和职业档案）</label>
           <div class="work-archive-row">
@@ -1597,7 +1598,6 @@
     }
 
     function recordBelongsTo(record, scope) {
-      if (record.conflict) return false;
       const links = record.action_links || [];
       if (scope.type === "step") return links.some(link =>
         link.target_type === "step" && link.task_id === scope.task_id &&
@@ -1620,13 +1620,24 @@
     // Contextual progress, notes and decisions all reuse the single RECORD stream.
     function progressPanel(scope) {
       const wrap = element("div", "progress-panel-wrap");
-      const matched = workRecords.filter(record => recordBelongsTo(record, scope))
+      const related = workRecords.filter(record => recordBelongsTo(record, scope));
+      const matched = related.filter(record => !record.conflict)
         .slice().sort((a,b) => (b.occurred_on||"").localeCompare(a.occurred_on||"") ||
           (b.updated_at||b.created_at||"").localeCompare(a.updated_at||a.created_at||""));
-      const latestDecision = matched.filter(record =>
-        !record.conflict && record.record_type === "decision")
-        .sort((a,b) => (b.created_at||"").localeCompare(a.created_at||""))[0];
-      if (latestDecision) {
+      const compareDecision = (a,b) =>
+        (b.created_at||"").localeCompare(a.created_at||"") ||
+        (b.record_id||"").localeCompare(a.record_id||"");
+      const latestDecision = related.filter(record => record.record_type === "decision")
+        .sort(compareDecision)[0];
+      if (latestDecision?.conflict) {
+        const warning = element("section", "current-conclusion current-conclusion--warning");
+        warning.append(element("small", "current-conclusion-label", "当前结论暂不可确认"));
+        warning.append(element("p", "current-conclusion-text",
+          "最近一条决策记录存在同步冲突，已暂不展示旧结论。请先在通知信箱核查。"));
+        warning.append(element("small", "current-conclusion-meta",
+          latestDecision.display_id || ""));
+        wrap.append(warning);
+      } else if (latestDecision) {
         const conclusion = element("section", "current-conclusion");
         conclusion.append(element("small", "current-conclusion-label",
           scope.type === "project" ? "最近项目决策" : "当前结论"));
@@ -1640,7 +1651,9 @@
       const box = element("details", "progress-panel");
       box.append(element("summary", "", "记录与结论 · 快速填写"));
       if (!matched.length) box.append(element("p", "work-archive-hint",
-        "暂无记录。进展、沟通、决策或随手记都可以直接写在这里，不必新建步骤。"));
+        related.some(record => record.conflict)
+          ? "有记录存在同步冲突，暂未展示；请先在通知信箱核查。"
+          : "暂无记录。进展、沟通、决策或随手记都可以直接写在这里，不必新建步骤。"));
       for (const record of matched.slice(0, 3)) {
         const entry = element("div", "progress-entry");
         entry.append(element("span", "progress-entry-type", workRecordTypeLabel(record.record_type)));
@@ -1687,7 +1700,7 @@
       const outcomeLabel = element("label", "", "结论／处理结果（可选）");
       const outcome = element("textarea");
       outcome.maxLength = 2000; outcome.rows = 2;
-      outcome.placeholder = "例如：不向供应商转卖零件。";
+      outcome.placeholder = "例如：暂不采用该方案。";
       outcomeLabel.append(outcome);
       const updateKind = () => {
         outcomeLabel.hidden = kind.value !== "decision";
