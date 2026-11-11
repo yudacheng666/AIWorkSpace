@@ -2332,6 +2332,26 @@ test("decision records surface the current conclusion and notes stay optional in
   assert.equal(write.body.outcome,"不卖");
 });
 
+test("editing a decision creates a new record instead of overwriting the prior conclusion", async () => {
+  const id = "RECORD-"+"F".repeat(32);
+  const decision = {record_id:id,display_id:"R-261111-FFFFFFFFFFFF",
+    record_type:"decision",content:"评估是否转卖零件",outcome:"不卖",
+    occurred_on:"2026-11-11",created_at:"2026-11-11T02:00:00Z",
+    updated_at:"2026-11-11T02:00:00Z",project_id:null,task_id:null,
+    action_links:[],evidence_links:[],featured:false,revision:1,conflict:false};
+  const h = harness([],()=>true,[],[],async (path,body)=>({
+    ok:true,json:async()=>({saved:true,record_id:"RECORD-NEW",display_id:"R-261111-NEWNEWNEW",revision:1})
+  }),{records:[decision]});
+  await h.api.loadWorkRecords();
+  h.api.editWorkRecord(id);
+  assert.equal(h.el("work-record-submit").textContent,"保存为新记录");
+  assert.match(h.el("work-record-message").textContent,/原决策保留/);
+  await h.api.saveWorkRecord({preventDefault(){}});
+  assert.equal(h.writes[0].path,"/api/work-records");
+  assert.equal(h.writes[0].body.record_type,"decision");
+  assert.equal(h.writes[0].body.outcome,"不卖");
+});
+
 test("object descriptions save independently and inherited conversion descriptions use a revision token", async () => {
   const task = {...sampleTask(),description:"",description_revision:0};
   const h = harness([task],()=>true,[],[],async (path,body)=>({
