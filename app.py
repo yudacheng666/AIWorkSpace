@@ -1592,6 +1592,8 @@ def apply_object_details(data_dir: Path, projects: list[dict], tasks: list[dict]
                 "revision": 0,
                 "conflict": False,
                 "inherited_from": source_detail.get("inherited_from") or source_key,
+                "inherited_revision": source_detail.get(
+                    "inherited_revision", source_detail.get("revision", 0)),
             }
             changed = True
         if not changed:
@@ -1605,7 +1607,10 @@ def apply_object_details(data_dir: Path, projects: list[dict], tasks: list[dict]
         item["description_conflict"] = bool(detail and detail.get("conflict"))
         item["description_inherited"] = bool(detail and detail.get("inherited_from"))
         if item["description_inherited"]:
-            item["description_inherited_from"] = detail["inherited_from"]
+            source_key = detail["inherited_from"]
+            item["description_inherited_from"] = "|".join(
+                str(part or "") for part in source_key)
+            item["description_inherited_revision"] = detail.get("inherited_revision", 0)
 
     for project in projects:
         attach(project, ("project", None, project["project_id"]))
@@ -4642,8 +4647,14 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                     required = {"object_type", "object_id", "revision", "description"}
                     if object_type == "step":
                         required.add("task_id")
-                    if set(payload) != required or type(payload.get("revision")) is not int or payload["revision"] < 0:
+                    inherited_fields = {"inherited_from", "inherited_revision"}
+                    if (set(payload) not in {frozenset(required), frozenset(required | inherited_fields)}
+                            or type(payload.get("revision")) is not int or payload["revision"] < 0):
                         raise ValueError("object detail requires exact target, revision and description fields")
+                    if (("inherited_from" in payload) != ("inherited_revision" in payload) or
+                            ("inherited_revision" in payload and
+                             (type(payload["inherited_revision"]) is not int or payload["inherited_revision"] < 0))):
+                        raise ValueError("invalid inherited description revision")
                     if not isinstance(payload.get("description"), str) or len(payload["description"]) > 4000:
                         raise ValueError("object description must be at most 4000 characters")
                     description = payload["description"].strip()
@@ -4683,9 +4694,16 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                             return self.json_response(409, {"error": "object description has a conflict"})
                         if prior["revision"] != payload["revision"]:
                             return self.json_response(409, {"error": "object description changed; refresh"})
+                        if target.get("description_inherited"):
+                            if (payload.get("inherited_from") != target.get("description_inherited_from") or
+                                    payload.get("inherited_revision") != target.get("description_inherited_revision")):
+                                return self.json_response(409, {"error": "inherited description changed; refresh"})
+                        elif inherited_fields & set(payload):
+                            raise ValueError("unexpected inherited description token")
                         if description == target.get("description", ""):
                             return self.json_response(200, {
-                                "saved": False, "revision": prior["revision"]})
+                                "saved": False, "revision": prior["revision"],
+                                "description": target.get("description", "")})
                         event = {
                             "version": 1, "event_id": str(uuid.uuid4()),
                             "object_type": object_type, "object_id": payload["object_id"],
@@ -4697,7 +4715,8 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                             event["task_id"] = payload["task_id"]
                         append_object_detail_event(data_dir, event)
                     return self.json_response(200, {
-                        "saved": True, "revision": prior["revision"] + 1})
+                        "saved": True, "revision": prior["revision"] + 1,
+                        "description": description})
                 if task_record_match:
                     required = {"revision", "occurred_on", "content", "outcome",
                                 "duration_minutes", "confirmed_move"}
