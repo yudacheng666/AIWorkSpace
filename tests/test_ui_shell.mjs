@@ -2352,8 +2352,9 @@ test("object descriptions save independently and inherited conversion descriptio
   assert.equal(panel.children[0].textContent,"任务说明");
 
   const stepId = "STEP-"+"E".repeat(32);
+  const inheritedFrom = "step|TASK-UI-V2-001|"+stepId;
   const step = {step_id:stepId,description:"原步骤说明",description_revision:0,
-    description_inherited:true,description_inherited_from:"step|TASK-UI-V2-001|"+stepId,
+    description_inherited:true,description_inherited_from:inheritedFrom,
     description_inherited_revision:2,conflict:false};
   const h2 = harness([],()=>true,[],[],async (path,body)=>({
     ok:true,json:async()=>({saved:true,revision:1,description:body.description})
@@ -2362,7 +2363,7 @@ test("object descriptions save independently and inherited conversion descriptio
   const stepForm = stepPanel.children.find(child=>child.tag==="form");
   stepForm.children[0].children.find(child=>child.tag==="textarea").value = "继承后调整的说明";
   await stepForm.handlers.get("submit")[0]({preventDefault(){}});
-  assert.equal(h2.writes[0].body.inherited_from,step.description_inherited_from);
+  assert.equal(h2.writes[0].body.inherited_from,inheritedFrom);
   assert.equal(h2.writes[0].body.inherited_revision,2);
   assert.equal(h2.writes[0].body.task_id,"TASK-UI-V2-001");
 });
