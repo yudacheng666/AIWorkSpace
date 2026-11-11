@@ -5141,7 +5141,8 @@
             row.append(docs);
           }
           const footer = element("div", "work-entry-footer");
-          const edit = element("button", "", record.conflict ? "存在冲突，暂不可编辑" : "编辑记录");
+          const edit = element("button", "", record.conflict ? "存在冲突，暂不可编辑" :
+            record.record_type === "decision" ? "形成新记录" : "编辑记录");
           edit.type = "button";
           edit.disabled = !!record.conflict;
           edit.addEventListener("click", () => editWorkRecord(record.record_id));
@@ -5206,7 +5207,7 @@
       if (!record || record.conflict) return;
       if (unsavedPersistentEditors.has($("work-record-form"))
           && !window.confirm("当前补记内容尚未保存，确定放弃并编辑其他记录吗？")) return;
-      editingRecordId = id;
+      editingRecordId = record.record_type === "decision" ? "" : id;
       $("work-record-content").value = record.content || "";
       $("work-record-type").value = record.record_type || "progress";
       $("work-record-date").value = record.occurred_on || localDayISO(new Date());
@@ -5223,9 +5224,12 @@
       $("work-link-target").value = "";
       renderWorkDraftLinks();
       renderWorkDraftEvidence();
-      $("work-record-submit").textContent = "保存修改";
+      $("work-record-submit").textContent = record.record_type === "decision"
+        ? "保存为新记录" : "保存修改";
       workDraftWatcher.markClean();
-      $("work-record-message").textContent = "正在编辑 " + record.display_id + "；原始记录会保留。";
+      $("work-record-message").textContent = record.record_type === "decision"
+        ? "决策记录不会被覆盖；保存会新增一条记录，原决策保留在历史中。"
+        : "正在编辑 " + record.display_id + "；原始记录会保留。";
       $("work-record-content").focus();
     }
 
