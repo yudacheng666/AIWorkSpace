@@ -2296,18 +2296,18 @@ test("saved report reselects sources only after deliberate rebuild and appends o
 test("decision records surface the current conclusion and notes stay optional in report defaults", async () => {
   const task = sampleTask();
   const older = {record_id:"RECORD-"+"C".repeat(32),display_id:"R-261111-CCCCCCCCCCCC",
-    content:"最初考虑转卖零件",outcome:"卖",record_type:"decision",
+    content:"最初考虑采用方案A",outcome:"采用",record_type:"decision",
     occurred_on:"2026-11-11",created_at:"2026-11-10T02:00:00Z",
     updated_at:"2026-11-11T03:00:00Z",task_id:task.task_id,project_id:null,conflict:false};
   const fact = {record_id:"RECORD-"+"D".repeat(32),display_id:"R-261111-DDDDDDDDDDDD",
-    content:"再次评估是否向供应商转卖零件",outcome:"不卖",record_type:"decision",
+    content:"再次评估是否采用方案A",outcome:"暂不采用",record_type:"decision",
     occurred_on:"2026-11-09",created_at:"2026-11-11T02:00:00Z",
     updated_at:"2026-11-11T02:00:00Z",task_id:task.task_id,project_id:null,conflict:false};
   const h = harness([task],()=>true,[],[],null,{records:[older,fact]});
   await h.api.loadWorkRecords();
   const panel = h.api.progressPanel({type:"task",task_id:task.task_id});
   assert.equal(panel.children[0].className,"current-conclusion");
-  assert.equal(panel.children[0].children[1].textContent,"不卖");
+  assert.equal(panel.children[0].children[1].textContent,"暂不采用");
   assert.equal(h.api.summaryRecordRecommended(fact),true);
   assert.equal(h.api.summaryRecordRecommended({record_type:"note",content:"临时想法"}),false);
   assert.equal(h.api.summaryRecordRecommended({record_type:"note",featured:true}),true);
@@ -2326,20 +2326,38 @@ test("decision records surface the current conclusion and notes stay optional in
   const date = form.children.find(child=>child.tag==="input");
   type.value = "decision";
   type.handlers.get("change")[0]();
-  content.value = "评估是否向供应商转卖零件";
-  outcome.value = "不卖";
+  content.value = "评估是否采用方案A";
+  outcome.value = "暂不采用";
   date.value = "2026-11-11";
   await form.handlers.get("submit")[0]({preventDefault(){}});
   const write = h.writes.find(item=>item.path==="/api/work-records");
   assert.ok(write);
   assert.equal(write.body.record_type,"decision");
-  assert.equal(write.body.outcome,"不卖");
+  assert.equal(write.body.outcome,"暂不采用");
+});
+
+test("a newer conflicted decision suppresses an older current conclusion", async () => {
+  const task = sampleTask();
+  const older = {record_id:"RECORD-"+ "A".repeat(32),display_id:"R-261111-AAAAAAAAAAAA",
+    content:"评估方案A",outcome:"采用",record_type:"decision",
+    occurred_on:"2026-11-11",created_at:"2026-11-10T02:00:00Z",
+    updated_at:"2026-11-10T02:00:00Z",task_id:task.task_id,project_id:null,conflict:false};
+  const newer = {record_id:"RECORD-"+ "B".repeat(32),display_id:"R-261111-BBBBBBBBBBBB",
+    content:"重新评估方案A",outcome:"暂不采用",record_type:"decision",
+    occurred_on:"2026-11-09",created_at:"2026-11-11T02:00:00Z",
+    updated_at:"2026-11-11T02:00:00Z",task_id:task.task_id,project_id:null,conflict:true};
+  const h = harness([task],()=>true,[],[],null,{records:[older,newer]});
+  await h.api.loadWorkRecords();
+  const panel = h.api.progressPanel({type:"task",task_id:task.task_id});
+  assert.equal(panel.children[0].className,"current-conclusion current-conclusion--warning");
+  assert.match(panel.children[0].textContent,/暂不展示旧结论/);
+  assert.doesNotMatch(panel.children[0].textContent,/采用/);
 });
 
 test("editing a decision creates a new record instead of overwriting the prior conclusion", async () => {
   const id = "RECORD-"+"F".repeat(32);
   const decision = {record_id:id,display_id:"R-261111-FFFFFFFFFFFF",
-    record_type:"decision",content:"评估是否转卖零件",outcome:"不卖",
+    record_type:"decision",content:"评估是否采用方案A",outcome:"暂不采用",
     occurred_on:"2026-11-11",created_at:"2026-11-11T02:00:00Z",
     updated_at:"2026-11-11T02:00:00Z",project_id:null,task_id:null,
     action_links:[],evidence_links:[],featured:false,revision:1,conflict:false};
@@ -2353,7 +2371,7 @@ test("editing a decision creates a new record instead of overwriting the prior c
   await h.api.saveWorkRecord({preventDefault(){}});
   assert.equal(h.writes[0].path,"/api/work-records");
   assert.equal(h.writes[0].body.record_type,"decision");
-  assert.equal(h.writes[0].body.outcome,"不卖");
+  assert.equal(h.writes[0].body.outcome,"暂不采用");
 });
 
 test("object descriptions save independently and inherited conversion descriptions use a revision token", async () => {
@@ -2364,14 +2382,14 @@ test("object descriptions save independently and inherited conversion descriptio
   const panel = h.api.objectDescriptionPanel("task",task);
   const form = panel.children.find(child=>child.tag==="form");
   const textarea = form.children[0].children.find(child=>child.tag==="textarea");
-  textarea.value = "背景：评估是否转卖零件";
+  textarea.value = "背景：评估是否采用方案A";
   form.handlers.get("input")[0]();
   await form.handlers.get("submit")[0]({preventDefault(){}});
   assert.equal(h.writes[0].path,"/api/object-details");
   assert.equal(h.writes[0].body.object_type,"task");
   assert.equal(h.writes[0].body.object_id,task.task_id);
   assert.equal(h.writes[0].body.revision,0);
-  assert.equal(task.description,"背景：评估是否转卖零件");
+  assert.equal(task.description,"背景：评估是否采用方案A");
   assert.equal(task.description_revision,1);
   assert.equal(panel.children[0].textContent,"任务说明");
 
