@@ -1,12 +1,13 @@
-# 2026-11-11｜统一对象信息与工作记录类别（开发中）
+# 2026-11-11｜统一对象信息与工作记录类别（PR #53 候选完成，待独立验收与用户审批）
 
 ## 基线
 - 仓库：yudacheng666/AIWorkSpace
-- main：`9f98f1b11abe57ccf3c43d40aa43ad8b341afe62`
-- 正式版本：2.9.2
+- main：`9f98f1b11abe57ccf3c43d40aa43ad8b341afe62`（本轮未改变）
+- 正式版本：2.9.2；开发分支候选版本：2.10.0
 - 开发分支：`feature/20261111-unified-object-information`
-- 开始时开放 PR：0；PR #50 的 P1–P3 统一时间线已合并，PR #52 的 2.9.2 桌面启动器已合并；本轮新增 Draft PR #53，尚未合并。
-- main 最新准确 SHA 的 Actions：`42793149239`，3/3 SUCCESS；Ubuntu/Windows Python 299 项、Node UI 124/124，Windows Chromium 更新/回滚 3/3、工作台 E2E 26 项通过。以上为既有基线证据，不代替本次变更测试。
+- 开放 PR：仅 Draft PR #53，base 为 main；未合并、未发布、未部署。
+- 本轮最终产品／测试 SHA：`ad9e392d26ce91623551c5896b7a28ee616b4296`。
+- 对应 [GitHub Actions #42959727208](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42959727208) 第 2 次尝试：**3/3 SUCCESS**。最终结果只对应上述产品／测试 SHA；后续记忆文档提交不改变产品代码。
 
 ## 用户批准的需求基线
 - 项目、任务、步骤使用统一说明、记录与结论能力；不增加独立记事本模块，不为记录进展创建无意义步骤。
@@ -16,22 +17,29 @@
 - record_type 进入项目阶段线、总结来源指纹和 ChatGPT 分析上下文；AI 只在用户确认后写入。
 
 ## 开发进度
-- 已完成：仓库规则、需求、决策、当前代码、历史 PR、main SHA 和 CI 基线复核；确认 P1–P3 已实现，当前缺口为对象说明、记录类别及当前决策展示。
-- 已完成代码与自动化用例：对象说明独立事件 reducer/API、项目/任务/步骤详情 UI、四类快速记录、当前决策投影、汇报版默认选材、task↔step 说明继承；decision 原记录不可覆盖，修订创建新 RECORD。
-- 本轮最新代码／测试 SHA：`dd8b6f01e94175065febc729975d1c043d9c23a3`；其后仅有 Markdown 记忆文档更新。
-- PR #53 已创建为 Draft；该准确 SHA 的 GitHub Actions 仍待最终核验，尚无本轮 PASS 声明。
-- 未完成：最终 SHA CI、公开仓库敏感信息复核、真实双电脑 Google Drive 同步验收。
+- 已完成：读取并遵守 AGENTS.md、REQUIREMENTS.md、PROJECT_STATE.md、DECISIONS.md 和最新会话记录；核实 main、全部开放 PR、PR #53、分支和测试证据。
+- 已实现：项目／任务／步骤独立说明事件与统一详情 UI；统一 RECORD 快速记录入口和四种类别；按首次保存时间投影当前决策；个人版／汇报版来源选择；说明进入总结和 AI 背景上下文；task↔step 说明继承。
+- 已加固：decision 的 content/outcome/record_type 在 API 和底层 reducer 双层不可变；直接或晚到的违规事件冻结并提示冲突；最新决策本身冲突时不回退展示旧结论；继承说明来源冲突时将冻结标记传递给转换目标，避免静默丢失说明；冲突提示准确指向完整工作轨迹。
+- 公开仓库检查：本轮新增测试／示例已改为虚构的「方案 A」等通用内容；新增差异扫描未发现真实公司／人员信息、内部文件链接、Google Drive 私有 ID、密钥或用户真实业务描述。
+
+## 最终自动化测试证据
+- [Actions #42959727208](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42959727208)，第 2 次尝试，准确 SHA：`ad9e392d26ce91623551c5896b7a28ee616b4296`。
+- Ubuntu Python：308 项，33 项平台性 skip，其余通过；Node UI：128/128 PASS。
+- Windows Python：308 项，30 项平台性 skip，其余通过；Node UI：128/128 PASS。
+- Windows 真实应用／Chromium：更新与回滚 3 项通过；工作台真实浏览器 E2E 27 项通过；隔离预览启动包检查通过。
+- 第 1 次尝试中 Windows Python 的一个既有 HTTP 测试发生 `WinError 10053` 连接中断；按规则只重跑失败的 Windows Python Job，第 2 次尝试通过。未修改该无关业务代码。
+- 新增关键回归：`test_decision_immutability_is_enforced_by_the_reducer`、`test_conversion_keeps_inherited_description_conflict_visible`、`test_object_descriptions_and_decision_records_in_real_chromium`；均在最终 SHA 的 Actions 中通过。
 
 ## 风险与边界
 - 不修改 main、不合并、不发布、不访问真实 Google Drive 工作数据、不部署用户电脑 8770。
-- 既有 PR #50、#52 同 SHA 测试证据不重复运行；本次只验证新 SHA 的变更和受影响回归。
-- 真实双电脑 Google Drive 断网／晚同步、旧客户端混用仍需独立验收；GitHub CI 不等于生产数据验收。
+- 高风险数据持久化功能的独立 Codex 探索性验收：**NOT TESTED**；真实双电脑 Google Drive 离线／晚同步、旧客户端混用：**NOT TESTED**。GitHub CI 不等于生产数据验收。
+- 按 AGENTS.md 高风险门槛，合并前须完成 CI 未覆盖的独立探索性验收，或由用户明确批准例外；不能仅凭 CI 通过直接放行。
 
 ## 下一步
-1. 以 PR #53 最终准确 HEAD 运行 GitHub Actions，核验 Ubuntu/Windows Python+Node 和 Windows Chromium。
-2. 只修复失败或未覆盖项；修复后以新 SHA 运行受影响回归，不重复同 SHA 已通过测试。
-3. 检查公开仓库敏感信息、版本文件和 updater 资源一致性；记录准确 SHA 与 run ID。
-4. 保持 PR #53 Draft，不合并、不发布、不部署；真实双电脑 Google Drive 离线／晚同步另行验收，等待用户明确批准。
+1. 保持 PR #53 Draft，不自动转 Ready、不合并、不发布。
+2. 针对 CI 未能证明的事件冲突、转换后晚同步和真实双电脑 Drive 行为安排一次独立探索性验收。
+3. 用户审阅后明确批准是否合并；届时重新核对所有开放 PR、依赖关系和准确 SHA，再按项目合并规则执行。
+
 
 ---
 
