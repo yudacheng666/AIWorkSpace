@@ -1288,7 +1288,8 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         step_description.get_by_role("button", name="保存说明").click()
         expect(step_description.locator("summary")).to_have_text("步骤说明")
 
-        task_progress = page.locator("#task-detail-drawer .progress-panel-wrap").last
+        # The task-level panel now appears before the execution-step panels.
+        task_progress = page.locator("#task-detail-drawer .progress-panel-wrap").first
         task_progress.locator("details.progress-panel > summary").click()
         form = task_progress.locator("form.progress-form")
         form.locator("select").select_option("decision")
@@ -1296,7 +1297,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         form.locator("textarea").nth(0).fill("评估是否采用方案A")
         form.locator("textarea").nth(1).fill("暂不采用")
         form.get_by_role("button", name="保存记录").click()
-        expect(page.locator("#task-detail-drawer .current-conclusion-text")).to_have_text("暂不采用")
+        expect(page.locator("#task-detail-drawer .current-conclusion-text").first).to_have_text("暂不采用")
         conclusion_before_steps = page.locator("#task-detail-drawer").evaluate("""drawer => {
             const conclusion = drawer.querySelector(".current-conclusion");
             const steps = drawer.querySelector(".steps-panel");
