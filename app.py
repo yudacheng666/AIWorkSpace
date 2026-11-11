@@ -1499,7 +1499,7 @@ def read_object_details(data_dir: Path) -> dict:
             event = validate_object_detail_event(
                 json.loads(path.read_text(encoding="utf-8-sig")))
             if path.name != "evt_" + event["event_id"] + ".json":
-                raise ValueError("object detail filename does not match event_id")
+                warnings.append(path.name + ": object detail filename does not match event_id")
             key = object_detail_key(event)
             previous = seen.get(event["event_id"])
             if previous is not None:
