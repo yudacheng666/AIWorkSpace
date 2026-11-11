@@ -271,5 +271,5 @@
 |---|---|---|
 | D-20261111-WR-25（对象说明独立存储） | 项目、任务、步骤的说明属于稳定对象上下文，不属于发生事件。采用 `work_archive/object_detail_events/` 追加式 revision 事件，独立校验和冲突保护，不扩展旧 task/step/project 业务事件字段；步骤↔任务转换通过现有有效 conversion 映射继承说明，目标自己的说明优先。 | 统一说明能力，同时避免旧客户端因不认识业务事件新字段而冻结任务、步骤或项目；不改写既有历史事件。 |
 | D-20261111-WR-26（单一记录模型与类别） | 项目、任务、步骤快速记录复用唯一 RECORD 和 action_links，增加可选 `record_type`：progress、communication、decision、note；旧记录缺省 progress。说明、记事、进展不做成多套并行模块，不要求新增步骤。 | 保持既有 P1–P3 统一时间线、ID 去重和个人记录体系，避免数据重复与多入口复杂化。 |
-| D-20261111-WR-27（结论作为决策记录投影） | `decision` RECORD 的 content 保存背景／判断，现有 outcome 保存结论；对象详情顶部以最近保存的有效 decision 记录展示当前结论。后续新决策取代当前展示但不覆盖旧 RECORD，不新增重复的结论字段。 | 结论既醒目又可追溯；状态 done 与业务结果保持分离。 |
+| D-20261111-WR-27（结论作为决策记录投影） | `decision` RECORD 的 content 保存背景／判断，现有 outcome 保存结论；对象详情顶部以最近保存的有效 decision 记录展示当前结论。后续新决策取代当前展示但不覆盖旧 RECORD，不新增重复的结论字段；decision 的 content/outcome/record_type 不允许覆盖更新，更正或新判断必须新增 RECORD。 | 结论既醒目又可追溯；状态 done 与业务结果保持分离。 |
 | D-20261111-WR-28（个人与汇报默认差异） | note 纳入个人完整时间线和个人版默认来源；汇报版「只选重点」默认不推荐普通 note，仍允许用户逐条手动纳入。decision、精选成果和明确 outcome 可推荐，但最终由用户选择。record_type 纳入来源摘要指纹和 ChatGPT 分析上下文。 | 保留完整私人工作历史，同时减少琐碎记事进入正式汇报的概率。 |
