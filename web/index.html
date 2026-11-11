@@ -964,10 +964,13 @@
       <section class="work-card" aria-labelledby="work-create-heading">
         <h2 id="work-create-heading">补记已做工作</h2>
         <form class="work-record-form" id="work-record-form">
-          <label for="work-record-content">实际做了什么（必填）
-            <textarea id="work-record-content" maxlength="4000" required placeholder="例如：上午与供应商沟通交期，确认计划维持不变。"></textarea>
+          <label for="work-record-content">记录内容（必填）
+            <textarea id="work-record-content" maxlength="4000" required placeholder="选择记录类型后，填写实际发生的进展、沟通、决策或随手记。"></textarea>
           </label>
           <div class="work-meta">
+            <label for="work-record-type">记录类型
+              <select id="work-record-type"><option value="progress">进展</option><option value="communication">沟通</option><option value="decision">决策／结论</option><option value="note">记事</option></select>
+            </label>
             <label for="work-record-date">实际发生日期
               <input id="work-record-date" type="date" required>
             </label>
@@ -981,8 +984,8 @@
               <input id="work-record-minutes" type="number" min="1" max="1440" step="1" placeholder="例如：60">
             </label>
           </div>
-          <label for="work-record-outcome">工作成果（可选）
-            <textarea id="work-record-outcome" maxlength="2000" rows="2" placeholder="例如：解决交期争议；不能确定的结果可留空。"></textarea>
+          <label for="work-record-outcome">成果／结论（可选）
+            <textarea id="work-record-outcome" maxlength="2000" rows="2" placeholder="决策类记录可填写最终结论；例如：不向供应商转卖零件。"></textarea>
           </label>
           <label class="work-check"><input type="checkbox" id="work-record-featured"> 归入我的成果库（可用于未来项目总结和职业档案）</label>
           <div class="work-archive-row">
@@ -4986,6 +4989,7 @@
 
     function workFormSnapshot() {
       return {content: $("work-record-content").value, occurred_on: $("work-record-date").value,
+        record_type: $("work-record-type").value,
         project_id: $("work-record-project").value, task_id: $("work-record-task").value,
         outcome: $("work-record-outcome").value, duration_minutes: $("work-record-minutes").value,
         featured: $("work-record-featured").checked, action_links: workDraftLinks.map(link => ({...link})),
@@ -5020,6 +5024,7 @@
     function resetWorkRecordForm() {
       editingRecordId = "";
       $("work-record-content").value = "";
+      $("work-record-type").value = "progress";
       $("work-record-date").value = localDayISO(new Date());
       $("work-record-outcome").value = "";
       $("work-record-minutes").value = "";
@@ -5054,7 +5059,8 @@
         kind: "record", day: record.occurred_on, timestamp: record.created_at,
         sourceId: record.record_id, projectId: record.project_id, record,
         search: [record.content, record.outcome, record.project_name, record.task_title,
-                 record.display_id, ...(record.action_link_labels || []).map(link => link.label)]
+                 workRecordTypeLabel(record.record_type), record.display_id,
+                 ...(record.action_link_labels || []).map(link => link.label)]
                  .join(" ").toLocaleLowerCase()
       })).concat(workTaskCompletions.map(item => ({
         kind: "completion", day: localActivityDay(item.occurred_at),
@@ -5088,7 +5094,7 @@
         const header = element("div", "work-entry-head");
         header.append(element("span", "work-entry-date", entry.day || "日期未知"));
         header.append(element("span", "work-entry-kind",
-          entry.kind === "record" ? "工作记录" : "已确认任务完成"));
+          entry.kind === "record" ? workRecordTypeLabel(entry.record.record_type) : "已确认任务完成"));
         row.append(header);
         if (entry.kind === "record") {
           const record = entry.record;
@@ -5096,7 +5102,8 @@
           else row.recordId = record.record_id;
           if (record.conflict) row.className += " work-entry-conflict";
           row.append(element("p", "work-entry-content", record.content));
-          if (record.outcome) row.append(element("p", "work-entry-outcome", "成果：" + record.outcome));
+          if (record.outcome) row.append(element("p", "work-entry-outcome",
+            (record.record_type === "decision" ? "结论：" : "成果／结果：") + record.outcome));
           const meta = element("div", "work-entry-meta");
           meta.append(element("span", "", record.display_id));
           if (record.project_id) meta.append(element("span", "",
@@ -5191,6 +5198,7 @@
           && !window.confirm("当前补记内容尚未保存，确定放弃并编辑其他记录吗？")) return;
       editingRecordId = id;
       $("work-record-content").value = record.content || "";
+      $("work-record-type").value = record.record_type || "progress";
       $("work-record-date").value = record.occurred_on || localDayISO(new Date());
       $("work-record-outcome").value = record.outcome || "";
       $("work-record-minutes").value = record.duration_minutes == null ? "" : String(record.duration_minutes);
@@ -5230,6 +5238,7 @@
       }
       const payload = {
         content: snapshot.content.trim(), occurred_on: snapshot.occurred_on,
+        record_type: snapshot.record_type || "progress",
         project_id: snapshot.project_id || null, task_id: snapshot.task_id || null,
         outcome: snapshot.outcome.trim() || null,
         duration_minutes: snapshot.duration_minutes ? Number(snapshot.duration_minutes) : null,
@@ -5316,7 +5325,8 @@
       }
       for (const record of featured) {
         const card = element("article", "work-featured-item");
-        card.append(element("strong", "", record.occurred_on + " · " + record.display_id));
+        card.append(element("strong", "", workRecordTypeLabel(record.record_type) + " · " +
+          record.occurred_on + " · " + record.display_id));
         card.append(element("p", "", record.outcome || record.content));
         if (record.project_name) card.append(element("p", "work-archive-hint", "项目：" + record.project_name));
         const evidence = record.evidence_links || [];
@@ -5371,7 +5381,8 @@
            !stageScopeMatches(record,id,tasks))return false;
         recordIds.add(record.record_id);return true;
       }).map(r=>({record_id:r.record_id,display_id:r.display_id,
-        occurred_on:r.occurred_on,content:r.content,outcome:r.outcome||null,
+        occurred_on:r.occurred_on,record_type:r.record_type||"progress",
+        content:r.content,outcome:r.outcome||null,
         task_title:r.task_title||null,
         evidence_links:r.evidence_links||[],action_link_labels:r.action_link_labels||[]}));
       const completed=(facts.task_completions||[]).filter(e=>{
@@ -5411,7 +5422,7 @@
           entries.filter(e=>e.type==="completion").length+" 次人工确认完成"));
         for(const entry of entries){
           const line=element("p","work-stage-event",
-            (entry.type==="record"?"工作事实：":"已确认任务完成：")+
+            (entry.type==="record"?workRecordTypeLabel(entry.record.record_type)+"：":"已确认任务完成：")+
             entry.content+" · 来源 "+entry.id);
           box.append(line);
         }
@@ -5937,9 +5948,10 @@
           chosenCompletions.length + " 次已确认完成；未选来源不纳入本报告分析。", "",
         "## 已发生工作"];
       for (const r of chosenRecords) {
-        lines.push("- [" + r.occurred_on + "] " + r.content.replace(/\n/g, " ").trim() +
-          "（来源：" + r.display_id + "）");
-        if (r.outcome) lines.push("  成果：" + r.outcome.replace(/\n/g, " ").trim());
+        lines.push("- [" + r.occurred_on + "] [" + workRecordTypeLabel(r.record_type) + "] " +
+          r.content.replace(/\n/g, " ").trim() + "（来源：" + r.display_id + "）");
+        if (r.outcome) lines.push("  " + (r.record_type === "decision" ? "结论：" : "成果／结果：") +
+          r.outcome.replace(/\n/g, " ").trim());
       }
       if (!chosenRecords.length) lines.push("- 本次未选工作记录");
       lines.push("", "## 已确认完成的任务");
@@ -5975,7 +5987,10 @@
     }
 
     function summaryRecordRecommended(record) {
-      return !!(record.featured || (typeof record.outcome === "string" && record.outcome.trim()));
+      const type = record.record_type || "progress";
+      if (type === "note") return !!record.featured;
+      return !!(record.featured || type === "decision" ||
+        (typeof record.outcome === "string" && record.outcome.trim()));
     }
 
     function updateSummarySourceCount() {
@@ -5998,9 +6013,11 @@
       if (panel.hidden) return;
       const choices = [
         ...(workSummaryPreview.record_sources || []).map(r => ({
-          id:r.record_id,kind:"record",title:r.occurred_on+" · "+r.content,
+          id:r.record_id,kind:"record",title:"["+workRecordTypeLabel(r.record_type)+"] "+r.occurred_on+" · "+r.content,
           important:summaryRecordRecommended(r),
-          reason:r.featured?"已选入个人成果库（仍须核对）":
+          reason:r.record_type==="note"?"随手记（汇报版默认不推荐）":
+            r.record_type==="decision"?"决策／结论（建议重点核对）":
+            r.featured?"已选入个人成果库（仍须核对）":
             r.outcome?"记录了成果（请核实）":"一般工作事实",
           detail:[
             "来源："+(r.display_id||r.record_id),
