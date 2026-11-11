@@ -1588,6 +1588,21 @@ def apply_object_details(data_dir: Path, projects: list[dict], tasks: list[dict]
                 continue
             source_detail = effective[source_key]
             if source_detail.get("conflict"):
+                # Do not silently drop an inherited description when its source
+                # has a concurrent revision. Carry a blocked marker to the target
+                # so the UI cannot overwrite an unresolved description.
+                effective[target_key] = {
+                    "description": "",
+                    "revision": 0,
+                    "conflict": True,
+                    "inherited_from": source_detail.get("inherited_from") or source_key,
+                    "inherited_revision": source_detail.get(
+                        "inherited_revision", source_detail.get("revision", 0)),
+                }
+                if warnings is not None:
+                    warnings.append(str(target_key) +
+                                    ": inherited object description source has a conflict")
+                changed = True
                 continue
             effective[target_key] = {
                 "description": source_detail.get("description", ""),

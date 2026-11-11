@@ -326,6 +326,33 @@ class WorkRecordHTTPTests(unittest.TestCase):
         self.assertEqual(self.call("POST", "/api/work-records",
             {**body, "record_type": "unrecognized"})[0], 400)
 
+    def test_conversion_keeps_inherited_description_conflict_visible(self):
+        step_id = "STEP-" + "D" * 32
+        app.append_object_detail_event(self.data_dir, {
+            "version": 1, "event_id": "object-task-desc-0001",
+            "object_type": "task", "object_id": TASK, "action": "set",
+            "actor": "user", "timestamp": "2026-11-11T00:00:00Z",
+            "base_revision": 0, "changes": {"description": "来源说明 A"}})
+        app.append_object_detail_event(self.data_dir, {
+            "version": 1, "event_id": "object-task-desc-0002",
+            "object_type": "task", "object_id": TASK, "action": "set",
+            "actor": "user", "timestamp": "2026-11-11T00:01:00Z",
+            "base_revision": 0, "changes": {"description": "来源说明 B"}})
+        step = {"step_id": step_id, "title": "转换目标步骤"}
+        tasks = [{"task_id": TASK, "steps": [step]}]
+        conversions = [{
+            "source": {"kind": "task", "task_id": TASK},
+            "target": {"kind": "step", "task_id": TASK, "item_id": step_id}
+        }]
+        warnings = []
+        app.apply_object_details(self.data_dir, [], tasks, conversions,
+                                 active_hidden_tasks={TASK}, warnings=warnings)
+        self.assertTrue(step["description_inherited"])
+        self.assertTrue(step["description_conflict"])
+        self.assertEqual(step["description"], "")
+        self.assertTrue(any("inherited object description source has a conflict" in item
+                            for item in warnings))
+
     def test_object_descriptions_use_separate_revisioned_events(self):
         task_event_bytes = {p.name:p.read_bytes() for p in (self.data_dir / "events").glob("*.json")}
         project_event_bytes = {p.name:p.read_bytes() for p in
