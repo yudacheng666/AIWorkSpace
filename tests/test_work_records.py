@@ -75,7 +75,7 @@ class WorkRecordValidationTests(unittest.TestCase):
         for value in ("unknown", None, [], {}):
             with self.subTest(record_type=value), self.assertRaises(ValueError):
                 app.validate_work_record_event(work_event(changes={
-                    "content": "评估是否转卖零件", "occurred_on": "2026-11-11",
+                    "content": "评估是否采用方案A", "occurred_on": "2026-11-11",
                     "record_type": value}))
 
 
@@ -121,12 +121,28 @@ class WorkRecordReducerTests(unittest.TestCase):
         self.assertEqual(first["record_type"], "progress")
         app.append_work_record_event(self.data_dir, work_event(
             "work-decision-update", "update", 1,
-            {"record_type": "decision", "outcome": "不卖"}))
+            {"record_type": "decision", "outcome": "暂不采用"}))
         revised = app.read_work_records(self.data_dir)["records"][0]
         self.assertEqual(revised["record_type"], "decision")
-        self.assertEqual(revised["outcome"], "不卖")
+        self.assertEqual(revised["outcome"], "暂不采用")
         self.assertEqual(revised["record_id"], first["record_id"])
         self.assertEqual(revised["revision"], 2)
+
+    def test_decision_immutability_is_enforced_by_the_reducer(self):
+        app.append_work_record_event(self.data_dir, work_event(
+            "work-decision-create", "create", 0, {
+                "content": "评估是否采用方案A", "occurred_on": "2026-11-11",
+                "record_type": "decision", "outcome": "暂不采用"}))
+        # Simulate a late or direct event that bypasses the normal HTTP API.
+        app.append_work_record_event(self.data_dir, work_event(
+            "work-decision-tamper", "update", 1, {"outcome": "采用"}))
+        state = app.read_work_records(self.data_dir)
+        record = state["records"][0]
+        self.assertTrue(record["conflict"])
+        self.assertEqual(record["revision"], 1)
+        self.assertEqual(record["outcome"], "暂不采用")
+        self.assertTrue(any("decision record content/outcome/type is immutable" in warning
+                            for warning in state["warnings"]))
 
     def test_conflict_bad_event_and_partial_sync_fail_closed(self):
         app.append_work_record_event(self.data_dir, work_event())
@@ -265,14 +281,14 @@ class WorkRecordHTTPTests(unittest.TestCase):
             "version":1,"event_id":"summary-project-context-001",
             "object_type":"project","object_id":PROJECT,"action":"set","actor":"user",
             "timestamp":"2026-11-11T00:00:00Z","base_revision":0,
-            "changes":{"description":"项目背景：评估零件处置事项"}})
+            "changes":{"description":"项目背景：评估方案A"}})
         app.append_object_detail_event(self.data_dir, {
             "version":1,"event_id":"summary-task-context-001",
             "object_type":"task","object_id":TASK,"action":"set","actor":"user",
             "timestamp":"2026-11-11T00:01:00Z","base_revision":0,
-            "changes":{"description":"任务目标：判断是否转卖零件"}})
-        body = {"content": "评估是否向供应商转卖零件", "occurred_on": "2026-11-11",
-                "record_type": "decision", "outcome": "不卖",
+            "changes":{"description":"任务目标：判断是否采用方案A"}})
+        body = {"content": "评估是否采用方案A", "occurred_on": "2026-11-11",
+                "record_type": "decision", "outcome": "暂不采用",
                 "project_id": PROJECT, "task_id": TASK}
         code, created = self.call("POST", "/api/work-records", body)
         self.assertEqual(code, 201, created)
@@ -280,7 +296,7 @@ class WorkRecordHTTPTests(unittest.TestCase):
         self.assertEqual(state["records"][0]["record_type"], "decision")
         immutable_code, immutable = self.call(
             "POST", "/api/work-records/" + created["record_id"] + "/update", {
-                "revision": 1, "content": "改为出售", "outcome": "卖"})
+                "revision": 1, "content": "改为采用", "outcome": "卖"})
         self.assertEqual(immutable_code, 409)
         self.assertIn("immutable", immutable["error"])
         endpoint = ("/api/work-archive/preview?period=daily&day=2026-11-11&project_id=" + PROJECT)
@@ -288,25 +304,25 @@ class WorkRecordHTTPTests(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertEqual(preview["record_sources"][0]["record_type"], "decision")
         self.assertIn("[决策／结论]", preview["body"])
-        self.assertIn("结论：不卖", preview["body"])
+        self.assertIn("结论：暂不采用", preview["body"])
         self.assertEqual({item["object_type"] for item in preview["object_contexts"]},
                          {"project", "task"})
         self.assertEqual(len(preview["record_sources"]), 1)
         self.assertEqual(preview["record_count"], 1,
                          "object descriptions are context, not work events")
-        self.assertIn("项目背景：评估零件处置事项", preview["body"])
-        self.assertIn("任务目标：判断是否转卖零件", preview["body"])
+        self.assertIn("项目背景：评估方案A", preview["body"])
+        self.assertIn("任务目标：判断是否采用方案A", preview["body"])
         analysis = app.work_analysis_context(
             self.data_dir, app.read_workspace(self.data_dir), "daily", "2026-11-11", PROJECT)
-        self.assertIn("项目背景：评估零件处置事项", analysis["prompt"])
+        self.assertIn("项目背景：评估方案A", analysis["prompt"])
         code, updated_description = self.call("POST", "/api/object-details", {
             "object_type":"task","object_id":TASK,"revision":1,
-            "description":"任务目标：重新评估转卖零件"})
+            "description":"任务目标：重新评估方案A"})
         self.assertEqual(code, 200, updated_description)
         code, refreshed = self.call("GET", endpoint)
         self.assertEqual(code, 200)
         self.assertNotEqual(preview["source_digest"], refreshed["source_digest"])
-        self.assertIn("任务目标：重新评估转卖零件", refreshed["body"])
+        self.assertIn("任务目标：重新评估方案A", refreshed["body"])
         self.assertEqual(self.call("POST", "/api/work-records",
             {**body, "record_type": "unrecognized"})[0], 400)
 
