@@ -256,6 +256,11 @@ class WorkRecordHTTPTests(unittest.TestCase):
         self.assertEqual(code, 201, created)
         _, state = self.call("GET", "/api/work-records")
         self.assertEqual(state["records"][0]["record_type"], "decision")
+        immutable_code, immutable = self.call(
+            "POST", "/api/work-records/" + created["record_id"] + "/update", {
+                "revision": 1, "content": "改为出售", "outcome": "卖"})
+        self.assertEqual(immutable_code, 409)
+        self.assertIn("immutable", immutable["error"])
         endpoint = ("/api/work-archive/preview?period=daily&day=2026-11-11&project_id=" + PROJECT)
         code, preview = self.call("GET", endpoint)
         self.assertEqual(code, 200)
