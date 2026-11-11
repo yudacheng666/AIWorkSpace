@@ -1625,7 +1625,7 @@
           (b.updated_at||b.created_at||"").localeCompare(a.updated_at||a.created_at||""));
       const latestDecision = matched.filter(record =>
         !record.conflict && record.record_type === "decision")
-        .sort((a,b) => (b.updated_at||b.created_at||"").localeCompare(a.updated_at||a.created_at||""))[0];
+        .sort((a,b) => (b.created_at||"").localeCompare(a.created_at||""))[0];
       if (latestDecision) {
         const conclusion = element("section", "current-conclusion");
         conclusion.append(element("small", "current-conclusion-label",
@@ -1633,7 +1633,8 @@
         conclusion.append(element("p", "current-conclusion-text",
           latestDecision.outcome || latestDecision.content));
         conclusion.append(element("small", "current-conclusion-meta",
-          latestDecision.occurred_on + " · " + latestDecision.display_id));
+          latestDecision.occurred_on + "（发生） · " + localActivityDay(latestDecision.created_at) +
+          "（录入） · " + latestDecision.display_id));
         wrap.append(conclusion);
       }
       const box = element("details", "progress-panel");
