@@ -242,11 +242,23 @@ class WorkRecordHTTPTests(unittest.TestCase):
         self.assertFalse((self.data_dir / "work_archive").exists())
 
     def test_read_only_task_completion_activity(self):
+        app.append_object_detail_event(self.data_dir, {
+            "version":1,"event_id":"completion-task-context-001",
+            "object_type":"task","object_id":TASK,"action":"set","actor":"user",
+            "timestamp":"2026-11-05T06:00:00Z","base_revision":0,
+            "changes":{"description":"任务背景：确认本期事项已处理"}})
         app.append_event(self.data_dir, task_event("old-done-0001", "update", 1,
                                                    {"status": "done"}, done=True))
         _, payload = self.call("GET", "/api/work-records")
         self.assertEqual(len(payload["task_completions"]), 1)
         self.assertEqual(payload["records"], [])
+        code, preview = self.call("GET",
+            "/api/work-archive/preview?period=daily&day=2026-11-05")
+        self.assertEqual(code, 200)
+        self.assertEqual(preview["record_count"], 0)
+        self.assertEqual(preview["completion_count"], 1)
+        self.assertEqual(preview["object_contexts"][0]["object_type"], "task")
+        self.assertIn("任务背景：确认本期事项已处理", preview["body"])
 
     def test_decision_record_type_flows_into_preview_and_rejects_unknown_type(self):
         app.append_object_detail_event(self.data_dir, {
