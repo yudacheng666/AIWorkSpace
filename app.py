@@ -1441,7 +1441,7 @@ def validate_object_detail_event(value: object) -> dict:
                 "actor", "timestamp", "base_revision", "changes"}
     if object_type == "step":
         required.add("task_id")
-    if set(value) != required or value.get("version") != 1:
+    if set(value) != required or type(value.get("version")) is not int or value.get("version") != 1:
         raise ValueError("invalid object detail event fields")
     if not isinstance(value.get("event_id"), str) or not EVENT_ID.fullmatch(value["event_id"]):
         raise ValueError("invalid object detail event_id")
@@ -1498,6 +1498,8 @@ def read_object_details(data_dir: Path) -> dict:
                 raise ValueError("object detail file too large")
             event = validate_object_detail_event(
                 json.loads(path.read_text(encoding="utf-8-sig")))
+            if path.name != "evt_" + event["event_id"] + ".json":
+                raise ValueError("object detail filename does not match event_id")
             key = object_detail_key(event)
             previous = seen.get(event["event_id"])
             if previous is not None:
