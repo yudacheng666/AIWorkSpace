@@ -249,6 +249,16 @@ class WorkRecordHTTPTests(unittest.TestCase):
         self.assertEqual(payload["records"], [])
 
     def test_decision_record_type_flows_into_preview_and_rejects_unknown_type(self):
+        app.append_object_detail_event(self.data_dir, {
+            "version":1,"event_id":"summary-project-context-001",
+            "object_type":"project","object_id":PROJECT,"action":"set","actor":"user",
+            "timestamp":"2026-11-11T00:00:00Z","base_revision":0,
+            "changes":{"description":"项目背景：评估零件处置事项"}})
+        app.append_object_detail_event(self.data_dir, {
+            "version":1,"event_id":"summary-task-context-001",
+            "object_type":"task","object_id":TASK,"action":"set","actor":"user",
+            "timestamp":"2026-11-11T00:01:00Z","base_revision":0,
+            "changes":{"description":"任务目标：判断是否转卖零件"}})
         body = {"content": "评估是否向供应商转卖零件", "occurred_on": "2026-11-11",
                 "record_type": "decision", "outcome": "不卖",
                 "project_id": PROJECT, "task_id": TASK}
@@ -267,6 +277,21 @@ class WorkRecordHTTPTests(unittest.TestCase):
         self.assertEqual(preview["record_sources"][0]["record_type"], "decision")
         self.assertIn("[决策／结论]", preview["body"])
         self.assertIn("结论：不卖", preview["body"])
+        self.assertEqual({item["object_type"] for item in preview["object_contexts"]},
+                         {"project", "task"})
+        self.assertIn("项目背景：评估零件处置事项", preview["body"])
+        self.assertIn("任务目标：判断是否转卖零件", preview["body"])
+        analysis = app.work_analysis_context(
+            self.data_dir, app.read_workspace(self.data_dir), "daily", "2026-11-11", PROJECT)
+        self.assertIn("项目背景：评估零件处置事项", analysis["prompt"])
+        code, updated_description = self.call("POST", "/api/object-details", {
+            "object_type":"task","object_id":TASK,"revision":1,
+            "description":"任务目标：重新评估转卖零件"})
+        self.assertEqual(code, 200, updated_description)
+        code, refreshed = self.call("GET", endpoint)
+        self.assertEqual(code, 200)
+        self.assertNotEqual(preview["source_digest"], refreshed["source_digest"])
+        self.assertIn("任务目标：重新评估转卖零件", refreshed["body"])
         self.assertEqual(self.call("POST", "/api/work-records",
             {**body, "record_type": "unrecognized"})[0], 400)
 
