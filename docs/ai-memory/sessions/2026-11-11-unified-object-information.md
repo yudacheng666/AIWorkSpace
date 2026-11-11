@@ -12,7 +12,7 @@
 - 项目、任务、步骤均有统一「说明」；说明是稳定背景，不是进展事件。
 - 项目、任务、步骤共用同一 RECORD 记录入口，不增加独立记事本系统，不为记事或结论创建步骤。
 - RECORD 类型：progress、communication、decision、note；旧记录缺省 progress。
-- decision 的 content 保存背景／判断，outcome 保存结论；详情顶部投影最近保存的有效决策为当前结论，旧决策保留为独立历史。
+- decision 的 content 保存背景／判断，outcome 保存结论；详情顶部投影最近保存的有效决策为当前结论，旧决策保留为独立历史。decision 的 content/outcome/record_type 不允许原记录覆盖，更正或新判断必须新增 RECORD。
 - note 纳入个人完整时间线；汇报版「只选重点」默认不推荐普通 note，仍可手动勾选。
 - task↔step 转换保留说明；AI 整理仍由用户核对后写入。
 
