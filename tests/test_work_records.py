@@ -275,6 +275,8 @@ class WorkRecordHTTPTests(unittest.TestCase):
             "step_id":step_id,"action":"create","actor":"user",
             "timestamp":"2026-11-11T00:00:00Z","base_revision":0,
             "changes":{"title":"虚构步骤","position":1}})
+        step_event_bytes = {p.name:p.read_bytes() for p in
+                            (self.data_dir / "step_events").glob("*.json")}
         code, saved = self.call("POST", "/api/object-details", {
             "object_type":"project","object_id":PROJECT,"revision":0,
             "description":"项目背景"})
@@ -308,6 +310,12 @@ class WorkRecordHTTPTests(unittest.TestCase):
                                            for p in (self.data_dir / "events").glob("*.json")})
         self.assertEqual(project_event_bytes, {p.name:p.read_bytes()
                                               for p in (self.data_dir / "project_events").glob("*.json")})
+        self.assertEqual(step_event_bytes, {p.name:p.read_bytes()
+                                           for p in (self.data_dir / "step_events").glob("*.json")})
+        _, records = self.call("GET", "/api/work-records")
+        self.assertEqual(records["records"], [], "object descriptions are not work records")
+        _, cleared_workspace = self.call("GET", "/api/tasks")
+        self.assertEqual(cleared_workspace["projects"][0]["description"], "")
         self.assertEqual(len(list((self.data_dir / "work_archive" /
                                    "object_detail_events").glob("*.json"))), 4)
 
