@@ -1766,7 +1766,7 @@
       label.append(textarea);
       const help = element("p", "work-archive-hint", target.description_inherited
         ? "该说明由转换前事项继承；修改后会保存为当前对象自己的说明。"
-        : "说明是稳定背景信息，不会自动进入工作时间线或总结。工作过程和结论请使用下方记录入口。");
+        : "说明是稳定背景信息，不作为独立工作事件或成果计入时间线；生成总结时可作为理解背景。工作过程和结论请使用下方记录入口。");
       const actions = element("div", "object-description-actions");
       const save = element("button", "save", "保存说明");
       save.type = "submit"; save.disabled = disabled;
@@ -1822,7 +1822,7 @@
             });
           }
           summary.textContent = target.description ? typeLabel : "填写" + typeLabel;
-          help.textContent = "说明是稳定背景信息，不会自动进入工作时间线或总结。工作过程和结论请使用下方记录入口。";
+          help.textContent = "说明是稳定背景信息，不作为独立工作事件或成果计入时间线；生成总结时可作为理解背景。工作过程和结论请使用下方记录入口。";
           watcher.markClean(sent);
           message.textContent = result.saved
             ? (textarea.value === submitted ? "说明已保存。" : "已保存提交的说明；新输入草稿仍保留。")
