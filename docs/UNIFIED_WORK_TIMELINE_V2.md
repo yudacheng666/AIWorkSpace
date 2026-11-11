@@ -116,7 +116,7 @@
 ### 12.3 总结与 AI 来源
 - 旧 RECORD 缺少 record_type 时读取为 progress。
 - 个人版仍默认包含全部记录。汇报版的「只选重点」默认不推荐普通 note；decision、精选成果或明确 outcome 可作为推荐，但仍须用户逐条确认。
-- record_type 加入工作轨迹、项目阶段线、报告来源卡、source_digest 与主动复制的 ChatGPT 分析上下文；对象说明不作为工作事实或报告来源。
+- record_type 加入工作轨迹、项目阶段线、报告来源卡、source_digest 与主动复制的 ChatGPT 分析上下文；对象说明通过 object_contexts 加入总结背景和 source_digest，但不作为工作事实、完成事件或报告来源。
 - 不嵌入付费 AI API，不自动写入、不自动改变状态；AI 整理结果由用户核对后保存。
 
 ### 12.4 验收边界
