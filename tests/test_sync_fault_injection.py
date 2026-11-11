@@ -158,10 +158,9 @@ class TwoDeviceSyncFaultInjectionTests(unittest.TestCase):
         )
 
     def test_concurrent_edits_from_two_devices_freeze_only_the_shared_object(self):
-        """Two edits based on the same revision must not be resolved by arrival time."""
+        """A late sibling edit reveals conflict; either arrival order freezes identically."""
         device_a = self.device("device-a")
         device_b = self.device("device-b")
-        merged = self.device("merged-drive-view")
         folder = "work_archive/object_detail_events"
         root = object_detail_event("sync-object-root-0001", 0, "共同的初始说明")
         app.append_object_detail_event(device_a, root)
@@ -172,18 +171,34 @@ class TwoDeviceSyncFaultInjectionTests(unittest.TestCase):
         app.append_object_detail_event(device_a, edit_a)
         app.append_object_detail_event(device_b, edit_b)
 
-        # The merged view receives A's file and then B's file. Reversing this
-        # delivery order must not change the reducer's conflict result.
-        self.deliver(device_a, merged, folder, root["event_id"])
-        self.deliver(device_a, merged, folder, edit_a["event_id"])
-        self.deliver(device_b, merged, folder, edit_b["event_id"])
-        state = app.read_object_details(merged)
-        detail = state["objects"][("task", None, TASK)]
-        self.assertTrue(detail["conflict"])
-        self.assertEqual(detail["revision"], 1)
-        self.assertEqual(detail["description"], "共同的初始说明")
-        self.assertTrue(any("concurrent object description edits" in warning
-                            for warning in state["warnings"]))
+        final_states = []
+        for name, first_device, first_edit, late_device, late_edit in (
+            ("a-first", device_a, edit_a, device_b, edit_b),
+            ("b-first", device_b, edit_b, device_a, edit_a),
+        ):
+            merged = self.device("merged-" + name)
+            self.deliver(device_a, merged, folder, root["event_id"])
+            self.deliver(first_device, merged, folder, first_edit["event_id"])
+
+            # Until the other device's file arrives, this replica can only see
+            # its own valid branch. It must not invent knowledge of unsynced data.
+            interim = app.read_object_details(merged)["objects"][("task", None, TASK)]
+            self.assertFalse(interim["conflict"])
+            self.assertEqual(interim["description"], first_edit["changes"]["description"])
+
+            # Once the delayed sibling arrives, neither branch wins. The reducer
+            # freezes at the last common revision and exposes the conflict.
+            self.deliver(late_device, merged, folder, late_edit["event_id"])
+            state = app.read_object_details(merged)
+            detail = state["objects"][("task", None, TASK)]
+            self.assertTrue(detail["conflict"])
+            self.assertEqual(detail["revision"], 1)
+            self.assertEqual(detail["description"], "共同的初始说明")
+            self.assertTrue(any("concurrent object description edits" in warning
+                                for warning in state["warnings"]))
+            final_states.append((detail["conflict"], detail["revision"], detail["description"]))
+
+        self.assertEqual(final_states[0], final_states[1])
 
     def test_identical_duplicate_delivery_is_idempotent_for_both_event_streams(self):
         """A byte-identical duplicate is ignored rather than inflating a revision."""
