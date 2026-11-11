@@ -1,3 +1,52 @@
+# 2026-11-11｜统一对象信息与工作记录类别（PR #53 候选完成，定向同步故障注入与 CI 通过，待用户审批）
+
+## 基线
+- 仓库：yudacheng666/AIWorkSpace
+- main：`9f98f1b11abe57ccf3c43d40aa43ad8b341afe62`（本轮未改变）
+- 正式版本：2.9.2；开发分支候选版本：2.10.0
+- 开发分支：`feature/20261111-unified-object-information`
+- 开放 PR：仅 Draft PR #53，base 为 main；未合并、未发布、未部署。
+- 本轮最终产品／测试 SHA：`996f44f231f49b8402f216518545a8b2476cf201`。
+- 对应 [GitHub Actions #42967921372](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42967921372) 第 1 次尝试：**3/3 SUCCESS**。最终结果只对应上述产品／测试 SHA；后续记忆文档提交不改变产品代码。
+
+## 用户批准的需求基线
+- 项目、任务、步骤使用统一说明、记录与结论能力；不增加独立记事本模块，不为记录进展创建无意义步骤。
+- 说明是稳定对象上下文，采用 `work_archive/object_detail_events/` 追加式事件，避免扩展旧业务事件 schema；task↔step 转换保留说明。
+- RECORD 增加 progress/communication/decision/note 类别；旧记录缺省 progress。decision 的 outcome 用于当前结论展示；决策内容／结论不可覆盖，修正必须新增记录，旧决策保留历史。
+- 个人版完整保留记录；汇报版「只选重点」默认不推荐普通 note，用户仍可手动选择。
+- record_type 进入项目阶段线、总结来源指纹和 ChatGPT 分析上下文；AI 只在用户确认后写入。
+
+## 开发进度
+- 已完成：读取并遵守 AGENTS.md、REQUIREMENTS.md、PROJECT_STATE.md、DECISIONS.md 和最新会话记录；核实 main、全部开放 PR、PR #53、分支和测试证据。
+- 已实现：项目／任务／步骤独立说明事件与统一详情 UI；统一 RECORD 快速记录入口和四种类别；按首次保存时间投影当前决策；个人版／汇报版来源选择；说明进入总结和 AI 背景上下文；task↔step 说明继承。
+- 已加固：decision 的 content/outcome/record_type 在 API 和底层 reducer 双层不可变；直接或晚到的违规事件冻结并提示冲突；最新决策本身冲突时不回退展示旧结论；继承说明来源冲突时将冻结标记传递给转换目标，避免静默丢失说明；冲突提示准确指向完整工作轨迹。
+- 已优化展示：项目／任务／步骤的记录与结论区域紧跟对象说明，位于执行步骤／关联内容之前；仅 outcome 非空时标为「当前结论」，未填写 outcome 时明确显示「尚未填写明确结论」，不把背景／判断冒充结论。
+- 公开仓库检查：本轮新增测试／示例已改为虚构的「方案 A」等通用内容；新增差异扫描未发现真实公司／人员信息、内部文件链接、Google Drive 私有 ID、密钥或用户真实业务描述。
+
+## 最终自动化与同步故障注入测试证据
+- [Actions #42967921372](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42967921372)，准确产品／测试 SHA：`996f44f231f49b8402f216518545a8b2476cf201`，第 1 次尝试 **3/3 SUCCESS**。
+- Ubuntu Python：313 项，33 项平台性 skip，其余通过；Node UI：129/129 PASS。
+- Windows Python：313 项，30 项平台性 skip，其余通过；Node UI：129/129 PASS。
+- Windows 真实应用／Chromium：更新与回滚 3 项通过；工作台真实浏览器 E2E 27 项通过；隔离预览启动包检查通过。
+- 新增 `tests/test_sync_fault_injection.py` 五类只读／合成数据故障注入均通过：工作记录创建与前置 revision 晚到恢复；对象说明乱序到达恢复；两设备同 revision 并发编辑在对端文件晚到后冻结，且 A→B／B→A 两种到达顺序最终结果一致；工作记录和对象说明的相同事件重复副本幂等；旧客户端不携带 `record_type` 的事件不能覆盖 decision 的 content/outcome。
+- 重要边界：测试通过独立临时目录模拟两台设备之间的事件文件复制、延迟、乱序与重复；**未连接 Google Drive 云服务，也未验证用户真实两台电脑、客户端同步状态、断网／重连或真实旧版本客户端**。对端冲突事件尚未同步到本机前，本机只能看到自己已收到的单一分支；两边事件都可见后，reducer 才能确定冲突并冻结。这是当前文件同步模型的可见性边界，不能宣称云端同步已完成。
+- 前序产品回归仍在最终 SHA 通过：decision reducer 不可变性、转换来源说明冲突冻结、无 outcome 不冒充当前结论、当前结论位于步骤之前、真实 Chromium 说明与 decision 记录流程（不自动完成任务、不创建步骤）。
+- 本轮按用户明确批准的一次性例外，**未调用 Codex**；改用 ChatGPT 编写针对缺失风险的 test-only 故障注入，并由 Ubuntu／Windows GitHub Actions 执行。该例外不改变 `AGENTS.md` 的长期风险分级与测试去重规则。
+
+## 风险与边界
+- 未修改 main、未合并、未发布、未访问真实 Google Drive 工作数据、未部署用户电脑 8770。
+- Codex 独立验收按用户明确批准的一次性例外未执行；本轮定向同步故障注入和准确 SHA CI 已完成。该例外仅适用于 PR #53，不改变后续项目的默认测试规则。
+- 真实 Google Drive 云服务、用户双电脑离线／重连、同步客户端的待同步状态、已安装旧客户端混用仍 **NOT TESTED**；CI 的临时目录文件复制不能替代真实设备验收。
+- 合并仍须用户明确批准；本轮批准的是不使用 Codex 的验收替代方案，**不是合并或发布授权**。
+
+## 下一步
+1. 保持 PR #53 Draft，不自动转 Ready、不合并、不发布。
+2. 向用户报告本轮定向故障注入结果、临时可见性边界及真实 Drive 尚未验证的范围。
+3. 等待用户单独批准合并；获批后重新核对全部开放 PR、依赖关系、最终 SHA 和 CI，再按项目合并规则执行。
+
+
+---
+
 # 2026-11-10：Windows 轻量桌面启动器 2.9.2 已合并 main（待用户电脑部署）
 
 - **用户目标**：Windows 双击桌面快捷方式即可启动/关闭 AIWorkSpace，不再每次使用 PowerShell；不制作 EXE/安装包、不引入第三方依赖，不改变本地 Python Web 架构、8770 端口、Google Drive 数据目录或 Tailscale 私有访问。

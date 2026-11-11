@@ -148,6 +148,27 @@ class UnifiedTimelineReportTests(unittest.TestCase):
         self.assertEqual(len(list((self.root / "work_archive" /
                                   "summary_events").glob("*.json"))), 1)
 
+    def test_record_type_is_part_of_summary_source_and_digest(self):
+        regular, important = self.create_facts()
+        endpoint = "/api/work-archive/preview?period=daily&day=2026-11-09"
+        code, first = self.call("GET", endpoint)
+        self.assertEqual(code, 200)
+        original = next(row for row in first["record_sources"]
+                        if row["record_id"] == regular)
+        self.assertEqual(original["record_type"], "progress")
+        code, updated = self.call("POST", "/api/work-records/" + regular + "/update", {
+            "revision": 1, "content": "上午完成常规内部例会",
+            "occurred_on": "2026-11-09", "project_id": PROJECT,
+            "task_id": TASK, "record_type": "note"})
+        self.assertEqual(code, 200, updated)
+        code, second = self.call("GET", endpoint)
+        self.assertEqual(code, 200)
+        revised = next(row for row in second["record_sources"]
+                       if row["record_id"] == regular)
+        self.assertEqual(revised["record_type"], "note")
+        self.assertNotEqual(first["source_digest"], second["source_digest"])
+        self.assertIn("[记事]", second["body"])
+
     def test_invalid_selection_and_source_changes_fail_closed(self):
         regular, important = self.create_facts()
         _, preview = self.call("GET", "/api/work-archive/preview?period=daily&day=2026-11-09")

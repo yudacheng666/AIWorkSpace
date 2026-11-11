@@ -794,7 +794,22 @@
     .work-action-message{font-size:12px;color:#385b81;min-height:17px}
     @media(max-width:640px) {.work-card {padding:16px}.work-meta,.work-filters {grid-template-columns:1fr}.secondary-action {padding:8px 10px}}
 
-  </style>
+  
+    .progress-panel-wrap { display:grid; gap:8px; margin:10px 0; }
+    .current-conclusion { border:1px solid var(--line, #ddd); border-left:4px solid var(--accent, #2674a8); border-radius:10px; background:var(--surface, #fff); padding:10px 12px; }
+    .current-conclusion-label,.current-conclusion-meta { display:block; color:var(--muted, #666); font-size:12px; }
+    .current-conclusion-text { margin:5px 0; font-weight:650; white-space:pre-wrap; }
+    .current-conclusion--warning { border-left-color:var(--warning, #a66a1f); }
+    .progress-entry { display:grid; gap:4px; }
+    .progress-entry-type { display:inline-block; width:max-content; padding:2px 7px; border-radius:999px; background:var(--surface-soft, #f5f5f5); color:var(--muted, #666); font-size:12px; }
+    .progress-entry-meta { color:var(--muted, #666); font-size:12px; }
+    .progress-entry-outcome { font-weight:600; }
+    .object-description { border:1px solid var(--line, #ddd); border-radius:10px; background:var(--surface, #fff); padding:10px 12px; margin:8px 0; }
+    .object-description > summary { cursor:pointer; font-weight:600; }
+    .object-description-form { display:grid; gap:8px; margin-top:10px; }
+    .object-description-form textarea { width:100%; min-height:78px; resize:vertical; }
+    .object-description-actions { display:flex; justify-content:flex-end; }
+</style>
 </head>
 <body>
 
@@ -950,10 +965,13 @@
       <section class="work-card" aria-labelledby="work-create-heading">
         <h2 id="work-create-heading">补记已做工作</h2>
         <form class="work-record-form" id="work-record-form">
-          <label for="work-record-content">实际做了什么（必填）
-            <textarea id="work-record-content" maxlength="4000" required placeholder="例如：上午与供应商沟通交期，确认计划维持不变。"></textarea>
+          <label for="work-record-content">记录内容（必填）
+            <textarea id="work-record-content" maxlength="4000" required placeholder="选择记录类型后，填写实际发生的进展、沟通、决策或随手记。"></textarea>
           </label>
           <div class="work-meta">
+            <label for="work-record-type">记录类型
+              <select id="work-record-type"><option value="progress">进展</option><option value="communication">沟通</option><option value="decision">决策／结论</option><option value="note">记事</option></select>
+            </label>
             <label for="work-record-date">实际发生日期
               <input id="work-record-date" type="date" required>
             </label>
@@ -967,8 +985,8 @@
               <input id="work-record-minutes" type="number" min="1" max="1440" step="1" placeholder="例如：60">
             </label>
           </div>
-          <label for="work-record-outcome">工作成果（可选）
-            <textarea id="work-record-outcome" maxlength="2000" rows="2" placeholder="例如：解决交期争议；不能确定的结果可留空。"></textarea>
+          <label for="work-record-outcome">成果／结论（可选）
+            <textarea id="work-record-outcome" maxlength="2000" rows="2" placeholder="决策类记录可填写最终结论；例如：暂不采用该方案。"></textarea>
           </label>
           <label class="work-check"><input type="checkbox" id="work-record-featured"> 归入我的成果库（可用于未来项目总结和职业档案）</label>
           <div class="work-archive-row">
@@ -1501,8 +1519,8 @@
 
     function confirmDiscardUnsaved() {
       if (!unsavedTaskEditors.size) return true;
-      if (!window.confirm("存在尚未保存的任务或步骤修改。切换视图将放弃这些草稿，确定继续？")) {
-        $("query-message").textContent = "已取消切换，未保存的任务或步骤草稿保持不变。";
+      if (!window.confirm("存在尚未保存的任务、步骤或说明草稿。切换视图将放弃这些草稿，确定继续？")) {
+        $("query-message").textContent = "已取消切换，未保存的任务、步骤或说明草稿保持不变。";
         return false;
       }
       unsavedTaskEditors.clear();
@@ -1580,7 +1598,6 @@
     }
 
     function recordBelongsTo(record, scope) {
-      if (record.conflict) return false;
       const links = record.action_links || [];
       if (scope.type === "step") return links.some(link =>
         link.target_type === "step" && link.task_id === scope.task_id &&
@@ -1596,19 +1613,69 @@
     }
 
     // Contextual progress posts to the existing append-only work record API.
+    function workRecordTypeLabel(type) {
+      return ({progress:"进展",communication:"沟通",decision:"决策／结论",note:"记事"})[type] || "进展";
+    }
+
+    // Contextual progress, notes and decisions all reuse the single RECORD stream.
     function progressPanel(scope) {
+      const wrap = element("div", "progress-panel-wrap");
+      const related = workRecords.filter(record => recordBelongsTo(record, scope));
+      const matched = related.filter(record => !record.conflict)
+        .slice().sort((a,b) => (b.occurred_on||"").localeCompare(a.occurred_on||"") ||
+          (b.updated_at||b.created_at||"").localeCompare(a.updated_at||a.created_at||""));
+      const compareDecision = (a,b) =>
+        (b.created_at||"").localeCompare(a.created_at||"") ||
+        (b.record_id||"").localeCompare(a.record_id||"");
+      const latestDecision = related.filter(record => record.record_type === "decision")
+        .sort(compareDecision)[0];
+      if (latestDecision?.conflict) {
+        const warning = element("section", "current-conclusion current-conclusion--warning");
+        warning.append(element("small", "current-conclusion-label", "当前结论暂不可确认"));
+        warning.append(element("p", "current-conclusion-text",
+          "最近一条决策记录存在同步冲突，已暂不展示旧结论。请在完整工作轨迹中核查这条记录。"));
+        warning.append(element("small", "current-conclusion-meta",
+          latestDecision.display_id || ""));
+        wrap.append(warning);
+      } else if (latestDecision) {
+        const outcome = typeof latestDecision.outcome === "string"
+          ? latestDecision.outcome.trim() : "";
+        const hasConclusion = !!outcome;
+        const conclusion = element("section", "current-conclusion");
+        const label = hasConclusion
+          ? (scope.type === "project" ? "最近项目决策" : "当前结论")
+          : (scope.type === "project"
+            ? "最近项目决策（尚未填写明确结论）"
+            : "最近决策记录（尚未填写明确结论）");
+        conclusion.append(element("small", "current-conclusion-label", label));
+        conclusion.append(element("p", "current-conclusion-text",
+          hasConclusion ? outcome : latestDecision.content));
+        conclusion.append(element("small", "current-conclusion-meta",
+          latestDecision.occurred_on + "（发生） · " + localActivityDay(latestDecision.created_at) +
+          "（录入） · " + latestDecision.display_id));
+        wrap.append(conclusion);
+      }
       const box = element("details", "progress-panel");
-      box.append(element("summary", "", "进展记录 · 快速填写"));
-      const matched = workRecords.filter(record => recordBelongsTo(record, scope));
-      if (!matched.length) box.append(element("p", "work-archive-hint", "暂无进展记录"));
-      for (const record of matched.slice(0, 3))
-        box.append(element("p", "progress-entry",
-          record.occurred_on + " · " + record.display_id + " · " + record.content));
-      const more = element("button", "secondary-action", "查看完整时间线");
+      box.append(element("summary", "", "记录与结论 · 快速填写"));
+      if (!matched.length) box.append(element("p", "work-archive-hint",
+        related.some(record => record.conflict)
+          ? "有记录存在同步冲突，暂未展示；请在完整工作轨迹中查看冲突记录。"
+          : "暂无记录。进展、沟通、决策或随手记都可以直接写在这里，不必新建步骤。"));
+      for (const record of matched.slice(0, 3)) {
+        const entry = element("div", "progress-entry");
+        entry.append(element("span", "progress-entry-type", workRecordTypeLabel(record.record_type)));
+        entry.append(element("span", "progress-entry-meta",
+          record.occurred_on + " · " + record.display_id));
+        entry.append(element("p", "", record.content));
+        if (record.outcome) entry.append(element("p", "progress-entry-outcome",
+          (record.record_type === "decision" ? "结论：" : "结果：") + record.outcome));
+        box.append(entry);
+      }
+      const more = element("button", "secondary-action", "查看完整工作轨迹");
       more.type = "button";
       more.addEventListener("click", () => {
         if (unsavedProgressEditors.size) {
-          window.alert("请先保存或清空进展草稿，再查看时间线。"); return;
+          window.alert("请先保存或清空记录草稿，再查看完整工作轨迹。"); return;
         }
         if (scope.type !== "project" && !closeTaskDetail()) return;
         if (!setActivePage("worklog")) return;
@@ -1622,21 +1689,52 @@
       const day = element("input");
       day.type = "date"; day.required = true; day.value = localDayISO(new Date());
       day.title = "实际发生日期";
+      const kindLabel = element("label", "", "记录类型");
+      const kind = element("select");
+      for (const [value,label] of [["progress","进展"],["communication","沟通"],
+                                   ["decision","决策／结论"],["note","记事"]]) {
+        const option = element("option", "", label);
+        option.value = value; kind.append(option);
+      }
+      kindLabel.append(kind);
+      kind.value = "progress";
+      const contentLabel = element("label", "", "记录内容（必填）");
       const content = element("textarea");
       content.required = true; content.maxLength = 4000;
-      content.title = "进展内容";
-      content.placeholder = "记录已发生的进展或沟通；不会自动改变任务状态";
-      const save = element("button", "save", "保存进展");
+      content.title = "记录内容";
+      content.placeholder = "记录已经发生的事情；不会自动改变任务状态";
+      contentLabel.append(content);
+      const outcomeLabel = element("label", "", "结论／处理结果（可选）");
+      const outcome = element("textarea");
+      outcome.maxLength = 2000; outcome.rows = 2;
+      outcome.placeholder = "例如：暂不采用该方案。";
+      outcomeLabel.append(outcome);
+      const updateKind = () => {
+        outcomeLabel.hidden = kind.value !== "decision";
+        content.placeholder = kind.value === "decision"
+          ? "说明决策背景或判断过程；明确结论可填在下方。"
+          : kind.value === "communication"
+            ? "记录沟通对象、对方反馈和沟通结果……"
+            : kind.value === "note"
+              ? "记录临时想法、提醒或补充信息……"
+              : "记录已经发生的工作进展……";
+      };
+      kind.addEventListener("change", updateKind);
+      updateKind();
+      const save = element("button", "save", "保存记录");
       save.type = "submit"; save.disabled = !!scope.disabled;
-      const msg = element("p", "work-archive-hint");
-      form.append(day, content, save, msg);
-      const snapshot = () => ({day:day.value,text:content.value});
+      const msg = element("p", "work-archive-hint",
+        scope.disabled ? "目标存在冲突，禁止直接写入。" :
+          "记事会保留在个人工作轨迹；汇报版默认不推荐普通记事。");
+      form.append(day, kindLabel, contentLabel, outcomeLabel, save, msg);
+      const snapshot = () => ({day:day.value,kind:kind.value,text:content.value,outcome:outcome.value});
       const watcher = watchUnsavedEditor(form, snapshot, unsavedProgressEditors);
       form.addEventListener("submit", async event => {
         event.preventDefault();
         if (isSaving || scope.disabled || !content.value.trim() || !day.value) return;
         const sent = snapshot();
-        const payload = {content:sent.text.trim(),occurred_on:sent.day,
+        const payload = {content:sent.text.trim(),occurred_on:sent.day,record_type:sent.kind,
+          outcome:sent.outcome.trim()||null,
           project_id:scope.project_id||null,task_id:scope.task_id||null};
         if (scope.type === "step") payload.action_links = [{target_type:"step",
           target_id:scope.step_id,task_id:scope.task_id,relation:"progress_on"}];
@@ -1648,7 +1746,7 @@
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || "HTTP " + response.status);
           if (JSON.stringify(snapshot()) === JSON.stringify(sent)) {
-            content.value = "";
+            content.value = ""; outcome.value = ""; kind.value = "progress"; updateKind();
             watcher.markClean();
             await loadWorkRecords();
             if (!unsavedTaskEditors.size && !unsavedProgressEditors.size) {
@@ -1657,21 +1755,109 @@
             }
           } else {
             watcher.markClean(sent);
-            msg.textContent = "已保存提交的进展；新输入草稿仍保留。";
+            msg.textContent = "已保存提交的记录；新输入草稿仍保留。";
             await loadWorkRecords();
           }
         } catch (error) {
           msg.textContent = "保存失败：" + error.message + "，草稿已保留。";
         } finally { isSaving = false; save.disabled = !!scope.disabled; }
       });
-      if (scope.disabled) msg.textContent = "目标存在冲突，禁止直接写入。";
       box.append(form);
-      return box;
+      wrap.append(box);
+      return wrap;
+    }
+
+    function objectDescriptionPanel(objectType, target, taskId = null, parentConflict = false) {
+      const panel = element("details", "object-description");
+      const typeLabel = objectType === "project" ? "项目说明" :
+        objectType === "step" ? "步骤说明" : "任务说明";
+      const summary = element("summary", "", target.description ? typeLabel : "填写" + typeLabel);
+      if (target.description_inherited) summary.textContent += " · 从转换前事项保留";
+      panel.append(summary);
+      const form = element("form", "object-description-form");
+      const label = element("label", "", "背景、目标、范围、约束或补充说明");
+      const textarea = element("textarea");
+      textarea.rows = 3; textarea.maxLength = 4000;
+      textarea.value = target.description || "";
+      textarea.placeholder = "填写这项工作的背景、目标、范围或需要长期保留的上下文……";
+      const disabled = !!(parentConflict || target.conflict || target.description_conflict ||
+        target.missing || target.trashed_at);
+      textarea.disabled = disabled;
+      label.append(textarea);
+      const help = element("p", "work-archive-hint", target.description_inherited
+        ? "该说明由转换前事项继承；修改后会保存为当前对象自己的说明。"
+        : "说明是稳定背景信息，不作为独立工作事件或成果计入时间线；生成总结时可作为理解背景。工作过程和结论请使用下方记录入口。");
+      const actions = element("div", "object-description-actions");
+      const save = element("button", "save", "保存说明");
+      save.type = "submit"; save.disabled = disabled;
+      actions.append(save);
+      const message = element("p", "work-archive-hint");
+      if (disabled) message.textContent = target.description_conflict
+        ? "说明存在同步冲突，已停止写入；请先核查。"
+        : "目标存在冲突或不可编辑，说明暂时只读。";
+      form.append(label, help, actions, message);
+      const registry = objectType === "project" ? unsavedProjectEditors : unsavedTaskEditors;
+      const watcher = watchUnsavedEditor(form, () => textarea.value, registry);
+      form.addEventListener("submit", async event => {
+        event.preventDefault();
+        if (isSaving || disabled) return;
+        const sent = textarea.value.trim();
+        if (sent === (target.description || "")) {
+          message.textContent = "说明没有变化。";
+          watcher.markClean();
+          return;
+        }
+        const payload = {
+          object_type:objectType,
+          object_id:objectType === "project" ? target.project_id :
+            objectType === "task" ? target.task_id : target.step_id,
+          revision:target.description_revision || 0,
+          description:sent
+        };
+        if (objectType === "step") payload.task_id = taskId;
+        if (target.description_inherited) {
+          payload.inherited_from = target.description_inherited_from;
+          payload.inherited_revision = target.description_inherited_revision || 0;
+        }
+        const submitted = textarea.value;
+        isSaving = true; save.disabled = true; message.textContent = "正在保存说明…";
+        try {
+          const response = await fetch("/api/object-details", {
+            method:"POST", headers:{"Content-Type":"application/json"},
+            body:JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "HTTP " + response.status);
+          target.description = result.description ?? sent;
+          target.description_revision = result.revision;
+          target.description_conflict = false;
+          target.description_inherited = false;
+          delete target.description_inherited_from;
+          delete target.description_inherited_revision;
+          if (objectType === "project") {
+            const stored = currentProjects.find(item => item.project_id === target.project_id);
+            if (stored && stored !== target) Object.assign(stored, {
+              description:target.description, description_revision:target.description_revision,
+              description_conflict:false, description_inherited:false
+            });
+          }
+          summary.textContent = target.description ? typeLabel : "填写" + typeLabel;
+          help.textContent = "说明是稳定背景信息，不作为独立工作事件或成果计入时间线；生成总结时可作为理解背景。工作过程和结论请使用下方记录入口。";
+          watcher.markClean(sent);
+          message.textContent = result.saved
+            ? (textarea.value === submitted ? "说明已保存。" : "已保存提交的说明；新输入草稿仍保留。")
+            : "说明没有变化。";
+        } catch (error) {
+          message.textContent = "保存失败：" + error.message + "；草稿已保留，请刷新核查。";
+        } finally { isSaving = false; save.disabled = disabled; }
+      });
+      panel.append(form);
+      return panel;
     }
 
     function renderProjectInspector() {
       const target=$("project-inspector"),project=availableProjects().find(p=>p.project_id===selectedProjectId);
-      if ([...unsavedProgressEditors].some(form => target.contains(form))) return;
+      if ([...unsavedProgressEditors, ...unsavedProjectEditors].some(form => target.contains(form))) return;
       if(!project){target.hidden=true;target.replaceChildren();return;}
       const tasks=projectTasks(project.project_id);
       const title=element("h3","",project.name+" · "+project.project_id);
@@ -1688,7 +1874,9 @@
       }
       const go=element("button","","在任务列表中查看");
       go.type="button";go.addEventListener("click",()=>openProjectTasks(project.project_id));
-      target.replaceChildren(title,...blocks,progressPanel({type:"project",project_id:project.project_id,disabled:!!project.conflict}),go);target.hidden=false;
+      target.replaceChildren(title,objectDescriptionPanel("project",project),
+        progressPanel({type:"project",project_id:project.project_id,disabled:!!(project.conflict||project.missing)}),
+        ...blocks,go);target.hidden=false;
     }
     function renderProjects() {
       const all=availableProjects();
@@ -1716,7 +1904,7 @@
     }
     function confirmProjectDrafts() {
       if(!unsavedProjectEditors.size)return true;
-      if(!window.confirm("有尚未保存的项目名称或新建项目草稿，确定放弃？"))return false;
+      if(!window.confirm("有尚未保存的项目名称、说明或新建项目草稿，确定放弃？"))return false;
       unsavedProjectEditors.clear();
       $("new-project-name").value="";
       projectCreateWatch.markClean("");
@@ -1948,7 +2136,10 @@
           Object.values(dateControls).forEach(input => {input.disabled = task.conflict || step.conflict;});
         }
       });
-      content.append(form, documentPanel(task, step));
+      content.append(form, objectDescriptionPanel("step", step, task.task_id, !!task.conflict),
+        progressPanel({type:"step",project_id:task.project_id,task_id:task.task_id,
+          step_id:step.step_id,disabled:!!(task.conflict||step.conflict)}),
+        documentPanel(task, step));
       row.append(content);
       const actions = element("div", "step-actions");
       const up = element("button", "", "上移");
@@ -2030,7 +2221,6 @@
       });
       actions.append(up, down, convertStep, removeStep);
       row.append(actions);
-      row.append(progressPanel({type:"step",project_id:task.project_id,task_id:task.task_id,step_id:step.step_id,disabled:!!(task.conflict||step.conflict)}));
       if (step.conflict) {
         const candidates = (step.conflict_candidates || []).map(candidate => {
           const changes = candidate.changes || {};
@@ -2360,8 +2550,9 @@
       if (!children.length) childList.append(element("p", "step-empty",
         "暂无子任务。可在其他任务的详情中指定本任务为上级。"));
       childPanel.append(childList);
-      card.append(top, form, recurrencePanel(task), stepPanel(task), childPanel,
-        progressPanel({type:"task",project_id:task.project_id,task_id:task.task_id,disabled:!!task.conflict}),taskToStepPanel(task));
+      card.append(top, form, objectDescriptionPanel("task", task),
+        progressPanel({type:"task",project_id:task.project_id,task_id:task.task_id,disabled:!!task.conflict}),
+        recurrencePanel(task), stepPanel(task), childPanel, taskToStepPanel(task));
       if (Array.isArray(task.document_links) && task.document_links.length) {
         card.append(legacyDocumentPanel(task));
       }
@@ -2871,7 +3062,7 @@
         $("task-detail-content").replaceChildren();
         return false;
       }
-      if ([...unsavedProgressEditors].some(form => $("task-detail-drawer").contains(form))) return true;
+      if ([...unsavedProgressEditors, ...unsavedTaskEditors].some(form => $("task-detail-drawer").contains(form))) return true;
       $("task-detail-title").textContent = task.title || "任务详情";
       $("task-detail-id").textContent = taskDisplayId(task);
       $("task-id-feedback").textContent = "";
@@ -4833,6 +5024,7 @@
 
     function workFormSnapshot() {
       return {content: $("work-record-content").value, occurred_on: $("work-record-date").value,
+        record_type: $("work-record-type").value || "progress",
         project_id: $("work-record-project").value, task_id: $("work-record-task").value,
         outcome: $("work-record-outcome").value, duration_minutes: $("work-record-minutes").value,
         featured: $("work-record-featured").checked, action_links: workDraftLinks.map(link => ({...link})),
@@ -4867,6 +5059,7 @@
     function resetWorkRecordForm() {
       editingRecordId = "";
       $("work-record-content").value = "";
+      $("work-record-type").value = "progress";
       $("work-record-date").value = localDayISO(new Date());
       $("work-record-outcome").value = "";
       $("work-record-minutes").value = "";
@@ -4901,7 +5094,8 @@
         kind: "record", day: record.occurred_on, timestamp: record.created_at,
         sourceId: record.record_id, projectId: record.project_id, record,
         search: [record.content, record.outcome, record.project_name, record.task_title,
-                 record.display_id, ...(record.action_link_labels || []).map(link => link.label)]
+                 workRecordTypeLabel(record.record_type), record.display_id,
+                 ...(record.action_link_labels || []).map(link => link.label)]
                  .join(" ").toLocaleLowerCase()
       })).concat(workTaskCompletions.map(item => ({
         kind: "completion", day: localActivityDay(item.occurred_at),
@@ -4935,7 +5129,7 @@
         const header = element("div", "work-entry-head");
         header.append(element("span", "work-entry-date", entry.day || "日期未知"));
         header.append(element("span", "work-entry-kind",
-          entry.kind === "record" ? "工作记录" : "已确认任务完成"));
+          entry.kind === "record" ? workRecordTypeLabel(entry.record.record_type) : "已确认任务完成"));
         row.append(header);
         if (entry.kind === "record") {
           const record = entry.record;
@@ -4943,7 +5137,8 @@
           else row.recordId = record.record_id;
           if (record.conflict) row.className += " work-entry-conflict";
           row.append(element("p", "work-entry-content", record.content));
-          if (record.outcome) row.append(element("p", "work-entry-outcome", "成果：" + record.outcome));
+          if (record.outcome) row.append(element("p", "work-entry-outcome",
+            (record.record_type === "decision" ? "结论：" : "成果／结果：") + record.outcome));
           const meta = element("div", "work-entry-meta");
           meta.append(element("span", "", record.display_id));
           if (record.project_id) meta.append(element("span", "",
@@ -4971,7 +5166,8 @@
             row.append(docs);
           }
           const footer = element("div", "work-entry-footer");
-          const edit = element("button", "", record.conflict ? "存在冲突，暂不可编辑" : "编辑记录");
+          const edit = element("button", "", record.conflict ? "存在冲突，暂不可编辑" :
+            record.record_type === "decision" ? "形成新记录" : "编辑记录");
           edit.type = "button";
           edit.disabled = !!record.conflict;
           edit.addEventListener("click", () => editWorkRecord(record.record_id));
@@ -5019,7 +5215,7 @@
         renderWorkRecords();
         renderWorkOutcomes();
         populateWorkActionSources();
-        if (!unsavedProgressEditors.size && !unsavedTaskEditors.size) {
+        if (!unsavedProgressEditors.size && !unsavedTaskEditors.size && !unsavedProjectEditors.size) {
           renderProjectInspector(); renderOpenTaskDetail();
         }
         if (state.warnings?.length) {
@@ -5036,8 +5232,9 @@
       if (!record || record.conflict) return;
       if (unsavedPersistentEditors.has($("work-record-form"))
           && !window.confirm("当前补记内容尚未保存，确定放弃并编辑其他记录吗？")) return;
-      editingRecordId = id;
+      editingRecordId = record.record_type === "decision" ? "" : id;
       $("work-record-content").value = record.content || "";
+      $("work-record-type").value = record.record_type || "progress";
       $("work-record-date").value = record.occurred_on || localDayISO(new Date());
       $("work-record-outcome").value = record.outcome || "";
       $("work-record-minutes").value = record.duration_minutes == null ? "" : String(record.duration_minutes);
@@ -5052,9 +5249,12 @@
       $("work-link-target").value = "";
       renderWorkDraftLinks();
       renderWorkDraftEvidence();
-      $("work-record-submit").textContent = "保存修改";
+      $("work-record-submit").textContent = record.record_type === "decision"
+        ? "保存为新记录" : "保存修改";
       workDraftWatcher.markClean();
-      $("work-record-message").textContent = "正在编辑 " + record.display_id + "；原始记录会保留。";
+      $("work-record-message").textContent = record.record_type === "decision"
+        ? "决策记录不会被覆盖；保存会新增一条记录，原决策保留在历史中。"
+        : "正在编辑 " + record.display_id + "；原始记录会保留。";
       $("work-record-content").focus();
     }
 
@@ -5077,6 +5277,7 @@
       }
       const payload = {
         content: snapshot.content.trim(), occurred_on: snapshot.occurred_on,
+        record_type: snapshot.record_type || "progress",
         project_id: snapshot.project_id || null, task_id: snapshot.task_id || null,
         outcome: snapshot.outcome.trim() || null,
         duration_minutes: snapshot.duration_minutes ? Number(snapshot.duration_minutes) : null,
@@ -5163,7 +5364,8 @@
       }
       for (const record of featured) {
         const card = element("article", "work-featured-item");
-        card.append(element("strong", "", record.occurred_on + " · " + record.display_id));
+        card.append(element("strong", "", workRecordTypeLabel(record.record_type) + " · " +
+          record.occurred_on + " · " + record.display_id));
         card.append(element("p", "", record.outcome || record.content));
         if (record.project_name) card.append(element("p", "work-archive-hint", "项目：" + record.project_name));
         const evidence = record.evidence_links || [];
@@ -5218,7 +5420,8 @@
            !stageScopeMatches(record,id,tasks))return false;
         recordIds.add(record.record_id);return true;
       }).map(r=>({record_id:r.record_id,display_id:r.display_id,
-        occurred_on:r.occurred_on,content:r.content,outcome:r.outcome||null,
+        occurred_on:r.occurred_on,record_type:r.record_type||"progress",
+        content:r.content,outcome:r.outcome||null,
         task_title:r.task_title||null,
         evidence_links:r.evidence_links||[],action_link_labels:r.action_link_labels||[]}));
       const completed=(facts.task_completions||[]).filter(e=>{
@@ -5258,7 +5461,7 @@
           entries.filter(e=>e.type==="completion").length+" 次人工确认完成"));
         for(const entry of entries){
           const line=element("p","work-stage-event",
-            (entry.type==="record"?"工作事实：":"已确认任务完成：")+
+            (entry.type==="record"?workRecordTypeLabel(entry.record.record_type)+"：":"已确认任务完成：")+
             entry.content+" · 来源 "+entry.id);
           box.append(line);
         }
@@ -5784,9 +5987,10 @@
           chosenCompletions.length + " 次已确认完成；未选来源不纳入本报告分析。", "",
         "## 已发生工作"];
       for (const r of chosenRecords) {
-        lines.push("- [" + r.occurred_on + "] " + r.content.replace(/\n/g, " ").trim() +
-          "（来源：" + r.display_id + "）");
-        if (r.outcome) lines.push("  成果：" + r.outcome.replace(/\n/g, " ").trim());
+        lines.push("- [" + r.occurred_on + "] [" + workRecordTypeLabel(r.record_type) + "] " +
+          r.content.replace(/\n/g, " ").trim() + "（来源：" + r.display_id + "）");
+        if (r.outcome) lines.push("  " + (r.record_type === "decision" ? "结论：" : "成果／结果：") +
+          r.outcome.replace(/\n/g, " ").trim());
       }
       if (!chosenRecords.length) lines.push("- 本次未选工作记录");
       lines.push("", "## 已确认完成的任务");
@@ -5822,7 +6026,10 @@
     }
 
     function summaryRecordRecommended(record) {
-      return !!(record.featured || (typeof record.outcome === "string" && record.outcome.trim()));
+      const type = record.record_type || "progress";
+      if (type === "note") return !!record.featured;
+      return !!(record.featured || type === "decision" ||
+        (typeof record.outcome === "string" && record.outcome.trim()));
     }
 
     function updateSummarySourceCount() {
@@ -5845,9 +6052,11 @@
       if (panel.hidden) return;
       const choices = [
         ...(workSummaryPreview.record_sources || []).map(r => ({
-          id:r.record_id,kind:"record",title:r.occurred_on+" · "+r.content,
+          id:r.record_id,kind:"record",title:"["+workRecordTypeLabel(r.record_type)+"] "+r.occurred_on+" · "+r.content,
           important:summaryRecordRecommended(r),
-          reason:r.featured?"已选入个人成果库（仍须核对）":
+          reason:r.record_type==="note"?"随手记（汇报版默认不推荐）":
+            r.record_type==="decision"?"决策／结论（建议重点核对）":
+            r.featured?"已选入个人成果库（仍须核对）":
             r.outcome?"记录了成果（请核实）":"一般工作事实",
           detail:[
             "来源："+(r.display_id||r.record_id),

@@ -57,7 +57,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
         const selects = new Set(["overview-owner", "query-project", "query-owner",
           "query-status", "query-date-field", "new-task-project", "new-task-related",
           "new-task-priority", "task-sort", "task-date-field", "calendar-granularity", "project-sort",
-          "work-record-project", "work-record-task", "work-filter-project",
+          "work-record-project", "work-record-task", "work-record-type", "work-filter-project",
           "work-inbox-project", "work-split-source", "work-stage-project", "work-summary-period", "work-summary-project", "work-summary-audience",
           "work-link-target", "work-link-relation", "work-action-source",
           "work-task-convert-source", "work-portfolio-project"]);
@@ -105,7 +105,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, editWorkSummary, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask, progressPanel, recordBelongsTo})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, editWorkSummary, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask, progressPanel, recordBelongsTo, objectDescriptionPanel, summaryRecordRecommended, workRecordTypeLabel})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes,
@@ -1594,6 +1594,7 @@ test("work record quick capture is separate from task creation and includes hist
   assert.equal(h.writes.length, 1);
   assert.equal(h.writes[0].path, "/api/work-records");
   assert.equal(h.writes[0].body.occurred_on, "2026-10-29");
+  assert.equal(h.writes[0].body.record_type, "progress");
   assert.equal(h.writes[0].body.duration_minutes, 45);
   assert.equal(h.writes[0].body.outcome, "交期确认");
   assert.ok(!("status" in h.writes[0].body));
@@ -2022,9 +2023,12 @@ test("one step progress note belongs to step task and project timelines without 
   assert.equal(h.api.recordBelongsTo(fact,{type:"task",task_id:taskId}),true);
   assert.equal(h.api.recordBelongsTo(fact,{type:"project",project_id:projectId}),true);
   const panel = h.api.progressPanel({type:"step",project_id:projectId,task_id:taskId,step_id:stepId});
-  const form = panel.children.find(x=>x.tag==="form");
-  assert.ok(form,"step quick-progress form exists");
-  const textarea = form.children.find(x=>x.tag==="textarea");
+  const details = panel.children.find(x=>x.tag==="details");
+  const form = details.children.find(x=>x.tag==="form");
+  assert.ok(form,"step quick-record form exists");
+  const contentLabel = form.children.find(x=>x.tag==="label" &&
+    x.children.some(child=>child.tag==="textarea"));
+  const textarea = contentLabel.children.find(x=>x.tag==="textarea");
   const date = form.children.find(x=>x.tag==="input");
   textarea.value = "新进展：供应商承诺核实货源";
   date.value = "2026-11-09";
@@ -2035,6 +2039,7 @@ test("one step progress note belongs to step task and project timelines without 
   assert.equal(created.body.task_id,taskId);
   assert.equal(created.body.project_id,projectId);
   assert.equal(created.body.action_links[0].target_id,stepId);
+  assert.equal(created.body.record_type,"progress");
   assert.equal(Object.hasOwn(created.body,"status"),false);
   assert.equal(Object.hasOwn(created.body,"confirmed_done"),false);
 });
@@ -2287,3 +2292,136 @@ test("saved report reselects sources only after deliberate rebuild and appends o
   assert.deepEqual(h.writes[0].body.source_record_ids,[included,excluded]);
   assert.equal(h.writes[0].body.body.includes("不需要出现在汇报中的小事"),false);
 });
+
+test("decision records surface the current conclusion and notes stay optional in report defaults", async () => {
+  const task = sampleTask();
+  const older = {record_id:"RECORD-"+"C".repeat(32),display_id:"R-261111-CCCCCCCCCCCC",
+    content:"最初考虑采用方案A",outcome:"采用",record_type:"decision",
+    occurred_on:"2026-11-11",created_at:"2026-11-10T02:00:00Z",
+    updated_at:"2026-11-11T03:00:00Z",task_id:task.task_id,project_id:null,conflict:false};
+  const fact = {record_id:"RECORD-"+"D".repeat(32),display_id:"R-261111-DDDDDDDDDDDD",
+    content:"再次评估是否采用方案A",outcome:"暂不采用",record_type:"decision",
+    occurred_on:"2026-11-09",created_at:"2026-11-11T02:00:00Z",
+    updated_at:"2026-11-11T02:00:00Z",task_id:task.task_id,project_id:null,conflict:false};
+  const h = harness([task],()=>true,[],[],null,{records:[older,fact]});
+  await h.api.loadWorkRecords();
+  const panel = h.api.progressPanel({type:"task",task_id:task.task_id});
+  assert.equal(panel.children[0].className,"current-conclusion");
+  assert.equal(panel.children[0].children[1].textContent,"暂不采用");
+  assert.equal(h.api.summaryRecordRecommended(fact),true);
+  assert.equal(h.api.summaryRecordRecommended({record_type:"note",content:"临时想法"}),false);
+  assert.equal(h.api.summaryRecordRecommended({record_type:"note",featured:true}),true);
+  assert.equal(h.api.workRecordTypeLabel("communication"),"沟通");
+  const details = panel.children.find(child=>child.tag==="details");
+  const form = details.children.find(child=>child.tag==="form");
+  const typeLabel = form.children.find(child=>child.tag==="label" &&
+    child.children.some(input=>input.tag==="select"));
+  const type = typeLabel.children.find(input=>input.tag==="select");
+  const contentLabel = form.children.find(child=>child.tag==="label" &&
+    child.children.some(input=>input.tag==="textarea"));
+  const content = contentLabel.children.find(input=>input.tag==="textarea");
+  const outcomeLabel = form.children.find(child=>child.tag==="label" &&
+    child.children.some(input=>input.tag==="textarea" && input!==content));
+  const outcome = outcomeLabel.children.find(input=>input.tag==="textarea");
+  const date = form.children.find(child=>child.tag==="input");
+  type.value = "decision";
+  type.handlers.get("change")[0]();
+  content.value = "评估是否采用方案A";
+  outcome.value = "暂不采用";
+  date.value = "2026-11-11";
+  await form.handlers.get("submit")[0]({preventDefault(){}});
+  const write = h.writes.find(item=>item.path==="/api/work-records");
+  assert.ok(write);
+  assert.equal(write.body.record_type,"decision");
+  assert.equal(write.body.outcome,"暂不采用");
+});
+
+test("a decision without an outcome is not mislabeled as the current conclusion", async () => {
+  const task = sampleTask();
+  const pending = {record_id:"RECORD-"+"E".repeat(32),display_id:"R-261111-EEEEEEEEEEEE",
+    content:"正在评估是否采用方案A",outcome:null,record_type:"decision",
+    occurred_on:"2026-11-11",created_at:"2026-11-11T04:00:00Z",
+    updated_at:"2026-11-11T04:00:00Z",task_id:task.task_id,project_id:null,conflict:false};
+  const h = harness([task],()=>true,[],[],null,{records:[pending]});
+  await h.api.loadWorkRecords();
+  const panel = h.api.progressPanel({type:"task",task_id:task.task_id});
+  assert.equal(panel.children[0].children[0].textContent,"最近决策记录（尚未填写明确结论）");
+  assert.equal(panel.children[0].children[1].textContent,"正在评估是否采用方案A");
+});
+
+test("a newer conflicted decision suppresses an older current conclusion", async () => {
+  const task = sampleTask();
+  const older = {record_id:"RECORD-"+ "A".repeat(32),display_id:"R-261111-AAAAAAAAAAAA",
+    content:"评估方案A",outcome:"采用",record_type:"decision",
+    occurred_on:"2026-11-11",created_at:"2026-11-10T02:00:00Z",
+    updated_at:"2026-11-10T02:00:00Z",task_id:task.task_id,project_id:null,conflict:false};
+  const newer = {record_id:"RECORD-"+ "B".repeat(32),display_id:"R-261111-BBBBBBBBBBBB",
+    content:"重新评估方案A",outcome:"暂不采用",record_type:"decision",
+    occurred_on:"2026-11-09",created_at:"2026-11-11T02:00:00Z",
+    updated_at:"2026-11-11T02:00:00Z",task_id:task.task_id,project_id:null,conflict:true};
+  const h = harness([task],()=>true,[],[],null,{records:[older,newer]});
+  await h.api.loadWorkRecords();
+  const panel = h.api.progressPanel({type:"task",task_id:task.task_id});
+  assert.equal(panel.children[0].className,"current-conclusion current-conclusion--warning");
+  const warningText = panel.children[0].children[1].textContent;
+  assert.match(warningText,/暂不展示旧结论/);
+  assert.match(warningText,/完整工作轨迹/);
+  assert.doesNotMatch(warningText,/采用/);
+});
+
+test("editing a decision creates a new record instead of overwriting the prior conclusion", async () => {
+  const id = "RECORD-"+"F".repeat(32);
+  const decision = {record_id:id,display_id:"R-261111-FFFFFFFFFFFF",
+    record_type:"decision",content:"评估是否采用方案A",outcome:"暂不采用",
+    occurred_on:"2026-11-11",created_at:"2026-11-11T02:00:00Z",
+    updated_at:"2026-11-11T02:00:00Z",project_id:null,task_id:null,
+    action_links:[],evidence_links:[],featured:false,revision:1,conflict:false};
+  const h = harness([],()=>true,[],[],async (path,body)=>({
+    ok:true,json:async()=>({saved:true,record_id:"RECORD-NEW",display_id:"R-261111-NEWNEWNEW",revision:1})
+  }),{records:[decision]});
+  await h.api.loadWorkRecords();
+  h.api.editWorkRecord(id);
+  assert.equal(h.el("work-record-submit").textContent,"保存为新记录");
+  assert.match(h.el("work-record-message").textContent,/原决策保留/);
+  await h.api.saveWorkRecord({preventDefault(){}});
+  assert.equal(h.writes[0].path,"/api/work-records");
+  assert.equal(h.writes[0].body.record_type,"decision");
+  assert.equal(h.writes[0].body.outcome,"暂不采用");
+});
+
+test("object descriptions save independently and inherited conversion descriptions use a revision token", async () => {
+  const task = {...sampleTask(),description:"",description_revision:0};
+  const h = harness([task],()=>true,[],[],async (path,body)=>({
+    ok:true,json:async()=>({saved:true,revision:1,description:body.description})
+  }));
+  const panel = h.api.objectDescriptionPanel("task",task);
+  const form = panel.children.find(child=>child.tag==="form");
+  const textarea = form.children[0].children.find(child=>child.tag==="textarea");
+  textarea.value = "背景：评估是否采用方案A";
+  form.handlers.get("input")[0]();
+  await form.handlers.get("submit")[0]({preventDefault(){}});
+  assert.equal(h.writes[0].path,"/api/object-details");
+  assert.equal(h.writes[0].body.object_type,"task");
+  assert.equal(h.writes[0].body.object_id,task.task_id);
+  assert.equal(h.writes[0].body.revision,0);
+  assert.equal(task.description,"背景：评估是否采用方案A");
+  assert.equal(task.description_revision,1);
+  assert.equal(panel.children[0].textContent,"任务说明");
+
+  const stepId = "STEP-"+"E".repeat(32);
+  const inheritedFrom = "step|TASK-UI-V2-001|"+stepId;
+  const step = {step_id:stepId,description:"原步骤说明",description_revision:0,
+    description_inherited:true,description_inherited_from:inheritedFrom,
+    description_inherited_revision:2,conflict:false};
+  const h2 = harness([],()=>true,[],[],async (path,body)=>({
+    ok:true,json:async()=>({saved:true,revision:1,description:body.description})
+  }));
+  const stepPanel = h2.api.objectDescriptionPanel("step",step,"TASK-UI-V2-001");
+  const stepForm = stepPanel.children.find(child=>child.tag==="form");
+  stepForm.children[0].children.find(child=>child.tag==="textarea").value = "继承后调整的说明";
+  await stepForm.handlers.get("submit")[0]({preventDefault(){}});
+  assert.equal(h2.writes[0].body.inherited_from,inheritedFrom);
+  assert.equal(h2.writes[0].body.inherited_revision,2);
+  assert.equal(h2.writes[0].body.task_id,"TASK-UI-V2-001");
+});
+
