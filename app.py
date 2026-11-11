@@ -2785,12 +2785,12 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
     if project_id is not None:
         if not PROJECT_ID.fullmatch(project_id):
             raise ValueError("invalid summary project")
-        project = next((p for p in workspace["projects"]
-                        if p["project_id"] == project_id and not p.get("conflict")), None)
-        if project is None:
+        selected_project = next((p for p in workspace["projects"]
+                                 if p["project_id"] == project_id and not p.get("conflict")), None)
+        if selected_project is None:
             raise LookupError("summary project not synchronized")
     else:
-        project = None
+        selected_project = None
     state = read_work_records(data_dir)
     if state["warnings"]:
         raise LookupError("work record source has unresolved warnings; check before summarizing")
@@ -2828,7 +2828,8 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
     record_sources = []
     for r in records:
         task = tasks_by_id.get(r.get("task_id"))
-        project = projects_by_id.get(r.get("project_id"))
+        record_project = projects_by_id.get(
+            r.get("project_id") or (task.get("project_id") if task else None))
         annotated = {**r}
         label_work_associations(annotated, workspace)
         record_sources.append({
@@ -2839,18 +2840,83 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
             "featured": r.get("featured", False),
             "duration_minutes": r.get("duration_minutes"),
             "project_id": r.get("project_id"),
-            "project_name": project.get("name") if project else None,
+            "project_name": record_project.get("name") if record_project else None,
             "task_id": r.get("task_id"),
             "task_title": task.get("title") if task else None,
             "action_links": r.get("action_links", []),
             "action_link_labels": annotated["action_link_labels"],
             "evidence_links": r.get("evidence_links", [])
         })
+    # Object descriptions are background context for analysis, never work events.
+    # Bound the exported context so large projects cannot overwhelm the review.
+    steps_by_key = {
+        (task["task_id"], step["step_id"]): step
+        for task in workspace["tasks"] for step in task.get("steps", [])
+    }
+    context_by_key: dict[tuple[str, str], dict] = {}
+
+    def add_object_context(kind: str, object_id: str, title: str,
+                           description: str, parent_task_id: str | None = None) -> None:
+        if not isinstance(description, str) or not description.strip():
+            return
+        key = (kind, object_id)
+        if key in context_by_key:
+            return
+        context = {"object_type": kind, "object_id": object_id,
+                   "title": title, "description": description.strip()}
+        if parent_task_id:
+            context["parent_task_id"] = parent_task_id
+        context_by_key[key] = context
+
+    if selected_project:
+        add_object_context("project", selected_project["project_id"],
+                           selected_project["name"], selected_project.get("description", ""))
+    for record in records:
+        task = tasks_by_id.get(record.get("task_id"))
+        project_for_record = projects_by_id.get(
+            record.get("project_id") or (task.get("project_id") if task else None))
+        if project_for_record:
+            add_object_context("project", project_for_record["project_id"],
+                               project_for_record["name"],
+                               project_for_record.get("description", ""))
+        if task:
+            add_object_context("task", task["task_id"], task.get("title", ""),
+                               task.get("description", ""))
+        for link in record.get("action_links", []):
+            if link["target_type"] == "step":
+                parent_id = link.get("task_id")
+                step = steps_by_key.get((parent_id, link["target_id"]))
+                if step:
+                    add_object_context("step", step["step_id"], step.get("title", ""),
+                                       step.get("description", ""), parent_id)
+            elif link["target_type"] == "task":
+                linked_task = tasks_by_id.get(link["target_id"])
+                if linked_task:
+                    add_object_context("task", linked_task["task_id"],
+                                       linked_task.get("title", ""),
+                                       linked_task.get("description", ""))
+    context_order = {"project": 0, "task": 1, "step": 2}
+    all_object_contexts = sorted(
+        context_by_key.values(),
+        key=lambda item: (context_order.get(item["object_type"], 9), item["object_id"]))
+    object_contexts = []
+    object_context_chars = 0
+    object_contexts_omitted = 0
+    for context in all_object_contexts:
+        size = len(context["description"])
+        if len(object_contexts) >= 20 or object_context_chars + size > 6000:
+            object_contexts_omitted += 1
+            continue
+        object_contexts.append(context)
+        object_context_chars += size
+
     # The digest includes the rendered source context, not merely the IDs.
     # A late project/task label or evidence revision must not be silently used
     # with an already reviewed set of report inputs.
     fingerprint_sources = {
         "records": record_sources,
+        "object_contexts": object_contexts,
+        "object_contexts_omitted": object_contexts_omitted,
         "completions": [{"id": e["source_event_id"], "occurred_at": e["occurred_at"],
                           "task_title": e["task_title"]} for e in completed]
     }
@@ -2860,7 +2926,7 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
     heading = {"daily": "日报", "weekly": "周报", "monthly": "月报"}[period]
     lines = ["# " + heading + "（来源整理底稿，非 AI 自动分析）",
              "期间：" + start + " 至 " + end,
-             "项目：" + (project["name"] if project else "全部项目"),
+             "项目：" + (selected_project["name"] if selected_project else "全部项目"),
              "工作记录：" + str(len(records)) + " 条；任务人工完成：" +
              str(len(completed)) + " 次；已填耗时：" + str(duration) + " 分钟",
              "",
@@ -2875,6 +2941,15 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
             lines.append("  " + outcome_label + record["outcome"].replace("\n", " ").strip())
     if not records:
         lines.append("- 无工作记录")
+    if object_contexts or object_contexts_omitted:
+        lines.extend(["", "## 关联事项说明（仅供理解上下文，不作为独立工作事件或成果）"])
+        for context in object_contexts:
+            label = {"project": "项目", "task": "任务", "step": "步骤"}[context["object_type"]]
+            lines.append("- [" + label + "] " + context["title"] + "（" +
+                         context["object_id"] + "）： " +
+                         context["description"].replace("\n", " ").strip())
+        if object_contexts_omitted:
+            lines.append("- 另有 " + str(object_contexts_omitted) + " 条关联说明未展开。")
     lines.append("")
     lines.append("## 已确认完成的任务")
     for event in completed:
@@ -2893,6 +2968,8 @@ def preview_work_review(data_dir: Path, workspace: dict, period: str,
             "duration_minutes": duration,
             "source_digest": source_digest,
             "record_sources": record_sources,
+            "object_contexts": object_contexts,
+            "object_contexts_omitted": object_contexts_omitted,
             "completion_sources": [
                 {"source_event_id": e["source_event_id"], "occurred_at": e["occurred_at"],
                  "task_title": e["task_title"]} for e in completed
@@ -2960,6 +3037,8 @@ def work_analysis_context(data_dir: Path, workspace: dict, period: str,
         "source_record_ids": review["source_record_ids"],
         "source_completion_ids": review["source_completion_ids"],
         "records": _analysis_record_sources(records),
+        "object_contexts": review.get("object_contexts", []),
+        "object_contexts_omitted": review.get("object_contexts_omitted", 0),
         "confirmed_task_completions": completed,
     }
     instruction = (
