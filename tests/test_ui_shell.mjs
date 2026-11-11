@@ -2295,11 +2295,15 @@ test("saved report reselects sources only after deliberate rebuild and appends o
 
 test("decision records surface the current conclusion and notes stay optional in report defaults", async () => {
   const task = sampleTask();
+  const older = {record_id:"RECORD-"+"C".repeat(32),display_id:"R-261111-CCCCCCCCCCCC",
+    content:"最初考虑转卖零件",outcome:"卖",record_type:"decision",
+    occurred_on:"2026-11-11",created_at:"2026-11-10T02:00:00Z",
+    updated_at:"2026-11-11T03:00:00Z",task_id:task.task_id,project_id:null,conflict:false};
   const fact = {record_id:"RECORD-"+"D".repeat(32),display_id:"R-261111-DDDDDDDDDDDD",
-    content:"评估是否向供应商转卖零件",outcome:"不卖",record_type:"decision",
-    occurred_on:"2026-11-11",created_at:"2026-11-11T02:00:00Z",
+    content:"再次评估是否向供应商转卖零件",outcome:"不卖",record_type:"decision",
+    occurred_on:"2026-11-09",created_at:"2026-11-11T02:00:00Z",
     updated_at:"2026-11-11T02:00:00Z",task_id:task.task_id,project_id:null,conflict:false};
-  const h = harness([task],()=>true,[],[],null,{records:[fact]});
+  const h = harness([task],()=>true,[],[],null,{records:[older,fact]});
   await h.api.loadWorkRecords();
   const panel = h.api.progressPanel({type:"task",task_id:task.task_id});
   assert.equal(panel.children[0].className,"current-conclusion");
