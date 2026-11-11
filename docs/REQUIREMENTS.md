@@ -399,7 +399,7 @@
 4. RECORD 新增可选 `record_type`：`progress`（进展）、`communication`（沟通）、`decision`（决策／结论）、`note`（随手记）。历史事件缺少该字段时默认 `progress`。类别是事实属性，不是任务状态，不改变 todo/doing/blocked/done。
 5. 决策记录使用现有 `content` 描述背景或判断，`outcome` 可填写明确结论／处理结果。对象详情顶部展示该对象最近一条有效 decision 记录作为「当前结论」；按记录首次保存时间（created_at）确定，不按补记的 occurred_on 或后续元数据 updated_at 误选。新决策成为当前展示时，旧决策仍保留为独立 RECORD，不覆盖历史，不另存重复的 conclusion 字段；decision 的 content/outcome/record_type 不允许原记录覆盖，更正或新判断必须新增 RECORD。
 6. 随手记仍是个人工作轨迹中的合法记录。个人版默认包含全部事实；汇报版「只选重点」默认不推荐普通 note，但用户仍可手动勾选。decision、人工精选或明确填写 outcome 的记录可作为重点推荐，最终选择仍由用户决定。
-7. record_type 必须进入工作轨迹显示、项目阶段线、报告来源卡、source_digest 和主动复制给 ChatGPT 的分析上下文；发生日期 occurred_on 与实际录入／修改时间 created_at/updated_at 保持分离。不得把说明字段误算为工作事件或总结来源。
+7. record_type 必须进入工作轨迹显示、项目阶段线、报告来源卡、source_digest 和主动复制给 ChatGPT 的分析上下文；对象说明作为单独的 object_contexts 进入总结预览、source_digest 和 AI 分析上下文，但不进入 RECORD 来源清单、不计入工作事实数量。发生日期 occurred_on 与实际录入／修改时间 created_at/updated_at 保持分离。
 8. 步骤↔任务转换后，原对象说明应通过已有 conversion_events 的有效映射继续投影到转换目标；目标有自己的说明事件时以目标说明为准。转换历史和原事件字节保持不变。
 9. AI 只协助整理用户主动提供的内容；不得自动调用付费 API 或未经确认写入记录、改变状态、生成后续任务。快速记录可由用户直接填写；AI 整理后仍须人工核对并保存。
 10. 验收必须覆盖旧 RECORD 默认类别、类别校验、decision 当前结论、note 的个人／汇报默认选择、说明 revision/并发冲突/清空、步骤与任务转换说明保留、跨层级 RECORD ID 去重，以及旧 task/step/project 事件字节不变。真实双电脑 Google Drive 同步仍需独立验收。
