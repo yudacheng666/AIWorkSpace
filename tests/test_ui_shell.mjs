@@ -2350,8 +2350,9 @@ test("a newer conflicted decision suppresses an older current conclusion", async
   await h.api.loadWorkRecords();
   const panel = h.api.progressPanel({type:"task",task_id:task.task_id});
   assert.equal(panel.children[0].className,"current-conclusion current-conclusion--warning");
-  assert.match(panel.children[0].textContent,/暂不展示旧结论/);
-  assert.doesNotMatch(panel.children[0].textContent,/采用/);
+  const warningText = panel.children[0].children[1].textContent;
+  assert.match(warningText,/暂不展示旧结论/);
+  assert.doesNotMatch(warningText,/采用/);
 });
 
 test("editing a decision creates a new record instead of overwriting the prior conclusion", async () => {
