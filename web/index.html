@@ -1813,6 +1813,13 @@
           target.description_inherited = false;
           delete target.description_inherited_from;
           delete target.description_inherited_revision;
+          if (objectType === "project") {
+            const stored = currentProjects.find(item => item.project_id === target.project_id);
+            if (stored && stored !== target) Object.assign(stored, {
+              description:target.description, description_revision:target.description_revision,
+              description_conflict:false, description_inherited:false
+            });
+          }
           summary.textContent = target.description ? typeLabel : "填写" + typeLabel;
           help.textContent = "说明是稳定背景信息，不会自动进入工作时间线或总结。工作过程和结论请使用下方记录入口。";
           watcher.markClean(sent);
