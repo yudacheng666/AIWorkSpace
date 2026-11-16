@@ -5818,7 +5818,7 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                     if not isinstance(name, str) or not 1 <= len(name.strip()) <= 120:
                         raise ValueError("project name must be 1–120 characters")
                     with _write_lock:
-                        workspace = read_workspace(data_dir)
+                        workspace = read_workspace(data_dir, include_trashed=True)
                         if any(p["name"].casefold() == name.strip().casefold()
                                for p in workspace["projects"] if not p["conflict"]):
                             return self.json_response(409, {"error": "project name already exists"})
@@ -5831,6 +5831,46 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                     return self.json_response(201, {"saved": True, "project_id": project_id,
                                                     "revision": 1})
 
+                if project_lifecycle_match:
+                    action = project_lifecycle_match.group(2)
+                    expected = ({"revision", "confirmed_delete"} if action == "trash"
+                                else {"revision", "confirmed_purge"} if action == "purge"
+                                else {"revision"})
+                    if set(payload) != expected:
+                        raise ValueError("project lifecycle fields or confirmation are missing")
+                    revision = payload["revision"]
+                    if type(revision) is not int or revision < 1:
+                        raise ValueError("invalid project revision")
+                    if (action == "trash" and payload["confirmed_delete"] is not True or
+                            action == "purge" and payload["confirmed_purge"] is not True):
+                        raise ValueError("project lifecycle requires explicit confirmation")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir, include_trashed=True)
+                        current = next((p for p in workspace["projects"]
+                            if p["project_id"] == project_lifecycle_match.group(1)), None)
+                        if current is None:
+                            return self.json_response(404, {"error": "project not found"})
+                        if current["conflict"] or current["revision"] != revision:
+                            return self.json_response(409, {"error":
+                                "项目数据有冲突或版本已更新；请刷新后核查"})
+                        if action == "trash" and current.get("trashed_at"):
+                            return self.json_response(409, {"error": "项目已在回收站"})
+                        if action != "trash" and not current.get("trashed_at"):
+                            return self.json_response(409, {"error": "项目须先移入回收站"})
+                        if action == "restore" and any(
+                            p["project_id"] != current["project_id"] and not p.get("trashed_at") and
+                            not p["conflict"] and p["name"].casefold() == current["name"].casefold()
+                            for p in workspace["projects"]):
+                            return self.json_response(409, {"error": "存在同名项目，暂不能恢复"})
+                        if action == "purge" and project_has_persistent_references(
+                                data_dir, current["project_id"]):
+                            return self.json_response(409, {"error":
+                                "项目曾被任务、工作记录或说明等引用；不可永久移除，请保留在回收站"})
+                        append_project_lifecycle(data_dir, current, action)
+                    return self.json_response(200, {"saved": True, "action": action,
+                                                     "project_id": current["project_id"],
+                                                     "revision": revision + 1})
+
                 if project_match:
                     if set(payload) != {"name", "revision"}:
                         raise ValueError("project update requires name and revision")
@@ -5841,12 +5881,12 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                     if type(revision) is not int or revision < 1:
                         raise ValueError("invalid revision")
                     with _write_lock:
-                        workspace = read_workspace(data_dir)
+                        workspace = read_workspace(data_dir, include_trashed=True)
                         current = next((p for p in workspace["projects"]
                                         if p["project_id"] == project_match.group(1)), None)
                         if not current:
                             return self.json_response(404, {"error": "project not found"})
-                        if current["conflict"] or current["revision"] != revision:
+                        if current["conflict"] or current["revision"] != revision or current.get("trashed_at"):
                             return self.json_response(409, {"error": "project changed or has a conflict; refresh"})
                         if any(p["project_id"] != current["project_id"] and
                                p["name"].casefold() == name.strip().casefold() and not p["conflict"]
