@@ -497,7 +497,8 @@ def validate_project_event(value: object) -> dict:
         raise ValueError("invalid event_id")
     if not isinstance(value.get("project_id"), str) or not PROJECT_ID.fullmatch(value["project_id"]):
         raise ValueError("invalid project_id")
-    if value.get("action") not in {"create", "update"}:
+    action = value.get("action")
+    if action not in {"create", "update", "trash", "restore", "purge"}:
         raise ValueError("invalid action")
     if value.get("actor") not in {"chatgpt", "user"}:
         raise ValueError("invalid actor")
@@ -505,6 +506,37 @@ def validate_project_event(value: object) -> dict:
     if type(revision) is not int or revision < 0:
         raise ValueError("invalid base_revision")
     changes = value.get("changes")
+    if action in {"trash", "restore", "purge"}:
+        if value["actor"] != "user" or revision < 1:
+            raise ValueError("project lifecycle requires a user action on an existing project")
+        field = "purged_at" if action == "purge" else "trashed_at"
+        if not isinstance(changes, dict) or set(changes) != {field}:
+            raise ValueError("unexpected project lifecycle fields")
+        allowed = {"version", "event_id", "project_id", "action", "actor",
+                   "timestamp", "base_revision", "changes"}
+        confirmation = {"trash": "confirmed_delete", "restore": None,
+                        "purge": "confirmed_purge"}[action]
+        if confirmation:
+            if value.get(confirmation) is not True:
+                raise ValueError("project deletion requires explicit user confirmation")
+            allowed.add(confirmation)
+        if set(value) - allowed:
+            raise ValueError("unknown project lifecycle fields")
+        stamp = changes[field]
+        if action == "restore":
+            if stamp is not None:
+                raise ValueError("project restore must clear trashed_at")
+        else:
+            if not isinstance(stamp, str):
+                raise ValueError("project lifecycle timestamp required")
+            try:
+                if datetime.fromisoformat(stamp.replace("Z", "+00:00")).tzinfo is None:
+                    raise ValueError("timezone required")
+            except ValueError as exc:
+                raise ValueError("invalid project lifecycle timestamp") from exc
+        return value
+    if "confirmed_delete" in value or "confirmed_purge" in value:
+        raise ValueError("unexpected project lifecycle confirmation")
     if not isinstance(changes, dict) or set(changes) != {"name"}:
         raise ValueError("project changes must contain only name")
     name = changes["name"]
@@ -1082,6 +1114,7 @@ def read_projects(data_dir: Path) -> dict:
         return {"projects": [], "warnings": []}
     created: dict[str, list[dict]] = defaultdict(list)
     updated: dict[str, list[dict]] = defaultdict(list)
+    purged_ids: set[str] = set()
     warnings: list[str] = []
     seen: dict[str, dict] = {}
     duplicate_conflicts: dict[str, list[dict]] = defaultdict(list)
@@ -1107,11 +1140,15 @@ def read_projects(data_dir: Path) -> dict:
                 seen[event["event_id"]] = event
             destination = created if event["action"] == "create" else updated
             destination[event["project_id"]].append(event)
+            if event["action"] == "purge":
+                purged_ids.add(event["project_id"])
         except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
             warnings.append(f"{path.name}: {exc}")
 
     projects: list[dict] = []
     for project_id in sorted(set(created) | set(updated)):
+        if project_id in purged_ids:
+            continue  # Irrevocable project tombstone wins over late sync.
         roots = created[project_id]
         if len(roots) != 1:
             warnings.append(f"{project_id}: missing or multiple project creation events")
@@ -1120,6 +1157,7 @@ def read_projects(data_dir: Path) -> dict:
                 "project_id": project_id,
                 "display_id": project_id,
                 "name": "项目创建记录冲突" if roots else "项目创建记录尚未同步",
+                "trashed_at": None,
                 "revision": 0,
                 "conflict": True,
                 "conflict_candidates": summarize_conflict_events(candidates),
@@ -1128,7 +1166,8 @@ def read_projects(data_dir: Path) -> dict:
         created_at = roots[0].get("timestamp", "")
         project = {"project_id": project_id, "display_id": display_project_id(project_id, created_at),
                    "created_at": created_at, "name": roots[0]["changes"]["name"].strip(),
-                   "revision": 1, "conflict": False, "conflict_candidates": []}
+                   "trashed_at": None, "revision": 1,
+                   "conflict": False, "conflict_candidates": []}
         by_revision: dict[int, list[dict]] = defaultdict(list)
         for event in updated[project_id]:
             by_revision[event["base_revision"]].append(event)
@@ -1139,7 +1178,19 @@ def read_projects(data_dir: Path) -> dict:
                 project["conflict_candidates"] = summarize_conflict_events(candidates)
                 warnings.append(f"{project_id}: conflicting project edits at revision {project['revision']}")
                 break
-            project["name"] = candidates[0]["changes"]["name"].strip()
+            selected = candidates[0]
+            action = selected["action"]
+            if action == "trash" and project["trashed_at"] is None:
+                project["trashed_at"] = selected["changes"]["trashed_at"]
+            elif action == "restore" and project["trashed_at"] is not None:
+                project["trashed_at"] = None
+            elif action == "update" and project["trashed_at"] is None:
+                project["name"] = selected["changes"]["name"].strip()
+            else:
+                project["conflict"] = True
+                project["conflict_candidates"].extend(summarize_conflict_events(candidates))
+                warnings.append(f"{project_id}: invalid project lifecycle order at revision {project['revision']}")
+                break
             project["revision"] += 1
         if by_revision:
             remaining = [event for group in by_revision.values() for event in group]
@@ -1683,7 +1734,9 @@ def read_workspace(data_dir: Path, include_trashed: bool = False,
         warnings.extend(project_state["warnings"])
         read_steps(data_dir, tasks, warnings, conversions)
         apply_object_details(data_dir, project_state["projects"], tasks, [], warnings=warnings)
-        return {"tasks": tasks, "projects": project_state["projects"], "warnings": warnings}
+        projects = (project_state["projects"] if include_trashed else
+                    [p for p in project_state["projects"] if not p.get("trashed_at")])
+        return {"tasks": tasks, "projects": projects, "warnings": warnings}
 
     for path in sorted(event_dir.glob("*.json")):
         if not path.is_file():
@@ -1867,13 +1920,17 @@ def read_workspace(data_dir: Path, include_trashed: bool = False,
         task.setdefault("related_project_ids", [])
         task.setdefault("document_links", [])
         primary = project_map.get(task["project_id"]) if task["project_id"] else None
-        task["project_name"] = primary["name"] if primary and not primary["conflict"] else None
+        task["project_name"] = (
+            primary["name"] + ("（项目已移入回收站）" if primary.get("trashed_at") else "")
+            if primary and not primary["conflict"] else None)
+        task["project_archived"] = bool(primary and primary.get("trashed_at"))
         task["project_missing"] = bool(task["project_id"] and (primary is None or primary["conflict"]))
         related_names = []
         for project_id in task["related_project_ids"]:
             related = project_map.get(project_id)
             if related and not related["conflict"]:
-                related_names.append(related["name"])
+                related_names.append(related["name"] +
+                                     ("（项目已移入回收站）" if related.get("trashed_at") else ""))
             else:
                 task["project_missing"] = True
         task["related_project_names"] = related_names
@@ -1912,7 +1969,9 @@ def read_workspace(data_dir: Path, include_trashed: bool = False,
         data_dir, project_state["projects"], tasks, conversions,
         active_hidden_tasks, active_hidden_steps,
         hidden_target_tasks, hidden_target_steps, warnings)
-    return {"tasks": tasks, "projects": project_state["projects"], "warnings": warnings}
+    projects = (project_state["projects"] if include_trashed else
+                [p for p in project_state["projects"] if not p.get("trashed_at")])
+    return {"tasks": tasks, "projects": projects, "warnings": warnings}
 
 
 def _append_json_event(data_dir: Path, event: dict, folder: str) -> Path:
