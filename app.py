@@ -77,7 +77,7 @@ def display_project_id(project_id: str, created_at: str = "") -> str:
     """Derive a stable project display code without changing stored project IDs."""
     day = "000000"
     if isinstance(created_at, str):
-        matched = re.match(r"^(\\d{4})-(\\d{2})-(\\d{2})", created_at)
+        matched = re.match(r"^(\d{4})-(\d{2})-(\d{2})", created_at)
         if matched:
             try:
                 date.fromisoformat("-".join(matched.groups()))
