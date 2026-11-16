@@ -1622,9 +1622,9 @@
       for(const task of current) for(const id of [task.project_id,...(task.related_project_ids||[])]) {
         if(id&&!ids.has(id)){
           const archived = current.some(t=>t.project_id===id && t.project_archived);
-          ids.add(id);result.push({project_id:id,
-            name:archived?"项目已在回收站（关联仍保留）":"项目尚未同步",
-            conflict:true,missing:!archived,archived});
+          if (archived) continue; // Keep archived projects out of the normal project manager.
+          ids.add(id);
+          result.push({project_id:id,name:"项目尚未同步",conflict:true,missing:true});
         }
       }
       return result;
