@@ -95,6 +95,10 @@
     .task-conversion-controls select { min-width:min(260px,100%); flex:1; }
     .task-conversion-note { margin:0; color:#8593a5; font-size:12px; line-height:1.5; }
     .step-empty, .step-order-warning, .step-conflict { color: #8593a5; font-size: 12px; margin: 10px 0 0; }
+    .deleted-steps-panel{margin-top:10px;padding:9px 11px;border:1px dashed #dee7f0;border-radius:8px;color:#64758a;font-size:11px;}
+    .deleted-steps-panel summary{cursor:pointer;font-weight:650;}
+    .deleted-step-item{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:8px;flex-wrap:wrap;}
+    .deleted-step-item button{padding:5px 10px;border:1px solid #d2e1f5;border-radius:7px;background:#fff;color:#285e9d;}
     .step-order-warning, .step-conflict { color: #976211; }
     .step-message { margin: 8px 0 0; font-size: 12px; }
     @media (max-width: 700px) {
@@ -567,6 +571,10 @@
     .project-id-controls .project-id-feedback{color:#4c8a68;font-size:10px;}
     .project-id-controls .project-id-feedback[hidden]{display:none;}
     .project-card .project-id-controls{grid-column:1/-1;}
+    .project-card-actions .project-trash-action{border-color:#e9d1d1;background:#fff;color:#a34c4c;}
+    .project-trash-note{font-size:11px;color:#8291a2;line-height:1.5;}
+    .trash-project-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    .trash-project-actions button{min-height:32px;}
     @media(max-width:850px){.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}.project-filter{grid-template-columns:minmax(0,1fr) auto auto;}.project-filter select{width:130px;}}
     @media(max-width:520px){.project-filter{grid-template-columns:1fr 1fr;}.project-filter input{grid-column:1/-1;}.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}}
 
@@ -888,10 +896,10 @@
     </section>
     <section id="page-trash" class="workspace-page" hidden>
       <div class="page-heading">
-        <div><h1 id="trash-title">回收站</h1><p class="subtitle">恢复误删任务，或管理已删除任务的保留期限。</p></div>
+        <div><h1 id="trash-title">回收站</h1><p class="subtitle">恢复误删项目与任务；删除项目不会自动删除任务、步骤或工作记录。</p></div>
       </div>
       <div class="stats trash-stats" aria-label="回收站统计">
-        <div class="stat"><b id="trash-stat-total">0</b><span>已删除任务</span></div>
+        <div class="stat"><b id="trash-stat-total">0</b><span>已删除项目与任务</span></div>
         <div class="stat"><b id="trash-stat-restorable">0</b><span>可恢复</span></div>
         <div class="stat"><b id="trash-stat-conflict">0</b><span>存在冲突</span></div>
       </div>
@@ -915,8 +923,15 @@
         </div>
         <div class="trash-warning" role="note">
           <span class="trash-warning-icon" aria-hidden="true">ⓘ</span>
-          <span>到期任务将在下次访问工作台时清理。彻底删除仅清除本机事件文件，无法保证清除其他设备、云端历史版本或备份中的副本。</span>
+          <span>任务按保留期限自动清理；项目不会自动彻底删除。项目只从列表隐藏，不影响原任务/步骤/工作记录。任务彻底删除可能清理本机事件；项目永久移除保留不可复活的审计标记，无法清除其他设备及备份。</span>
         </div>
+      </section>
+      <section class="trash-card" aria-labelledby="trash-project-heading">
+        <div class="trash-card-head">
+          <div><h2 id="trash-project-heading">已删除项目 <span class="trash-count" id="trash-project-count">0 项</span></h2>
+          <p class="trash-card-caption">可随时恢复；曾关联任务或工作记录的项目为保护历史引用，不可永久移除。</p></div>
+        </div>
+        <div class="trash-list" id="trash-project-list" aria-label="已删除项目"></div>
       </section>
       <section class="trash-card trash-list-card" aria-labelledby="trash-list-heading">
         <div class="trash-card-head">
@@ -1983,7 +1998,31 @@
       });
       const go=element("button","","进入任务列表");
       go.type="button";go.addEventListener("click",()=>openProjectTasks(project.project_id));
-      actions.append(detail,go);card.append(actions);
+      const trash = element("button", "project-trash-action", "删除项目");
+      trash.type = "button";
+      trash.disabled = Boolean(project.conflict || project.missing);
+      trash.addEventListener("click", async () => {
+        if (isSaving || project.conflict || project.missing || !confirmProjectDrafts()) return;
+        const counts = projectCounts(project.project_id);
+        if (!window.confirm("确认将项目「" + project.name + "」移入回收站？\n" +
+            "涉及主要归属 " + counts.primary + " 个任务、关联 " + counts.related +
+            " 个任务。任务、子任务、步骤及工作记录均保留，不自动解除关联。")) return;
+        isSaving = true; trash.disabled = true;
+        try {
+          const response = await fetch("/api/projects/" + encodeURIComponent(project.project_id) + "/trash", {
+            method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({revision:project.revision,confirmed_delete:true})
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "项目删除失败");
+          if (selectedProjectId === project.project_id) selectedProjectId = "";
+          $("project-message").textContent = "项目已移入回收站；原关联任务和记录均保留。";
+          await refresh(true,true);
+        } catch (error) {
+          $("project-message").textContent = "删除项目失败：" + error.message;
+        } finally { isSaving = false; trash.disabled = Boolean(project.conflict || project.missing); }
+      });
+      actions.append(detail,go,trash);card.append(actions);
       card.addEventListener("submit", async event => {
         event.preventDefault();
         if (isSaving || project.conflict || project.missing || input.value.trim() === project.name) return;
