@@ -303,3 +303,15 @@
 - 已核验唯一开放 PR #53、依赖与 VERSION；产品／测试 SHA `996f44f231f49b8402f216518545a8b2476cf201` 的 [Actions #42967921372](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42967921372) 3/3 SUCCESS，后续 PR 提交仅修改 Markdown 记忆。已按普通 merge 合并，main merge SHA `887cb4a8a026073d6a8fa33c68ccf2779b287a2a`、VERSION 2.10.0，剩余开放 PR 0。
 - [main Actions #42969378317](https://github.com/yudacheng666/AIWorkSpace/actions/runs/42969378317) 对准确 merge SHA **3/3 SUCCESS**（Ubuntu／Windows Python + Node、Windows 真实 Chromium、更新回滚）。不再派 Codex 重复同覆盖用例。
 - GitHub main 发布与用户 Windows 8770 实机部署／Google Drive 数据修改分离。真实双电脑离线重连、旧客户端混合版本、生产数据同步 **NOT TESTED**，不把模拟故障注入扩展成实机验收。
+
+
+## 2026-11-16：D-20261116-AI-OPS-01（日常工作台事务必须先读取权威处理规则）
+
+- **决定**：ChatGPT 每次开始或恢复任何 AIWorkSpace 日常业务事务前，都必须读取 GitHub main 的 `docs/AI_WORKSPACE_OPERATING_RULES.md` 最新版本；包括数日后在原对话续办、新对话续办及上下文中断后恢复。读取不是一次性开场动作，整个事务的查询、分析、写入、复核和汇报都必须持续遵守。
+- **读取频率**：同一连续工作时段内的即时追问无需每条消息重复读取；跨日恢复、切换对话／AI、上下文中断后恢复时必须重新读取。若 main 规则可能已更新，在下一次写入前重新读取。
+- **来源分工**：GitHub 规则文件规定处理流程；当前 main 的相关 app.py validator 定义字段、编号和操作边界；当前可读取的 Google Drive 工作台数据提供真实任务、步骤、记录和状态。历史对话与 ChatGPT 记忆不能替代这三类来源。
+- **执行方式**：用户明确指令默认构成执行授权。ChatGPT 应先静默完成查询、查重和校验，然后直接执行并回读验证，不得对常规操作重复要求确认。只有目标歧义、必要信息缺失、冲突／同步不完整、版本能力无法确认或软件安全流程要求独立授权时，才暂停受影响的写入。
+- **简化原则**：不建设独立记忆数据库、不增加 UI/API/付费模型、不手工复制维护字段清单。日常操作规则集中在一个文档；字段和事件格式始终以当前代码 validator 为准。
+- **兼容与安全**：GitHub main 版本不代表用户电脑已经部署；涉及版本专属格式时先核实实际部署版本。保留现有 append-only、revision、merge_basis、异常核查审计、完成确认和 Google Drive 同步边界。
+- **实施状态**：本决策最初由 PR #54 提交实现；当前权威内容以合并后的 GitHub main 最新版本为准。本决策不代表真实电脑已升级或真实数据已操作。
+

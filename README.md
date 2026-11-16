@@ -295,6 +295,7 @@ node --test tests/test_create_ui.mjs
 - [确认过的需求](docs/REQUIREMENTS.md)
 - [当前进展与下一步](docs/PROJECT_STATE.md)
 - [重要决策](docs/DECISIONS.md)
+- [AI 日常工作台处理规则](docs/AI_WORKSPACE_OPERATING_RULES.md)
 - [AI 协作规则](AGENTS.md)
 
 
