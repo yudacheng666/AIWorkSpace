@@ -2,6 +2,7 @@
 
 - **用户目标**：让 ChatGPT 在每次开始独立的日常工作台事务前，主动读取一份权威处理规则；不依赖旧对话记忆猜任务编号、字段或软件能力。用户明确指令默认直接执行，不对常规操作重复确认。
 - **基线**：正式 main 为 VERSION 2.10.0，基线 SHA `cd5533ab877f7cdd944b7c2c19d9630d7b24a1be`；开始时开放 PR 0。实际用户电脑是否已升级到该版本仍须单独核实，GitHub 发布不代表本机部署。
+- **PR**：[PR #54](https://github.com/yudacheng666/AIWorkSpace/pull/54) 已创建，base 为 main；保持未合并，等待用户批准。
 - **本轮改动**：新增 `docs/AI_WORKSPACE_OPERATING_RULES.md`；在 `AGENTS.md` 中加入日常事务强制读取入口，并区分开发前置流程与日常业务处理；README 增加入口链接；将旧版 `docs/WORK_ARCHIVE_CHATGPT_WORKFLOW.md` 标记为历史补充材料，避免继续照搬 2.4.0 流程。
 - **设计边界**：不增加软件 UI、数据库、API、AI API 或新的记忆服务。规则文件只规定工作流程；当前字段和事件结构仍由 main 的 app.py validator 定义，真实任务事实仍由用户授权的工作台数据提供。
 - **测试与范围**：本轮仅修改 Markdown 文档，不改 app.py、web/index.html、VERSION 或真实 Google Drive 数据。按 AGENTS.md 的低风险文档变更规则，采用静态核对，不重复运行产品 CI 或 Codex。
