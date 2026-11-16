@@ -4501,12 +4501,61 @@ def expire_trashed_tasks(data_dir: Path) -> None:
             continue
         if task.get("step_order_conflict") or task.get("step_order_incomplete"):
             continue
+        if any(child.get("parent_task_id") == task["task_id"] for child in workspace["tasks"]):
+            continue  # Never auto-purge a parent referenced by any retained child task.
         try:
             stamp = datetime.fromisoformat(task["trashed_at"].replace("Z", "+00:00"))
             if stamp.tzinfo is not None and stamp <= cutoff:
                 append_task_lifecycle(data_dir, task, "purge")
         except (ValueError, OSError):
             continue
+
+
+def project_has_persistent_references(data_dir: Path, project_id: str) -> bool:
+    """Fail closed before permanently hiding a project ever referenced elsewhere."""
+    def has_ref(value: object) -> bool:
+        if value == project_id:
+            return True
+        if isinstance(value, dict):
+            return any(has_ref(item) for item in value.values())
+        if isinstance(value, list):
+            return any(has_ref(item) for item in value)
+        return False
+
+    for folder in ("events", "step_events", "conversion_events",
+                   "work_archive", "object_detail_events", "review_events"):
+        root = data_dir / folder
+        if not root.exists():
+            continue
+        if not root.is_dir() or root.is_symlink():
+            return True
+        for path in root.rglob("*.json"):
+            if not path.is_file() or path.is_symlink():
+                return True
+            try:
+                if path.stat().st_size > MAX_BODY:
+                    return True
+                if has_ref(json.loads(path.read_text(encoding="utf-8-sig"))):
+                    return True
+            except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError):
+                return True
+    return False
+
+
+def append_project_lifecycle(data_dir: Path, project: dict, action: str) -> dict:
+    """Append a durable project lifecycle event; no task/record/step cascades."""
+    stamp = utc_now()
+    field = "purged_at" if action == "purge" else "trashed_at"
+    event = {"version": 1, "event_id": str(uuid.uuid4()), "project_id": project["project_id"],
+             "action": action, "actor": "user", "timestamp": stamp,
+             "base_revision": project["revision"],
+             "changes": {field: None if action == "restore" else stamp}}
+    if action == "trash":
+        event["confirmed_delete"] = True
+    elif action == "purge":
+        event["confirmed_purge"] = True
+    append_project_event(data_dir, event)
+    return event
 
 
 def validate_project_references(workspace: dict, project_id: object,
@@ -4723,8 +4772,13 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                     state = read_workspace(data_dir, include_trashed=True)
                     days, policy_warnings = read_trash_retention(data_dir)
                     trashed = [item for item in state["tasks"] if item.get("trashed_at")]
+                    trashed_projects = [dict(item) for item in state["projects"]
+                                        if item.get("trashed_at")]
+                    for project in trashed_projects:
+                        project["has_references"] = project_has_persistent_references(
+                            data_dir, project["project_id"])
                 return self.json_response(200, {
-                    "tasks": trashed, "retention_days": days,
+                    "tasks": trashed, "projects": trashed_projects, "retention_days": days,
                     "warnings": state["warnings"] + policy_warnings
                 })
             if path == "/api/update/status":
@@ -4768,6 +4822,8 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
             review_match = re.fullmatch(
                 r"/api/reviews/(ANOM-[A-F0-9]{32})/(authorize|apply|dismiss)", path)
             project_match = re.fullmatch(r"/api/projects/(PROJECT-[A-F0-9]{32})/update", path)
+            project_lifecycle_match = re.fullmatch(
+                r"/api/projects/(PROJECT-[A-F0-9]{32})/(trash|restore|purge)", path)
             step_create_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps", path)
             step_update_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/update", path)
             step_reorder_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/reorder", path)
@@ -4792,7 +4848,7 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
             creating_task = path == "/api/tasks"
             creating_project = path == "/api/projects"
             applying_update = path == "/api/update/apply"
-            if not (creating_work_record or creating_object_detail or work_record_match or creating_inbox or inbox_ignore or inbox_finish or creating_summary or summary_edit or summary_reselect or action_preview or action_create or action_link or task_record_match or creating_task or creating_project or task_match or recurrence_match or project_match or
+            if not (creating_work_record or creating_object_detail or work_record_match or creating_inbox or inbox_ignore or inbox_finish or creating_summary or summary_edit or summary_reselect or action_preview or action_create or action_link or task_record_match or creating_task or creating_project or task_match or recurrence_match or project_match or project_lifecycle_match or
                     step_create_match or step_update_match or step_reorder_match or
                     step_documents_match or step_delete_match or step_convert_match or task_convert_match or applying_update or
                     documents_match or lifecycle_match or changing_retention or review_match):
@@ -5347,6 +5403,20 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                             return self.json_response(409, {"error": "task already in trash"})
                         if action != "trash" and not task.get("trashed_at"):
                             return self.json_response(409, {"error": "task must be in trash first"})
+                        children = [item for item in workspace["tasks"]
+                                    if item.get("parent_task_id") == task["task_id"]]
+                        if action == "trash" and any(not child.get("trashed_at") for child in children):
+                            return self.json_response(409, {"error":
+                                "该任务还有未删除的子任务；请先处理子任务，系统不会自动级联删除"})
+                        if action == "purge" and children:
+                            return self.json_response(409, {"error":
+                                "仍有子任务引用该任务，不能彻底删除；请先处理子任务关联"})
+                        if action == "restore" and task.get("parent_task_id"):
+                            parent = next((item for item in workspace["tasks"]
+                                if item["task_id"] == task["parent_task_id"]), None)
+                            if parent is None or parent.get("trashed_at") or parent.get("conflict"):
+                                return self.json_response(409, {"error":
+                                    "上级任务未恢复或存在冲突；请先恢复上级任务"})
                         append_task_lifecycle(data_dir, task, action)
                     return self.json_response(200, {"saved": True, "action": action})
 
