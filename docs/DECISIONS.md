@@ -335,3 +335,9 @@
 - **步骤层**：保留原 tombstone 和完整历史，新增同一 STEP ID 的经确认恢复；被转换过的源步骤需核查，不自动复活；为保护工作记录与转换链暂不提供步骤物理彻底删除。
 - **技术**：项目 lifecycle 与步骤 restore 均使用已有追加式事件、revision 和本地 API 安全边界，旧事件不迁移。更改事件 validator，两个设备应统一升级到支持新事件的版本再交替编辑。同一 SHA GitHub CI 默认先行，不为重复证明全套回归再派 Codex。
 - **限制**：历史引用保护采用保守检查，允许误拒绝，不允许误放行。旧客户端不识别新动作、真实 Drive 离线重连未测，不能当作已验收。
+
+
+## 2026-11-16：D-20261116-HIERARCHY-QA-01（层级生命周期最终准确 CI）
+- PR #58 产品／测试 SHA `6dd672081fa728fefe02fa6e20d949a24a93fc8e` 的 [Actions #43846843004](https://github.com/yudacheng666/AIWorkSpace/actions/runs/43846843004) **3/3 SUCCESS**：Ubuntu 和 Windows Python + Node、Windows Chromium 真实页面 E2E／更新回滚覆盖项目删除、确认取消、恢复、项目历史关联、父子任务生命周期和步骤恢复。
+- 特别修复项目 purge 未校验有效事件链／历史引用时可能形成数据孤儿，以及永久删除状态投影中未正确定义 `purged_ids` 的缺陷；先前失败 SHA 不作为 PASS。最终准确 SHA 完整通过。
+- 高风险例外仍未覆盖用户真实 Windows／Google Drive 双机离线、重连和旧客户端混用。PR #58 依赖未合并 #55，未获用户合并授权；因此仅可称候选通过自动化，不能称正式发布或部署完成。

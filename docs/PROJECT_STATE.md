@@ -6,8 +6,10 @@
 - **保护**：存在任何历史外部引用的项目禁止永久移除，仅空且从未被关联的项目允许不可逆 tombstone；项目不自动按任务清理期限清理；步骤恢复保留原 ID，转换源步骤不自动复活。
 - **版本**：候选 VERSION=2.11.0（仅开发分支），正式 main／用户电脑不受影响。共享 Google Drive 的旧客户端不理解新项目/步骤生命周期事件；部署前必须评估客户端统一升级。
 - **文件**：`app.py`、`web/index.html`、`tests/test_app.py`、`tests/test_ui_shell.mjs`、`VERSION`、需求／决策／项目状态。
-- **验证状态**：候选开发代码已进入 PR #58，针对项目 purge 因果校验与乱序／并发事件、迟到外部引用、归档项目禁止新关联和工作记录转待办的 API 加固并新增回归测试；以最终产品和测试准确 SHA 的 GitHub Actions 结果为准。实际 Windows 8770、双电脑 Google Drive 离线／重连、旧客户端混用 NOT TESTED。不运行 Codex 重复已有 CI 用例，不读写真实业务数据。
-- **下一步**：开独立、以 #55 为 base 的堆叠 PR；准确 SHA 的 Ubuntu／Windows Python+Node、Windows Chromium 自动验收；修复失败和直接受影响用例后汇报。用户未明确批准合并，PR 维持开放，不更改 main。
+- **准确测试证据**：产品／测试 SHA `6dd672081fa728fefe02fa6e20d949a24a93fc8e`，[GitHub Actions #43846843004](https://github.com/yudacheng666/AIWorkSpace/actions/runs/43846843004) **3/3 SUCCESS**。Ubuntu Python+Node、Windows Python+Node、Windows 真实 Chromium 应用与更新／回滚 E2E 全部通过，包含新增的浏览器项目删除／取消确认／回收站恢复与步骤按原 ID 恢复。此前部分中间 SHA CI 曾失败并已修复；仅以本 SHA 的完整成功为准，未重复派 Codex。
+- **安全补充**：project purge 必须按有效因果链、无 event_id 碰撞及无同步外部引用判断；不允许孤立／并发 purge 令项目静默消失；晚到引用保留冲突核查入口。任务／记录关联已归档项目时显示相应状态，工作记录的已删除步骤显示原有名称，不把删除错误当“未同步”。
+- **发布边界**：实际 Windows 8770、双电脑 Google Drive 离线／重连、旧客户端混用 NOT TESTED；不读写真实业务数据、不部署真实电脑。本 PR 依赖仍未合并的 #55，#57 是独立规则 PR，均不具备本轮自动合并授权。
+- **下一步**：PR #58 保持 Draft、等待 #55 先经用户批准合并；届时复核最终 diff、准确 SHA CI 和风险边界，用户授权后方可按依赖顺序合并。正式 main 仍为 2.10.0。
 
 ---
 
