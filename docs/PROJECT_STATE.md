@@ -6,7 +6,7 @@
 - **保护**：存在任何历史外部引用的项目禁止永久移除，仅空且从未被关联的项目允许不可逆 tombstone；项目不自动按任务清理期限清理；步骤恢复保留原 ID，转换源步骤不自动复活。
 - **版本**：候选 VERSION=2.11.0（仅开发分支），正式 main／用户电脑不受影响。共享 Google Drive 的旧客户端不理解新项目/步骤生命周期事件；部署前必须评估客户端统一升级。
 - **文件**：`app.py`、`web/index.html`、`tests/test_app.py`、`tests/test_ui_shell.mjs`、`VERSION`、需求／决策／项目状态。
-- **验证状态**：候选代码已写入开发分支，GitHub Actions CI 与后续缺口核查以即将创建的 PR 精确 SHA 为准；实际 Windows 8770、双电脑 Google Drive 离线／重连、旧客户端混用 NOT TESTED。不运行 Codex 重复已有 CI 用例，不读写真实业务数据。
+- **验证状态**：候选开发代码已进入 PR #58，针对项目 purge 因果校验与乱序／并发事件、迟到外部引用、归档项目禁止新关联和工作记录转待办的 API 加固并新增回归测试；以最终产品和测试准确 SHA 的 GitHub Actions 结果为准。实际 Windows 8770、双电脑 Google Drive 离线／重连、旧客户端混用 NOT TESTED。不运行 Codex 重复已有 CI 用例，不读写真实业务数据。
 - **下一步**：开独立、以 #55 为 base 的堆叠 PR；准确 SHA 的 Ubuntu／Windows Python+Node、Windows Chromium 自动验收；修复失败和直接受影响用例后汇报。用户未明确批准合并，PR 维持开放，不更改 main。
 
 ---

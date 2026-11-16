@@ -1121,7 +1121,6 @@ def read_projects(data_dir: Path) -> dict:
         return {"projects": [], "warnings": []}
     created: dict[str, list[dict]] = defaultdict(list)
     updated: dict[str, list[dict]] = defaultdict(list)
-    purged_ids: set[str] = set()
     warnings: list[str] = []
     seen: dict[str, dict] = {}
     duplicate_conflicts: dict[str, list[dict]] = defaultdict(list)
@@ -1147,16 +1146,50 @@ def read_projects(data_dir: Path) -> dict:
                 seen[event["event_id"]] = event
             destination = created if event["action"] == "create" else updated
             destination[event["project_id"]].append(event)
-            if event["action"] == "purge":
-                purged_ids.add(event["project_id"])
         except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
             warnings.append(f"{path.name}: {exc}")
 
     projects: list[dict] = []
     for project_id in sorted(set(created) | set(updated)):
-        if project_id in purged_ids:
-            continue  # Irrevocable project tombstone wins over late sync.
         roots = created[project_id]
+        lifecycle = updated[project_id]
+        if any(event["action"] == "purge" for event in lifecycle):
+            # A purge has lasting consequences. Never let one well-shaped but
+            # stale, orphaned or competing event silently hide a project.
+            by_revision: dict[int, list[dict]] = defaultdict(list)
+            for event in lifecycle:
+                by_revision[event["base_revision"]].append(event)
+            revision = 1
+            trashed = False
+            valid_purge = False
+            while len(roots) >= 1 and revision in by_revision:
+                candidates = by_revision[revision]
+                if len(candidates) != 1:
+                    break
+                action = candidates[0]["action"]
+                if action == "trash" and not trashed:
+                    trashed = True
+                elif action == "restore" and trashed:
+                    trashed = False
+                elif action == "update" and not trashed:
+                    pass
+                elif action == "purge" and trashed:
+                    valid_purge = True
+                    break
+                else:
+                    break
+                revision += 1
+            # Duplicate event IDs make the entire stream unsafe even when
+            # another set of lifecycle events looks individually valid.
+            colliding_event_id = any(
+                event.get("project_id") == project_id
+                for variants in duplicate_conflicts.values() for event in variants)
+            if (valid_purge and not colliding_event_id and
+                    not project_has_persistent_references(data_dir, project_id)):
+                continue  # Verified tombstone wins over later duplicate creates.
+            warnings.append(
+                f"{project_id}: project purge cannot be verified or still has references; review required")
+        
         if len(roots) != 1:
             warnings.append(f"{project_id}: missing or multiple project creation events")
             candidates = roots or updated[project_id]
@@ -4585,8 +4618,8 @@ def validate_project_references(workspace: dict, project_id: object,
         if not isinstance(project_id, str) or not PROJECT_ID.fullmatch(project_id):
             raise ValueError("invalid primary project ID")
         project = projects.get(project_id)
-        if (not project or project["conflict"]) and project_id != previous_primary:
-            raise ValueError("primary project does not exist or needs conflict review")
+        if (not project or project["conflict"] or project.get("trashed_at")) and project_id != previous_primary:
+            raise ValueError("primary project is missing, archived or needs conflict review")
     if (not isinstance(related_project_ids, list) or len(related_project_ids) > 20
             or any(not isinstance(item, str) or not PROJECT_ID.fullmatch(item)
                    for item in related_project_ids)
@@ -4596,8 +4629,8 @@ def validate_project_references(workspace: dict, project_id: object,
         raise ValueError("primary project cannot also be a related project")
     for related_id in related_project_ids:
         project = projects.get(related_id)
-        if (not project or project["conflict"]) and related_id not in previous_related:
-            raise ValueError("related project does not exist or needs conflict review")
+        if (not project or project["conflict"] or project.get("trashed_at")) and related_id not in previous_related:
+            raise ValueError("related project is missing, archived or needs conflict review")
 
 
 TAILNET_ACCESS_CONFIG = ".aiworkspace-tailnet-access.json"
@@ -5083,6 +5116,10 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                             return self.json_response(409, {
                                 "error": "this work record already created this proposed task"
                             })
+                        # Work-record-derived tasks are new assignments too;
+                        # a historical archived project reference must not bypass
+                        # normal task creation validation.
+                        validate_project_references(workspace, proposal["project_id"], [])
                         task_id = "TASK-" + uuid.uuid4().hex.upper()
                         changes = {"title": payload["title"].strip(), "status": "todo",
                                    "source_work_record": {

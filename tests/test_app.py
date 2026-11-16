@@ -1313,6 +1313,82 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(read_workspace(self.data_dir, include_trashed=True)["projects"], [])
         self.assertEqual(self.post_json(route + "/restore", {"revision":2})[0], 404)
 
+    def test_orphaned_or_concurrent_purge_does_not_hide_project(self):
+        pid = "PROJECT-" + "E" * 32
+        append_project_event(self.data_dir, project_event(
+            event_id="root-orphan-purge-01", project_id=pid))
+        stamp = "2026-11-16T05:00:00Z"
+        append_project_event(self.data_dir, {
+            "version":1,"event_id":"orphan-purge-001","project_id":pid,
+            "action":"purge","actor":"user","timestamp":stamp,
+            "base_revision":1,"confirmed_purge":True,
+            "changes":{"purged_at":stamp}})
+        state = read_workspace(self.data_dir, include_trashed=True)
+        self.assertEqual(len(state["projects"]), 1)
+        self.assertTrue(state["projects"][0]["conflict"])
+        self.assertTrue(any("project purge cannot be verified" in w for w in state["warnings"]))
+
+        other = "PROJECT-" + "B" * 32
+        append_project_event(self.data_dir, project_event(
+            event_id="root-concurrent-purge-01", project_id=other))
+        append_project_event(self.data_dir, {
+            "version":1,"event_id":"trash-concurrent-001","project_id":other,
+            "action":"trash","actor":"user","timestamp":stamp,
+            "base_revision":1,"confirmed_delete":True,
+            "changes":{"trashed_at":stamp}})
+        append_project_event(self.data_dir, {
+            "version":1,"event_id":"purge-concurrent-01","project_id":other,
+            "action":"purge","actor":"user","timestamp":stamp,
+            "base_revision":2,"confirmed_purge":True,
+            "changes":{"purged_at":stamp}})
+        append_project_event(self.data_dir, project_event(
+            event_id="edit-concurrent-01", project_id=other,
+            action="update", revision=2, name="并发项目名称"))
+        projects = {p["project_id"]:p for p in
+                    read_workspace(self.data_dir, include_trashed=True)["projects"]}
+        self.assertIn(other, projects)
+        self.assertTrue(projects[other]["conflict"])
+
+    def test_late_external_reference_blocks_project_purge_projection(self):
+        status, created = self.create_project({"name":"可能存在迟到引用的项目"})
+        self.assertEqual(status, 201)
+        pid = created["project_id"]
+        route = "/api/projects/" + pid
+        self.assertEqual(self.post_json(route + "/trash", {
+            "revision":1,"confirmed_delete":True})[0],200)
+        self.assertEqual(self.post_json(route + "/purge", {
+            "revision":2,"confirmed_purge":True})[0],200)
+        self.assertEqual(read_workspace(self.data_dir, include_trashed=True)["projects"], [])
+        # Simulate late synchronization from another device after purge.
+        append_event(self.data_dir, event(
+            event_id="late-project-ref-01",task_id="TASK-LATE-REF",
+            changes={"title":"迟到的任务","status":"todo","project_id":pid}))
+        state = read_workspace(self.data_dir, include_trashed=True)
+        self.assertEqual(len(state["projects"]), 1)
+        self.assertTrue(state["projects"][0]["conflict"])
+        self.assertTrue(state["projects"][0]["trashed_at"])
+        self.assertTrue(any("project purge cannot be verified" in w for w in state["warnings"]))
+
+    def test_archived_project_disallows_new_assignment_without_unlinking_existing(self):
+        status, created = self.create_project({"name":"待删除关联项目"})
+        self.assertEqual(status, 201)
+        pid = created["project_id"]
+        status, original = self.create_task({"title":"已存在任务","project_id":pid})
+        self.assertEqual(status, 201)
+        self.assertEqual(self.post_json("/api/projects/" + pid + "/trash", {
+            "revision":1,"confirmed_delete":True})[0],200)
+        self.assertEqual(self.create_task({
+            "title":"不得新关联","project_id":pid})[0], 400)
+        self.assertEqual(self.create_task({
+            "title":"不得新增相关项目","related_project_ids":[pid]})[0],400)
+        from app import validate_project_references
+        with self.assertRaises(ValueError):
+            validate_project_references(read_workspace(self.data_dir,include_trashed=True), pid, [])
+        task = next(t for t in read_workspace(self.data_dir)["tasks"]
+                    if t["task_id"] == original["task_id"])
+        self.assertEqual(task["project_id"],pid)
+        self.assertTrue(task["project_archived"])
+
     def test_project_conflicted_lifecycle_freezes_writes(self):
         pid = "PROJECT-" + "D" * 32
         append_project_event(self.data_dir, project_event(
