@@ -4833,6 +4833,8 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                 r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/documents", path)
             step_delete_match = re.fullmatch(
                 r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/delete", path)
+            step_restore_match = re.fullmatch(
+                r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/steps/(STEP-[A-F0-9]{32})/restore", path)
             lifecycle_match = re.fullmatch(r"/api/tasks/(TASK-[A-Za-z0-9-]{1,50})/(trash|restore|purge)", path)
             changing_retention = path == "/api/trash/settings"
             review_match = re.fullmatch(
@@ -4866,7 +4868,7 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
             applying_update = path == "/api/update/apply"
             if not (creating_work_record or creating_object_detail or work_record_match or creating_inbox or inbox_ignore or inbox_finish or creating_summary or summary_edit or summary_reselect or action_preview or action_create or action_link or task_record_match or creating_task or creating_project or task_match or recurrence_match or project_match or project_lifecycle_match or
                     step_create_match or step_update_match or step_reorder_match or
-                    step_documents_match or step_delete_match or step_convert_match or task_convert_match or applying_update or
+                    step_documents_match or step_delete_match or step_restore_match or step_convert_match or task_convert_match or applying_update or
                     documents_match or lifecycle_match or changing_retention or review_match):
                 return self.json_response(404, {"error": "not found"})
             if not self.local_request_allowed():
@@ -5557,6 +5559,42 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                         append_step_event(data_dir, event)
                     return self.json_response(200, {"saved": True, "step_id": step["step_id"],
                                                     "deleted": True})
+
+                if step_restore_match:
+                    if set(payload) != {"revision", "confirmed_restore"} or payload["confirmed_restore"] is not True:
+                        raise ValueError("step restoration requires revision and explicit confirmation")
+                    revision = payload["revision"]
+                    if type(revision) is not int or revision < 1:
+                        raise ValueError("invalid step revision")
+                    with _write_lock:
+                        workspace = read_workspace(data_dir)
+                        parent = next((item for item in workspace["tasks"]
+                                       if item["task_id"] == step_restore_match.group(1)), None)
+                        if parent is None:
+                            return self.json_response(404, {"error": "parent task not found"})
+                        if (parent["conflict"] or parent.get("trashed_at") or
+                                parent.get("step_order_conflict") or parent.get("step_order_incomplete")):
+                            return self.json_response(409, {"error": "parent task or step order needs review"})
+                        step = next((item for item in parent.get("deleted_steps", [])
+                                     if item["step_id"] == step_restore_match.group(2)), None)
+                        if step is None:
+                            return self.json_response(404, {"error": "deleted step not found"})
+                        if step["conflict"] or step["revision"] != revision:
+                            return self.json_response(409, {"error": "step changed or has a conflict; refresh"})
+                        conversions = read_conversion_events(data_dir, [])
+                        if any(event["source"].get("kind") == "step" and
+                               event["source"].get("item_id") == step["step_id"]
+                               for event in conversions):
+                            return self.json_response(409, {"error":
+                                "该步骤关联转换历史，请先核查，不能直接恢复"})
+                        event = {"version": 1, "event_id": str(uuid.uuid4()),
+                                 "task_id": parent["task_id"], "step_id": step["step_id"],
+                                 "action": "restore", "actor": "user",
+                                 "timestamp": utc_now(), "base_revision": revision,
+                                 "confirmed_restore": True, "changes": {"deleted_at": None}}
+                        append_step_event(data_dir, event)
+                    return self.json_response(200, {"saved": True, "step_id": step["step_id"],
+                                                     "restored": True, "revision": revision + 1})
 
                 if step_convert_match:
                     if set(payload) != {"revision", "confirmed_move"} or payload["confirmed_move"] is not True:
