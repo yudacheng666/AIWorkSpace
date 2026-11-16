@@ -2594,13 +2594,22 @@ def label_work_associations(record: dict, workspace: dict) -> None:
     record["action_link_labels"] = []
     for link in record.get("action_links", []):
         task = tasks.get(link["target_id"] if link["target_type"] == "task" else link["task_id"])
-        if link["target_type"] == "task":
-            label = task.get("title") if task and not task.get("conflict") else None
-        else:
-            step = next((step for step in task.get("steps", [])
-                         if step["step_id"] == link["target_id"]), None) if task else None
-            label = ((task.get("title", "") + " / " + step["title"])
-                     if task and step and not step.get("conflict") and not task.get("conflict") else None)
+        label = None
+        if task and not task.get("conflict"):
+            if link["target_type"] == "task":
+                label = task.get("title")
+            else:
+                step = next((s for s in task.get("steps", [])
+                             if s["step_id"] == link["target_id"]), None)
+                if step and not step.get("conflict"):
+                    label = task.get("title", "") + " / " + step["title"]
+                else:
+                    deleted = next((s for s in task.get("deleted_steps", [])
+                                    if s["step_id"] == link["target_id"]), None)
+                    if deleted and not deleted.get("conflict"):
+                        label = task.get("title", "") + " / " + deleted["title"] + "（步骤已删除）"
+            if label and task.get("trashed_at"):
+                label += "（任务已在回收站）"
         record["action_link_labels"].append({**link, "label": label or "关联对象未同步或已转换"})
 
 
@@ -4752,14 +4761,19 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
             if path == "/api/work-records":
                 with _write_lock:
                     state = read_work_records(data_dir)
-                    workspace = read_workspace(data_dir)
+                    # Archive is not a lost synchronization link: preserve names.
+                    workspace = read_workspace(data_dir, include_trashed=True)
                     tasks = {t["task_id"]: t for t in workspace["tasks"]}
                     projects = {p["project_id"]: p for p in workspace["projects"]}
                     for item in state["records"]:
                         task = tasks.get(item.get("task_id"))
                         project = projects.get(item.get("project_id"))
-                        item["task_title"] = task["title"] if task and not task.get("conflict") else None
-                        item["project_name"] = project["name"] if project and not project.get("conflict") else None
+                        item["task_title"] = (
+                            task["title"] + ("（任务已在回收站）" if task.get("trashed_at") else "")
+                            if task and not task.get("conflict") else None)
+                        item["project_name"] = (
+                            project["name"] + ("（项目已在回收站）" if project.get("trashed_at") else "")
+                            if project and not project.get("conflict") else None)
                         label_work_associations(item, workspace)
                         derived_action_labels(item, workspace)
                     state["task_completions"] = read_task_completion_activity(data_dir, workspace)

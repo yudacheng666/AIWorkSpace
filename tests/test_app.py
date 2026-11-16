@@ -1295,6 +1295,41 @@ class ServerTests(unittest.TestCase):
             step_files, {path.name:path.read_bytes() for path in
                          (self.data_dir / "step_events").glob("*.json")})
 
+    def test_archived_hierarchy_keeps_readable_record_labels(self):
+        code, project = self.create_project({"name": "虚构归档项目"})
+        self.assertEqual(code, 201)
+        pid = project["project_id"]
+        code, step = self.create_step(title="虚构步骤")
+        self.assertEqual(code, 201)
+        sid = step["step_id"]
+        code, record = self.post_json("/api/work-records", {
+            "content": "虚构历史记录", "occurred_on": "2026-11-16",
+            "project_id": pid, "task_id": "TASK-DEMO-001",
+            "action_links": [{"target_type": "step", "target_id": sid,
+                              "task_id": "TASK-DEMO-001", "relation": "progress_on"}],
+        })
+        self.assertEqual(code, 201)
+        self.assertEqual(self.post_json(f"/api/projects/{pid}/trash",
+                         {"revision": 1, "confirmed_delete": True})[0], 200)
+        self.assertEqual(self.post_json(f"/api/tasks/TASK-DEMO-001/steps/{sid}/delete",
+                         {"revision": 1, "confirmed_delete": True})[0], 200)
+        with urlopen(self.base + "/api/work-records", timeout=3) as response:
+            saved = next(r for r in json.load(response)["records"]
+                         if r["record_id"] == record["record_id"])
+        self.assertEqual(saved["project_id"], pid)
+        self.assertEqual(saved["project_name"], "虚构归档项目（项目已在回收站）")
+        self.assertEqual(saved["action_link_labels"][0]["label"],
+                         "虚构测试任务 / 虚构步骤（步骤已删除）")
+        self.assertEqual(self.post_json(f"/api/tasks/TASK-DEMO-001/steps/{sid}/restore",
+                         {"revision": 2, "confirmed_restore": True})[0], 200)
+        self.assertEqual(self.post_json(f"/api/projects/{pid}/restore",
+                         {"revision": 2})[0], 200)
+        with urlopen(self.base + "/api/work-records", timeout=3) as response:
+            restored = next(r for r in json.load(response)["records"]
+                            if r["record_id"] == record["record_id"])
+        self.assertEqual(restored["project_name"], "虚构归档项目")
+        self.assertEqual(restored["action_link_labels"][0]["label"], "虚构测试任务 / 虚构步骤")
+
     def test_project_purge_only_empty_and_tombstone_prevents_revival(self):
         status, created = self.create_project({"name": "可删除空项目"})
         self.assertEqual(status, 201)
