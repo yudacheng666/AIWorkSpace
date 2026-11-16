@@ -2012,7 +2012,11 @@
       trash.type = "button";
       trash.disabled = Boolean(project.conflict || project.missing);
       trash.addEventListener("click", async () => {
-        if (isSaving || project.conflict || project.missing || !confirmProjectDrafts()) return;
+        if (isSaving || project.conflict || project.missing) return;
+        if (unsavedProgressEditors.size) {
+          window.alert("请先保存或清空项目、任务或步骤的进展草稿。"); return;
+        }
+        if (!confirmProjectDrafts()) return;
         const counts = projectCounts(project.project_id);
         if (!window.confirm("确认将项目「" + project.name + "」移入回收站？\n" +
             "涉及主要归属 " + counts.primary + " 个任务、关联 " + counts.related +
