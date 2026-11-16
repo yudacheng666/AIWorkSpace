@@ -65,7 +65,8 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
       }
       return elements.get(id);
     },
-    createElement(tag) { return node(tag); }
+    createElement(tag) { return node(tag); },
+    querySelectorAll() { return []; }
   };
   const copied = [];
   const navigator = {clipboard: {writeText: async value => {copied.push(value);}}};
@@ -80,7 +81,9 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     if (path === "/api/update/status") {
       return {ok: true, json: async () => ({version: "1.0.0", build_short: "abcdef0"})};
     }
-    if (path === "/api/trash") return {ok: true, json: async () => ({tasks: [], retention_days: 30, warnings: []})};
+    if (path === "/api/trash") return {ok: true, json: async () => ({
+      tasks:work.trash_tasks || [], projects:work.trash_projects || [],
+      retention_days:30, warnings:[]})};
     if (path === "/api/work-records") return {ok: true, json: async () => ({records: work.records || [], task_completions: work.task_completions || [], warnings: []})};
     if (path === "/api/work-archive") return {ok: true, json: async () => ({
       inbox:work.inbox || [], summaries:work.summaries || [], warnings:[]})};
@@ -105,7 +108,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, editWorkSummary, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask, progressPanel, recordBelongsTo, objectDescriptionPanel, summaryRecordRecommended, workRecordTypeLabel})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, loadTrash, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, editWorkSummary, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask, progressPanel, recordBelongsTo, objectDescriptionPanel, summaryRecordRecommended, workRecordTypeLabel})", {
       document, window, navigator, fetch, Date, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes,
@@ -880,6 +883,71 @@ test("project display ID is visible, searchable and copyable from list and detai
   assert.deepEqual(x.copied,[displayId,displayId,displayId]);
   assert.equal(detailControls.children[2].textContent,"已复制");
   assert.equal(x.writes.length,0);
+});
+
+test("project deletion is explicit, preserves draft safety and never cascades task writes", async () => {
+  let consent=false;
+  const id="PROJECT-"+"A".repeat(32);
+  const projects=[{project_id:id,display_id:"P-261116-AAAAAAAAAAAA",
+    name:"虚构项目",revision:1,conflict:false}];
+  const task={...sampleTask(),project_id:id};
+  const h=harness([task],()=>consent,projects);
+  await h.api.refresh(true); h.api.setActivePage("projects");
+  let card=h.el("project-list").children[0];
+  let actions=card.children.find(c=>c.className==="project-card-actions");
+  const deleteButton=actions.children.find(c=>c.className==="project-trash-action");
+  assert.ok(deleteButton);
+  await deleteButton.handlers.get("click")[0]();
+  assert.equal(h.writes.length,0,"cancelled confirmation must not change events");
+  consent=true;
+  await deleteButton.handlers.get("click")[0]();
+  assert.equal(h.writes.length,1);
+  assert.equal(h.writes[0].path,"/api/projects/"+id+"/trash");
+  assert.equal(h.writes[0].body.revision,1);
+  assert.equal(h.writes[0].body.confirmed_delete,true);
+  assert.ok(h.el("project-message").textContent.includes("保留"));
+});
+
+test("project recycle area restores projects and blocks purge with references", async () => {
+  const id="PROJECT-"+"B".repeat(32);
+  const project={project_id:id,display_id:"P-261116-BBBBBBBBBBBB",
+    name:"已删除的虚构项目",revision:2,trashed_at:"2026-11-16T00:00:00Z",
+    has_references:true,conflict:false};
+  const h=harness([],()=>true,[],[],null,{trash_projects:[project]});
+  await h.api.loadTrash();
+  assert.equal(h.el("trash-project-count").textContent,"1 项");
+  const row=h.el("trash-project-list").children[0];
+  assert.ok(row.className.includes("trash-project-row"));
+  const actions=row.children.find(c=>c.className==="trash-project-actions");
+  assert.equal(actions.children[1].disabled,true);
+  await actions.children[0].handlers.get("click")[0]();
+  assert.equal(h.writes.length,1);
+  assert.equal(h.writes[0].path,"/api/projects/"+id+"/restore");
+  assert.equal(h.writes[0].body.revision,2);
+});
+
+test("deleted step can be restored without changing its old ID or task ownership", async () => {
+  const sid="STEP-"+"C".repeat(32);
+  const task={...sampleTask(),steps:[],deleted_steps:[
+    {step_id:sid,title:"已删除步骤",revision:2,deleted_at:"2026-11-16T00:00:00Z",
+      conflict:false}]};
+  const h=harness([task]);
+  await h.api.refresh(true);
+  const panel=h.api.stepRow===undefined ? h.api.openTaskDetail(task.task_id) : null;
+  if (panel===null) h.api.openTaskDetail(task.task_id);
+  const drawer=h.el("task-detail-content");
+  const find=(root,cls)=>root.className===cls?root:(root.children||[])
+      .map(child=>find(child,cls)).find(Boolean);
+  const deleted=find(drawer,"deleted-steps-panel");
+  assert.ok(deleted);
+  const row=deleted.children.find(item=>item.className==="deleted-step-item");
+  const restore=row.children.find(c=>c.tag==="button");
+  await restore.handlers.get("click")[0]();
+  assert.equal(h.writes.length,1);
+  assert.equal(h.writes[0].path,
+    "/api/tasks/"+task.task_id+"/steps/"+sid+"/restore");
+  assert.equal(h.writes[0].body.confirmed_restore,true);
+  assert.equal(h.writes[0].body.revision,2);
 });
 
 test("stage3 project name draft cannot be discarded by navigation or auto refresh",async()=>{
