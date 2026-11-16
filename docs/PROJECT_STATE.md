@@ -1,3 +1,15 @@
+# 2026-11-16｜2.11.0 全部 PR 合并发布（PR #55／#57／#58）
+
+- **用户授权**：用户在得知 #58 的独立探索性验收和真实双电脑 Drive/旧客户端混用尚未覆盖、但准确 SHA 自动化 3/3 PASS 后，明确指示「全部合并」。本轮据此依赖顺序完成三个 PR 的 GitHub 合并；没有把未做的高风险专项验收标记为 PASS，也不改变后续项目长期测试规则。
+- **合并顺序**：项目稳定编号与复制 PR #55 → merge SHA `61b4a7cb6e0141e85fee23bafdbfa7df20039b0d`；工作记录自然语言双通道行动提取规则 PR #57 → merge SHA `d2f755333ce9cbf7d58eafbbef7a4f624b9d110e`；项目／任务／步骤删除恢复及父子关联安全 PR #58 → merge SHA `5deca62e4068a816260ef4d1dd58d7460a513c81`。
+- **冲突处理**：#57、#58 在合并 #55 后产生 Markdown 文档冲突。分别通过包含 main 的普通 merge commit 解析，保留项目编号、双通道工作记录规则、层级生命周期需求及决策；未因冲突覆盖任一功能的代码或记忆。
+- **准确测试**：#55 产品 SHA `1610afb57ef74ae5121966678586eecb8f58b6e4` → [PR Actions #43840154008](https://github.com/yudacheng666/AIWorkSpace/actions/runs/43840154008) 3/3 PASS；#58 产品/测试 SHA `6dd672081fa728fefe02fa6e20d949a24a93fc8e` → [PR Actions #43846843004](https://github.com/yudacheng666/AIWorkSpace/actions/runs/43846843004) 3/3 PASS；最终 main 合并 SHA `5deca62e4068a816260ef4d1dd58d7460a513c81` → [main Actions #43848157286](https://github.com/yudacheng666/AIWorkSpace/actions/runs/43848157286) **3/3 SUCCESS**：Ubuntu/Windows Python、Node UI 与 Windows 真正 Chromium 更新回滚及业务界面回归。#57 仅文档，完成静态规则/字段核对而未运行冗余 CI。
+- **当前仓库**：正式 `main/VERSION=2.11.0`，三个 PR 均 closed/merged，开放 PR 0；没有额外未合并功能被遗漏。
+- **未验证与部署边界**：独立探索性验收、真实 Windows 8770 软件升级、真实两台电脑 Google Drive 离线／恢复、旧客户端混合版本均 NOT TESTED；本次没有访问、改写或删除真实业务数据。GitHub 发布不代表用户电脑已更新；共享数据目录的电脑应统一升级并备份，避免旧版客户端混用。
+- **后续**：正式代码已发布至 GitHub main。不要将本次 `[skip ci]` 的纯文档记忆提交 SHA 冒充前述准确产品/合并 SHA 的 Actions 结果。
+
+---
+
 # 2026-11-16｜项目／任务／步骤生命周期对齐（2.11.0 候选）
 
 - **用户需求**：项目增加删除，并核查项目—任务—子任务—步骤所有层级的删除、恢复、彻底删除与关联关系安全。

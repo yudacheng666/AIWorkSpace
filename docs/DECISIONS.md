@@ -353,3 +353,12 @@
 - PR #58 产品／测试 SHA `6dd672081fa728fefe02fa6e20d949a24a93fc8e` 的 [Actions #43846843004](https://github.com/yudacheng666/AIWorkSpace/actions/runs/43846843004) **3/3 SUCCESS**：Ubuntu 和 Windows Python + Node、Windows Chromium 真实页面 E2E／更新回滚覆盖项目删除、确认取消、恢复、项目历史关联、父子任务生命周期和步骤恢复。
 - 特别修复项目 purge 未校验有效事件链／历史引用时可能形成数据孤儿，以及永久删除状态投影中未正确定义 `purged_ids` 的缺陷；先前失败 SHA 不作为 PASS。最终准确 SHA 完整通过。
 - 高风险例外仍未覆盖用户真实 Windows／Google Drive 双机离线、重连和旧客户端混用。PR #58 依赖未合并 #55，未获用户合并授权；因此仅可称候选通过自动化，不能称正式发布或部署完成。
+
+
+## 2026-11-16：D-20261116-RELEASE-2.11.0（所有合格 PR 按依赖合并）
+
+- 用户在 PR #55、#57、#58 的开发和测试证据及 #58 未做独立探索/真实 Drive 双机验证的风险均已告知后，明确指示「全部合并」，授权按依赖顺序完成本轮 GitHub 合并。
+- #55（项目显示编号与复制）merge `61b4a7cb6e0141e85fee23bafdbfa7df20039b0d`；#57（工作记录提取后续行动的 Markdown 规则）merge `d2f755333ce9cbf7d58eafbbef7a4f624b9d110e`；#58（项目／任务／步骤删除恢复与关联安全）merge `5deca62e4068a816260ef4d1dd58d7460a513c81`。文档冲突合并保留全部已批准内容。main 正式 VERSION 2.11.0、开放 PR 0。
+- 验收证据：#55 [Actions #43840154008](https://github.com/yudacheng666/AIWorkSpace/actions/runs/43840154008) 3/3、#58 [Actions #43846843004](https://github.com/yudacheng666/AIWorkSpace/actions/runs/43846843004) 3/3，以及最终 main [Actions #43848157286](https://github.com/yudacheng666/AIWorkSpace/actions/runs/43848157286) 对精确 merge SHA 3/3 SUCCESS；#57 仅 Markdown 静态验收。
+- 合并不等于所有风险已验收：独立探索性高风险专项、真实双电脑 Drive 离线／重连、旧版本混用、本地 Windows 软件升级仍 NOT TESTED。此次明确合并授权不替代其他事项完成确认、真实业务数据删除授权或对未来高风险开发的长期测试门槛。
+
