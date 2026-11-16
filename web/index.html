@@ -1573,7 +1573,11 @@
       const selectedIds = multiple ? (selectedId || []) : (selectedId ? [selectedId] : []);
       for (const projectId of selectedIds) {
         if (currentProjects.some(item => item.project_id === projectId)) continue;
-        const option = element("option", "", `尚未同步的项目（${projectId}）`);
+        const archived = current.some(task => task.project_id === projectId &&
+          task.project_archived);
+        const option = element("option", "", archived
+          ? `项目已在回收站（保留原关联：${projectId}）`
+          : `尚未同步的项目（${projectId}）`);
         option.value = projectId;
         option.selected = true;
         select.append(option);
@@ -1616,7 +1620,12 @@
     function availableProjects() {
       const result=[...currentProjects],ids=new Set(result.map(p=>p.project_id));
       for(const task of current) for(const id of [task.project_id,...(task.related_project_ids||[])]) {
-        if(id&&!ids.has(id)){ids.add(id);result.push({project_id:id,name:"项目尚未同步",conflict:true,missing:true});}
+        if(id&&!ids.has(id)){
+          const archived = current.some(t=>t.project_id===id && t.project_archived);
+          ids.add(id);result.push({project_id:id,
+            name:archived?"项目已在回收站（关联仍保留）":"项目尚未同步",
+            conflict:true,missing:!archived,archived});
+        }
       }
       return result;
     }
