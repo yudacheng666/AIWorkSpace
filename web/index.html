@@ -95,6 +95,10 @@
     .task-conversion-controls select { min-width:min(260px,100%); flex:1; }
     .task-conversion-note { margin:0; color:#8593a5; font-size:12px; line-height:1.5; }
     .step-empty, .step-order-warning, .step-conflict { color: #8593a5; font-size: 12px; margin: 10px 0 0; }
+    .deleted-steps-panel{margin-top:10px;padding:9px 11px;border:1px dashed #dee7f0;border-radius:8px;color:#64758a;font-size:11px;}
+    .deleted-steps-panel summary{cursor:pointer;font-weight:650;}
+    .deleted-step-item{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:8px;flex-wrap:wrap;}
+    .deleted-step-item button{padding:5px 10px;border:1px solid #d2e1f5;border-radius:7px;background:#fff;color:#285e9d;}
     .step-order-warning, .step-conflict { color: #976211; }
     .step-message { margin: 8px 0 0; font-size: 12px; }
     @media (max-width: 700px) {
@@ -567,6 +571,11 @@
     .project-id-controls .project-id-feedback{color:#4c8a68;font-size:10px;}
     .project-id-controls .project-id-feedback[hidden]{display:none;}
     .project-card .project-id-controls{grid-column:1/-1;}
+    .project-card-actions .project-trash-action{border-color:#e9d1d1;background:#fff;color:#a34c4c;}
+    .project-trash-note{font-size:11px;color:#8291a2;line-height:1.5;}
+    .trash-project-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    .trash-project-actions button{min-height:32px;}
+    .trash-project-row{grid-template-columns:minmax(0,1fr) auto;}
     @media(max-width:850px){.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}.project-filter{grid-template-columns:minmax(0,1fr) auto auto;}.project-filter select{width:130px;}}
     @media(max-width:520px){.project-filter{grid-template-columns:1fr 1fr;}.project-filter input{grid-column:1/-1;}.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}}
 
@@ -888,10 +897,10 @@
     </section>
     <section id="page-trash" class="workspace-page" hidden>
       <div class="page-heading">
-        <div><h1 id="trash-title">回收站</h1><p class="subtitle">恢复误删任务，或管理已删除任务的保留期限。</p></div>
+        <div><h1 id="trash-title">回收站</h1><p class="subtitle">恢复误删项目与任务；删除项目不会自动删除任务、步骤或工作记录。</p></div>
       </div>
       <div class="stats trash-stats" aria-label="回收站统计">
-        <div class="stat"><b id="trash-stat-total">0</b><span>已删除任务</span></div>
+        <div class="stat"><b id="trash-stat-total">0</b><span>已删除项目与任务</span></div>
         <div class="stat"><b id="trash-stat-restorable">0</b><span>可恢复</span></div>
         <div class="stat"><b id="trash-stat-conflict">0</b><span>存在冲突</span></div>
       </div>
@@ -915,8 +924,15 @@
         </div>
         <div class="trash-warning" role="note">
           <span class="trash-warning-icon" aria-hidden="true">ⓘ</span>
-          <span>到期任务将在下次访问工作台时清理。彻底删除仅清除本机事件文件，无法保证清除其他设备、云端历史版本或备份中的副本。</span>
+          <span>任务按保留期限自动清理；项目不会自动彻底删除。项目只从列表隐藏，不影响原任务/步骤/工作记录。任务彻底删除可能清理本机事件；项目永久移除保留不可复活的审计标记，无法清除其他设备及备份。</span>
         </div>
+      </section>
+      <section class="trash-card" aria-labelledby="trash-project-heading">
+        <div class="trash-card-head">
+          <div><h2 id="trash-project-heading">已删除项目 <span class="trash-count" id="trash-project-count">0 项</span></h2>
+          <p class="trash-card-caption">可随时恢复；曾关联任务或工作记录的项目为保护历史引用，不可永久移除。</p></div>
+        </div>
+        <div class="trash-list" id="trash-project-list" aria-label="已删除项目"></div>
       </section>
       <section class="trash-card trash-list-card" aria-labelledby="trash-list-heading">
         <div class="trash-card-head">
@@ -1557,7 +1573,14 @@
       const selectedIds = multiple ? (selectedId || []) : (selectedId ? [selectedId] : []);
       for (const projectId of selectedIds) {
         if (currentProjects.some(item => item.project_id === projectId)) continue;
-        const option = element("option", "", `尚未同步的项目（${projectId}）`);
+        const archived = current.some(task => task.project_id === projectId &&
+          task.project_archived);
+        const purged = current.some(task => task.project_id === projectId &&
+          task.project_purged);
+        const option = element("option", "", purged
+          ? `项目已永久移除（保留原关联：${projectId}）`
+          : archived ? `项目已在回收站（保留原关联：${projectId}）`
+          : `尚未同步的项目（${projectId}）`);
         option.value = projectId;
         option.selected = true;
         select.append(option);
@@ -1600,7 +1623,13 @@
     function availableProjects() {
       const result=[...currentProjects],ids=new Set(result.map(p=>p.project_id));
       for(const task of current) for(const id of [task.project_id,...(task.related_project_ids||[])]) {
-        if(id&&!ids.has(id)){ids.add(id);result.push({project_id:id,name:"项目尚未同步",conflict:true,missing:true});}
+        if(id&&!ids.has(id)){
+          const hidden = current.some(t=>t.project_id===id &&
+            (t.project_archived || t.project_purged));
+          if (hidden) continue; // Hide archived/purged projects from the normal manager.
+          ids.add(id);
+          result.push({project_id:id,name:"项目尚未同步",conflict:true,missing:true});
+        }
       }
       return result;
     }
@@ -1983,7 +2012,35 @@
       });
       const go=element("button","","进入任务列表");
       go.type="button";go.addEventListener("click",()=>openProjectTasks(project.project_id));
-      actions.append(detail,go);card.append(actions);
+      const trash = element("button", "project-trash-action", "删除项目");
+      trash.type = "button";
+      trash.disabled = Boolean(project.conflict || project.missing);
+      trash.addEventListener("click", async () => {
+        if (isSaving || project.conflict || project.missing) return;
+        if (unsavedProgressEditors.size) {
+          window.alert("请先保存或清空项目、任务或步骤的进展草稿。"); return;
+        }
+        if (!confirmProjectDrafts()) return;
+        const counts = projectCounts(project.project_id);
+        if (!window.confirm("确认将项目「" + project.name + "」移入回收站？\n" +
+            "涉及主要归属 " + counts.primary + " 个任务、关联 " + counts.related +
+            " 个任务。任务、子任务、步骤及工作记录均保留，不自动解除关联。")) return;
+        isSaving = true; trash.disabled = true;
+        try {
+          const response = await fetch("/api/projects/" + encodeURIComponent(project.project_id) + "/trash", {
+            method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({revision:project.revision,confirmed_delete:true})
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "项目删除失败");
+          if (selectedProjectId === project.project_id) selectedProjectId = "";
+          $("project-message").textContent = "项目已移入回收站；原关联任务和记录均保留。";
+          await refresh(true,true);
+        } catch (error) {
+          $("project-message").textContent = "删除项目失败：" + error.message;
+        } finally { isSaving = false; trash.disabled = Boolean(project.conflict || project.missing); }
+      });
+      actions.append(detail,go,trash);card.append(actions);
       card.addEventListener("submit", async event => {
         event.preventDefault();
         if (isSaving || project.conflict || project.missing || input.value.trim() === project.name) return;
@@ -2298,6 +2355,41 @@
         list.replaceChildren(...steps.map((step, index) => stepRow(task, step, index, message)));
       }
       panel.append(list);
+      const deleted = Array.isArray(task.deleted_steps) ? task.deleted_steps : [];
+      if (deleted.length) {
+        const archived = element("details", "deleted-steps-panel");
+        const heading = element("summary", "", "已删除步骤 " + deleted.length +
+          " 项（可恢复，保留原工作记录与步骤编号）");
+        archived.append(heading);
+        for (const step of deleted) {
+          const item = element("div", "deleted-step-item");
+          const info = element("span", "", step.title + " · " + step.step_id);
+          const restore = element("button", "", "恢复步骤");
+          restore.type = "button";
+          restore.disabled = Boolean(task.conflict || step.conflict ||
+            task.step_order_conflict || task.step_order_incomplete);
+          restore.addEventListener("click", async () => {
+            if (isSaving || restore.disabled || !confirmDiscardUnsaved()) return;
+            if (!window.confirm("恢复步骤「" + step.title + "」？原步骤编号及记录关联保持不变。")) return;
+            isSaving = true; restore.disabled = true;
+            try {
+              const response = await fetch("/api/tasks/" + encodeURIComponent(task.task_id) +
+                "/steps/" + encodeURIComponent(step.step_id) + "/restore", {
+                  method:"POST",headers:{"Content-Type":"application/json"},
+                  body:JSON.stringify({revision:step.revision,confirmed_restore:true})
+                });
+              const result=await response.json();
+              if(!response.ok) throw new Error(result.error || "恢复失败");
+              await refresh(true,true);
+            } catch (error) {
+              message.className="step-message error";
+              message.textContent="恢复步骤失败："+error.message;
+            } finally {isSaving=false; restore.disabled=Boolean(task.conflict || step.conflict);}
+          });
+          item.append(info,restore);archived.append(item);
+        }
+        panel.append(archived);
+      }
       const addForm = element("form", "step-add-form");
       const input = element("input");
       input.type = "text"; input.maxLength = 200; input.required = true;
@@ -3843,7 +3935,10 @@
       for (const [key, tasks] of groups) {
         if (!key) ordered.push(["", "未归类 / 收件箱", tasks]);
         else if (!currentProjects.some(project => project.project_id === key))
-          ordered.push([key, "项目未同步 / 需核查", tasks]);
+          ordered.push([key,
+            tasks.some(task=>task.project_purged) ? "项目已永久移除（原任务保留）" :
+            tasks.some(task=>task.project_archived) ? "项目已在回收站（任务保留）" :
+            "项目未同步 / 需核查", tasks]);
       }
       const sections = ordered.map(([key, name, tasks]) => {
         const group = element("section", "project-group");
@@ -4573,6 +4668,7 @@
     $("review-refresh").addEventListener("click", () => loadNotifications());
 
     let trashItems = [];
+    let trashedProjects = [];
     function refreshTrashSelection() {
       const available = [...document.querySelectorAll(".trash-pick:not(:disabled)")];
       const selected = available.filter(item => item.checked);
@@ -4586,10 +4682,15 @@
     }
 
     function updateTrashSummary() {
-      $("trash-stat-total").textContent = String(trashItems.length);
-      $("trash-stat-restorable").textContent = String(trashItems.filter(item => !item.conflict).length);
-      $("trash-stat-conflict").textContent = String(trashItems.filter(item => item.conflict).length);
+      $("trash-stat-total").textContent = String(trashItems.length + trashedProjects.length);
+      $("trash-stat-restorable").textContent = String(
+        trashItems.filter(item => !item.conflict).length +
+        trashedProjects.filter(item => !item.conflict).length);
+      $("trash-stat-conflict").textContent = String(
+        trashItems.filter(item => item.conflict).length +
+        trashedProjects.filter(item => item.conflict).length);
       $("trash-count").textContent = trashItems.length + " 项";
+      $("trash-project-count").textContent = trashedProjects.length + " 项";
     }
 
     async function loadTrash() {
@@ -4600,8 +4701,43 @@
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error || "无法读取回收站");
         trashItems = payload.tasks || [];
+        trashedProjects = payload.projects || [];
         $("trash-retention").value = String(payload.retention_days);
         updateTrashSummary();
+        const projectList = $("trash-project-list");
+        projectList.replaceChildren();
+        if (!trashedProjects.length) {
+          projectList.append(element("p", "project-help", "暂无已删除项目。"));
+        }
+        for (const project of trashedProjects) {
+          const row = element("div", "trash-row trash-project-row" + (project.conflict ? " is-conflict" : ""));
+          const label = element("div", "trash-row-label");
+          label.append(element("strong", "trash-row-title", project.name),
+            element("span", "trash-row-meta",
+              projectDisplayId(project) + " · 删除时间 " + (project.trashed_at || "未知")));
+          if (project.has_references) label.append(element("span", "project-trash-note",
+            "已有关联历史，不能永久移除；恢复后原任务与记录关系仍在。"));
+          const actions = element("div", "trash-project-actions");
+          const restore = element("button", "trash-action trash-action--restore", "恢复项目");
+          restore.type="button"; restore.disabled=Boolean(project.conflict);
+          restore.addEventListener("click", async () => {
+            if (!window.confirm("恢复项目「" + project.name +
+                "」？原有任务与记录关联会继续保持。")) return;
+            try { await actOnTrashedProject(project,"restore"); }
+            catch (error) { $("trash-message").textContent="恢复项目失败："+error.message; }
+          });
+          const purge = element("button", "trash-action trash-action--danger", "永久移除");
+          purge.type="button";
+          purge.disabled=Boolean(project.conflict || project.has_references);
+          if (project.has_references) purge.title="项目存在历史引用，为防止失效关联暂不允许永久删除";
+          purge.addEventListener("click", async () => {
+            if (!window.confirm("永久移除空项目「" + project.name +
+                "」？项目无法恢复，审计事件仍保留且无法清除其他设备或备份。")) return;
+            try { await actOnTrashedProject(project,"purge"); }
+            catch (error) { $("trash-message").textContent="永久移除项目失败："+error.message; }
+          });
+          actions.append(restore,purge);row.append(label,actions);projectList.append(row);
+        }
         const list = $("trash-list");
         list.replaceChildren();
         if (!trashItems.length) {
@@ -4641,10 +4777,28 @@
         refreshTrashSelection();
         message.textContent = (payload.warnings || []).length
           ? "部分同步数据需核查：" + payload.warnings.slice(0, 2).join("；")
-          : "共 " + trashItems.length + " 项。到期清理会在下次访问时执行。";
+          : "项目 " + trashedProjects.length + " 项，任务 " + trashItems.length +
+            " 项。自动清理仅适用于任务。";
       } catch (error) {
         message.textContent = "回收站读取失败：" + error.message;
       }
+    }
+
+    async function actOnTrashedProject(project, action) {
+      if (isSaving) return;
+      isSaving = true;
+      try {
+        const response = await fetch("/api/projects/" +
+          encodeURIComponent(project.project_id) + "/" + action, {
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({revision:project.revision,
+            ...(action==="purge"?{confirmed_purge:true}:{})})
+        });
+        const result=await response.json();
+        if(!response.ok) throw new Error(result.error || "操作失败");
+        await loadTrash();
+        await refresh(true,true);
+      } finally {isSaving=false;}
     }
 
     async function actOnTrashedTask(task, action, skipReload = false) {

@@ -1244,6 +1244,252 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(saved["name"], "新项目名称")
         self.assertEqual(saved["revision"], 2)
 
+    def test_project_lifecycle_preserves_parent_child_steps_and_references(self):
+        status, project = self.create_project({"name": "虚构父项目"})
+        self.assertEqual(status, 201)
+        pid = project["project_id"]
+        status, parent = self.create_task({"title": "父任务", "project_id": pid})
+        self.assertEqual(status, 201)
+        status, child = self.create_task({
+            "title": "子任务", "project_id": pid, "parent_task_id": parent["task_id"]})
+        self.assertEqual(status, 201)
+        status, step = self.create_step(task_id=parent["task_id"], title="步骤1")
+        self.assertEqual(status, 201)
+        task_files = {path.name:path.read_bytes()
+                      for path in (self.data_dir / "events").glob("*.json")}
+        step_files = {path.name:path.read_bytes()
+                      for path in (self.data_dir / "step_events").glob("*.json")}
+        route = "/api/projects/" + pid
+        self.assertEqual(self.post_json(route + "/trash", {"revision":1})[0], 400)
+        self.assertEqual(self.post_json(
+            route + "/trash", {"revision":1,"confirmed_delete":True})[0], 200)
+        self.assertEqual(self.post_json(
+            route + "/update", {"revision":2,"name":"更名"})[0], 409)
+        self.assertEqual(self.create_task({"title":"不允许新增绑定","project_id":pid})[0], 400)
+        normal = read_workspace(self.data_dir)
+        self.assertEqual(normal["projects"], [])
+        tasks = {item["task_id"]:item for item in normal["tasks"]}
+        self.assertEqual(tasks[parent["task_id"]]["project_id"], pid)
+        self.assertTrue(tasks[parent["task_id"]]["project_archived"])
+        self.assertFalse(tasks[parent["task_id"]]["project_missing"])
+        self.assertEqual(tasks[parent["task_id"]]["steps"][0]["step_id"], step["step_id"])
+        self.assertEqual(tasks[child["task_id"]]["parent_task_id"], parent["task_id"])
+        self.assertEqual(tasks[parent["task_id"]]["child_task_ids"], [child["task_id"]])
+        with urlopen(self.base + "/api/trash", timeout=3) as reply:
+            archived = json.load(reply)["projects"]
+        self.assertEqual(len(archived), 1)
+        self.assertTrue(archived[0]["has_references"])
+        self.assertEqual(self.post_json(route + "/purge", {
+            "revision":2,"confirmed_purge":True})[0], 409)
+        self.assertEqual(self.post_json(route + "/restore", {"revision":1})[0], 409)
+        self.assertEqual(self.post_json(route + "/restore", {"revision":2})[0], 200)
+        restored = read_workspace(self.data_dir)
+        self.assertEqual(restored["projects"][0]["revision"], 3)
+        self.assertEqual(restored["projects"][0]["project_id"], pid)
+        self.assertFalse(next(t for t in restored["tasks"]
+                              if t["task_id"] == parent["task_id"])["project_archived"])
+        self.assertEqual(
+            task_files, {path.name:path.read_bytes() for path in
+                         (self.data_dir / "events").glob("*.json")})
+        self.assertEqual(
+            step_files, {path.name:path.read_bytes() for path in
+                         (self.data_dir / "step_events").glob("*.json")})
+
+    def test_archived_hierarchy_keeps_readable_record_labels(self):
+        code, project = self.create_project({"name": "虚构归档项目"})
+        self.assertEqual(code, 201)
+        pid = project["project_id"]
+        code, step = self.create_step(title="虚构步骤")
+        self.assertEqual(code, 201)
+        sid = step["step_id"]
+        code, record = self.post_json("/api/work-records", {
+            "content": "虚构历史记录", "occurred_on": "2026-11-16",
+            "project_id": pid, "task_id": "TASK-DEMO-001",
+            "action_links": [{"target_type": "step", "target_id": sid,
+                              "task_id": "TASK-DEMO-001", "relation": "progress_on"}],
+        })
+        self.assertEqual(code, 201)
+        self.assertEqual(self.post_json(f"/api/projects/{pid}/trash",
+                         {"revision": 1, "confirmed_delete": True})[0], 200)
+        self.assertEqual(self.post_json(f"/api/tasks/TASK-DEMO-001/steps/{sid}/delete",
+                         {"revision": 1, "confirmed_delete": True})[0], 200)
+        with urlopen(self.base + "/api/work-records", timeout=3) as response:
+            saved = next(r for r in json.load(response)["records"]
+                         if r["record_id"] == record["record_id"])
+        self.assertEqual(saved["project_id"], pid)
+        self.assertEqual(saved["project_name"], "虚构归档项目（项目已在回收站）")
+        self.assertEqual(saved["action_link_labels"][0]["label"],
+                         "虚构测试任务 / 虚构步骤（步骤已删除）")
+        self.assertEqual(self.post_json(f"/api/tasks/TASK-DEMO-001/steps/{sid}/restore",
+                         {"revision": 2, "confirmed_restore": True})[0], 200)
+        self.assertEqual(self.post_json(f"/api/projects/{pid}/restore",
+                         {"revision": 2})[0], 200)
+        with urlopen(self.base + "/api/work-records", timeout=3) as response:
+            restored = next(r for r in json.load(response)["records"]
+                            if r["record_id"] == record["record_id"])
+        self.assertEqual(restored["project_name"], "虚构归档项目")
+        self.assertEqual(restored["action_link_labels"][0]["label"], "虚构测试任务 / 虚构步骤")
+
+    def test_project_purge_only_empty_and_tombstone_prevents_revival(self):
+        status, created = self.create_project({"name": "可删除空项目"})
+        self.assertEqual(status, 201)
+        pid = created["project_id"]
+        route = "/api/projects/" + pid
+        self.assertEqual(self.post_json(
+            route + "/trash", {"revision":1,"confirmed_delete":True})[0], 200)
+        with urlopen(self.base + "/api/trash", timeout=3) as reply:
+            projects = json.load(reply)["projects"]
+        self.assertFalse(projects[0]["has_references"])
+        self.assertEqual(self.post_json(route + "/purge", {
+            "revision":2,"confirmed_purge":True})[0], 200)
+        self.assertEqual(read_workspace(self.data_dir, include_trashed=True)["projects"], [])
+        append_project_event(self.data_dir, project_event(
+            event_id="late-replay-00001", project_id=pid, action="create"))
+        self.assertEqual(read_workspace(self.data_dir, include_trashed=True)["projects"], [])
+        self.assertEqual(self.post_json(route + "/restore", {"revision":2})[0], 404)
+
+    def test_orphaned_or_concurrent_purge_does_not_hide_project(self):
+        pid = "PROJECT-" + "E" * 32
+        append_project_event(self.data_dir, project_event(
+            event_id="root-orphan-purge-01", project_id=pid))
+        stamp = "2026-11-16T05:00:00Z"
+        append_project_event(self.data_dir, {
+            "version":1,"event_id":"orphan-purge-001","project_id":pid,
+            "action":"purge","actor":"user","timestamp":stamp,
+            "base_revision":1,"confirmed_purge":True,
+            "changes":{"purged_at":stamp}})
+        state = read_workspace(self.data_dir, include_trashed=True)
+        self.assertEqual(len(state["projects"]), 1)
+        self.assertTrue(state["projects"][0]["conflict"])
+        self.assertTrue(any("project purge cannot be verified" in w for w in state["warnings"]))
+
+        other = "PROJECT-" + "B" * 32
+        append_project_event(self.data_dir, project_event(
+            event_id="root-concurrent-purge-01", project_id=other))
+        append_project_event(self.data_dir, {
+            "version":1,"event_id":"trash-concurrent-001","project_id":other,
+            "action":"trash","actor":"user","timestamp":stamp,
+            "base_revision":1,"confirmed_delete":True,
+            "changes":{"trashed_at":stamp}})
+        append_project_event(self.data_dir, {
+            "version":1,"event_id":"purge-concurrent-01","project_id":other,
+            "action":"purge","actor":"user","timestamp":stamp,
+            "base_revision":2,"confirmed_purge":True,
+            "changes":{"purged_at":stamp}})
+        append_project_event(self.data_dir, project_event(
+            event_id="edit-concurrent-01", project_id=other,
+            action="update", revision=2, name="并发项目名称"))
+        projects = {p["project_id"]:p for p in
+                    read_workspace(self.data_dir, include_trashed=True)["projects"]}
+        self.assertIn(other, projects)
+        self.assertTrue(projects[other]["conflict"])
+
+    def test_late_external_reference_blocks_project_purge_projection(self):
+        status, created = self.create_project({"name":"可能存在迟到引用的项目"})
+        self.assertEqual(status, 201)
+        pid = created["project_id"]
+        route = "/api/projects/" + pid
+        self.assertEqual(self.post_json(route + "/trash", {
+            "revision":1,"confirmed_delete":True})[0],200)
+        self.assertEqual(self.post_json(route + "/purge", {
+            "revision":2,"confirmed_purge":True})[0],200)
+        self.assertEqual(read_workspace(self.data_dir, include_trashed=True)["projects"], [])
+        # Simulate late synchronization from another device after purge.
+        append_event(self.data_dir, event(
+            event_id="late-project-ref-01",task_id="TASK-LATE-REF",
+            changes={"title":"迟到的任务","status":"todo","project_id":pid}))
+        state = read_workspace(self.data_dir, include_trashed=True)
+        self.assertEqual(len(state["projects"]), 1)
+        self.assertTrue(state["projects"][0]["conflict"])
+        self.assertTrue(state["projects"][0]["trashed_at"])
+        self.assertTrue(any("project purge cannot be verified" in w for w in state["warnings"]))
+
+    def test_archived_project_disallows_new_assignment_without_unlinking_existing(self):
+        status, created = self.create_project({"name":"待删除关联项目"})
+        self.assertEqual(status, 201)
+        pid = created["project_id"]
+        status, original = self.create_task({"title":"已存在任务","project_id":pid})
+        self.assertEqual(status, 201)
+        self.assertEqual(self.post_json("/api/projects/" + pid + "/trash", {
+            "revision":1,"confirmed_delete":True})[0],200)
+        self.assertEqual(self.create_task({
+            "title":"不得新关联","project_id":pid})[0], 400)
+        self.assertEqual(self.create_task({
+            "title":"不得新增相关项目","related_project_ids":[pid]})[0],400)
+        from app import validate_project_references
+        with self.assertRaises(ValueError):
+            validate_project_references(read_workspace(self.data_dir,include_trashed=True), pid, [])
+        task = next(t for t in read_workspace(self.data_dir)["tasks"]
+                    if t["task_id"] == original["task_id"])
+        self.assertEqual(task["project_id"],pid)
+        self.assertTrue(task["project_archived"])
+
+    def test_project_conflicted_lifecycle_freezes_writes(self):
+        pid = "PROJECT-" + "D" * 32
+        append_project_event(self.data_dir, project_event(
+            event_id="root-project-0001", project_id=pid))
+        stamp = "2026-11-16T05:00:00Z"
+        append_project_event(self.data_dir, {
+            **project_event(event_id="concurrent-trash-0001", project_id=pid,
+                            action="trash", revision=1),
+            "changes":{"trashed_at":stamp},"confirmed_delete":True})
+        append_project_event(self.data_dir, project_event(
+            event_id="concurrent-rename-0001", project_id=pid,
+            action="update",revision=1,name="竞争新名称"))
+        state = read_workspace(self.data_dir)
+        self.assertEqual(len(state["projects"]), 1)
+        self.assertTrue(state["projects"][0]["conflict"])
+        self.assertEqual(self.post_json("/api/projects/" + pid + "/trash",
+            {"revision":1,"confirmed_delete":True})[0], 409)
+
+    def test_step_delete_restore_keeps_history_and_revision(self):
+        status, created = self.create_step(title="待恢复步骤")
+        self.assertEqual(status, 201)
+        sid = created["step_id"]
+        path = "/api/tasks/TASK-DEMO-001/steps/" + sid
+        self.assertEqual(self.post_json(path + "/delete", {
+            "revision":1,"confirmed_delete":True})[0], 200)
+        deleted = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual(deleted["steps"], [])
+        self.assertEqual(deleted["deleted_steps"][0]["step_id"], sid)
+        self.assertEqual(deleted["deleted_steps"][0]["revision"], 2)
+        self.assertEqual(self.post_json(path + "/restore", {
+            "revision":2})[0], 400)
+        self.assertEqual(self.post_json(path + "/restore", {
+            "revision":1,"confirmed_restore":True})[0], 409)
+        original = {p.name:p.read_bytes()
+                    for p in (self.data_dir / "step_events").glob("*.json")}
+        self.assertEqual(self.post_json(path + "/restore", {
+            "revision":2,"confirmed_restore":True})[0], 200)
+        restored = read_workspace(self.data_dir)["tasks"][0]
+        self.assertEqual(restored["steps"][0]["step_id"], sid)
+        self.assertEqual(restored["steps"][0]["revision"], 3)
+        self.assertEqual(restored["deleted_steps"], [])
+        for filename, content in original.items():
+            self.assertEqual((self.data_dir / "step_events" / filename).read_bytes(), content)
+        self.assertEqual(self.post_json(path + "/restore", {
+            "revision":3,"confirmed_restore":True})[0], 404)
+
+    def test_parent_task_delete_and_purge_require_child_safety(self):
+        status, parent = self.create_task({"title":"父任务"})
+        self.assertEqual(status, 201)
+        status, child = self.create_task({
+            "title":"子任务", "parent_task_id":parent["task_id"]})
+        self.assertEqual(status, 201)
+        p = "/api/tasks/" + parent["task_id"]
+        c = "/api/tasks/" + child["task_id"]
+        self.assertEqual(self.post_json(p + "/trash", {"revision":1})[0], 409)
+        self.assertEqual(self.post_json(c + "/trash", {"revision":1})[0], 200)
+        self.assertEqual(self.post_json(p + "/trash", {"revision":1})[0], 200)
+        self.assertEqual(self.post_json(p + "/purge", {
+            "revision":2,"confirmed_purge":True})[0], 409)
+        self.assertEqual(self.post_json(c + "/restore", {"revision":2})[0], 409)
+        self.assertEqual(self.post_json(p + "/restore", {"revision":2})[0], 200)
+        self.assertEqual(self.post_json(c + "/restore", {"revision":2})[0], 200)
+        tasks = {t["task_id"]:t for t in read_workspace(self.data_dir)["tasks"]}
+        self.assertEqual(tasks[child["task_id"]]["parent_task_id"], parent["task_id"])
+        self.assertIn(child["task_id"], tasks[parent["task_id"]]["child_task_ids"])
+
     def test_task_create_rejects_unknown_project_reference(self):
         status, _ = self.create_task({
             "title": "不应保存",

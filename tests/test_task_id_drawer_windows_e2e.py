@@ -513,6 +513,67 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(len(remaining), 1)
         self.assertEqual(json.loads(remaining[0].read_text("utf-8"))["action"], "purge")
 
+    def test_project_trash_restore_and_step_restore_in_real_chromium(self):
+        """Test project and step lifecycle in a real Windows browser using fake data."""
+        page = self._open_browser(open_detail=False)
+        page.locator("#nav-projects").click()
+        page.locator("#new-project-name").fill("虚构可恢复项目")
+        page.locator("#project-submit").click()
+        expect(page.locator("#project-list .project-card")).to_have_count(1)
+        project = read_workspace(self.data_dir)["projects"][0]
+        self.assertEqual(project["name"], "虚构可恢复项目")
+        original_id = project["project_id"]
+        displayed_id = project["display_id"]
+        card = page.locator("#project-list .project-card").first
+        card.locator(".project-id-value").click()
+        expect(card.locator(".project-id-feedback")).to_have_text("已复制")
+        self.assertEqual(page.evaluate("navigator.clipboard.readText()"), displayed_id)
+        # A real confirmation is required. Declining is a no-op.
+        page.once("dialog", lambda dialog: dialog.dismiss())
+        card.locator(".project-trash-action").click()
+        expect(page.locator("#project-list .project-card")).to_have_count(1)
+        self.assertIsNone(read_workspace(self.data_dir)["projects"][0]["trashed_at"])
+        page.once("dialog", lambda dialog: dialog.accept())
+        card.locator(".project-trash-action").click()
+        expect(page.locator("#project-list .project-card")).to_have_count(0)
+        self.assertEqual(read_workspace(self.data_dir)["projects"], [])
+        page.locator("#nav-trash").click()
+        expect(page.locator("#trash-project-list .trash-project-row")).to_have_count(1)
+        self.assertEqual(page.locator("#trash-project-count").inner_text(), "1 项")
+        project_row = page.locator("#trash-project-list .trash-project-row").first
+        self.assertFalse(project_row.get_by_role("button", name="永久移除").is_disabled())
+        page.once("dialog", lambda dialog: dialog.accept())
+        project_row.get_by_role("button", name="恢复项目").click()
+        expect(page.locator("#trash-project-list .trash-project-row")).to_have_count(0)
+        restored = read_workspace(self.data_dir)["projects"][0]
+        self.assertEqual(restored["project_id"], original_id)
+        self.assertEqual(restored["display_id"], displayed_id)
+        self.assertEqual(restored["revision"], 3)
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["task_id"], self.task_id)
+
+        # A deleted step stays identifiable and can return with the same ID.
+        page.locator("#nav-tasks").click()
+        page.locator(".task-summary .task-open").first.click()
+        page.locator(".step-add-form input").fill("虚构可恢复步骤")
+        page.locator(".step-add-form button").click()
+        expect(page.locator(".step-row")).to_have_count(1)
+        original_step = read_workspace(self.data_dir)["tasks"][0]["steps"][0]
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator(".step-row .step-delete").click()
+        expect(page.locator(".step-row")).to_have_count(0)
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["deleted_steps"][0]["step_id"],
+                         original_step["step_id"])
+        details = page.locator(".deleted-steps-panel")
+        expect(details).to_have_count(1)
+        details.locator("summary").click()
+        page.once("dialog", lambda dialog: dialog.accept())
+        details.get_by_role("button", name="恢复步骤").click()
+        expect(page.locator(".step-row")).to_have_count(1)
+        step = read_workspace(self.data_dir)["tasks"][0]["steps"][0]
+        self.assertEqual(step["step_id"], original_step["step_id"])
+        self.assertEqual(step["revision"], 3)
+        self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["revision"], 1)
+
     def test_step_delete_hides_step_and_links_without_deleting_cloud_document(self):
         page = self._open_browser()
         page.locator(".step-add-form input").fill("步骤一 · 测试删除")
