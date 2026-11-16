@@ -557,7 +557,7 @@ def validate_step_event(value: object) -> dict:
         raise ValueError("invalid event_id")
     if not isinstance(value.get("task_id"), str) or not TASK_ID.fullmatch(value["task_id"]):
         raise ValueError("invalid task_id")
-    if value.get("action") not in {"create", "update", "reorder", "delete"}:
+    if value.get("action") not in {"create", "update", "reorder", "delete", "restore"}:
         raise ValueError("invalid step action")
     if value.get("actor") not in {"chatgpt", "user"}:
         raise ValueError("invalid actor")
@@ -587,7 +587,7 @@ def validate_step_event(value: object) -> dict:
         return value
     if set(value) - {"version", "event_id", "task_id", "step_id", "action", "actor",
                      "timestamp", "base_revision", "changes", "confirmed_done",
-                     "confirmed_delete", "merge_basis"}:
+                     "confirmed_delete", "confirmed_restore", "merge_basis"}:
         raise ValueError("unknown step event fields")
     if not isinstance(value.get("step_id"), str) or not STEP_ID.fullmatch(value["step_id"]):
         raise ValueError("invalid step_id")
@@ -604,11 +604,18 @@ def validate_step_event(value: object) -> dict:
                 raise ValueError("timezone required")
         except ValueError as exc:
             raise ValueError("invalid step deletion timestamp") from exc
-        if "confirmed_done" in value:
-            raise ValueError("unexpected step completion confirmation")
+        if "confirmed_done" in value or "confirmed_restore" in value:
+            raise ValueError("unexpected step completion or restore confirmation")
         return value
-    if "confirmed_delete" in value:
-        raise ValueError("unexpected step deletion confirmation")
+    if value["action"] == "restore":
+        if (value["actor"] != "user" or revision < 1 or
+                value.get("confirmed_restore") is not True or
+                set(changes) != {"deleted_at"} or changes["deleted_at"] is not None or
+                "confirmed_delete" in value or "confirmed_done" in value):
+            raise ValueError("step restore requires user confirmation and null deleted_at")
+        return value
+    if "confirmed_delete" in value or "confirmed_restore" in value:
+        raise ValueError("unexpected step lifecycle confirmation")
     if set(changes) - {"title", "status", "position", "document_links", *DATE_FIELDS}:
         raise ValueError("unknown step fields")
     if "document_links" in changes:
@@ -1331,7 +1338,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
                 warnings.append(f"{step_id}: events reference different parent tasks")
             updates: dict[int, list[dict]] = defaultdict(list)
             for event in events:
-                if event["action"] in {"update", "delete"}:
+                if event["action"] in {"update", "delete", "restore"}:
                     updates[event["base_revision"]].append(event)
             has_unsafe_stream = (
                 step["conflict"] or
@@ -1372,12 +1379,14 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
                     required_basis = merged["merge_basis"]
                     continue
                 selected = candidates[0]
-                # A delete tombstone cannot be undone by a late edit.
-                if step.get("deleted_at"):
+                # Only a confirmed restore at the expected revision may
+                # re-enable a deleted step. A late update must not resurrect it.
+                if (step.get("deleted_at") and selected["action"] != "restore" or
+                        not step.get("deleted_at") and selected["action"] == "restore"):
                     step["conflict"] = True
                     step["conflict_fields"] = sorted(set(step["conflict_fields"]) | {"deleted_at"})
                     step["conflict_candidates"].extend(summarize_conflict_events(candidates))
-                    warnings.append(f"{step_id}: events after step deletion need review")
+                    warnings.append(f"{step_id}: invalid edit or restore after step deletion")
                     break
                 step.update(selected["changes"])
                 if "title" in step:
@@ -1422,6 +1431,13 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
             step["step_id"] for step in steps_by_id.values()
             if step["task_id"] == task["task_id"] and step.get("deleted_at")
         )
+        task["deleted_steps"] = [
+            {"step_id": step["step_id"], "title": step["title"],
+             "deleted_at": step["deleted_at"], "revision": step["revision"],
+             "conflict": step["conflict"]}
+            for step in sorted(steps_by_id.values(), key=lambda item: item["step_id"])
+            if step["task_id"] == task["task_id"] and step.get("deleted_at")
+        ]
     for task_id, steps in steps_by_task.items():
         if task_id not in task_by_id:
             warnings.append(f"{task_id}: step records are waiting for the parent task to sync")
