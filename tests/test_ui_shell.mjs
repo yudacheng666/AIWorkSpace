@@ -840,12 +840,48 @@ test("stage3 project detail and task list link preserve task ID with no write",a
  const card=x.el("project-list").children[0];
  card.children.find(c=>c.className==="project-card-actions").children[0].handlers.get("click")[0]();
  assert.equal(x.el("project-inspector").hidden,false);
- assert.equal(x.el("project-inspector").children[1].children.length,2);
+ assert.equal(x.el("project-inspector").children[2].children.length,2);
  assert.equal(x.api.openProjectTasks(p),true);
  assert.equal(x.el("query-project").value,p);
  assert.equal(x.el("query-result-count").textContent,"（1 / 1）");
  assert.equal(x.writes.length,0);
 });
+test("project display ID is visible, searchable and copyable from list and details", async () => {
+  const displayId = "P-261116-AAAAAAAAAAAA";
+  const projects = [
+   {project_id:"PROJECT-"+"A".repeat(32),display_id:displayId,name:"虚构采购项目",revision:1,conflict:false},
+   {project_id:"PROJECT-"+"B".repeat(32),display_id:"P-261116-BBBBBBBBBBBB",name:"另一个虚构项目",revision:1,conflict:false}
+  ];
+  const x = harness([],()=>true,projects);
+  await x.api.refresh(true);
+  x.api.setActivePage("projects");
+  let card = x.el("project-list").children.find(item=>item.children[0]?.value==="虚构采购项目");
+  assert.ok(card);
+  const controls = card.children.find(item=>item.className==="project-id-controls");
+  assert.ok(controls);
+  assert.equal(controls.children[0].textContent,displayId);
+  await controls.children[0].handlers.get("click")[0]();
+  await controls.children[1].handlers.get("click")[0]();
+  assert.deepEqual(x.copied,[displayId,displayId]);
+  assert.equal(controls.children[2].textContent,"已复制");
+
+  x.el("project-keyword").value=displayId.toLowerCase();
+  x.el("project-filter").handlers.get("submit")[0]({preventDefault(){}});
+  assert.equal(x.el("project-list").children.length,1);
+  card=x.el("project-list").children[0];
+  assert.equal(card.children[0].value,"虚构采购项目");
+  card.children.find(item=>item.className==="project-card-actions")
+    .children[0].handlers.get("click")[0]();
+  const inspector=x.el("project-inspector");
+  assert.equal(inspector.children[0].textContent,"虚构采购项目");
+  const detailControls=inspector.children.find(item=>item.className==="project-id-controls");
+  assert.ok(detailControls);
+  await detailControls.children[1].handlers.get("click")[0]();
+  assert.deepEqual(x.copied,[displayId,displayId,displayId]);
+  assert.equal(detailControls.children[2].textContent,"已复制");
+  assert.equal(x.writes.length,0);
+});
+
 test("stage3 project name draft cannot be discarded by navigation or auto refresh",async()=>{
  let consent=false;
  const x=harness([],()=>consent,[{project_id:"P",name:"虚构项目",revision:1,conflict:false}]);

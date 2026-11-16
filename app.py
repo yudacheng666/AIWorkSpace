@@ -73,6 +73,22 @@ def display_task_id(task_id: str, created_at: str = "") -> str:
     return f"T-{day}-{suffix}"
 
 
+def display_project_id(project_id: str, created_at: str = "") -> str:
+    """Derive a stable project display code without changing stored project IDs."""
+    day = "000000"
+    if isinstance(created_at, str):
+        matched = re.match(r"^(\d{4})-(\d{2})-(\d{2})", created_at)
+        if matched:
+            try:
+                date.fromisoformat("-".join(matched.groups()))
+                day = "".join(matched.groups())[2:]
+            except ValueError:
+                pass
+    matched_uuid = re.fullmatch(r"PROJECT-([0-9a-fA-F]{32})", project_id)
+    suffix = (matched_uuid.group(1)[:12].upper() if matched_uuid else
+              hashlib.sha256(project_id.encode("utf-8")).hexdigest()[:12].upper())
+    return f"P-{day}-{suffix}"
+
 
 def validate_document_links(links: object) -> list[dict]:
     """Only save Google HTTPS references. Actual AI reading requires Drive access."""
@@ -1102,13 +1118,16 @@ def read_projects(data_dir: Path) -> dict:
             candidates = roots or updated[project_id]
             projects.append({
                 "project_id": project_id,
+                "display_id": project_id,
                 "name": "项目创建记录冲突" if roots else "项目创建记录尚未同步",
                 "revision": 0,
                 "conflict": True,
                 "conflict_candidates": summarize_conflict_events(candidates),
             })
             continue
-        project = {"project_id": project_id, "name": roots[0]["changes"]["name"].strip(),
+        created_at = roots[0].get("timestamp", "")
+        project = {"project_id": project_id, "display_id": display_project_id(project_id, created_at),
+                   "created_at": created_at, "name": roots[0]["changes"]["name"].strip(),
                    "revision": 1, "conflict": False, "conflict_candidates": []}
         by_revision: dict[int, list[dict]] = defaultdict(list)
         for event in updated[project_id]:
@@ -1140,6 +1159,16 @@ def read_projects(data_dir: Path) -> dict:
                     [event for event in variants if event["project_id"] == project_id]
                 ))
                 warnings.append(f"{project_id}: project event_id {event_id} needs review")
+    used_display_ids: dict[str, list[dict]] = defaultdict(list)
+    for project in projects:
+        if project.get("display_id") != project["project_id"]:
+            used_display_ids[project["display_id"]].append(project)
+    for short_id, duplicates in used_display_ids.items():
+        if len(duplicates) > 1:
+            for project in duplicates:
+                project["display_id"] = project["project_id"]
+            warnings.append(f"project display identifier collision: {short_id}; using full IDs")
+
     projects.sort(key=lambda project: (project["name"].casefold(), project["project_id"]))
     return {"projects": projects, "warnings": warnings}
 

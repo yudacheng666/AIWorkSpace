@@ -560,6 +560,13 @@
     .project-inspector section{display:grid;gap:7px;margin:11px 0;}
     .project-inspector h4{margin:0;font-size:12px;color:#647792;}
     .project-inspector button{padding:7px 10px;border:1px solid #dce7f4;border-radius:7px;background:#fff;color:#305e9b;font-size:11px;text-align:left;}
+    .project-id-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;}
+    .project-id-controls button{height:27px;padding:3px 8px;border:1px solid #dce5f0;border-radius:6px;background:#fff;color:#61758d;font-size:10px;cursor:pointer;}
+    .project-id-controls .project-id-value{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-weight:650;letter-spacing:.15px;overflow-wrap:anywhere;}
+    .project-id-controls .project-id-copy{width:27px;padding:0;text-align:center;font-size:14px;}
+    .project-id-controls .project-id-feedback{color:#4c8a68;font-size:10px;}
+    .project-id-controls .project-id-feedback[hidden]{display:none;}
+    .project-card .project-id-controls{grid-column:1/-1;}
     @media(max-width:850px){.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}.project-filter{grid-template-columns:minmax(0,1fr) auto auto;}.project-filter select{width:130px;}}
     @media(max-width:520px){.project-filter{grid-template-columns:1fr 1fr;}.project-filter input{grid-column:1/-1;}.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}}
 
@@ -1414,6 +1421,7 @@
     "use strict";
     const $ = id => document.getElementById(id);
     const taskDisplayId = task => task.display_id || task.task_id;
+    const projectDisplayId = project => project.display_id || project.project_id;
     const labels = {todo: "待处理", doing: "进行中", blocked: "受阻", done: "已完成"};
     const priorities = {normal: "普通", low: "低", high: "高", urgent: "紧急"};
     const metadataFields = ["owner", "priority", "due_date", "planned_date", "follow_up_date"];
@@ -1855,12 +1863,43 @@
       return panel;
     }
 
+    async function copyProjectDisplayId(project, feedback) {
+      try {
+        const clipboard = globalThis.navigator?.clipboard;
+        if (!clipboard?.writeText) throw new Error("clipboard unavailable");
+        await clipboard.writeText(projectDisplayId(project));
+        feedback.textContent = "已复制";
+      } catch (_) {
+        feedback.textContent = "复制失败，请手动选择编号";
+      }
+      feedback.hidden = false;
+    }
+
+    function projectIdControls(project) {
+      const controls = element("div", "project-id-controls");
+      const id = element("button", "project-id-value", projectDisplayId(project));
+      id.type = "button";
+      id.title = "点击复制项目编号";
+      const copy = element("button", "project-id-copy", "⧉");
+      copy.type = "button";
+      copy.setAttribute("aria-label", "复制项目编号");
+      copy.title = "复制项目编号";
+      const feedback = element("span", "project-id-feedback", "");
+      feedback.hidden = true;
+      feedback.role = "status";
+      feedback.ariaLive = "polite";
+      id.addEventListener("click", () => copyProjectDisplayId(project, feedback));
+      copy.addEventListener("click", () => copyProjectDisplayId(project, feedback));
+      controls.append(id, copy, feedback);
+      return controls;
+    }
+
     function renderProjectInspector() {
       const target=$("project-inspector"),project=availableProjects().find(p=>p.project_id===selectedProjectId);
       if ([...unsavedProgressEditors, ...unsavedProjectEditors].some(form => target.contains(form))) return;
       if(!project){target.hidden=true;target.replaceChildren();return;}
       const tasks=projectTasks(project.project_id);
-      const title=element("h3","",project.name+" · "+project.project_id);
+      const title=element("h3","",project.name);
       const blocks=[];
       for(const [label,rows] of [["主要归属",tasks.primary],["关联任务",tasks.related]]) {
         const section=element("section");
@@ -1874,7 +1913,7 @@
       }
       const go=element("button","","在任务列表中查看");
       go.type="button";go.addEventListener("click",()=>openProjectTasks(project.project_id));
-      target.replaceChildren(title,objectDescriptionPanel("project",project),
+      target.replaceChildren(title,projectIdControls(project),objectDescriptionPanel("project",project),
         progressPanel({type:"project",project_id:project.project_id,disabled:!!(project.conflict||project.missing)}),
         ...blocks,go);target.hidden=false;
     }
@@ -1882,7 +1921,8 @@
       const all=availableProjects();
       const q=projectKeyword.trim().toLocaleLowerCase();
       const visible=all.filter(p=>!q||String(p.name||"").toLocaleLowerCase().includes(q)||
-        p.project_id.toLocaleLowerCase().includes(q));
+        p.project_id.toLocaleLowerCase().includes(q)||
+        projectDisplayId(p).toLocaleLowerCase().includes(q));
       const sort=$("project-sort").value||"name";
       visible.sort((a,b)=>{
         if(sort==="tasks")return projectCounts(b.project_id).total-projectCounts(a.project_id).total;
@@ -1928,7 +1968,7 @@
       input.value = project.name; input.disabled = !!(project.conflict||project.missing);
       const button = element("button", "save", "保存");
       button.type = "submit"; button.disabled = !!(project.conflict||project.missing);
-      card.append(input, button);
+      card.append(input, button, projectIdControls(project));
       const watch=watchUnsavedEditor(card,()=>input.value,unsavedProjectEditors);
       const metric=projectCounts(project.project_id);
       card.append(element("div","project-card-stats",
@@ -1963,8 +2003,6 @@
           $("project-message").textContent = `项目保存失败：${error.message}`;
         } finally { isSaving = false; button.disabled = false; }
       });
-      const id = element("small", "", project.project_id);
-      card.append(id);
       return card;
     }
 
