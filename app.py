@@ -1121,6 +1121,7 @@ def read_projects(data_dir: Path) -> dict:
         return {"projects": [], "warnings": [], "purged_ids": []}
     created: dict[str, list[dict]] = defaultdict(list)
     updated: dict[str, list[dict]] = defaultdict(list)
+    purged_ids: set[str] = set()
     warnings: list[str] = []
     seen: dict[str, dict] = {}
     duplicate_conflicts: dict[str, list[dict]] = defaultdict(list)
@@ -1186,6 +1187,7 @@ def read_projects(data_dir: Path) -> dict:
                 for variants in duplicate_conflicts.values() for event in variants)
             if (valid_purge and not colliding_event_id and
                     not project_has_persistent_references(data_dir, project_id)):
+                purged_ids.add(project_id)
                 continue  # Verified tombstone wins over later duplicate creates.
             warnings.append(
                 f"{project_id}: project purge cannot be verified or still has references; review required")
