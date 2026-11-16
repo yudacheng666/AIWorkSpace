@@ -933,8 +933,7 @@ test("deleted step can be restored without changing its old ID or task ownership
       conflict:false}]};
   const h=harness([task]);
   await h.api.refresh(true);
-  const panel=h.api.stepRow===undefined ? h.api.openTaskDetail(task.task_id) : null;
-  if (panel===null) h.api.openTaskDetail(task.task_id);
+  h.api.openTaskDetail(task.task_id);
   const drawer=h.el("task-detail-content");
   const find=(root,cls)=>root.className===cls?root:(root.children||[])
       .map(child=>find(child,cls)).find(Boolean);
@@ -948,6 +947,18 @@ test("deleted step can be restored without changing its old ID or task ownership
     "/api/tasks/"+task.task_id+"/steps/"+sid+"/restore");
   assert.equal(h.writes[0].body.confirmed_restore,true);
   assert.equal(h.writes[0].body.revision,2);
+});
+
+test("archived project references remain visible on tasks but disappear from project manager", async () => {
+  const pid="PROJECT-"+"A".repeat(32);
+  const task={...sampleTask(),project_id:pid,project_archived:true,
+    project_name:"虚构项目（项目已移入回收站）"};
+  const h=harness([task]);
+  await h.api.refresh(true);h.api.setActivePage("projects");
+  assert.equal(h.el("project-list").children.length,1);
+  assert.equal(h.el("project-list").children[0].className,"project-help");
+  assert.ok(h.el("project-list").children[0].textContent.includes("尚无项目"));
+  assert.equal(h.writes.length,0);
 });
 
 test("stage3 project name draft cannot be discarded by navigation or auto refresh",async()=>{
