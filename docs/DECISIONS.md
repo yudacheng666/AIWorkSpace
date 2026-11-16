@@ -334,4 +334,4 @@
 - **等待与条件**：等待他人反馈但仍需跟进时，建立或保留跟进待办；有可靠日期才设置 follow_up_date。条件尚未触发的远期分支不全部变成当前待办；先记录条件，必要时跟踪当前决策点。已完成动作只记事实；纯信息、终局事项或未成形的设想不强行创建任务。
 - **关联与验证**：同一输入同时产生 RECORD 与 TASK／STEP 时，使用当前 validator 支持的 `action_links`，以 `derived_action` 关联。写入后分别回读 RECORD 与行动对象；每个行动候选必须明确为已创建、已更新、已有对象覆盖或有理由不创建。用户汇报分开列明事实记录与待办；没有待办时说明原因。
 - **示例边界**：等待采购报价应有跟进步骤；“明日商定报价，确认后通知销售”应拆为两个有顺序的步骤；“无货、已通知销售、本任务结束”不应额外制造待办，完成状态仍遵守用户明确确认规则。
-- **实施状态**：由依赖 PR #55 的规则 PR 更新 `docs/AI_WORKSPACE_OPERATING_RULES.md` 和 `AGENTS.md` 入口提示，并同步项目状态／会话记录；须先合并 PR #55，再将本 PR retarget 到 main。仅文档变更，不修改真实工作台数据。
+- **实施状态**：由 [PR #56](https://github.com/yudacheng666/AIWorkSpace/pull/56) 更新 `docs/AI_WORKSPACE_OPERATING_RULES.md` 和 `AGENTS.md` 入口提示，并同步项目状态／会话记录；当前 PR #56 以 PR #55 分支为 base，须先合并 PR #55，再将 PR #56 retarget 到 main。仅文档变更，不修改真实工作台数据。

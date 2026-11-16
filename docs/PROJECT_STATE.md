@@ -8,7 +8,8 @@
 - **基线与依赖**：正式软件版本仍为 2.10.0；本次仅改文档规则，不改产品代码、测试代码、VERSION 或真实 Google Drive 数据。为避免与项目编号 PR 的项目状态／决策文档修改冲突，本 PR 以 PR #55 的分支 `feature/20261116-project-display-id` 为 base；须先合并 PR #55，再将本 PR retarget 到 main。
 - **开发分支**：`docs/20261116-natural-language-action-extraction-stack`；基于 PR #55 head `8fdfaabc5005b73daf3319f8d0c58a230822f652`。
 - **测试策略**：纯文档低风险变更，进行规则一致性、validator 字段边界、示例覆盖和公开仓库敏感信息静态核对；不重复运行 Actions 或 Codex。
-- **下一步**：完成静态核对并创建依赖 PR，等待用户审批；未批准前不合并。
+- **PR**：[PR #56](https://github.com/yudacheng666/AIWorkSpace/pull/56) 已创建并通过静态核对；当前 head SHA `ad4f684a8ee720230477276856c78c97bbea8848`，base 为 PR #55 的分支 `feature/20261116-project-display-id`。
+- **下一步**：先等待 PR #55 合并；之后将 PR #56 的 base retarget 到 main，再等待用户独立批准合并。PR #55 未合并前不得将本规则变更合入 main。
 
 ---
 

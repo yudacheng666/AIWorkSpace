@@ -28,4 +28,5 @@
 ## 状态与依赖
 - 开发分支：`docs/20261116-natural-language-action-extraction-stack`
 - 依赖 PR #55（`feature/20261116-project-display-id`）；PR #55 合并后将本 PR 的 base retarget 到 main。
-- 等待静态核对、创建 PR 和用户审批；未批准前不合并。
+- PR #56 已创建并通过静态核对；当前 base 为 PR #55 的分支，须先合并 PR #55，再将 PR #56 retarget 到 main。
+- 等待用户审批；未批准前不合并。
