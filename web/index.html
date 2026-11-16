@@ -575,6 +575,7 @@
     .project-trash-note{font-size:11px;color:#8291a2;line-height:1.5;}
     .trash-project-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
     .trash-project-actions button{min-height:32px;}
+    .trash-project-row{grid-template-columns:minmax(0,1fr) auto;}
     @media(max-width:850px){.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}.project-filter{grid-template-columns:minmax(0,1fr) auto auto;}.project-filter select{width:130px;}}
     @media(max-width:520px){.project-filter{grid-template-columns:1fr 1fr;}.project-filter input{grid-column:1/-1;}.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}}
 
@@ -2337,6 +2338,41 @@
         list.replaceChildren(...steps.map((step, index) => stepRow(task, step, index, message)));
       }
       panel.append(list);
+      const deleted = Array.isArray(task.deleted_steps) ? task.deleted_steps : [];
+      if (deleted.length) {
+        const archived = element("details", "deleted-steps-panel");
+        const heading = element("summary", "", "已删除步骤 " + deleted.length +
+          " 项（可恢复，保留原工作记录与步骤编号）");
+        archived.append(heading);
+        for (const step of deleted) {
+          const item = element("div", "deleted-step-item");
+          const info = element("span", "", step.title + " · " + step.step_id);
+          const restore = element("button", "", "恢复步骤");
+          restore.type = "button";
+          restore.disabled = Boolean(task.conflict || step.conflict ||
+            task.step_order_conflict || task.step_order_incomplete);
+          restore.addEventListener("click", async () => {
+            if (isSaving || restore.disabled || !confirmDiscardUnsaved()) return;
+            if (!window.confirm("恢复步骤「" + step.title + "」？原步骤编号及记录关联保持不变。")) return;
+            isSaving = true; restore.disabled = true;
+            try {
+              const response = await fetch("/api/tasks/" + encodeURIComponent(task.task_id) +
+                "/steps/" + encodeURIComponent(step.step_id) + "/restore", {
+                  method:"POST",headers:{"Content-Type":"application/json"},
+                  body:JSON.stringify({revision:step.revision,confirmed_restore:true})
+                });
+              const result=await response.json();
+              if(!response.ok) throw new Error(result.error || "恢复失败");
+              await refresh(true,true);
+            } catch (error) {
+              message.className="step-message error";
+              message.textContent="恢复步骤失败："+error.message;
+            } finally {isSaving=false; restore.disabled=Boolean(task.conflict || step.conflict);}
+          });
+          item.append(info,restore);archived.append(item);
+        }
+        panel.append(archived);
+      }
       const addForm = element("form", "step-add-form");
       const input = element("input");
       input.type = "text"; input.maxLength = 200; input.required = true;
@@ -4654,7 +4690,7 @@
           projectList.append(element("p", "project-help", "暂无已删除项目。"));
         }
         for (const project of trashedProjects) {
-          const row = element("div", "trash-row" + (project.conflict ? " is-conflict" : ""));
+          const row = element("div", "trash-row trash-project-row" + (project.conflict ? " is-conflict" : ""));
           const label = element("div", "trash-row-label");
           label.append(element("strong", "trash-row-title", project.name),
             element("span", "trash-row-meta",
