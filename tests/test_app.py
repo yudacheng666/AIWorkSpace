@@ -206,6 +206,44 @@ class DataTests(unittest.TestCase):
         self.assertTrue(any("display identifier collision" in warn
                             for warn in state["warnings"]))
 
+    def test_project_display_id_is_derived_without_changing_project_events(self):
+        project_id = "PROJECT-" + "A" * 32
+        append_project_event(self.data_dir, project_event(project_id=project_id))
+        event_files = list((self.data_dir / "project_events").glob("*.json"))
+        original_bytes = [path.read_bytes() for path in event_files]
+
+        project = read_workspace(self.data_dir)["projects"][0]
+        self.assertEqual(project["project_id"], project_id)
+        self.assertEqual(project["display_id"], "P-261027-" + "A" * 12)
+        self.assertEqual(project["created_at"], "2026-10-27T00:00:00Z")
+        self.assertEqual([path.read_bytes() for path in event_files], original_bytes)
+
+    def test_project_display_id_invalid_date_missing_create_and_collision(self):
+        from app import display_project_id
+        invalid_date_id = "PROJECT-" + "D" * 32
+        self.assertEqual(display_project_id(invalid_date_id, "not-a-date"),
+                         "P-000000-" + "D" * 12)
+
+        prefix = "B" * 12
+        left = "PROJECT-" + prefix + "0" * 20
+        right = "PROJECT-" + prefix + "1" * 20
+        missing_create = "PROJECT-" + "C" * 32
+        append_project_event(self.data_dir, project_event(
+            "project-collision-left", project_id=left))
+        append_project_event(self.data_dir, project_event(
+            "project-collision-right", project_id=right))
+        append_project_event(self.data_dir, project_event(
+            "project-update-without-create", project_id=missing_create,
+            action="update", revision=1))
+
+        state = read_workspace(self.data_dir)
+        projects = {project["project_id"]: project for project in state["projects"]}
+        self.assertEqual(projects[left]["display_id"], left)
+        self.assertEqual(projects[right]["display_id"], right)
+        self.assertEqual(projects[missing_create]["display_id"], missing_create)
+        self.assertTrue(any("project display identifier collision" in warning
+                            for warning in state["warnings"]))
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.data_dir = Path(self.temp.name)
