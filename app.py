@@ -1118,7 +1118,7 @@ def read_projects(data_dir: Path) -> dict:
     """Reduce append-only project events without overwriting project history."""
     directory = data_dir / "project_events"
     if not directory.exists():
-        return {"projects": [], "warnings": []}
+        return {"projects": [], "warnings": [], "purged_ids": []}
     created: dict[str, list[dict]] = defaultdict(list)
     updated: dict[str, list[dict]] = defaultdict(list)
     warnings: list[str] = []
@@ -1261,7 +1261,7 @@ def read_projects(data_dir: Path) -> dict:
             warnings.append(f"project display identifier collision: {short_id}; using full IDs")
 
     projects.sort(key=lambda project: (project["name"].casefold(), project["project_id"]))
-    return {"projects": projects, "warnings": warnings}
+    return {"projects": projects, "warnings": warnings, "purged_ids": sorted(purged_ids)}
 
 
 def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
@@ -1962,6 +1962,7 @@ def read_workspace(data_dir: Path, include_trashed: bool = False,
             warnings.append(f"display identifier collision: {short_id}; using full IDs")
 
     project_map = {project["project_id"]: project for project in project_state["projects"]}
+    permanently_removed_projects = set(project_state.get("purged_ids", []))
     for task in tasks:
         for field, default in TASK_DEFAULTS.items():
             task.setdefault(field, default)
@@ -1971,15 +1972,23 @@ def read_workspace(data_dir: Path, include_trashed: bool = False,
         primary = project_map.get(task["project_id"]) if task["project_id"] else None
         task["project_name"] = (
             primary["name"] + ("（项目已移入回收站）" if primary.get("trashed_at") else "")
-            if primary and not primary["conflict"] else None)
+            if primary and not primary["conflict"] else
+            "项目已永久移除（原关联保留）"
+            if task["project_id"] in permanently_removed_projects else None)
         task["project_archived"] = bool(primary and primary.get("trashed_at"))
-        task["project_missing"] = bool(task["project_id"] and (primary is None or primary["conflict"]))
+        task["project_purged"] = task["project_id"] in permanently_removed_projects
+        task["project_missing"] = bool(
+            task["project_id"] and
+            (primary is None and task["project_id"] not in permanently_removed_projects or
+             primary is not None and primary["conflict"]))
         related_names = []
         for project_id in task["related_project_ids"]:
             related = project_map.get(project_id)
             if related and not related["conflict"]:
                 related_names.append(related["name"] +
                                      ("（项目已移入回收站）" if related.get("trashed_at") else ""))
+            elif project_id in permanently_removed_projects:
+                related_names.append("项目已永久移除（原关联保留）")
             else:
                 task["project_missing"] = True
         task["related_project_names"] = related_names
