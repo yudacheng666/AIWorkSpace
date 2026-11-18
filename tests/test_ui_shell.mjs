@@ -778,7 +778,7 @@ test("V2 polishing: calendar and Gantt have direct sidebar navigation", async ()
   assert.equal(page.el("nav-calendar").className, "nav-item is-active");
   page.el("nav-gantt").handlers.get("click")[0]();
   assert.equal(page.el("tasks").className, "task-list is-gantt");
-  assert.equal(page.el("tasks-page-title").textContent, "日期甘特图");
+  assert.equal(page.el("tasks-page-title").textContent, "甘特图");
   assert.equal(page.el("nav-gantt").className, "nav-item is-active");
   page.el("nav-board").handlers.get("click")[0]();
   assert.equal(page.el("tasks").className, "task-list is-board");
@@ -1697,6 +1697,21 @@ test("step-only aggregate follows the same safety gate and unreliable parents st
 });
 
 
+test("record and summary clear or cancel labels reflect editor mode without changing safety", async () => {
+  const id="RECORD-"+"C".repeat(32);
+  const record={record_id:id,display_id:"R-261111-CCCCCCCCCCCC",record_type:"note",
+    content:"历史内容",occurred_on:"2026-11-11",created_at:"2026-11-11T00:00:00Z",
+    revision:1,project_id:null,task_id:null,action_links:[],evidence_links:[],conflict:false};
+  const h=harness([],()=>true,[],[],null,{records:[record]});
+  await h.api.loadWorkRecords();
+  h.api.editWorkRecord(id);
+  assert.equal(h.el("work-record-cancel").textContent,"取消编辑");
+  h.el("work-record-cancel").handlers.get("click")[0]();
+  assert.equal(h.el("work-record-cancel").textContent,"清空");
+  assert.equal(h.writes.length,0);
+  assert.equal(h.el("work-record-content").value,"");
+});
+
 test("work record quick capture is separate from task creation and includes historical date", async () => {
   const h = harness();
   assert.equal(h.api.setActivePage("worklog"), true);
@@ -1743,6 +1758,7 @@ test("work timeline combines manual facts and read-only confirmed task completio
   h.api.editWorkRecord(recordId);
   assert.equal(h.el("work-record-content").value, "供应商电话沟通");
   assert.equal(h.el("work-record-submit").textContent, "保存修改");
+  assert.equal(h.el("work-record-cancel").textContent, "取消编辑");
   h.el("work-record-content").value = "修改后的真实工作记录";
   await h.api.saveWorkRecord({preventDefault() {}});
   assert.equal(h.writes.length, 1);
@@ -2484,24 +2500,124 @@ test("a newer conflicted decision suppresses an older current conclusion", async
   assert.doesNotMatch(warningText,/采用/);
 });
 
-test("editing a decision creates a new record instead of overwriting the prior conclusion", async () => {
+test("decision entry error can correct content and date under the same ID", async () => {
   const id = "RECORD-"+"F".repeat(32);
   const decision = {record_id:id,display_id:"R-261111-FFFFFFFFFFFF",
-    record_type:"decision",content:"评估是否采用方案A",outcome:"暂不采用",
-    occurred_on:"2026-11-11",created_at:"2026-11-11T02:00:00Z",
-    updated_at:"2026-11-11T02:00:00Z",project_id:null,task_id:null,
+    record_type:"decision",content:"按原方案报价",outcome:null,
+    occurred_on:"2026-11-18",created_at:"2026-11-18T02:00:00Z",
+    updated_at:"2026-11-18T02:00:00Z",project_id:null,task_id:null,
     action_links:[],evidence_links:[],featured:false,revision:1,conflict:false};
-  const h = harness([],()=>true,[],[],async (path,body)=>({
-    ok:true,json:async()=>({saved:true,record_id:"RECORD-NEW",display_id:"R-261111-NEWNEWNEW",revision:1})
-  }),{records:[decision]});
+  let confirmations = 0;
+  const h = harness([],()=>{confirmations++;return true;},[],[],
+    async()=>({ok:true,json:async()=>({saved:true,record_id:id,display_id:decision.display_id,revision:2})}),
+    {records:[decision]});
+  await h.api.loadWorkRecords();
+  assert.match(h.el("work-record-list").children[0].children.at(-1).children[0].textContent,/更正录入/);
+  h.api.editWorkRecord(id);
+  assert.equal(h.el("work-record-submit").textContent,"保存更正");
+  assert.match(h.el("work-record-message").textContent,/原始版本保留/);
+  h.el("work-record-content").value = "按九折报价";
+  h.el("work-record-date").value = "2026-11-17";
+  await h.api.saveWorkRecord({preventDefault(){}});
+  assert.equal(confirmations,1);
+  assert.equal(h.writes[0].path,"/api/work-records/"+id+"/update");
+  assert.equal(h.writes[0].body.revision,1);
+  assert.equal(h.writes[0].body.correct_decision,true);
+  assert.equal(h.writes[0].body.occurred_on,"2026-11-17");
+  assert.equal(h.writes[0].body.content,"按九折报价");
+});
+
+test("decision date-only corrections use ordinary metadata update without rewriting core", async () => {
+  const id="RECORD-"+"E".repeat(32);
+  const h=harness([],()=>{throw Error("date correction must not prompt for core changes");},
+    [],[],null,{records:[{record_id:id,display_id:"R-261118-EEEEEEEEEEEE",
+      record_type:"decision",content:"已同意",outcome:null,
+      occurred_on:"2026-11-18",created_at:"2026-11-18T08:00:00Z",
+      action_links:[],evidence_links:[],revision:1,conflict:false}]});
   await h.api.loadWorkRecords();
   h.api.editWorkRecord(id);
-  assert.equal(h.el("work-record-submit").textContent,"保存为新记录");
-  assert.match(h.el("work-record-message").textContent,/原决策保留/);
+  h.el("work-record-date").value="2026-11-17";
+  await h.api.saveWorkRecord({preventDefault(){}});
+  assert.equal(h.writes[0].body.correct_decision,undefined);
+  assert.equal(h.writes[0].body.occurred_on,"2026-11-17");
+});
+
+test("a changed business decision can still be saved as a separate historical record", async () => {
+  const id="RECORD-"+"F".repeat(32);
+  const decision={record_id:id,display_id:"R-261111-FFFFFFFFFFFF",
+    record_type:"decision",content:"评估是否采用方案A",outcome:"暂不采用",
+    occurred_on:"2026-11-11",created_at:"2026-11-11T02:00:00Z",
+    project_id:null,task_id:null,action_links:[],evidence_links:[],
+    featured:false,revision:1,conflict:false};
+  const h=harness([],()=>true,[],[],null,{records:[decision]});
+  await h.api.loadWorkRecords();
+  h.api.editWorkRecord(id,true);
+  assert.equal(h.el("work-record-submit").textContent,"保存为新决策");
+  assert.match(h.el("work-record-message").textContent,/另外新增/);
   await h.api.saveWorkRecord({preventDefault(){}});
   assert.equal(h.writes[0].path,"/api/work-records");
   assert.equal(h.writes[0].body.record_type,"decision");
   assert.equal(h.writes[0].body.outcome,"暂不采用");
+});
+
+test("description section titles for task and step never use fill prefix", () => {
+  const h = harness([sampleTask()]);
+  const task = {...sampleTask(), description:"", description_revision:0};
+  const step = {step_id:"STEP-"+"D".repeat(32), description:"", description_revision:0};
+  const project = {project_id:"PROJECT-"+"A".repeat(32), description:"", description_revision:0};
+  assert.equal(h.api.objectDescriptionPanel("task",task).children[0].textContent,"任务说明");
+  assert.equal(h.api.objectDescriptionPanel("step",step,task.task_id).children[0].textContent,"步骤说明");
+  assert.equal(h.api.objectDescriptionPanel("project",project).children[0].textContent,"项目说明");
+  task.description = "原有任务说明";
+  step.description = "原有步骤说明";
+  assert.equal(h.api.objectDescriptionPanel("task",task).children[0].textContent,"任务说明");
+  assert.equal(h.api.objectDescriptionPanel("step",step,task.task_id).children[0].textContent,"步骤说明");
+});
+
+test("description headings do not regain filling prefix after clearing and saving", async () => {
+  for (const [object_type,key,label] of [
+    ["project","project_id","项目说明"], ["task","task_id","任务说明"],
+    ["step","step_id","步骤说明"]
+  ]) {
+    const h=harness([],()=>true,[],[],async(path,body)=>({
+      ok:true,json:async()=>({saved:true,revision:body.revision+1,description:body.description})
+    }));
+    const target={[key]:object_type.toUpperCase()+"-"+"A".repeat(32),
+      description:"此前填写的说明",description_revision:1,conflict:false};
+    const panel=h.api.objectDescriptionPanel(object_type,target,
+      object_type==="step"?"TASK-"+"B".repeat(32):null);
+    const form=panel.children.find(child=>child.tag==="form");
+    const textarea=form.children[0].children.find(child=>child.tag==="textarea");
+    assert.equal(panel.children[0].textContent,label);
+    textarea.value="";
+    form.handlers.get("input")[0]();
+    await form.handlers.get("submit")[0]({preventDefault(){}});
+    assert.equal(h.writes.length,1);
+    assert.equal(h.writes[0].body.description,"");
+    assert.equal(target.description,"");
+    assert.equal(target.description_revision,2);
+    assert.equal(panel.children[0].textContent,label);
+  }
+});
+
+test("approved concise interface copy preserves irreversible and authorization labels", async () => {
+  assert.match(html, /<title>AIWorkSpace · 工作台<\/title>/);
+  for (const [id,caption] of [
+    ["work-create-heading","补记工作"], ["work-stage-heading","项目时间线"],
+    ["work-action-heading","后续待办"], ["work-inbox-heading","待整理笔记"],
+    ["work-split-heading","笔记拆分"], ["work-outcomes-heading","成果库"],
+    ["trash-settings-heading","自动清理"]
+  ]) assert.ok(html.includes('id="'+id+'">'+caption),id+" has concise title");
+  assert.match(html,/id="work-record-featured"[^>]*> 加入成果库<\/label>/);
+  assert.match(html,/id="work-record-cancel">清空<\/button>/);
+  assert.match(html,/id="work-summary-cancel">清空<\/button>/);
+  assert.match(html,/id="review-copy-all"[^>]*>复制全部消息给 ChatGPT 核查<\/button>/);
+  assert.match(html,/id="trash-purge-selected"[^>]*>彻底删除选中项<\/button>/);
+  const h=harness([sampleTask()]);
+  await h.api.refresh(true);
+  h.api.setActivePage("tasks","all","gantt");
+  assert.equal(h.el("tasks-page-title").textContent,"甘特图");
+  assert.equal(h.el("topbar-context").textContent,"甘特图");
 });
 
 test("object descriptions save independently and inherited conversion descriptions use a revision token", async () => {

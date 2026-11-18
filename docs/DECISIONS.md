@@ -362,3 +362,11 @@
 - 验收证据：#55 [Actions #43840154008](https://github.com/yudacheng666/AIWorkSpace/actions/runs/43840154008) 3/3、#58 [Actions #43846843004](https://github.com/yudacheng666/AIWorkSpace/actions/runs/43846843004) 3/3，以及最终 main [Actions #43848157286](https://github.com/yudacheng666/AIWorkSpace/actions/runs/43848157286) 对精确 merge SHA 3/3 SUCCESS；#57 仅 Markdown 静态验收。
 - 合并不等于所有风险已验收：独立探索性高风险专项、真实双电脑 Drive 离线／重连、旧版本混用、本地 Windows 软件升级仍 NOT TESTED。此次明确合并授权不替代其他事项完成确认、真实业务数据删除授权或对未来高风险开发的长期测试门槛。
 
+
+## 2026-11-18：D-20261118-WR-CORRECTION-01（决策录入更正与后续新决策分离）
+
+- **背景**：用户反馈一条决策工作记录无法修改录入的内容与实际发生日期。原因是旧界面将“编辑”降级为“复制创建新记录”，后端与 reducer 则故意禁止对已形成决策直接 update content／outcome。
+- **决定**：保留历史决策的普通 update 不可变保护，但为明确纠正录入错误新增 action=correct：只适用于已存在的 decision，并须携带当前 revision；原始事件保留，当前投影使用更正后的字段，沿用同一 record_id 与 display_id。仅日期和其他元数据改动可走既有 update。
+- **界面**：普通记录仍是编辑；决策使用「更正录入」，正文或结论改变时先展示操作边界并由用户确认；提供「另记新决策」用于真实业务判断的后续改变。避免因为一次文字或日期笔误产生重复决策。
+- **安全**：旧版客户端不识别 correct，混合编辑可能导致记录冲突；使用前须升级共享数据目录的全部客户端。API 不接受普通 update 窜改决策类型或核心内容；reducer 检查 action、revision、既有 decision 类型和唯一事件链，冲突只冻结目标。
+- **交付边界**：2.12.0 候选，使用虚构数据完成定向测试后再审查发布；本次不读取、覆盖、删除或修订真实工作记录数据。
