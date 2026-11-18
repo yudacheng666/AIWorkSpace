@@ -1,3 +1,13 @@
+# 2026-11-18｜按用户授权合并 PR #60：步骤级今日工作与默认本人
+
+- **用户授权**：本轮明确指示「合并」。合并前核对全部开放 PR：#59（决策工作记录更正及文案）和 #60（步骤级今日工作、默认本人），逐项核对基线、精确产品 SHA、CI、风险门槛与相互依赖。
+- **实际合并**：PR [#60](https://github.com/yudacheng666/AIWorkSpace/pull/60) 已从 Draft 标记为 ready 后以普通 merge 合入 main；合并 SHA `6712445891ea6070e1913214fc0be86db1c4e007`。#60 基于此前 main 独立开发、无 PR #59 依赖；功能是只读每日分类、步骤定位与浏览器 localStorage 默认本人，未更改事件保存和冲突保护。默认本人仅在当前浏览器，不能自动跨设备或 Google Drive 同步。
+- **准确测试**：#60 产品/测试 SHA `e1e6845b4ee7215bf67e2184dc25094f83054db8` → [PR CI #44278664445](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44278664445) **3/3 SUCCESS**；最终 **main 合并 SHA `6712445891ea6070e1913214fc0be86db1c4e007`** → [main CI #44279588286](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44279588286) **3/3 SUCCESS**（Ubuntu/Windows Python+Node、Windows 真实 Chromium UI/更新回滚）。不重复派 Codex 做相同覆盖。此后纯文档记忆提交 `[skip ci]` 不冒充已测产品 SHA。
+- **保留 PR**：[#59](https://github.com/yudacheng666/AIWorkSpace/pull/59) 仍为 Draft／未合并，涉及高风险业务事件更正，虽产品 SHA `af73a28cbe233f77c2bb71d89d25282ab7691f58` 已有 3/3 CI，通过仍不能代替规则要求的独立安全专项和真实双电脑 Drive 混用边界；合入 #60 后 GitHub 暂显示 #59 不能直接合并，后续需处理重叠前端及文档变动并取得独立发布授权。此次不得误报为所有 PR 已清空。
+- **当前范围**：代码已在 GitHub main，VERSION 仍为 2.11.0；**未操作用户真实 Windows 软件升级、未读写 Google Drive 实际工作台业务数据**。真实桌面部署／双机同步、旧客户端混用仍 NOT TESTED。合并代码不等于用户电脑已经更新。
+
+---
+
 # 2026-11-18｜步骤级今日工作与默认本人（独立 PR 候选）
 
 - **需求授权**：用户指示「修改，另外增加设置默认选择一个人是本人的功能。不用work」。
