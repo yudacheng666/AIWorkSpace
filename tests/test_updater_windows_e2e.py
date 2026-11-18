@@ -444,7 +444,7 @@ class WindowsUpdaterBrowserE2ETests(unittest.TestCase):
                 page.locator("#task-date-field").select_option("due_date")
 
                 page.locator("#nav-gantt").click()
-                self.assertEqual(page.locator("#topbar-context").inner_text(), "日期甘特图")
+                self.assertEqual(page.locator("#topbar-context").inner_text(), "甘特图")
                 self.assertTrue(page.locator(".gantt-scroll").evaluate(
                     "(el) => el.scrollWidth > el.clientWidth"),
                     "Gantt dates must remain legible using horizontal scrolling")
