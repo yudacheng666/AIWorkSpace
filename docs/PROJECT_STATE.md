@@ -1,3 +1,14 @@
+# 2026-11-18｜决策工作记录正文与日期更正（2.12.0 开发候选）
+
+- **问题与定位**：现有 main 2.11.0 中普通 RECORD 支持 edit；已保存 decision 的正文／结论被 API 与 reducer 拒绝更新，前端点击“形成新记录”会产生新 ID，因此无法直接修改原记录内容，也无法从同一操作中单独修正日期。
+- **修复**：新入口「更正录入」可对原 decision 追加 correct 事件，更新当前显示的内容、结论及发生日期而不覆盖原始事件；日期等元数据单独修改仍走 update；明确区分「另记新决策」。普通记录维持原有编辑行为、原 ID 和 revision 冲突保护。
+- **安全边界**：新的 correct 事件不能由旧客户端正确识别，必须先将共享数据目录的全部设备升级后再用此功能；未改动任何真实工作记录、Drive 台账或用户 Windows 工作台。
+- **代码和测试**：分支 `fix/20261118-decision-record-correction`，修改 app.py、web/index.html、tests/test_work_records.py、tests/test_ui_shell.mjs、VERSION、规则／需求／决策；用虚构数据覆盖更正、历史不变、旧式非法覆盖拒绝、date-only 修改、同 revision 冲突与新决策独立创建。
+- **当前状态**：开发候选，准确 GitHub Actions CI 和 PR 审核结果以实际工作流为准；**未合并／未发布／未安装**。不将此前 2.11.0 的 PASS 充当本候选测试证据。
+- **后续**：跑 2.12.0 候选准确 SHA 的 Ubuntu/Windows/Python/Node/Chromium CI，核查 GitHub 差异和安全性；合格后等待用户明确合并发布授权。真实双电脑 Google Drive 离线／恢复及旧版混用仍 NOT TESTED。
+
+---
+
 # 2026-11-16｜2.11.0 全部 PR 合并发布（PR #55／#57／#58）
 
 - **用户授权**：用户在得知 #58 的独立探索性验收和真实双电脑 Drive/旧客户端混用尚未覆盖、但准确 SHA 自动化 3/3 PASS 后，明确指示「全部合并」。本轮据此依赖顺序完成三个 PR 的 GitHub 合并；没有把未做的高风险专项验收标记为 PASS，也不改变后续项目长期测试规则。
