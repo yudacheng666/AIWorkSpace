@@ -2544,6 +2544,20 @@ test("a changed business decision can still be saved as a separate historical re
   assert.equal(h.writes[0].body.outcome,"暂不采用");
 });
 
+test("description section titles for task and step never use fill prefix", () => {
+  const h = harness([sampleTask()]);
+  const task = {...sampleTask(), description:"", description_revision:0};
+  const step = {step_id:"STEP-"+"D".repeat(32), description:"", description_revision:0};
+  const project = {project_id:"PROJECT-"+"A".repeat(32), description:"", description_revision:0};
+  assert.equal(h.api.objectDescriptionPanel("task",task).children[0].textContent,"任务说明");
+  assert.equal(h.api.objectDescriptionPanel("step",step,task.task_id).children[0].textContent,"步骤说明");
+  assert.equal(h.api.objectDescriptionPanel("project",project).children[0].textContent,"填写项目说明");
+  task.description = "原有任务说明";
+  step.description = "原有步骤说明";
+  assert.equal(h.api.objectDescriptionPanel("task",task).children[0].textContent,"任务说明");
+  assert.equal(h.api.objectDescriptionPanel("step",step,task.task_id).children[0].textContent,"步骤说明");
+});
+
 test("object descriptions save independently and inherited conversion descriptions use a revision token", async () => {
   const task = {...sampleTask(),description:"",description_revision:0};
   const h = harness([task],()=>true,[],[],async (path,body)=>({

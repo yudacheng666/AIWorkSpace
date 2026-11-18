@@ -1808,7 +1808,7 @@
       const panel = element("details", "object-description");
       const typeLabel = objectType === "project" ? "项目说明" :
         objectType === "step" ? "步骤说明" : "任务说明";
-      const summary = element("summary", "", target.description ? typeLabel : "填写" + typeLabel);
+      const summary = element("summary", "", objectType === "project" && !target.description ? "填写项目说明" : typeLabel);
       if (target.description_inherited) summary.textContent += " · 从转换前事项保留";
       panel.append(summary);
       const form = element("form", "object-description-form");
