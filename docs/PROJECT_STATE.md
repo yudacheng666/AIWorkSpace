@@ -2,7 +2,8 @@
 
 - **用户要求**：空白任务和步骤的说明区标题由「填写任务说明」／「填写步骤说明」分别改成「任务说明」／「步骤说明」。
 - **范围**：仅调整标题文案，仍保留项目原有「填写项目说明」；不修改说明保存逻辑、事件和数据结构。增加空白／非空标题定向 UI 测试。
-- **状态**：追加到 PR #59 的候选中；最终结果以本次新 SHA 的 Actions 为准，不自动合并 main。
+- **准确测试**：产品／测试 SHA `8029af5d3a2aed027ea96f2bbbf2e33164df65ac`，GitHub Actions [#44262797528](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44262797528) **3/3 SUCCESS**（Ubuntu Python + Node、Windows Python + Node、Windows 真实应用 + Chromium 回归），含空白／非空任务与步骤说明标题断言。未额外重复 Codex 测试。
+- **状态**：并入 Draft PR #59；未合并、未发布、未部署。文档记忆提交不代表新的产品代码 SHA。
 
 ---
 
