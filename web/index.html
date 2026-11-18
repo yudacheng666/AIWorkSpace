@@ -5341,6 +5341,7 @@
             "从原任务转换（历史编号：" + record.source_task_id + "）"));
           if (record.duration_minutes) meta.append(element("span", "", "耗时：" + record.duration_minutes + " 分钟"));
           if (record.featured) meta.append(element("span", "", "已收录成果库"));
+          if (record.corrected_at) meta.append(element("span", "", "已更正（原始版本保留）"));
           for (const link of record.action_link_labels || []) {
             meta.append(element("span", "", (workLinkRelationLabels[link.relation] || "关联") + "：" + link.label));
           }
@@ -5359,11 +5360,17 @@
           }
           const footer = element("div", "work-entry-footer");
           const edit = element("button", "", record.conflict ? "存在冲突，暂不可编辑" :
-            record.record_type === "decision" ? "形成新记录" : "编辑记录");
+            record.record_type === "decision" ? "更正录入" : "编辑记录");
           edit.type = "button";
           edit.disabled = !!record.conflict;
           edit.addEventListener("click", () => editWorkRecord(record.record_id));
           footer.append(edit);
+          if (!record.conflict && record.record_type === "decision") {
+            const newDecision = element("button", "", "另记新决策");
+            newDecision.type = "button";
+            newDecision.addEventListener("click", () => editWorkRecord(record.record_id, true));
+            footer.append(newDecision);
+          }
           if (!record.conflict) {
             const suggest = element("button", "", "安排后续待办");
             suggest.type = "button";
@@ -5419,12 +5426,13 @@
       }
     }
 
-    function editWorkRecord(id) {
+    function editWorkRecord(id, asNewDecision = false) {
       const record = workRecords.find(item => item.record_id === id);
       if (!record || record.conflict) return;
       if (unsavedPersistentEditors.has($("work-record-form"))
           && !window.confirm("当前补记内容尚未保存，确定放弃并编辑其他记录吗？")) return;
-      editingRecordId = record.record_type === "decision" ? "" : id;
+      if (!setActivePage("worklog")) return;
+      editingRecordId = asNewDecision ? "" : id;
       $("work-record-content").value = record.content || "";
       $("work-record-type").value = record.record_type || "progress";
       $("work-record-date").value = record.occurred_on || localDayISO(new Date());
@@ -5441,12 +5449,14 @@
       $("work-link-target").value = "";
       renderWorkDraftLinks();
       renderWorkDraftEvidence();
-      $("work-record-submit").textContent = record.record_type === "decision"
-        ? "保存为新记录" : "保存修改";
+      $("work-record-submit").textContent = asNewDecision ? "保存为新决策" :
+        record.record_type === "decision" ? "保存更正" : "保存修改";
       workDraftWatcher.markClean();
-      $("work-record-message").textContent = record.record_type === "decision"
-        ? "决策记录不会被覆盖；保存会新增一条记录，原决策保留在历史中。"
-        : "正在编辑 " + record.display_id + "；原始记录会保留。";
+      $("work-record-message").textContent = asNewDecision
+        ? "将另外新增一条决策，原有决策及编号不变。"
+        : record.record_type === "decision"
+          ? "正在更正 " + record.display_id + " 的录入错误；原始版本保留在事件历史。业务决策发生变化时，请使用「另记新决策」。"
+          : "正在编辑 " + record.display_id + "；原始记录会保留。";
       $("work-record-content").focus();
     }
 
@@ -5478,6 +5488,18 @@
       };
       if (!record && snapshot.source_inbox_id) payload.source_inbox_id = snapshot.source_inbox_id;
       if (record) payload.revision = record.revision;
+      if (record?.record_type === "decision") {
+        if (payload.record_type !== "decision") {
+          $("work-record-message").textContent = "已形成的决策类型不能更改；如需记录其他事实，请新增记录。";
+          return;
+        }
+        const coreChanged = payload.content !== record.content ||
+          payload.outcome !== (record.outcome || null);
+        if (coreChanged) {
+          if (!window.confirm("仅确认更正这条决策的录入错误？原始内容会完整保留在历史中。若是后来改变决定，应使用「另记新决策」。")) return;
+          payload.correct_decision = true;
+        }
+      }
       isSaving = true;
       $("work-record-submit").disabled = true;
       $("work-record-cancel").disabled = true;
