@@ -3,7 +3,8 @@
 - **授权**：用户在只读审查报告后明确指示「执行，不用 work」；范围为报告中的建议文案与安全保留项。
 - **实现**：统一项目／任务／步骤说明标题，修复说明清空保存后显示「填写」的回退；缩短工作记录、笔记、成果库、筛选、甘特、项目时间线等标题；为状态联动和项目归属保留提示；区分新建「清空」与编辑「取消编辑」。
 - **安全**：不修改 API、event schema、状态、审批、删除或恢复逻辑；高风险标签保留完整语义；只更新 web/index.html、Node UI 定向测试及必要 Markdown 记忆。
-- **验证状态**：本段记录变更范围，准确产品／测试 SHA 与 GitHub Actions 结果以提交后核查为准；保持 PR Draft，不自动发布或修改真实业务数据。
+- **测试证据**：准确代码／测试 SHA `af73a28cbe233f77c2bb71d89d25282ab7691f58`；[Actions #44264889818](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44264889818) **3/3 SUCCESS**：Ubuntu Python+Node、Windows Python+Node、Windows 真实应用+Chromium 更新／回滚及 UI 回归。首次文案候选 `97c4416c` 的 Chrome 测试因「日期甘特图」旧断言失败，第二轮 `10c189b7` 因主项目／关联项目旧标签断言失败；两者仅属测试文字预期未同步，均已修复，并以最终完整成功 SHA 为准。未安排重复 Codex 测试。
+- **发布状态**：[PR #59](https://github.com/yudacheng666/AIWorkSpace/pull/59) 保持 Draft，未合并、未发布、未部署，不改 Google Drive 真实业务数据。真实两台电脑的同步与旧客户端混用仍 NOT TESTED，风险沿用先前更正记录事件格式的评估。文档最终提交不冒充产品／测试 SHA。
 
 ---
 
