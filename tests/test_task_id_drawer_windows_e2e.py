@@ -88,6 +88,61 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         return page
 
 
+    def test_daily_followup_uses_step_date_and_default_self_survives_reload(self):
+        """A supervisor sees exact steps, not a duplicate parent task; no business writes."""
+        today = date.today().isoformat()
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "day-agenda-other-owner",
+            "task_id": self.task_id, "action": "update", "actor": "user",
+            "timestamp": "2026-11-17T08:00:00Z", "base_revision": 1,
+            "changes": {"owner": "虚构执行人", "follow_up_date": today},
+        })
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "day-agenda-self-task",
+            "task_id": "TASK-" + "E" * 32, "action": "create", "actor": "user",
+            "timestamp": "2026-11-17T08:01:00Z", "base_revision": 0,
+            "changes": {"title": "虚构本人执行任务", "status": "todo",
+                        "owner": "虚构本人", "planned_date": today},
+        })
+        step_id = "STEP-" + "F" * 32
+        append_step_event(self.data_dir, {
+            "version": 1, "event_id": "day-agenda-step",
+            "task_id": self.task_id, "step_id": step_id, "action": "create",
+            "actor": "user", "timestamp": "2026-11-17T08:02:00Z",
+            "base_revision": 0,
+            "changes": {"title": "虚构步骤：核对培训启动", "position": 1,
+                        "follow_up_date": today},
+        })
+        original = self._file_hashes()
+        page = self._open_browser(open_detail=False)
+        expect(page.locator("#nav-followup")).to_be_disabled()
+        page.locator("#nav-settings").click()
+        page.locator("#default-self-owner").select_option("虚构本人")
+        page.locator("#default-self-save").click()
+        expect(page.locator("#default-self-message")).to_contain_text("已保存默认本人")
+        page.reload(wait_until="networkidle")
+        expect(page.locator("#overview-owner")).to_have_value("虚构本人")
+        expect(page.locator("#nav-followup")).to_be_enabled()
+        page.locator("#nav-followup").click()
+        expect(page.locator("#day-agenda .day-agenda-item")).to_have_count(1)
+        expect(page.locator("#day-agenda")).to_contain_text("虚构步骤：核对培训启动")
+        self.assertNotIn("任务 · 虚构任务：验证短编号及抽屉",
+                         page.locator("#day-agenda").inner_text(),
+                         "a task follow-up date must not duplicate its due step")
+        page.locator("#day-agenda .day-agenda-item").first.click()
+        expect(page.locator("#step-" + step_id)).to_be_visible()
+        page.locator("#task-detail-close").click()
+        page.locator("#nav-today").click()
+        expect(page.locator("#day-agenda")).to_contain_text("我负责执行")
+        expect(page.locator("#day-agenda")).to_contain_text("跟进他人")
+        expect(page.locator("#day-agenda .day-agenda-item")).to_have_count(2)
+        self.assertEqual(self._file_hashes(), original,
+                         "default self and daily views must never append task events")
+        page.locator("#nav-settings").click()
+        page.locator("#default-self-clear").click()
+        page.reload(wait_until="networkidle")
+        expect(page.locator("#nav-today")).to_be_disabled()
+
     def test_task_title_opens_detail_and_list_id_copies_without_opening(self):
         page = self._open_browser(open_detail=False)
         row = page.locator(".task-summary").first
