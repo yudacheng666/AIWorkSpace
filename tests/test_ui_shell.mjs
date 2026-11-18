@@ -155,7 +155,7 @@ test("step-level daily agenda prioritizes precise steps, de-duplicates parent an
     planned_date:null, follow_up_date:"2020-01-01", steps:[
       {step_id:"STEP-FOLLOW",title:"检查他人步骤",follow_up_date:"2020-01-03",status:"doing"},
       {step_id:"STEP-FUTURE",title:"尚未到期的步骤",follow_up_date:"2099-12-31",status:"todo"},
-      {step_id:"STEP-CONFLICT",title:"冲突步骤",follow_up_date:"2020-01-01",status:"todo",conflict:true},
+      {step_id:"STEP-CONFLICT",title:"冲突步骤",follow_up_date:"2020-01-01",status:"todo",conflict:true,conflict_fields:[]},
       {step_id:"STEP-DELETED",title:"删除步骤",follow_up_date:"2020-01-01",status:"todo",deleted_at:"2020-01-01"}]};
   const late = {...sampleTask(),task_id:"TASK-LATE",owner:null,planned_date:null,
     due_date:"2020-01-05",steps:[]};
