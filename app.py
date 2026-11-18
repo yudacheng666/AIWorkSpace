@@ -2141,7 +2141,7 @@ def validate_work_record_event(value: object) -> dict:
     if (not isinstance(value.get("record_id"), str)
             or not WORK_RECORD_ID.fullmatch(value["record_id"])):
         raise ValueError("invalid work record ID")
-    if value.get("action") not in {"create", "update"}:
+    if value.get("action") not in {"create", "update", "correct"}:
         raise ValueError("invalid work record action")
     if value.get("actor") not in {"user", "chatgpt"}:
         raise ValueError("invalid work record actor")
@@ -2164,6 +2164,9 @@ def validate_work_record_event(value: object) -> dict:
             raise ValueError("work record creation requires content and occurred_on")
     elif revision == 0:
         raise ValueError("work record update requires an existing revision")
+    if value["action"] == "correct" and (
+            "record_type" in changes or not ({"content", "outcome"} & set(changes))):
+        raise ValueError("work record correction requires content or outcome without type change")
     if "record_type" in changes and (
             not isinstance(changes["record_type"], str) or
             changes["record_type"] not in WORK_RECORD_TYPES):
@@ -2332,15 +2335,23 @@ def read_work_records(data_dir: Path) -> dict:
                 record["conflict"] = True
                 warnings.append(record_id + ": concurrent work record edits")
                 break
-            changes = candidates[0]["changes"]
-            if record.get("record_type", "progress") == "decision" and (
+            candidate = candidates[0]
+            changes = candidate["changes"]
+            if candidate["action"] == "correct":
+                if record.get("record_type", "progress") != "decision":
+                    record["conflict"] = True
+                    warnings.append(record_id + ": correction requires an existing decision")
+                    break
+            elif record.get("record_type", "progress") == "decision" and (
                     {"content", "outcome", "record_type"} & set(changes)):
                 record["conflict"] = True
                 warnings.append(
                     record_id + ": decision record content/outcome/type is immutable")
                 break
             record.update(changes)
-            record["updated_at"] = candidates[0]["timestamp"]
+            record["updated_at"] = candidate["timestamp"]
+            if candidate["action"] == "correct":
+                record["corrected_at"] = candidate["timestamp"]
             record["revision"] += 1
         if by_revision:
             record["conflict"] = True
@@ -5367,6 +5378,9 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                         append_work_archive_event(data_dir, "summary", event)
                     return self.json_response(200, {"saved": True, "revision": prior["revision"] + 1})
                 if creating_work_record or work_record_match:
+                    correction = payload.pop("correct_decision", False)
+                    if type(correction) is not bool or (correction and not work_record_match):
+                        raise ValueError("invalid decision correction flag")
                     allowed = WORK_RECORD_FIELDS | ({"revision"} if work_record_match else set())
                     if set(payload) - allowed:
                         raise ValueError("unknown work record fields")
@@ -5416,18 +5430,24 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                                 return self.json_response(404, {"error": "work record not found"})
                             if prior["conflict"] or prior["revision"] != payload["revision"]:
                                 return self.json_response(409, {"error": "work record changed or conflicted; refresh"})
-                            if prior.get("record_type", "progress") == "decision" and (
-                                    {"content", "outcome", "record_type"} & set(changes)):
+                            decision = prior.get("record_type", "progress") == "decision"
+                            if decision and changes.get("record_type", "decision") != "decision":
                                 return self.json_response(409, {
-                                    "error": "decision records are immutable; create a new decision to preserve history"})
+                                    "error": "a saved decision cannot change record type"})
+                            if correction and not decision:
+                                raise ValueError("only a decision can use correction")
                             changes = {key: val for key, val in changes.items()
                                        if val != prior.get(key)}
+                            if decision and ({"content", "outcome"} & set(changes)) and not correction:
+                                return self.json_response(409, {
+                                    "error": "decision text requires explicit correction to preserve history"})
                             if not changes:
                                 return self.json_response(200, {
                                     "saved": False, "record_id": new_id,
                                     "display_id": prior["display_id"], "revision": prior["revision"]})
                             revision = prior["revision"]
-                            action = "update"
+                            action = "correct" if decision and (
+                                {"content", "outcome"} & set(changes)) else "update"
                         # Merge existing associations before checking, for partial updates.
                         links = {key: changes.get(key, prior.get(key) if work_record_match else
                                                           ([] if key == "action_links" else None))
