@@ -895,8 +895,8 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
 
         form = page.locator("#task-detail-content .task-form")
         self.assertEqual(form.evaluate("e => getComputedStyle(e).alignItems"), "start")
-        primary_project = form.locator("label").filter(has_text="主要所属项目").bounding_box()
-        related_projects = form.locator("label").filter(has_text="关联项目（可多选）").bounding_box()
+        primary_project = form.locator("label").filter(has_text="主项目").bounding_box()
+        related_projects = form.locator("label").filter(has_text="关联项目").bounding_box()
         self.assertIsNotNone(primary_project)
         self.assertIsNotNone(related_projects)
         self.assertLess(abs(primary_project["y"] - related_projects["y"]), 1.5,
