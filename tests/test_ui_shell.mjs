@@ -2484,20 +2484,60 @@ test("a newer conflicted decision suppresses an older current conclusion", async
   assert.doesNotMatch(warningText,/采用/);
 });
 
-test("editing a decision creates a new record instead of overwriting the prior conclusion", async () => {
+test("decision entry error can correct content and date under the same ID", async () => {
   const id = "RECORD-"+"F".repeat(32);
   const decision = {record_id:id,display_id:"R-261111-FFFFFFFFFFFF",
-    record_type:"decision",content:"评估是否采用方案A",outcome:"暂不采用",
-    occurred_on:"2026-11-11",created_at:"2026-11-11T02:00:00Z",
-    updated_at:"2026-11-11T02:00:00Z",project_id:null,task_id:null,
+    record_type:"decision",content:"按原方案报价",outcome:null,
+    occurred_on:"2026-11-18",created_at:"2026-11-18T02:00:00Z",
+    updated_at:"2026-11-18T02:00:00Z",project_id:null,task_id:null,
     action_links:[],evidence_links:[],featured:false,revision:1,conflict:false};
-  const h = harness([],()=>true,[],[],async (path,body)=>({
-    ok:true,json:async()=>({saved:true,record_id:"RECORD-NEW",display_id:"R-261111-NEWNEWNEW",revision:1})
-  }),{records:[decision]});
+  let confirmations = 0;
+  const h = harness([],()=>{confirmations++;return true;},[],[],
+    async()=>({ok:true,json:async()=>({saved:true,record_id:id,display_id:decision.display_id,revision:2})}),
+    {records:[decision]});
+  await h.api.loadWorkRecords();
+  assert.match(h.el("work-record-list").children[0].children.at(-1).children[0].textContent,/更正录入/);
+  h.api.editWorkRecord(id);
+  assert.equal(h.el("work-record-submit").textContent,"保存更正");
+  assert.match(h.el("work-record-message").textContent,/原始版本保留/);
+  h.el("work-record-content").value = "按九折报价";
+  h.el("work-record-date").value = "2026-11-17";
+  await h.api.saveWorkRecord({preventDefault(){}});
+  assert.equal(confirmations,1);
+  assert.equal(h.writes[0].path,"/api/work-records/"+id+"/update");
+  assert.equal(h.writes[0].body.revision,1);
+  assert.equal(h.writes[0].body.correct_decision,true);
+  assert.equal(h.writes[0].body.occurred_on,"2026-11-17");
+  assert.equal(h.writes[0].body.content,"按九折报价");
+});
+
+test("decision date-only corrections use ordinary metadata update without rewriting core", async () => {
+  const id="RECORD-"+"E".repeat(32);
+  const h=harness([],()=>{throw Error("date correction must not prompt for core changes");},
+    [],[],null,{records:[{record_id:id,display_id:"R-261118-EEEEEEEEEEEE",
+      record_type:"decision",content:"已同意",outcome:null,
+      occurred_on:"2026-11-18",created_at:"2026-11-18T08:00:00Z",
+      action_links:[],evidence_links:[],revision:1,conflict:false}]});
   await h.api.loadWorkRecords();
   h.api.editWorkRecord(id);
-  assert.equal(h.el("work-record-submit").textContent,"保存为新记录");
-  assert.match(h.el("work-record-message").textContent,/原决策保留/);
+  h.el("work-record-date").value="2026-11-17";
+  await h.api.saveWorkRecord({preventDefault(){}});
+  assert.equal(h.writes[0].body.correct_decision,undefined);
+  assert.equal(h.writes[0].body.occurred_on,"2026-11-17");
+});
+
+test("a changed business decision can still be saved as a separate historical record", async () => {
+  const id="RECORD-"+"F".repeat(32);
+  const decision={record_id:id,display_id:"R-261111-FFFFFFFFFFFF",
+    record_type:"decision",content:"评估是否采用方案A",outcome:"暂不采用",
+    occurred_on:"2026-11-11",created_at:"2026-11-11T02:00:00Z",
+    project_id:null,task_id:null,action_links:[],evidence_links:[],
+    featured:false,revision:1,conflict:false};
+  const h=harness([],()=>true,[],[],null,{records:[decision]});
+  await h.api.loadWorkRecords();
+  h.api.editWorkRecord(id,true);
+  assert.equal(h.el("work-record-submit").textContent,"保存为新决策");
+  assert.match(h.el("work-record-message").textContent,/另外新增/);
   await h.api.saveWorkRecord({preventDefault(){}});
   assert.equal(h.writes[0].path,"/api/work-records");
   assert.equal(h.writes[0].body.record_type,"decision");
