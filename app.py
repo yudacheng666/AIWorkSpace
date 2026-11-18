@@ -5440,7 +5440,7 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
                                        if val != prior.get(key)}
                             if decision and ({"content", "outcome"} & set(changes)) and not correction:
                                 return self.json_response(409, {
-                                    "error": "decision text requires explicit correction to preserve history"})
+                                    "error": "decision records are immutable without explicit correction; use a new decision for later changes"})
                             if not changes:
                                 return self.json_response(200, {
                                     "saved": False, "record_id": new_id,
