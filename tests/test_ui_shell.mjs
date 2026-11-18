@@ -8,7 +8,7 @@ const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8")
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(scriptMatch, "the production page must contain its inline script");
 
-function harness(tasks = [], confirm = () => true, projects = [], reviews = [], onPost = null, work = {}) {
+function harness(tasks = [], confirm = () => true, projects = [], reviews = [], onPost = null, work = {}, localStorage = null) {
   const elements = new Map();
   const writes = [];
   function node(tag = "div") {
@@ -54,7 +54,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     },
     getElementById(id) {
       if (!elements.has(id)) {
-        const selects = new Set(["overview-owner", "query-project", "query-owner",
+        const selects = new Set(["overview-owner", "default-self-owner", "query-project", "query-owner",
           "query-status", "query-date-field", "new-task-project", "new-task-related",
           "new-task-priority", "task-sort", "task-date-field", "calendar-granularity", "project-sort",
           "work-record-project", "work-record-task", "work-record-type", "work-filter-project",
@@ -108,8 +108,8 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, loadTrash, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, editWorkSummary, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask, progressPanel, recordBelongsTo, objectDescriptionPanel, summaryRecordRecommended, workRecordTypeLabel})", {
-      document, window, navigator, fetch, Date, setInterval() {}
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, loadTrash, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, editWorkSummary, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask, progressPanel, recordBelongsTo, objectDescriptionPanel, summaryRecordRecommended, workRecordTypeLabel, dayAgendaForTasks, overviewDates})", {
+      document, window, navigator, fetch, Date, localStorage, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes,
     dispatchDocument(type, event) {
@@ -144,6 +144,93 @@ test("V2 shell has distinct overview, tasks, projects and settings pages", () =>
   assert.doesNotMatch(html, /id="trash-modal"/);
 });
 
+
+
+test("step-level daily agenda prioritizes precise steps, de-duplicates parent and suppresses completed/conflicted items", async () => {
+  const own = {...sampleTask(), task_id:"TASK-OWN", owner:"本人演示", due_date:null,
+    planned_date:"2020-01-01", steps:[
+      {step_id:"STEP-OWN",title:"本人需要执行的步骤",planned_date:"2020-01-02",status:"todo"},
+      {step_id:"STEP-DONE",title:"已完成的步骤",planned_date:"2020-01-01",status:"done"}]};
+  const delegated = {...sampleTask(), task_id:"TASK-OTHER", owner:"其他负责人", due_date:null,
+    planned_date:null, follow_up_date:"2020-01-01", steps:[
+      {step_id:"STEP-FOLLOW",title:"检查他人步骤",follow_up_date:"2020-01-03",status:"doing"},
+      {step_id:"STEP-FUTURE",title:"尚未到期的步骤",follow_up_date:"2099-12-31",status:"todo"},
+      {step_id:"STEP-CONFLICT",title:"冲突步骤",follow_up_date:"2020-01-01",status:"todo",conflict:true},
+      {step_id:"STEP-DELETED",title:"删除步骤",follow_up_date:"2020-01-01",status:"todo",deleted_at:"2020-01-01"}]};
+  const late = {...sampleTask(),task_id:"TASK-LATE",owner:null,planned_date:null,
+    due_date:"2020-01-05",steps:[]};
+  const h = harness([own,delegated,late]);
+  const days = {today:"2026-11-18"};
+  const groups = h.api.dayAgendaForTasks([own,delegated,late],"本人演示",days);
+  assert.equal(groups.mine.length,1);
+  assert.equal(groups.mine[0].step.title,"本人需要执行的步骤");
+  assert.equal(groups.followup.length,1);
+  assert.equal(groups.followup[0].step.title,"检查他人步骤");
+  assert.equal(groups.attention.length,1);
+  assert.equal(groups.attention[0].task.task_id,"TASK-LATE");
+  assert.equal(h.api.dayAgendaForTasks([{...delegated,status:"done"}],"本人演示",days).followup.length,0);
+  assert.equal(h.api.dayAgendaForTasks([{...delegated,conflict:true}],"本人演示",days).followup.length,0);
+  await h.api.refresh(true);
+  h.el("overview-owner").value="本人演示";
+  h.el("overview-owner").handlers.get("change")[0]();
+  assert.equal(h.el("view-followup-count").textContent,"1","count steps, not parents");
+  assert.equal(h.el("view-mine-count").textContent,"1");
+  h.el("nav-today").handlers.get("click")[0]();
+  assert.equal(h.el("day-agenda").hidden,false);
+  assert.equal(h.el("tasks-page-title").textContent,"今日处理");
+  const sections=h.el("day-agenda").children.filter(child=>child.className==="day-agenda-group");
+  assert.equal(sections.length,3);
+  assert.match(sections[1].children[1].children[0].textContent,/检查他人步骤/);
+  assert.match(sections[1].children[1].children[1].textContent,/所属任务/);
+  sections[1].children[1].handlers.get("click")[0]();
+  assert.equal(h.el("task-detail-drawer").hidden,false);
+  assert.equal(h.writes.length,0,"daily agenda must not alter business data");
+  h.api.closeTaskDetail();
+  h.el("nav-followup").handlers.get("click")[0]();
+  const followSections=h.el("day-agenda").children.filter(child=>child.className==="day-agenda-group");
+  assert.equal(followSections.length,1);
+  assert.equal(followSections[0].children.length,2,"follow-up displays one precise step rather than the parent");
+});
+
+test("default self preference persists locally, can be cleared, and fails safely on blocked storage", async () => {
+  const tasks = [{...sampleTask(),task_id:"TASK-SELF",owner:"演示本人",planned_date:"2020-01-01"},
+    {...sampleTask(),task_id:"TASK-OTHER",owner:"演示同事",follow_up_date:"2020-01-01"}];
+  const values = new Map();
+  const storage = {getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value),
+    removeItem:key=>values.delete(key)};
+  const h=harness(tasks,()=>true,[],[],null,{},storage);
+  await h.api.refresh(true);
+  assert.equal(h.el("nav-today").disabled,true);
+  h.api.setActivePage("settings");
+  h.el("default-self-owner").value="演示本人";
+  h.el("default-self-save").handlers.get("click")[0]();
+  assert.equal(values.get("aiworkspace.defaultSelfOwner.v1"),"演示本人");
+  assert.equal(h.el("overview-owner").value,"演示本人");
+  assert.equal(h.el("nav-today").disabled,false);
+  assert.equal(h.writes.length,0);
+  // Recreating the page is equivalent to browser reload with the same localStorage.
+  const reopened=harness(tasks,()=>true,[],[],null,{},storage);
+  await reopened.api.refresh(true);
+  assert.equal(reopened.el("overview-owner").value,"演示本人");
+  reopened.el("overview-owner").value="演示同事";
+  reopened.el("overview-owner").handlers.get("change")[0]();
+  assert.equal(values.get("aiworkspace.defaultSelfOwner.v1"),"演示本人",
+    "temporary owner selection must never overwrite the saved default");
+  reopened.el("default-self-clear").handlers.get("click")[0]();
+  assert.equal(values.has("aiworkspace.defaultSelfOwner.v1"),false);
+  const cleared=harness(tasks,()=>true,[],[],null,{},storage);
+  await cleared.api.refresh(true);
+  assert.equal(cleared.el("nav-today").disabled,true);
+  const failing={getItem:()=>null,setItem:()=>{throw new Error("denied");},
+    removeItem:()=>{throw new Error("denied");}};
+  const denied=harness(tasks,()=>true,[],[],null,{},failing);
+  await denied.api.refresh(true);
+  denied.el("default-self-owner").value="演示本人";
+  denied.el("default-self-save").handlers.get("click")[0]();
+  assert.match(denied.el("default-self-message").textContent,/无法保存/);
+  assert.equal(denied.el("nav-today").disabled,true);
+  assert.equal(denied.writes.length,0);
+});
 
 test("last refresh status lives in the sidebar footer, outside the task toolbar", async () => {
   const sidebarFooter = html.match(/<div class="sidebar-footnote">([\s\S]*?)<\/div>/);
