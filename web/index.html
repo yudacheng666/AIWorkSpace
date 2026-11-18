@@ -825,6 +825,23 @@
     .object-description-form { display:grid; gap:8px; margin-top:10px; }
     .object-description-form textarea { width:100%; min-height:78px; resize:vertical; }
     .object-description-actions { display:flex; justify-content:flex-end; }
+
+    .day-agenda { margin:0 0 17px; padding:15px 17px; border:1px solid var(--line); border-radius:11px; background:#fff; }
+    .day-agenda[hidden] { display:none; }
+    .day-agenda-title { margin:0 0 8px; color:#34445c; font-size:15px; font-weight:750; }
+    .day-agenda-caption { margin:0 0 12px; color:#748196; font-size:11px; line-height:1.6; }
+    .day-agenda-group { display:grid; gap:7px; margin-top:13px; }
+    .day-agenda-group h3 { margin:0 0 2px; color:#465a73; font-size:12px; }
+    .day-agenda-item { display:grid; width:100%; gap:5px; padding:11px 12px; border:1px solid #e5ebf3; border-radius:8px; background:#fbfcff; text-align:left; cursor:pointer; color:#293b53; }
+    .day-agenda-item:hover { border-color:#aac4e8; background:#f3f8ff; }
+    .day-agenda-item:focus-visible { outline:2px solid #2b64c8; outline-offset:2px; }
+    .day-agenda-item strong { font-size:12px; overflow-wrap:anywhere; }
+    .day-agenda-item small { font-size:11px; line-height:1.6; color:#708197; overflow-wrap:anywhere; }
+    .day-agenda-empty { margin:0; padding:8px 0; font-size:12px; color:#7c8797; }
+    .user-preference-panel label { font-size:12px; color:#4b5e77; }
+    .user-preference-panel select { min-width:170px; margin-left:7px; }
+    .user-preference-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .user-preference-message { width:100%; margin:5px 0 0; font-size:11px; color:#58708a; }
 </style>
 </head>
 <body>
@@ -880,7 +897,19 @@
     </header>
   <main class="wrap">
     <section id="page-settings" class="workspace-page" hidden>
-      <div class="page-heading"><div><h1>系统设置</h1><p class="subtitle">版本信息与软件更新。</p></div></div>
+      <div class="page-heading"><div><h1>系统设置</h1><p class="subtitle">个人偏好与软件更新。</p></div></div>
+    <section class="update-panel user-preference-panel" aria-labelledby="default-self-heading">
+      <div class="update-copy">
+        <div class="update-title-row"><strong class="update-title" id="default-self-heading">默认本人</strong></div>
+        <p class="update-message">从已有任务负责人中选择自己。仅存当前浏览器，不修改任务数据，也不通过 Google Drive 跨设备同步。</p>
+      </div>
+      <div class="user-preference-actions">
+        <label for="default-self-owner">本人<select id="default-self-owner" aria-label="默认本人"><option value="">请选择</option></select></label>
+        <button type="button" class="save" id="default-self-save">设为默认</button>
+        <button type="button" id="default-self-clear">取消默认</button>
+        <p class="user-preference-message" id="default-self-message" role="status" aria-live="polite"></p>
+      </div>
+    </section>
     <section class="update-panel" aria-labelledby="update-heading">
       <div class="update-copy">
         <div class="update-title-row">
@@ -1231,8 +1260,8 @@
       <p class="overview-note" id="overview-date"></p>
       <div class="overview-grid" aria-label="工作分类快捷视图">
         <button class="overview-view is-selected" type="button" id="view-all" title="查看全部任务"><span class="overview-count" id="view-all-count">—</span><strong>全部任务</strong><small>查看所有事项</small></button>
-        <button class="overview-view" type="button" id="view-mine" title="本人计划执行日期为今天或更早，且未完成" disabled><span class="overview-count" id="view-mine-count">—</span><strong>今日亲自处理</strong><small>本人计划执行日期为今天或更早，且未完成</small></button>
-        <button class="overview-view" type="button" id="view-followup" title="其他负责人下次跟进日期已到，且未完成" disabled><span class="overview-count" id="view-followup-count">—</span><strong>跟进他人</strong><small>其他负责人下次跟进日期已到，且未完成</small></button>
+        <button class="overview-view" type="button" id="view-mine" title="本人任务及步骤的计划执行日期已到" disabled><span class="overview-count" id="view-mine-count">—</span><strong>今日亲自处理</strong><small>任务与步骤按计划执行日期</small></button>
+        <button class="overview-view" type="button" id="view-followup" title="其他负责人任务及步骤的下次跟进日期已到" disabled><span class="overview-count" id="view-followup-count">—</span><strong>跟进他人</strong><small>优先按步骤跟进日期</small></button>
         <button class="overview-view" type="button" id="view-due" title="截止日期为今天至未来 7 天，不含逾期和已完成任务"><span class="overview-count" id="view-due-count">—</span><strong>7 天内到期</strong><small>含今天，不含已过期及已完成</small></button>
         <button class="overview-view" type="button" id="view-risk" title="包括逾期未完成、受阻及需要人工核查的任务"><span class="overview-count" id="view-risk-count">—</span><strong>逾期／受阻／冲突</strong><small>过期未完成、受阻或需要人工核查</small></button>
       </div>
@@ -1349,6 +1378,7 @@
         <button type="button" id="task-period-today">今天</button>
       </div>
     </div>
+    <section id="day-agenda" class="day-agenda" aria-label="今日工作明细" hidden></section>
     <div class="section-head">
       <h2 id="task-view-heading"><span id="task-view-title">任务列表</span> <span class="sync" id="query-result-count"></span></h2>
       <div class="section-actions">
@@ -1448,7 +1478,15 @@
     let currentProjects = [];
     let createDraftRevision = 0;
     let overviewView = "all";
-    let selectedSelfOwner = "";
+    const defaultSelfOwnerStorageKey = "aiworkspace.defaultSelfOwner.v1";
+    function readDefaultSelfOwner() {
+      try {
+        const value = globalThis.localStorage?.getItem(defaultSelfOwnerStorageKey);
+        return typeof value === "string" && value.length <= 100 ? value : "";
+      } catch (_) { return ""; }
+    }
+    let defaultSelfOwner = readDefaultSelfOwner();
+    let selectedSelfOwner = defaultSelfOwner;
     let activeDetailTaskId = "";
     let activePage = "overview";
     let notificationItems = [];
@@ -3265,6 +3303,93 @@
       return !task.conflict && task.status !== "done";
     }
 
+    function isOpenStep(step) {
+      return !!step && !step.conflict && step.status !== "done" && !step.deleted_at;
+    }
+
+    // Steps have their own follow-up dates; do not confuse a supervisor with the assigned owner.
+    function dayAgendaForTasks(tasks, selfOwner, dates) {
+      const groups = {mine: [], followup: [], attention: []};
+      const seen = new Set();
+      const due = value => typeof value === "string" && !!value && value <= dates.today;
+      const take = (group, task, step, field) => {
+        const key = step ? "step:" + task.task_id + ":" + step.step_id : "task:" + task.task_id;
+        if (seen.has(key)) return;
+        seen.add(key);
+        const date = step ? step[field] : taskEffectiveDate(task, field);
+        groups[group].push({task, step, group, date, field});
+      };
+      for (const task of tasks) {
+        if (!isOpenTask(task) || task.trashed_at) continue;
+        const steps = (task.steps || []).filter(isOpenStep);
+        if (selfOwner && task.owner === selfOwner) {
+          const plannedSteps = steps.filter(step => due(step.planned_date));
+          for (const step of plannedSteps) take("mine", task, step, "planned_date");
+          if (!plannedSteps.length && due(taskEffectiveDate(task, "planned_date")))
+            take("mine", task, null, "planned_date");
+        }
+        if (selfOwner && task.owner && task.owner !== selfOwner) {
+          const followSteps = steps.filter(step => due(step.follow_up_date));
+          for (const step of followSteps) take("followup", task, step, "follow_up_date");
+          if (!followSteps.length && due(task.follow_up_date))
+            take("followup", task, null, "follow_up_date");
+        }
+        const deadlineSteps = steps.filter(step => due(step.due_date));
+        for (const step of deadlineSteps) take("attention", task, step, "due_date");
+        if (!deadlineSteps.length && due(taskEffectiveDate(task, "due_date")))
+          take("attention", task, null, "due_date");
+      }
+      for (const items of Object.values(groups)) items.sort((a,b) =>
+        a.date.localeCompare(b.date) || String(a.task.title).localeCompare(String(b.task.title), "zh-CN") ||
+        String(a.step?.title || "").localeCompare(String(b.step?.title || ""), "zh-CN"));
+      return groups;
+    }
+
+    function renderDayAgenda(tasks, dates) {
+      const host = $("day-agenda");
+      const show = activePage === "tasks" && taskViewMode === "list" &&
+        ["today", "mine", "followup"].includes(overviewView);
+      host.hidden = !show;
+      if (!show) { host.replaceChildren(); return; }
+      const agenda = dayAgendaForTasks(tasks, selectedSelfOwner, dates);
+      const keys = overviewView === "today" ? ["mine", "followup", "attention"] : [overviewView];
+      const headings = {mine:"我负责执行", followup:"跟进他人", attention:"到期／逾期关注"};
+      const total = keys.reduce((sum,key) => sum + agenda[key].length, 0);
+      host.replaceChildren(
+        element("h2", "day-agenda-title", "今日工作清单 · " + total + " 项"),
+        element("p", "day-agenda-caption",
+          "按本机日期汇总；步骤优先，同一事项不重复提醒。点击进入所属任务及具体步骤。此清单只读。")
+      );
+      if (!total) host.append(element("p", "day-agenda-empty",
+        "当前没有符合条件的工作；请检查任务与步骤日期、负责人是否已设置。"));
+      for (const key of keys) {
+        if (!agenda[key].length) continue;
+        const section = element("section", "day-agenda-group");
+        section.append(element("h3", "", headings[key] + " · " + agenda[key].length + " 项"));
+        for (const item of agenda[key]) {
+          const button = element("button", "day-agenda-item");
+          button.type = "button";
+          button.title = "打开所属任务及步骤";
+          button.append(element("strong", "", (item.step ? "步骤 · " : "任务 · ") +
+            (item.step ? item.step.title : item.task.title)));
+          button.append(element("small", "",
+            (item.step ? "所属任务：" + item.task.title + " · " : "") +
+            "负责人：" + (item.task.owner || "未设置") + " · " +
+            (item.date < dates.today ? "已到期：" : "日期：") + item.date +
+            (key === "mine" ? " · 计划执行" : key === "followup" ? " · 检查进度" : " · 截止关注")));
+          button.addEventListener("click", () => {
+            if (!openTaskDetail(item.task.task_id)) return;
+            if (item.step) {
+              const target = document.getElementById("step-" + item.step.step_id);
+              if (target?.scrollIntoView) target.scrollIntoView({block:"nearest"});
+            }
+          });
+          section.append(button);
+        }
+        host.append(section);
+      }
+    }
+
     function matchesOverview(task, view, selfOwner, dates) {
       if (view === "all") return true;
       if (view === "risk") {
@@ -3275,10 +3400,12 @@
       if (view === "due") return !!(taskEffectiveDate(task,"due_date") &&
         taskEffectiveDate(task,"due_date") >= dates.today && taskEffectiveDate(task,"due_date") <= dates.sevenDays);
       if (!selfOwner) return false;
-      if (view === "mine") return task.owner === selfOwner &&
-        !!(taskEffectiveDate(task,"planned_date") && taskEffectiveDate(task,"planned_date") <= dates.today);
-      if (view === "followup") return !!task.owner && task.owner !== selfOwner &&
-        !!(task.follow_up_date && task.follow_up_date <= dates.today);
+      if (["mine", "followup", "today"].includes(view)) {
+        const agenda = dayAgendaForTasks([task], selfOwner, dates);
+        return view === "today"
+          ? !!(agenda.mine.length || agenda.followup.length || agenda.attention.length)
+          : !!agenda[view].length;
+      }
       return false;
     }
 
@@ -3316,9 +3443,18 @@
       const owners = [...new Set(current.map(task => task.owner).filter(Boolean))]
         .sort((a, b) => a.localeCompare(b, "zh-CN"));
       if (selectedSelfOwner && !owners.includes(selectedSelfOwner)) selectedSelfOwner = "";
+      if (!selectedSelfOwner && defaultSelfOwner && owners.includes(defaultSelfOwner))
+        selectedSelfOwner = defaultSelfOwner;
       updateFilterSelect($("overview-owner"),
         [["", "先选择本人"], ...owners.map(owner => [owner, owner])], selectedSelfOwner);
-      if (!selectedSelfOwner && (overviewView === "mine" || overviewView === "followup"))
+      const candidate = $("default-self-owner").value;
+      updateFilterSelect($("default-self-owner"),
+        [["", "请选择"], ...owners.map(owner => [owner, owner])],
+        owners.includes(candidate) ? candidate :
+        (owners.includes(defaultSelfOwner) ? defaultSelfOwner : ""));
+      $("default-self-save").disabled = !owners.length;
+      $("default-self-clear").disabled = !defaultSelfOwner;
+      if (!selectedSelfOwner && ["mine", "followup", "today"].includes(overviewView))
         overviewView = "all";
       const projectIds = new Set(currentProjects.map(project => project.project_id));
       for (const task of current) {
@@ -3339,14 +3475,17 @@
       const days = overviewDates();
       $("overview-date").textContent = `统计日期：${days.today}（本机日期）`;
       $("overview-owner-hint").textContent = selectedSelfOwner
-        ? `当前本人：${selectedSelfOwner}。仅在此页面识别“亲自处理”与“跟进他人”；刷新不会写入任何任务数据。`
-        : "先选择与自己一致的负责人名称，才能准确区分亲自处理与跟进他人。此选择只影响当前页面。";
+        ? `当前本人：${selectedSelfOwner}。今日处理合并本人执行、步骤级跟进与到期关注；可在系统设置设为默认。`
+        : "请先选择本人；可在系统设置中保存当前浏览器的默认本人，不会更改任务数据。";
+      const agendaCounts = dayAgendaForTasks(current, selectedSelfOwner, days);
       for (const view of overviewViews) {
         const button = $("view-" + view);
         button.disabled = !selectedSelfOwner && (view === "mine" || view === "followup");
         button.className = "overview-view" + (view === overviewView ? " is-selected" : "");
-        $("view-" + view + "-count").textContent = button.disabled ? "—"
-          : String(current.filter(task => matchesOverview(task, view, selectedSelfOwner, days)).length);
+        $("view-" + view + "-count").textContent = button.disabled ? "—" :
+          (view === "mine" || view === "followup"
+            ? String(agendaCounts[view].length)
+            : String(current.filter(task => matchesOverview(task, view, selectedSelfOwner, days)).length));
       }
     }
 
@@ -3586,7 +3725,10 @@
         localDayISO(currentPeriod) + " 起 42 天";
       if (activePage === "tasks") {
         const heading = {list: "全部任务", board: "状态看板", calendar: "任务日历", gantt: "日期甘特图"}[taskViewMode];
-        $("tasks-page-title").textContent = heading;
+        const viewHeading = {today:"今日处理", mine:"今日亲自处理",
+          followup:"跟进他人", due:"7 天内到期", risk:"风险事项"};
+        $("tasks-page-title").textContent = viewHeading[overviewView] || heading;
+        if (overviewView !== "all") $("topbar-context").textContent = $("tasks-page-title").textContent;
         if (overviewView === "all") {
           for (const id of ["nav-tasks", "nav-board", "nav-calendar", "nav-gantt"])
             $(id).className = "nav-item";
@@ -3885,6 +4027,7 @@
       $("query-result-count").textContent = `（${visible.length} / ${current.length}）`;
       const list = $("tasks");
       if (unsavedTaskEditors.size) return;
+      renderDayAgenda(visible, days);
       list.className = "task-list" + (taskViewMode === "list" ? "" : " is-" + taskViewMode);
       if (!visible.length && taskViewMode === "list") {
         const empty = element("div", "empty");
@@ -3985,7 +4128,7 @@
 
     function setActivePage(page, view, mode) {
       if (!pageMeta[page]) return false;
-      if ((view === "mine" || view === "followup") && !selectedSelfOwner) return false;
+      if (["mine", "followup", "today"].includes(view) && !selectedSelfOwner) return false;
       if (activeDetailTaskId && !closeTaskDetail()) return false;
       if (unsavedTaskEditors.size && !confirmDiscardUnsaved()) return false;
       if (activePage==="projects" && page!=="projects" && !confirmProjectDrafts()) return false;
@@ -4019,8 +4162,8 @@
       }
       if (view) {
         overviewView = view;
-        const navByView = {mine: "nav-today", followup: "nav-followup",
-                           due: "nav-due", risk: "nav-risk"};
+        const navByView = {mine:"nav-today", today:"nav-today",
+                           followup:"nav-followup", due:"nav-due", risk:"nav-risk"};
         if (navByView[view]) $(navByView[view]).className = "nav-item is-active";
         else $("nav-tasks").className = "nav-item is-active";
       } else {
@@ -4037,8 +4180,8 @@
     }
 
     function selectOverview(view) {
-      if (!overviewViews.includes(view)) return;
-      if ((view === "mine" || view === "followup") && !selectedSelfOwner) return;
+      if (!overviewViews.includes(view) && view !== "today") return;
+      if (["mine", "followup", "today"].includes(view) && !selectedSelfOwner) return;
       if (isSaving) return;
       setActivePage("tasks", view);
     }
@@ -4957,6 +5100,36 @@
       selectedSelfOwner = $("overview-owner").value;
       refreshOverviewControls();
       renderTaskList();
+    });
+    $("default-self-save").addEventListener("click", () => {
+      const chosen = $("default-self-owner").value;
+      if (!chosen || !current.some(task => task.owner === chosen)) {
+        $("default-self-message").textContent = "请从已有任务负责人中选择本人。";
+        return;
+      }
+      try {
+        if (!globalThis.localStorage?.setItem) throw new Error("storage unavailable");
+        globalThis.localStorage.setItem(defaultSelfOwnerStorageKey, chosen);
+        defaultSelfOwner = chosen;
+        selectedSelfOwner = chosen;
+        $("default-self-message").textContent = "已保存默认本人：" + chosen + "；仅在当前浏览器生效。";
+        refreshOverviewControls();
+        renderTaskList();
+      } catch (_) {
+        $("default-self-message").textContent = "无法保存浏览器本地偏好；未修改默认本人。";
+      }
+    });
+    $("default-self-clear").addEventListener("click", () => {
+      try {
+        if (!globalThis.localStorage?.removeItem) throw new Error("storage unavailable");
+        globalThis.localStorage.removeItem(defaultSelfOwnerStorageKey);
+        defaultSelfOwner = "";
+        $("default-self-owner").value = "";
+        $("default-self-message").textContent = "已取消默认本人；当前页面的选择仍保留。";
+        refreshOverviewControls();
+      } catch (_) {
+        $("default-self-message").textContent = "无法取消本地默认本人，请检查浏览器站点存储权限。";
+      }
     });
     for (const view of overviewViews) {
       $("view-" + view).addEventListener("click", () => selectOverview(view));
@@ -7038,7 +7211,7 @@
       ["nav-board", "tasks", "all", "board"],
       ["nav-calendar", "tasks", "all", "calendar"],
       ["nav-gantt", "tasks", "all", "gantt"],
-      ["nav-today", "tasks", "mine"],
+      ["nav-today", "tasks", "today"],
       ["nav-followup", "tasks", "followup"],
       ["nav-due", "tasks", "due"],
       ["nav-risk", "tasks", "risk"],
