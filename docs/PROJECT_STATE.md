@@ -4,8 +4,9 @@
 - **修复**：新入口「更正录入」可对原 decision 追加 correct 事件，更新当前显示的内容、结论及发生日期而不覆盖原始事件；日期等元数据单独修改仍走 update；明确区分「另记新决策」。普通记录维持原有编辑行为、原 ID 和 revision 冲突保护。
 - **安全边界**：新的 correct 事件不能由旧客户端正确识别，必须先将共享数据目录的全部设备升级后再用此功能；未改动任何真实工作记录、Drive 台账或用户 Windows 工作台。
 - **代码和测试**：分支 `fix/20261118-decision-record-correction`，修改 app.py、web/index.html、tests/test_work_records.py、tests/test_ui_shell.mjs、VERSION、规则／需求／决策；用虚构数据覆盖更正、历史不变、旧式非法覆盖拒绝、date-only 修改、同 revision 冲突与新决策独立创建。
-- **当前状态**：开发候选，准确 GitHub Actions CI 和 PR 审核结果以实际工作流为准；**未合并／未发布／未安装**。不将此前 2.11.0 的 PASS 充当本候选测试证据。
-- **后续**：跑 2.12.0 候选准确 SHA 的 Ubuntu/Windows/Python/Node/Chromium CI，核查 GitHub 差异和安全性；合格后等待用户明确合并发布授权。真实双电脑 Google Drive 离线／恢复及旧版混用仍 NOT TESTED。
+- **准确自动化证据**：产品与测试 SHA `049b14f97d8b016960ca5bbff703e9aad274b73d`，GitHub Actions [#44259921296](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44259921296) **3/3 SUCCESS**：Ubuntu、Windows 的 Python 单元测试与 Node UI，以及 Windows 真实应用 + Chromium 更新／回滚和业务界面回归。初次候选 `fcec5129a38f048bf8224b7b76d76db03e44a762` 因历史错误消息断言未匹配而出现 FAIL，已改正并以新 SHA 完整重测，不沿用旧 FAIL 作为验收。
+- **PR 与状态**：[PR #59](https://github.com/yudacheng666/AIWorkSpace/pull/59) 保持 Draft、open、mergeable；**未合并／未发布／未安装**。后续状态记忆若仅 Markdown 更新，不能将其 SHA 冒充前述准确产品／测试 SHA。
+- **后续**：在明确合并发布授权前保持 PR 草稿。新增 `correct` 数据动作属于同步兼容风险，真实双电脑 Google Drive 离线／恢复、旧版客户端混用与额外独立探索性验收 **NOT TESTED**，不能因 3/3 自动化通过就宣称全部完成。
 
 ---
 
