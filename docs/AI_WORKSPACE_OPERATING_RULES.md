@@ -30,7 +30,7 @@
 
 不要为了记录一条进展或结论而新建步骤。不要把沟通记录写成任务状态。不要把对象说明、工作事实和未来待办混在同一个字段中。
 
-当前 RECORD 类型为 progress、communication、decision、note。decision 的 content 用于背景／判断，outcome 用于明确结论；已有 decision 不得通过更新覆盖其核心内容，更正或新判断应新增记录。具体字段以当前代码校验规则为准。
+当前 RECORD 类型为 progress、communication、decision、note。decision 的 content 用于背景／判断，outcome 用于明确结论；已有 decision 不允许通过普通 update 覆盖 content／outcome／record_type。若仅是原始录入错误（包括内容、结论或发生日期），从 2.12.0 起允许由用户在界面明确执行「更正录入」：同一 RECORD 编号追加经 revision 校验的 correct 更正事件，原始事件字节保留；仅发生日期等元数据更正可走普通 update。若业务判断后来改变，必须选择「另记新决策」，新增独立 RECORD，而不是更正历史。旧版客户端无法识别 correct 事件；同一 Google Drive 目录的设备必须先全部更新再使用更正功能。具体字段以当前代码校验规则为准。
 
 ## 4. 每次自然语言输入必须同时识别工作事实与后续行动
 
