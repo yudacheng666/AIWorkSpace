@@ -1006,7 +1006,7 @@ test("stage3 project detail and task list link preserve task ID with no write",a
  const card=x.el("project-list").children[0];
  card.children.find(c=>c.className==="project-card-actions").children[0].handlers.get("click")[0]();
  assert.equal(x.el("project-inspector").hidden,false);
- assert.equal(x.el("project-inspector").children[2].children.length,2);
+ assert.equal(x.el("project-inspector").children.find(item=>item.className==="object-description").children.length,2);
  assert.equal(x.api.openProjectTasks(p),true);
  assert.equal(x.el("query-project").value,p);
  assert.equal(x.el("query-result-count").textContent,"（1 / 1）");
