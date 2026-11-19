@@ -108,7 +108,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, loadTrash, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, editWorkSummary, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask, progressPanel, recordBelongsTo, objectDescriptionPanel, summaryRecordRecommended, workRecordTypeLabel, dayAgendaForTasks, overviewDates})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, loadTrash, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, editWorkSummary, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask, progressPanel, recordBelongsTo, objectDescriptionPanel, summaryRecordRecommended, workRecordTypeLabel, dayAgendaForTasks, overviewDates, nearestTaskFollowUp, nearestProjectFollowUp, taskEffectiveDate, followUpOrigin})", {
       document, window, navigator, fetch, Date, localStorage, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes,
@@ -145,6 +145,82 @@ test("V2 shell has distinct overview, tasks, projects and settings pages", () =>
 });
 
 
+
+test("nearest follow-up rolls up open steps, nested tasks, and project without writing manual dates", async () => {
+  const projectId="PROJECT-DEMO";
+  const root={...sampleTask(),task_id:"TASK-ROOT-ROLLUP",title:"虚构父任务",
+    project_id:projectId,follow_up_date:"2026-12-20",status:"doing",
+    steps:[{step_id:"STEP-ROOT-ROLLUP",title:"常规检查",status:"todo",
+      follow_up_date:"2026-12-10",conflict_fields:[]}]};
+  const child={...sampleTask(),task_id:"TASK-CHILD-ROLLUP",title:"虚构子任务",
+    project_id:null,parent_task_id:root.task_id,follow_up_date:"2026-12-08",status:"doing",
+    steps:[{step_id:"STEP-CHILD-ROLLUP",title:"催采购",status:"todo",
+      follow_up_date:"2026-12-01",conflict_fields:[]}]};
+  const grand={...sampleTask(),task_id:"TASK-GRAND-ROLLUP",title:"虚构孙任务",
+    parent_task_id:child.task_id,project_id:null,follow_up_date:"2026-11-25",
+    status:"todo",steps:[{step_id:"STEP-GRAND-ROLLUP",title:"确认报价",
+      status:"todo",follow_up_date:"2026-11-23",conflict_fields:[]}]};
+  const completed={...sampleTask(),task_id:"TASK-DONE-ROLLUP",
+    parent_task_id:root.task_id,status:"done",follow_up_date:"2026-11-01"};
+  const conflicted={...sampleTask(),task_id:"TASK-CONFLICT-ROLLUP",
+    parent_task_id:root.task_id,conflict:true,follow_up_date:"2026-11-02"};
+  const all=[root,child,grand,completed,conflicted];
+  const h=harness(all,()=>true,[{project_id:projectId,name:"虚构项目",revision:1}]);
+  await h.api.refresh(true);
+  const follow=h.api.nearestTaskFollowUp(root,all);
+  assert.equal(follow.date,"2026-11-23");
+  assert.equal(follow.task.task_id,grand.task_id);
+  assert.equal(follow.step.step_id,"STEP-GRAND-ROLLUP");
+  assert.equal(h.api.taskEffectiveDate(root,"follow_up_date"),"2026-11-23");
+  assert.equal(root.follow_up_date,"2026-12-20","manual value must remain unchanged");
+  assert.equal(h.api.nearestProjectFollowUp(projectId).date,"2026-11-23");
+  const earlier={...root,follow_up_date:"2026-11-10"};
+  assert.equal(h.api.nearestTaskFollowUp(earlier,[earlier,child,grand]).date,
+    "2026-11-10","parent earlier than child wins");
+  const card=h.api.taskSummaryRow(root);
+  const caption=card.children[0].children.find(x=>x.className==="task-followup-rollup");
+  assert.match(caption.textContent,/2026-11-23/);
+  assert.match(caption.textContent,/子任务/);
+  h.api.openTaskDetail(root.task_id);
+  const detail=h.el("task-detail-content").children[0];
+  const form=detail.children.find(x=>x.className==="task-form");
+  const note=form.children.find(x=>x.className==="task-followup-note");
+  assert.match(note.textContent,/2026-11-23/);
+  assert.match(note.textContent,/不会被自动覆盖/);
+  h.api.closeTaskDetail();
+  h.el("nav-projects").handlers.get("click")[0]();
+  const pc=h.el("project-list").children[0];
+  assert.match(pc.children.find(x=>x.className==="project-followup-rollup").textContent,/2026-11-23/);
+  assert.equal(h.writes.length,0,"view and rollup are read-only");
+  assert.equal(h.api.taskEffectiveDate(root,"due_date"),root.due_date,
+    "due date is not affected by follow-up rollup");
+});
+
+test("rollup ignores completed/conflicted/trashed steps and tasks, honors parent and step sync guards", () => {
+  const base={...sampleTask(),task_id:"TASK-ROLLUP-BASE",status:"doing",
+    follow_up_date:"2026-12-15"};
+  const complete={...sampleTask(),task_id:"TASK-ROLLUP-DONE",status:"done",
+    parent_task_id:base.task_id,follow_up_date:"2026-11-01"};
+  const conflict={...sampleTask(),task_id:"TASK-ROLLUP-CONFLICT",conflict:true,
+    parent_task_id:base.task_id,follow_up_date:"2026-11-02"};
+  const archived={...sampleTask(),task_id:"TASK-ROLLUP-ARCHIVED",
+    parent_task_id:base.task_id,trashed_at:"2026-11-01",follow_up_date:"2026-11-03"};
+  const stepBad={step_id:"STEP-BAD",title:"冲突",status:"todo",conflict:true,follow_up_date:"2026-11-04"};
+  const stepDone={step_id:"STEP-DONE",title:"已完成",status:"done",follow_up_date:"2026-11-04"};
+  const h=harness([]);
+  assert.equal(h.api.nearestTaskFollowUp({...base,steps:[stepBad,stepDone]},
+    [base,complete,conflict,archived]).date,"2026-12-15");
+  const incomplete={...base,step_order_incomplete:true,
+    steps:[{step_id:"STEP-UNSYNC",status:"todo",follow_up_date:"2026-11-05"}]};
+  assert.equal(h.api.nearestTaskFollowUp(incomplete,[incomplete]).date,"2026-12-15");
+  assert.equal(h.api.nearestTaskFollowUp({...base,status:"done"},[base,complete,conflict]),null);
+  const cyclicRoot={...base,follow_up_date:null,parent_task_id:"TASK-CYCLE-CHILD"};
+  const cyclicChild={...sampleTask(),task_id:"TASK-CYCLE-CHILD",status:"doing",
+    parent_task_id:cyclicRoot.task_id,follow_up_date:"2026-11-09"};
+  const found=h.api.nearestTaskFollowUp(cyclicRoot,[cyclicRoot,cyclicChild]);
+  assert.equal(found.date,"2026-11-09","repeated ancestors terminate safely");
+  assert.equal(h.writes.length,0);
+});
 
 test("step-level daily agenda prioritizes precise steps, de-duplicates parent and suppresses completed/conflicted items", async () => {
   const own = {...sampleTask(), task_id:"TASK-OWN", owner:"本人演示", due_date:null,
