@@ -375,3 +375,11 @@
 - **安全**：不覆盖父任务原始 follow_up_date、不向 Google Drive 自动追加事件、不改变完成状态。已完成／冲突／删除项不能触发派生跟进。循环引用与未同步链保守处理。
 - **体验**：列表、任务及项目详情、日期筛选和日历显示派生日期；「今日处理」继续呈现具体步骤避免重复督办。
 - **缘由**：无需手工给每层重复填日期，同时保留可追溯的原始责任／日期与追加式数据安全。
+
+## 2026-11-23：D-20261123-REL-01（按风险门槛合并全部合格候选）
+
+- **用户授权**：「最新版合并」。合并前审计全部开放 PR：#59、#61、#62；不把“最新版”理解为绕过冲突或高风险验收门槛的强制全合。
+- **#61**：父级从未完成子任务／步骤只读汇总最早跟进日期，原业务事件与手工日期不变；产品／测试 SHA `f009ad6850001579bcd10dc726159998b14bf7ff`，[PR CI #44444829541](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44444829541) 3/3 PASS，后续分支只改项目状态文档；标准 merge SHA `ea379f3c70d070a14b13892a18b2b9ec997a6a43`，[main CI #45103981236](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45103981236) 3/3 PASS。
+- **#62**：通知信箱批量复制只含仍待核查消息；全部历史仍可见并可单条复制，不更改审计或任务数据。原产品 SHA `896578f17b82c18ad3ab5e10356a7435d53c77ea` 的 [PR CI #44447834556](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44447834556) 3/3 PASS；#61 先合入后 #62 出现同文件冲突，通过保留两边变更的双父 merge commit `48539068db19f2cb04848bdd35e20ad58423d558` 解决，并以该精确组合 SHA 的 [PR CI #45104221503](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45104221503) 再验 3/3 PASS；标准 merge SHA `9a618c79400b89315041868fffa74ab5631454c5`。
+- **保留**：#59 决策记录更正引入 `correct` 新事件动作，旧版本客户端兼容及真实 Google Drive 双电脑同步风险未通过独立安全专项，且目前与 main 存在合并冲突；虽然既有独立分支 CI 3/3 PASS，仍不合入。
+- **边界**：正式 `VERSION` 仍 2.11.0（更新中心还能按 main commit 发现新构建）；只变更 GitHub 代码和项目 Markdown，未操作用户 Windows 工作台或真实 Google Drive 事件。真实双机同步／旧客户端混用仍 NOT TESTED。项目状态文档另记录最终主干 CI 结果。
