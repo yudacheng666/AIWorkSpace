@@ -1,3 +1,16 @@
+# 2026-11-23｜PR #59 决策更正修复并正式合并 2.12.0
+
+- **用户明确授权**：「59有什么问题，分析解决后合并。不用work」。本轮直接在 GitHub 仓库完成只读风险分析、开发分支冲突修复、专项故障注入、准确 SHA 测试及正式合并；没有使用 Work。
+- **问题与修复**：原 decision 的正文／结论不可通过普通更新修正，原前端只能另建记录；新增明确确认的 `correct` 事件更正原始录入，继续使用原 RECORD ID，原始 JSON 不覆盖。仅日期等元数据改动走普通 update，后来业务决策变化另建新 decision。更正事件校验 `actor=user`，普通 update 不能无确认地覆盖核心判断。
+- **跨分支冲突处理**：#59 与先前已合并的 #60（今日工作）、#61（父级跟进日期）、#62（通知批量复制）均有 UI/文档/测试重叠。将当前 main `eb33a513690af7d047d9fb0edb28d3ccb365e70b` 纳入 #59 双父提交 `3b5e3a82d569567a8df819b091aef592cdadc019`；逐文件保留两方改动，甘特标题只保留必要文字调整，未覆盖今日处理派生标题等新功能。
+- **专项风险测试**：在原有决策不可变性、正确更正、日期单独更新、版本冲突、原始文件字节不变、不同记录 ID 等用例基础上，新增「旧版客户端迟到同版本修改后冻结而不按时间覆盖」「同一 revision 两次竞争更正冻结」「ChatGPT actor 不能直接作 correct」等虚构数据故障注入。第一次组合 [CI #45106893503](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45106893503) Ubuntu/Windows Node 仅因旧测试仍要求 #62 以前的「复制全部消息」文案而失败，Python 业务及 Windows Chromium E2E 通过；只修正该过时测试断言，没有回退 #62 功能。
+- **最终 PR 测试**：准确 HEAD `88bd85d93c75c0342a3803e285ee9b3c525a5ec9` → [GitHub Actions #45107140374](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45107140374) **3/3 SUCCESS**：Ubuntu/Windows Python+Node、Windows 真实 Chromium 应用 UI + updater 回滚。
+- **正式合并与主干验证**：按用户授权将 #59 Draft 转 Ready 后普通 Merge，merge SHA `08afe7142cc4732700695a3eae428ee4105efb92`，正式 `VERSION=2.12.0`；该准确产品 SHA 的 [main Actions #45107402059](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45107402059) **3/3 SUCCESS**，确认 Ubuntu、Windows 和 Windows Chromium 全部通过。合并后仅使用 `[skip ci]` 更新 README、DECISIONS、PROJECT_STATE 的 Markdown 持久化，不把后续文档 HEAD SHA 误作已测代码 SHA。核查时开放 PR 0。
+- **明确未完成的高风险实机边界**：未进行用户真实 Windows 8770 安装、真实两台电脑 Google Drive 离线/重连或旧客户端混用验收，未读写或迁移任何真实记录数据。新 `correct` 事件对 2.11.0 及更旧客户端不兼容；**正式使用「更正录入」前必须备份并统一升级所有共享同一 Google Drive 数据目录的电脑**，升级后不能未经验证回滚旧版本继续编辑。与 CI 不同的实机验收仍保持 NOT TESTED；用户本次授权的是 GitHub 代码合并，不是自动部署或真实数据修改。
+- **下一步**：只在用户需要部署时进行备份、设备版本核对和真实同步专项验收，避免重复运行已在准确 SHA 完成的自动化测试；相关业务记录的实际更正须另依最新工作台操作规则处理。
+
+---
+
 # 2026-11-23｜最新可发布 PR #61／#62 已合并
 
 - **用户授权**：「最新版合并」。审计全部开放 PR（#59／#61／#62），核对各自依赖、精确测试 SHA、GitHub CI、代码差异、合并冲突与项目高风险测试边界。仅合并符合条件者，没有为了清空 PR 数字而强行合并高风险缺口。
