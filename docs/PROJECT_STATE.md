@@ -1,3 +1,14 @@
+# 2026-11-23｜最新可发布 PR #61／#62 已合并
+
+- **用户授权**：「最新版合并」。审计全部开放 PR（#59／#61／#62），核对各自依赖、精确测试 SHA、GitHub CI、代码差异、合并冲突与项目高风险测试边界。仅合并符合条件者，没有为了清空 PR 数字而强行合并高风险缺口。
+- **首先合并 #61**（父项递归最近跟进日期，只读）：候选产品／测试 SHA `f009ad6850001579bcd10dc726159998b14bf7ff` → [Actions #44444829541](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44444829541) 3/3 SUCCESS，之后仅更新 Markdown；普通 merge SHA `ea379f3c70d070a14b13892a18b2b9ec997a6a43` → [main Actions #45103981236](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45103981236) **3/3 SUCCESS**。
+- **再合并 #62**（只批量复制仍待核查消息）：原候选产品／测试 SHA `896578f17b82c18ad3ab5e10356a7435d53c77ea` → [Actions #44447834556](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44447834556) 3/3 SUCCESS。#61 合并后 #62 因共享修改文件导致冲突，保留两边所有业务、UI、测试、规则改动并建立双父 merge commit `48539068db19f2cb04848bdd35e20ad58423d558`；准确合并候选 [Actions #45104221503](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45104221503) **3/3 SUCCESS**，再普通 merge SHA `9a618c79400b89315041868fffa74ab5631454c5`。
+- **最终 main 准确验证**：merge SHA **`9a618c79400b89315041868fffa74ab5631454c5`** 的 [main Actions #45104522205](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45104522205) **3/3 SUCCESS**（Ubuntu Python／Node、Windows Python／Node、Windows 真实 Chromium UI／更新回滚）。随后仅提交 `[skip ci]` 的 README、DECISIONS 与 PROJECT_STATE 记忆文档，不冒充另一次产品 SHA 验收。
+- **剩余**：[PR #59](https://github.com/yudacheng666/AIWorkSpace/pull/59) 仍为 Draft/Open，mergeable=false。它的新 `decision correct` 事件格式改变工作记录持久化规则，虽然独立分支准确 SHA `af73a28cbe233f77c2bb71d89d25282ab7691f58` 的 [Actions #44264889818](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44264889818) **3/3 SUCCESS**，但独立高风险安全验收与真实 Drive 双机混用边界仍 NOT TESTED，且与 main 有冲突；保留，不强制合并。
+- **版本与部署**：GitHub main `VERSION=2.11.0`（更新中心比较 commit SHA 也可发现新版构建），已将 README 的过期版本摘要纠正。**未操作用户 Windows 8770 程序、未修改 Google Drive 实际业务数据**，未宣称真实双电脑 Drive 离线／恢复或旧客户端混用通过。下一步优先处理 #59 的独立风险验证、冲突与兼容保护，然后再单独发布。
+
+---
+
 # 2026-11-19｜最近跟进日期向父项递归汇总（独立候选）
 - **需求**：用户指出子项有更近跟进日期时，父项也应显示该日期。
 - **基线**：main ff54384e81c76a4cd94ffbde6c14330da7ca0209；PR #59 仍为 Draft，涉及独立高风险工作记录更正，当前改动与之不混合。
