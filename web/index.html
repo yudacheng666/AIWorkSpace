@@ -988,7 +988,7 @@
       <div class="page-heading">
         <div><h1>通知信箱</h1><p class="subtitle">可安全处理的异常在这里按步骤确认；无法安全判断的消息可一次性复制给 ChatGPT 核查。</p></div>
         <div class="inbox-toolbar">
-          <button type="button" id="review-copy-all" class="inbox-copy-all" disabled>复制全部消息给 ChatGPT 核查</button>
+          <button type="button" id="review-copy-all" class="inbox-copy-all" disabled>复制待核查消息给 ChatGPT</button>
           <button type="button" id="review-refresh">刷新消息</button>
         </div>
       </div>
@@ -4465,6 +4465,11 @@
     function notificationStatus(item) {
       return notificationStatusLabels[item.status] || ["待关注", "attention"];
     }
+    // Terminal statuses remain in the inbox history but do not need another bulk AI review.
+    // Unknown statuses are conservatively kept, never silently dropped.
+    function notificationNeedsReview(item) {
+      return !["applied", "dismissed", "auto_merged"].includes(item.status);
+    }
     function sortedNotificationItems() {
       return notificationItems.slice().sort((left, right) => {
         const leftTime = Date.parse(notificationTimestamp(left));
@@ -4532,9 +4537,10 @@
           "如需修复，请先给出逐条方案、目标对象和具体字段变化，等待我明确授权后再执行。"
         ].join("\n"),
         message_count: items.length,
-        messages: items.map(item => reviewCopyPayload(item, items))
+        // Keep the visible message ID stable even if a terminal sibling is omitted.
+        messages: items.map(item => reviewCopyPayload(item, notificationItems))
       };
-      return "请帮我核查 AIWorkSpace 通知信箱中的全部消息。以下内容由工作台一次性整理，包含当前显示的全部消息（包括已处理和自动整合记录），请先只读核查。\n\n" +
+      return "请帮我核查 AIWorkSpace 通知信箱中选出的消息。以下内容由工作台整理，复制本身不会处理或删除任何记录，请先只读核查。\n\n" +
         JSON.stringify(payload, null, 2);
     }
     async function copyReviewText(value, successText) {
@@ -4551,10 +4557,10 @@
       }
     }
     async function copyAllNotifications() {
-      const items = sortedNotificationItems();
+      const items = sortedNotificationItems().filter(notificationNeedsReview);
       if (!items.length) return;
       await copyReviewText(reviewCopyPrompt(items),
-        "已复制全部 " + items.length + " 条消息。请粘贴到 ChatGPT 对话，我会逐条核查并说明可执行的处理方案；复制本身不会修改数据。");
+        "已复制待核查的 " + items.length + " 条消息；已修复、已决定暂不处理及已自动整合的历史消息没有重复复制。请粘贴到 ChatGPT 对话核查；复制本身不会修改数据。");
     }
     function reviewFieldLabel(field) {
       return ({
@@ -4725,7 +4731,7 @@
       }
       if (!hasAction && !["applied", "dismissed", "auto_merged"].includes(item.status)) {
         panel.append(element("p", "inbox-action-note",
-          "目前没有可安全执行的自动处理方案。请先使用上方“复制全部消息给 ChatGPT 核查”，由 ChatGPT 核对这项操作的来源和当前任务/步骤状态；不要直接在电脑文件夹中修改工作台数据。"));
+          "目前没有可安全执行的自动处理方案。请先使用上方“复制待核查消息给 ChatGPT”，由 ChatGPT 核对这项操作的来源和当前任务/步骤状态；不要直接在电脑文件夹中修改工作台数据。"));
       }
       return hasAction || panel.children.length ? panel : null;
     }
@@ -4781,7 +4787,11 @@
       host.replaceChildren();
       const sorted = sortedNotificationItems();
       total.textContent = notificationItems.length + " 条消息";
-      copyAll.disabled = !sorted.length;
+      const reviewItems = sorted.filter(notificationNeedsReview);
+      copyAll.disabled = !reviewItems.length;
+      copyAll.textContent = reviewItems.length
+        ? "复制待核查 " + reviewItems.length + " 条给 ChatGPT"
+        : "没有待核查消息";
       const openItems = sorted.filter(item =>
         ["pending", "authorized", "stale", "failed", "conflict"].includes(item.status));
       const directlyActionable = openItems.filter(item => item.can_authorize || item.can_apply).length;

@@ -6,6 +6,17 @@
 - **边界**：无事件格式和后端写入逻辑变化，无用户真实 Drive 数据操作；未经合并授权不发布 main。
 
 ---
+# 2026-11-19｜通知信箱批量复制排除已处理消息（独立候选 PR）
+- **用户问题**：「复制全部消息给chatgpt不应该把已解决的也重复复制」。
+- **代码基线**：main `ff54384e81c76a4cd94ffbde6c14330da7ca0209`；本轮 PR 独立于未合并的 #59（高风险工作记录更正）和 #61（父项跟进日期汇总），不改业务数据。
+- **原因**：当前 copyAllNotifications 使用 sortedNotificationItems 全量数组，包含 applied、dismissed、auto_merged；相应旧开发规则也要求复制全部可见消息，需同步更新以免回归。
+- **变更范围**：只修改前端复制按钮、批量选择逻辑、文字及对应自动化测试，并同步 AGENTS/REQUIREMENTS/DECISIONS/PROJECT_STATE。未知状态保守纳入，不遗漏尚未识别的问题；有待核查项才允许批量复制；完整历史列表、单条手动复制、异常核查和授权动作保持不变。标识保持完整列表的稳定消息 ID。
+- **安全**：仅写剪贴板，不向服务器追加通知审计或业务事件，不改实际 Google Drive 数据。
+- **准确测试证据**：产品／测试 SHA `896578f17b82c18ad3ab5e10356a7435d53c77ea`，[GitHub Actions #44447834556](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44447834556) **3/3 SUCCESS**（Ubuntu Python + Node、Windows Python + Node、Windows 真实应用/Chromium 更新回滚与通知信箱 E2E）。单元/UI 覆盖 pending、authorized、stale、failed、conflict、未知状态保留，applied、dismissed、auto_merged 排除；全部已处理时禁用批量按钮；历史单条可主动复制；ID 在过滤碰撞时稳定；剪贴板操作没有业务写入。Windows E2E 验证「两条待核查→修复一条只复制另一条→全部处理后按钮禁用」。此前候选 SHA `67fc0ba9de62ead8b925e7f875ac0d30fb3a71bf` 的浏览器回归失败，是旧测试仍要求 UI 反馈“已复制全部”，与新产品文案不一致；已更新测试后按最终 SHA 3/3 PASS，不重复派 Codex。
+- **发布边界**：当前 [PR #62](https://github.com/yudacheng666/AIWorkSpace/pull/62) 仍为 Draft，未合并、未部署。main `ff54384e81c76a4cd94ffbde6c14330da7ca0209`；另有 Draft #59（数据写入高风险，独立验收未完成）和 #61（跟进日期汇总），均不能因本轮测试自动合并。未接触实际 Google Drive 工作台业务数据，用户 Windows 本机体验 NOT TESTED。
+
+---
+
 # 2026-11-18｜按用户授权合并 PR #60：步骤级今日工作与默认本人
 
 - **用户授权**：本轮明确指示「合并」。合并前核对全部开放 PR：#59（决策工作记录更正及文案）和 #60（步骤级今日工作、默认本人），逐项核对基线、精确产品 SHA、CI、风险门槛与相互依赖。

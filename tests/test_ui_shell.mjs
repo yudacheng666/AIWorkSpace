@@ -1371,7 +1371,7 @@ test("successfully auto-merged edits are informational and never demand ChatGPT"
   assert.equal(page.writes.length, 0);
 });
 
-test("bulk ChatGPT handoff copies every visible message in one read-only bundle", async () => {
+test("bulk ChatGPT handoff copies only pending reviews and leaves resolved history untouched", async () => {
   const reviews = [
     {
       anomaly_id: "ANOM-" + "1".repeat(32), category: "invalid_step_reference",
@@ -1399,18 +1399,101 @@ test("bulk ChatGPT handoff copies every visible message in one read-only bundle"
   await page.api.loadNotifications();
   const button = page.el("review-copy-all");
   assert.equal(button.disabled, false);
-  assert.match(html, /id="review-copy-all" class="inbox-copy-all" disabled>复制全部消息给 ChatGPT 核查/);
+  assert.match(html, /id="review-copy-all" class="inbox-copy-all" disabled>复制待核查消息给 ChatGPT/);
+  assert.equal(button.textContent, "复制待核查 1 条给 ChatGPT");
+  assert.equal(page.el("review-total").textContent, "2 条消息");
   await button.handlers.get("click")[0]();
   assert.equal(page.copied.length, 1);
   const copied = page.copied[0];
-  assert.match(copied, /message_count": 2/);
+  assert.match(copied, /message_count": 1/);
   assert.match(copied, /虚构：步骤编号无法识别/);
-  assert.match(copied, /虚构：两次修改已自动整合/);
+  assert.doesNotMatch(copied, /虚构：两次修改已自动整合/);
   assert.match(copied, /evt_synthetic_invalid_step.json/);
   assert.match(copied, /TASK-SYNTHETIC-001/);
   assert.match(copied, /请逐条核查/);
   assert.match(copied, /不要直接修改任何数据文件、删除或覆盖此前收到的变更信息/);
   assert.equal(page.writes.length, 0, "bulk clipboard handoff must not create review or business writes");
+});
+
+
+test("bulk review excludes terminal statuses but keeps every unresolved state and stable IDs", async () => {
+  const stamp = "2026-11-05T10:00:00Z";
+  const variants = [
+    ["pending", "待关注"], ["authorized", "已授权待执行"], ["stale", "情况变化"],
+    ["failed", "处理失败"], ["conflict", "版本冲突"], ["applied", "已修复"],
+    ["dismissed", "暂不处理"], ["auto_merged", "自动整合"], ["unexpected_state", "未知状态"]
+  ];
+  const reviews = variants.map(([status, title], index) => ({
+    anomaly_id: "ANOM-" + String(index+1).repeat(32),
+    title: "虚构：" + title, category:"invalid_event", status,
+    source:{folder:"events",filename:"evt_synthetic_"+(index+1)+".json"},
+    source_event:{timestamp:stamp}
+  }));
+  const page = harness([], () => true, [], reviews);
+  await page.api.loadNotifications();
+  const bulk = page.el("review-copy-all");
+  assert.equal(page.el("review-total").textContent, "9 条消息",
+    "all messages remain in the inbox");
+  assert.equal(page.el("review-list").children.length, 9);
+  assert.equal(bulk.disabled, false);
+  assert.equal(bulk.textContent,"复制待核查 6 条给 ChatGPT");
+  await bulk.handlers.get("click")[0]();
+  const copied = page.copied[0];
+  assert.match(copied, /"message_count": 6/);
+  for (const [,title] of variants.filter(([status]) => !["applied","dismissed","auto_merged"].includes(status))) {
+    assert.ok(copied.includes("虚构：" + title), "needs review: " + title);
+  }
+  for (const title of ["已修复","暂不处理","自动整合"]) {
+    assert.ok(!copied.includes("虚构：" + title), "must not repeat closed item: " + title);
+  }
+  assert.equal(page.writes.length,0,"copy is clipboard only");
+});
+
+test("all resolved notifications disable bulk copy but preserve history and optional single copy", async () => {
+  const prefix = "F".repeat(12);
+  const reviews = [
+    {anomaly_id:"ANOM-"+prefix+"1".repeat(20),status:"applied",
+      category:"invalid_event",title:"虚构：已经修复",
+      source_event:{timestamp:"2026-11-05T10:00:00Z"}},
+    {anomaly_id:"ANOM-"+prefix+"2".repeat(20),status:"dismissed",
+      category:"invalid_event",title:"虚构：已决定暂不处理",
+      source_event:{timestamp:"2026-11-05T10:00:00Z"}},
+    {anomaly_id:"ANOM-"+prefix+"3".repeat(20),status:"auto_merged",
+      category:"auto_merged",title:"虚构：系统自动合并",
+      source_event:{timestamp:"2026-11-05T10:00:00Z"}}
+  ];
+  const page = harness([], () => true, [], reviews);
+  await page.api.loadNotifications();
+  const bulk = page.el("review-copy-all");
+  assert.equal(bulk.disabled,true);
+  assert.equal(bulk.textContent,"没有待核查消息");
+  assert.equal(page.el("review-total").textContent,"3 条消息");
+  assert.equal(page.el("review-list").children.length,3);
+  assert.equal(page.copied.length,0,"no empty clipboard message");
+  const single = findTreeNode(page.el("review-list").children[0],
+    node => node.tag === "button" && node.textContent === "复制给 ChatGPT 核查");
+  assert.ok(single,"historical individual message can still be copied on purpose");
+  await single.handlers.get("click")[0]();
+  assert.equal(page.copied.length,1);
+  assert.match(page.copied[0],/"message_count": 1/);
+  assert.equal(page.writes.length,0);
+});
+
+test("filtered bulk message IDs remain stable despite excluded terminal ID collision", async () => {
+  const prefix="E".repeat(12);
+  const reviews=[
+    {anomaly_id:"ANOM-"+prefix+"1".repeat(20),status:"applied",
+      title:"虚构：已修复相同前缀",source_event:{timestamp:"2026-11-05T10:00:00Z"}},
+    {anomaly_id:"ANOM-"+prefix+"2".repeat(20),status:"pending",
+      title:"虚构：仍待核查",source_event:{timestamp:"2026-11-05T10:00:00Z"}}
+  ];
+  const page=harness([],()=>true,[],reviews);
+  await page.api.loadNotifications();
+  await page.el("review-copy-all").handlers.get("click")[0]();
+  assert.match(page.copied[0],new RegExp("MSG-261105-"+prefix+"2".repeat(20)),
+    "must not shorten a colliding visible ID when a closed sibling is filtered");
+  assert.doesNotMatch(page.copied[0],/虚构：已修复相同前缀/);
+  assert.equal(page.writes.length,0);
 });
 
 test("notification inbox exposes the full authorize then apply repair path", async () => {
@@ -1590,7 +1673,7 @@ test("navigation presents a notification mailbox instead of a repair center", ()
   assert.match(html, /<h1>通知信箱<\/h1>/);
   assert.match(html, /id="review-refresh">刷新消息/);
   assert.match(html, /id="review-copy-all"/);
-  assert.match(html, /复制全部消息给 ChatGPT 核查/);
+  assert.match(html, /复制待核查消息给 ChatGPT/);
   assert.match(html, /授权这项修复/);
   assert.match(html, /执行修复/);
   assert.match(html, /确认暂不处理/);

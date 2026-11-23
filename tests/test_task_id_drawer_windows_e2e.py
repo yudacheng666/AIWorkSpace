@@ -1259,7 +1259,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         )
 
     def test_notification_inbox_bulk_copy_and_real_repair_and_keep_original_actions(self):
-        """The inbox lets a user copy every message, review a proposal, apply it, or keep a source."""
+        """Only unresolved notifications bulk copy; repair and keep-original remain audited."""
         step_id = "STEP-" + "C" * 32
         append_step_event(self.data_dir, {
             "version": 1, "event_id": "ui-review-step-create",
@@ -1307,7 +1307,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.locator("#nav-reviews").click()
         expect(page.locator("#review-list .inbox-message")).to_have_count(2)
         page.locator("#review-copy-all").click()
-        expect(page.locator("#review-message")).to_contain_text("已复制全部 2 条消息")
+        expect(page.locator("#review-message")).to_contain_text("已复制待核查的 2 条消息")
         clipboard = page.evaluate("navigator.clipboard.readText()")
         self.assertIn("ui-review-position-event", clipboard)
         self.assertIn("ui-review-invalid-reference", clipboard)
@@ -1335,6 +1335,12 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.on("dialog", lambda dialog: dialog.accept())
         position_card.locator("button.inbox-apply").click()
         expect(position_card.locator(".inbox-status")).to_have_text("已修复并验证")
+        expect(page.locator("#review-copy-all")).to_have_text("复制待核查 1 条给 ChatGPT")
+        page.locator("#review-copy-all").click()
+        expect(page.locator("#review-message")).to_contain_text("已复制待核查的 1 条消息")
+        remaining_clipboard = page.evaluate("navigator.clipboard.readText()")
+        self.assertIn("ui-review-invalid-reference", remaining_clipboard)
+        self.assertNotIn("ui-review-position-event", remaining_clipboard)
         task_after = read_workspace(self.data_dir)["tasks"][0]
         self.assertEqual(task_after["steps"][0]["title"], "虚构：修复后的图纸整理步骤")
         self.assertEqual(position_source.read_bytes(), position_original,
@@ -1359,6 +1365,9 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         defer.locator("input[type=checkbox]").check()
         defer.get_by_role("button", name="确认暂不处理").click()
         expect(reference_card.locator(".inbox-status")).to_have_text("已暂不处理")
+        expect(page.locator("#review-copy-all")).to_be_disabled()
+        expect(page.locator("#review-copy-all")).to_have_text("没有待核查消息")
+        expect(page.locator("#review-list .inbox-message")).to_have_count(2)
         self.assertEqual(reference_source.read_bytes(), reference_original,
                          "keep-original only records the review decision")
         review_events = list((self.data_dir / "review_events").glob("*.json"))
