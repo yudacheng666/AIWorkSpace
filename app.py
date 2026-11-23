@@ -2145,6 +2145,8 @@ def validate_work_record_event(value: object) -> dict:
         raise ValueError("invalid work record action")
     if value.get("actor") not in {"user", "chatgpt"}:
         raise ValueError("invalid work record actor")
+    if value["action"] == "correct" and value["actor"] != "user":
+        raise ValueError("decision correction must be an explicitly user-confirmed action")
     stamp = value.get("timestamp")
     if not isinstance(stamp, str):
         raise ValueError("work record timestamp required")

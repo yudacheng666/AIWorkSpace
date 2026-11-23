@@ -88,6 +88,92 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         return page
 
 
+    def test_daily_followup_uses_step_date_and_default_self_survives_reload(self):
+        """A supervisor sees exact steps, not a duplicate parent task; no business writes."""
+        today = date.today().isoformat()
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "day-agenda-other-owner",
+            "task_id": self.task_id, "action": "update", "actor": "user",
+            "timestamp": "2026-11-17T08:00:00Z", "base_revision": 1,
+            "changes": {"owner": "虚构执行人", "follow_up_date": today},
+        })
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "day-agenda-self-task",
+            "task_id": "TASK-" + "E" * 32, "action": "create", "actor": "user",
+            "timestamp": "2026-11-17T08:01:00Z", "base_revision": 0,
+            "changes": {"title": "虚构本人执行任务", "status": "todo",
+                        "owner": "虚构本人", "planned_date": today},
+        })
+        step_id = "STEP-" + "F" * 32
+        append_step_event(self.data_dir, {
+            "version": 1, "event_id": "day-agenda-step",
+            "task_id": self.task_id, "step_id": step_id, "action": "create",
+            "actor": "user", "timestamp": "2026-11-17T08:02:00Z",
+            "base_revision": 0,
+            "changes": {"title": "虚构步骤：核对培训启动", "position": 1,
+                        "follow_up_date": today},
+        })
+        original = self._file_hashes()
+        page = self._open_browser(open_detail=False)
+        expect(page.locator("#nav-followup")).to_be_disabled()
+        page.locator("#nav-settings").click()
+        page.locator("#default-self-owner").select_option("虚构本人")
+        page.locator("#default-self-save").click()
+        expect(page.locator("#default-self-message")).to_contain_text("已保存默认本人")
+        page.reload(wait_until="networkidle")
+        expect(page.locator("#overview-owner")).to_have_value("虚构本人")
+        expect(page.locator("#nav-followup")).to_be_enabled()
+        page.locator("#nav-followup").click()
+        expect(page.locator("#day-agenda .day-agenda-item")).to_have_count(1)
+        expect(page.locator("#day-agenda")).to_contain_text("虚构步骤：核对培训启动")
+        self.assertNotIn("任务 · 虚构任务：验证短编号及抽屉",
+                         page.locator("#day-agenda").inner_text(),
+                         "a task follow-up date must not duplicate its due step")
+        page.locator("#day-agenda .day-agenda-item").first.click()
+        expect(page.locator("#step-" + step_id)).to_be_visible()
+        page.locator("#task-detail-close").click()
+        page.locator("#nav-today").click()
+        expect(page.locator("#day-agenda")).to_contain_text("我负责执行")
+        expect(page.locator("#day-agenda")).to_contain_text("跟进他人")
+        expect(page.locator("#day-agenda .day-agenda-item")).to_have_count(2)
+        self.assertEqual(self._file_hashes(), original,
+                         "default self and daily views must never append task events")
+        page.locator("#nav-settings").click()
+        page.locator("#default-self-clear").click()
+        page.reload(wait_until="networkidle")
+        expect(page.locator("#nav-today")).to_be_disabled()
+
+    def test_parent_followup_uses_earliest_unfinished_step_without_mutation(self):
+        """A real browser shows rollup next to parent while saved manual date stays unchanged."""
+        today = date.today()
+        earlier = (today + timedelta(days=1)).isoformat()
+        manual = (today + timedelta(days=8)).isoformat()
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "rollup-manual-parent",
+            "task_id": self.task_id, "action": "update", "actor": "user",
+            "timestamp": "2026-11-19T09:00:00Z", "base_revision": 1,
+            "changes": {"follow_up_date": manual},
+        })
+        step_id = "STEP-" + "A" * 32
+        append_step_event(self.data_dir, {
+            "version": 1, "event_id": "rollup-step-create",
+            "task_id": self.task_id, "step_id": step_id, "action": "create",
+            "actor": "user", "timestamp": "2026-11-19T09:01:00Z",
+            "base_revision": 0,
+            "changes": {"title": "虚构步骤：检查执行情况", "position": 1,
+                        "follow_up_date": earlier},
+        })
+        before = self._file_hashes()
+        page = self._open_browser(open_detail=False)
+        expect(page.locator(".task-followup-rollup").first).to_contain_text(earlier)
+        page.locator(".task-summary-title").first.click()
+        expect(page.locator(".task-followup-note")).to_contain_text(earlier)
+        expect(page.locator(".task-followup-note")).to_contain_text("虚构步骤：检查执行情况")
+        task = next(x for x in read_workspace(self.data_dir)["tasks"] if x["task_id"] == self.task_id)
+        self.assertEqual(task["follow_up_date"], manual)
+        self.assertEqual(self._file_hashes(), before,
+                         "read-only derived date must never append an event")
+
     def test_task_title_opens_detail_and_list_id_copies_without_opening(self):
         page = self._open_browser(open_detail=False)
         row = page.locator(".task-summary").first
@@ -1173,7 +1259,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         )
 
     def test_notification_inbox_bulk_copy_and_real_repair_and_keep_original_actions(self):
-        """The inbox lets a user copy every message, review a proposal, apply it, or keep a source."""
+        """Only unresolved notifications bulk copy; repair and keep-original remain audited."""
         step_id = "STEP-" + "C" * 32
         append_step_event(self.data_dir, {
             "version": 1, "event_id": "ui-review-step-create",
@@ -1221,7 +1307,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.locator("#nav-reviews").click()
         expect(page.locator("#review-list .inbox-message")).to_have_count(2)
         page.locator("#review-copy-all").click()
-        expect(page.locator("#review-message")).to_contain_text("已复制全部 2 条消息")
+        expect(page.locator("#review-message")).to_contain_text("已复制待核查的 2 条消息")
         clipboard = page.evaluate("navigator.clipboard.readText()")
         self.assertIn("ui-review-position-event", clipboard)
         self.assertIn("ui-review-invalid-reference", clipboard)
@@ -1249,6 +1335,12 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.on("dialog", lambda dialog: dialog.accept())
         position_card.locator("button.inbox-apply").click()
         expect(position_card.locator(".inbox-status")).to_have_text("已修复并验证")
+        expect(page.locator("#review-copy-all")).to_have_text("复制待核查 1 条给 ChatGPT")
+        page.locator("#review-copy-all").click()
+        expect(page.locator("#review-message")).to_contain_text("已复制待核查的 1 条消息")
+        remaining_clipboard = page.evaluate("navigator.clipboard.readText()")
+        self.assertIn("ui-review-invalid-reference", remaining_clipboard)
+        self.assertNotIn("ui-review-position-event", remaining_clipboard)
         task_after = read_workspace(self.data_dir)["tasks"][0]
         self.assertEqual(task_after["steps"][0]["title"], "虚构：修复后的图纸整理步骤")
         self.assertEqual(position_source.read_bytes(), position_original,
@@ -1273,6 +1365,9 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         defer.locator("input[type=checkbox]").check()
         defer.get_by_role("button", name="确认暂不处理").click()
         expect(reference_card.locator(".inbox-status")).to_have_text("已暂不处理")
+        expect(page.locator("#review-copy-all")).to_be_disabled()
+        expect(page.locator("#review-copy-all")).to_have_text("没有待核查消息")
+        expect(page.locator("#review-list .inbox-message")).to_have_count(2)
         self.assertEqual(reference_source.read_bytes(), reference_original,
                          "keep-original only records the review decision")
         review_events = list((self.data_dir / "review_events").glob("*.json"))

@@ -8,7 +8,7 @@ const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8")
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(scriptMatch, "the production page must contain its inline script");
 
-function harness(tasks = [], confirm = () => true, projects = [], reviews = [], onPost = null, work = {}) {
+function harness(tasks = [], confirm = () => true, projects = [], reviews = [], onPost = null, work = {}, localStorage = null) {
   const elements = new Map();
   const writes = [];
   function node(tag = "div") {
@@ -54,7 +54,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     },
     getElementById(id) {
       if (!elements.has(id)) {
-        const selects = new Set(["overview-owner", "query-project", "query-owner",
+        const selects = new Set(["overview-owner", "default-self-owner", "query-project", "query-owner",
           "query-status", "query-date-field", "new-task-project", "new-task-related",
           "new-task-priority", "task-sort", "task-date-field", "calendar-granularity", "project-sort",
           "work-record-project", "work-record-task", "work-record-type", "work-filter-project",
@@ -108,8 +108,8 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, loadTrash, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, editWorkSummary, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask, progressPanel, recordBelongsTo, objectDescriptionPanel, summaryRecordRecommended, workRecordTypeLabel})", {
-      document, window, navigator, fetch, Date, setInterval() {}
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, loadTrash, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, editWorkSummary, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask, progressPanel, recordBelongsTo, objectDescriptionPanel, summaryRecordRecommended, workRecordTypeLabel, dayAgendaForTasks, overviewDates, nearestTaskFollowUp, nearestProjectFollowUp, taskEffectiveDate, followUpOrigin})", {
+      document, window, navigator, fetch, Date, localStorage, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes,
     dispatchDocument(type, event) {
@@ -144,6 +144,169 @@ test("V2 shell has distinct overview, tasks, projects and settings pages", () =>
   assert.doesNotMatch(html, /id="trash-modal"/);
 });
 
+
+
+test("nearest follow-up rolls up open steps, nested tasks, and project without writing manual dates", async () => {
+  const projectId="PROJECT-DEMO";
+  const root={...sampleTask(),task_id:"TASK-ROOT-ROLLUP",title:"虚构父任务",
+    project_id:projectId,follow_up_date:"2026-12-20",status:"doing",
+    steps:[{step_id:"STEP-ROOT-ROLLUP",title:"常规检查",status:"todo",
+      follow_up_date:"2026-12-10",conflict_fields:[]}]};
+  const child={...sampleTask(),task_id:"TASK-CHILD-ROLLUP",title:"虚构子任务",
+    project_id:null,parent_task_id:root.task_id,follow_up_date:"2026-12-08",status:"doing",
+    steps:[{step_id:"STEP-CHILD-ROLLUP",title:"催采购",status:"todo",
+      follow_up_date:"2026-12-01",conflict_fields:[]}]};
+  const grand={...sampleTask(),task_id:"TASK-GRAND-ROLLUP",title:"虚构孙任务",
+    parent_task_id:child.task_id,project_id:null,follow_up_date:"2026-11-25",
+    status:"todo",steps:[{step_id:"STEP-GRAND-ROLLUP",title:"确认报价",
+      status:"todo",follow_up_date:"2026-11-23",conflict_fields:[]}]};
+  const completed={...sampleTask(),task_id:"TASK-DONE-ROLLUP",
+    parent_task_id:root.task_id,status:"done",follow_up_date:"2026-11-01"};
+  const conflicted={...sampleTask(),task_id:"TASK-CONFLICT-ROLLUP",
+    parent_task_id:root.task_id,conflict:true,follow_up_date:"2026-11-02"};
+  const all=[root,child,grand,completed,conflicted];
+  const h=harness(all,()=>true,[{project_id:projectId,name:"虚构项目",revision:1}]);
+  await h.api.refresh(true);
+  const follow=h.api.nearestTaskFollowUp(root,all);
+  assert.equal(follow.date,"2026-11-23");
+  assert.equal(follow.task.task_id,grand.task_id);
+  assert.equal(follow.step.step_id,"STEP-GRAND-ROLLUP");
+  assert.equal(h.api.taskEffectiveDate(root,"follow_up_date"),"2026-11-23");
+  assert.equal(root.follow_up_date,"2026-12-20","manual value must remain unchanged");
+  assert.equal(h.api.nearestProjectFollowUp(projectId).date,"2026-11-23");
+  const earlier={...root,follow_up_date:"2026-11-10"};
+  assert.equal(h.api.nearestTaskFollowUp(earlier,[earlier,child,grand]).date,
+    "2026-11-10","parent earlier than child wins");
+  const card=h.api.taskSummaryRow(root);
+  const caption=card.children[0].children.find(x=>x.className==="task-followup-rollup");
+  assert.match(caption.textContent,/2026-11-23/);
+  assert.match(caption.textContent,/子任务/);
+  h.api.openTaskDetail(root.task_id);
+  const detail=h.el("task-detail-content").children[0];
+  const form=detail.children.find(x=>x.className==="task-form");
+  const note=form.children.find(x=>x.className==="task-followup-note");
+  assert.match(note.textContent,/2026-11-23/);
+  assert.match(note.textContent,/不会被自动覆盖/);
+  h.api.closeTaskDetail();
+  h.el("nav-projects").handlers.get("click")[0]();
+  const pc=h.el("project-list").children[0];
+  assert.match(pc.children.find(x=>x.className==="project-followup-rollup").textContent,/2026-11-23/);
+  assert.equal(h.writes.length,0,"view and rollup are read-only");
+  assert.equal(h.api.taskEffectiveDate(root,"due_date"),root.due_date,
+    "due date is not affected by follow-up rollup");
+});
+
+test("rollup ignores completed/conflicted/trashed steps and tasks, honors parent and step sync guards", () => {
+  const base={...sampleTask(),task_id:"TASK-ROLLUP-BASE",status:"doing",
+    follow_up_date:"2026-12-15"};
+  const complete={...sampleTask(),task_id:"TASK-ROLLUP-DONE",status:"done",
+    parent_task_id:base.task_id,follow_up_date:"2026-11-01"};
+  const conflict={...sampleTask(),task_id:"TASK-ROLLUP-CONFLICT",conflict:true,
+    parent_task_id:base.task_id,follow_up_date:"2026-11-02"};
+  const archived={...sampleTask(),task_id:"TASK-ROLLUP-ARCHIVED",
+    parent_task_id:base.task_id,trashed_at:"2026-11-01",follow_up_date:"2026-11-03"};
+  const stepBad={step_id:"STEP-BAD",title:"冲突",status:"todo",conflict:true,follow_up_date:"2026-11-04"};
+  const stepDone={step_id:"STEP-DONE",title:"已完成",status:"done",follow_up_date:"2026-11-04"};
+  const h=harness([]);
+  assert.equal(h.api.nearestTaskFollowUp({...base,steps:[stepBad,stepDone]},
+    [base,complete,conflict,archived]).date,"2026-12-15");
+  const incomplete={...base,step_order_incomplete:true,
+    steps:[{step_id:"STEP-UNSYNC",status:"todo",follow_up_date:"2026-11-05"}]};
+  assert.equal(h.api.nearestTaskFollowUp(incomplete,[incomplete]).date,"2026-12-15");
+  assert.equal(h.api.nearestTaskFollowUp({...base,status:"done"},[base,complete,conflict]),null);
+  const cyclicRoot={...base,follow_up_date:null,parent_task_id:"TASK-CYCLE-CHILD"};
+  const cyclicChild={...sampleTask(),task_id:"TASK-CYCLE-CHILD",status:"doing",
+    parent_task_id:cyclicRoot.task_id,follow_up_date:"2026-11-09"};
+  const found=h.api.nearestTaskFollowUp(cyclicRoot,[cyclicRoot,cyclicChild]);
+  assert.equal(found.date,"2026-11-09","repeated ancestors terminate safely");
+  assert.equal(h.writes.length,0);
+});
+
+test("step-level daily agenda prioritizes precise steps, de-duplicates parent and suppresses completed/conflicted items", async () => {
+  const own = {...sampleTask(), task_id:"TASK-OWN", owner:"本人演示", due_date:null,
+    planned_date:"2020-01-01", steps:[
+      {step_id:"STEP-OWN",title:"本人需要执行的步骤",planned_date:"2020-01-02",status:"todo"},
+      {step_id:"STEP-DONE",title:"已完成的步骤",planned_date:"2020-01-01",status:"done"}]};
+  const delegated = {...sampleTask(), task_id:"TASK-OTHER", owner:"其他负责人", due_date:null,
+    planned_date:null, follow_up_date:"2020-01-01", steps:[
+      {step_id:"STEP-FOLLOW",title:"检查他人步骤",follow_up_date:"2020-01-03",status:"doing"},
+      {step_id:"STEP-FUTURE",title:"尚未到期的步骤",follow_up_date:"2099-12-31",status:"todo"},
+      {step_id:"STEP-CONFLICT",title:"冲突步骤",follow_up_date:"2020-01-01",status:"todo",conflict:true,conflict_fields:[]},
+      {step_id:"STEP-DELETED",title:"删除步骤",follow_up_date:"2020-01-01",status:"todo",deleted_at:"2020-01-01"}]};
+  const late = {...sampleTask(),task_id:"TASK-LATE",owner:null,planned_date:null,
+    due_date:"2020-01-05",steps:[]};
+  const h = harness([own,delegated,late]);
+  const days = {today:"2026-11-18"};
+  const groups = h.api.dayAgendaForTasks([own,delegated,late],"本人演示",days);
+  assert.equal(groups.mine.length,1);
+  assert.equal(groups.mine[0].step.title,"本人需要执行的步骤");
+  assert.equal(groups.followup.length,1);
+  assert.equal(groups.followup[0].step.title,"检查他人步骤");
+  assert.equal(groups.attention.length,1);
+  assert.equal(groups.attention[0].task.task_id,"TASK-LATE");
+  assert.equal(h.api.dayAgendaForTasks([{...delegated,status:"done"}],"本人演示",days).followup.length,0);
+  assert.equal(h.api.dayAgendaForTasks([{...delegated,conflict:true}],"本人演示",days).followup.length,0);
+  await h.api.refresh(true);
+  h.el("overview-owner").value="本人演示";
+  h.el("overview-owner").handlers.get("change")[0]();
+  assert.equal(h.el("view-followup-count").textContent,"1","count steps, not parents");
+  assert.equal(h.el("view-mine-count").textContent,"1");
+  h.el("nav-today").handlers.get("click")[0]();
+  assert.equal(h.el("day-agenda").hidden,false);
+  assert.equal(h.el("tasks-page-title").textContent,"今日处理");
+  const sections=h.el("day-agenda").children.filter(child=>child.className==="day-agenda-group");
+  assert.equal(sections.length,3);
+  assert.match(sections[1].children[1].children[0].textContent,/检查他人步骤/);
+  assert.match(sections[1].children[1].children[1].textContent,/所属任务/);
+  sections[1].children[1].handlers.get("click")[0]();
+  assert.equal(h.el("task-detail-drawer").hidden,false);
+  assert.equal(h.writes.length,0,"daily agenda must not alter business data");
+  h.api.closeTaskDetail();
+  h.el("nav-followup").handlers.get("click")[0]();
+  const followSections=h.el("day-agenda").children.filter(child=>child.className==="day-agenda-group");
+  assert.equal(followSections.length,1);
+  assert.equal(followSections[0].children.length,2,"follow-up displays one precise step rather than the parent");
+});
+
+test("default self preference persists locally, can be cleared, and fails safely on blocked storage", async () => {
+  const tasks = [{...sampleTask(),task_id:"TASK-SELF",owner:"演示本人",planned_date:"2020-01-01"},
+    {...sampleTask(),task_id:"TASK-OTHER",owner:"演示同事",follow_up_date:"2020-01-01"}];
+  const values = new Map();
+  const storage = {getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value),
+    removeItem:key=>values.delete(key)};
+  const h=harness(tasks,()=>true,[],[],null,{},storage);
+  await h.api.refresh(true);
+  assert.equal(h.el("nav-today").disabled,true);
+  h.api.setActivePage("settings");
+  h.el("default-self-owner").value="演示本人";
+  h.el("default-self-save").handlers.get("click")[0]();
+  assert.equal(values.get("aiworkspace.defaultSelfOwner.v1"),"演示本人");
+  assert.equal(h.el("overview-owner").value,"演示本人");
+  assert.equal(h.el("nav-today").disabled,false);
+  assert.equal(h.writes.length,0);
+  // Recreating the page is equivalent to browser reload with the same localStorage.
+  const reopened=harness(tasks,()=>true,[],[],null,{},storage);
+  await reopened.api.refresh(true);
+  assert.equal(reopened.el("overview-owner").value,"演示本人");
+  reopened.el("overview-owner").value="演示同事";
+  reopened.el("overview-owner").handlers.get("change")[0]();
+  assert.equal(values.get("aiworkspace.defaultSelfOwner.v1"),"演示本人",
+    "temporary owner selection must never overwrite the saved default");
+  reopened.el("default-self-clear").handlers.get("click")[0]();
+  assert.equal(values.has("aiworkspace.defaultSelfOwner.v1"),false);
+  const cleared=harness(tasks,()=>true,[],[],null,{},storage);
+  await cleared.api.refresh(true);
+  assert.equal(cleared.el("nav-today").disabled,true);
+  const failing={getItem:()=>null,setItem:()=>{throw new Error("denied");},
+    removeItem:()=>{throw new Error("denied");}};
+  const denied=harness(tasks,()=>true,[],[],null,{},failing);
+  await denied.api.refresh(true);
+  denied.el("default-self-owner").value="演示本人";
+  denied.el("default-self-save").handlers.get("click")[0]();
+  assert.match(denied.el("default-self-message").textContent,/无法保存/);
+  assert.equal(denied.el("nav-today").disabled,true);
+  assert.equal(denied.writes.length,0);
+});
 
 test("last refresh status lives in the sidebar footer, outside the task toolbar", async () => {
   const sidebarFooter = html.match(/<div class="sidebar-footnote">([\s\S]*?)<\/div>/);
@@ -843,7 +1006,7 @@ test("stage3 project detail and task list link preserve task ID with no write",a
  const card=x.el("project-list").children[0];
  card.children.find(c=>c.className==="project-card-actions").children[0].handlers.get("click")[0]();
  assert.equal(x.el("project-inspector").hidden,false);
- assert.equal(x.el("project-inspector").children[2].children.length,2);
+ assert.equal(x.el("project-inspector").children.find(item=>item.className==="object-description").children.length,2);
  assert.equal(x.api.openProjectTasks(p),true);
  assert.equal(x.el("query-project").value,p);
  assert.equal(x.el("query-result-count").textContent,"（1 / 1）");
@@ -1208,7 +1371,7 @@ test("successfully auto-merged edits are informational and never demand ChatGPT"
   assert.equal(page.writes.length, 0);
 });
 
-test("bulk ChatGPT handoff copies every visible message in one read-only bundle", async () => {
+test("bulk ChatGPT handoff copies only pending reviews and leaves resolved history untouched", async () => {
   const reviews = [
     {
       anomaly_id: "ANOM-" + "1".repeat(32), category: "invalid_step_reference",
@@ -1236,18 +1399,101 @@ test("bulk ChatGPT handoff copies every visible message in one read-only bundle"
   await page.api.loadNotifications();
   const button = page.el("review-copy-all");
   assert.equal(button.disabled, false);
-  assert.match(html, /id="review-copy-all" class="inbox-copy-all" disabled>复制全部消息给 ChatGPT 核查/);
+  assert.match(html, /id="review-copy-all" class="inbox-copy-all" disabled>复制待核查消息给 ChatGPT/);
+  assert.equal(button.textContent, "复制待核查 1 条给 ChatGPT");
+  assert.equal(page.el("review-total").textContent, "2 条消息");
   await button.handlers.get("click")[0]();
   assert.equal(page.copied.length, 1);
   const copied = page.copied[0];
-  assert.match(copied, /message_count": 2/);
+  assert.match(copied, /message_count": 1/);
   assert.match(copied, /虚构：步骤编号无法识别/);
-  assert.match(copied, /虚构：两次修改已自动整合/);
+  assert.doesNotMatch(copied, /虚构：两次修改已自动整合/);
   assert.match(copied, /evt_synthetic_invalid_step.json/);
   assert.match(copied, /TASK-SYNTHETIC-001/);
   assert.match(copied, /请逐条核查/);
   assert.match(copied, /不要直接修改任何数据文件、删除或覆盖此前收到的变更信息/);
   assert.equal(page.writes.length, 0, "bulk clipboard handoff must not create review or business writes");
+});
+
+
+test("bulk review excludes terminal statuses but keeps every unresolved state and stable IDs", async () => {
+  const stamp = "2026-11-05T10:00:00Z";
+  const variants = [
+    ["pending", "待关注"], ["authorized", "已授权待执行"], ["stale", "情况变化"],
+    ["failed", "处理失败"], ["conflict", "版本冲突"], ["applied", "已修复"],
+    ["dismissed", "暂不处理"], ["auto_merged", "自动整合"], ["unexpected_state", "未知状态"]
+  ];
+  const reviews = variants.map(([status, title], index) => ({
+    anomaly_id: "ANOM-" + String(index+1).repeat(32),
+    title: "虚构：" + title, category:"invalid_event", status,
+    source:{folder:"events",filename:"evt_synthetic_"+(index+1)+".json"},
+    source_event:{timestamp:stamp}
+  }));
+  const page = harness([], () => true, [], reviews);
+  await page.api.loadNotifications();
+  const bulk = page.el("review-copy-all");
+  assert.equal(page.el("review-total").textContent, "9 条消息",
+    "all messages remain in the inbox");
+  assert.equal(page.el("review-list").children.length, 9);
+  assert.equal(bulk.disabled, false);
+  assert.equal(bulk.textContent,"复制待核查 6 条给 ChatGPT");
+  await bulk.handlers.get("click")[0]();
+  const copied = page.copied[0];
+  assert.match(copied, /"message_count": 6/);
+  for (const [,title] of variants.filter(([status]) => !["applied","dismissed","auto_merged"].includes(status))) {
+    assert.ok(copied.includes("虚构：" + title), "needs review: " + title);
+  }
+  for (const title of ["已修复","暂不处理","自动整合"]) {
+    assert.ok(!copied.includes("虚构：" + title), "must not repeat closed item: " + title);
+  }
+  assert.equal(page.writes.length,0,"copy is clipboard only");
+});
+
+test("all resolved notifications disable bulk copy but preserve history and optional single copy", async () => {
+  const prefix = "F".repeat(12);
+  const reviews = [
+    {anomaly_id:"ANOM-"+prefix+"1".repeat(20),status:"applied",
+      category:"invalid_event",title:"虚构：已经修复",
+      source_event:{timestamp:"2026-11-05T10:00:00Z"}},
+    {anomaly_id:"ANOM-"+prefix+"2".repeat(20),status:"dismissed",
+      category:"invalid_event",title:"虚构：已决定暂不处理",
+      source_event:{timestamp:"2026-11-05T10:00:00Z"}},
+    {anomaly_id:"ANOM-"+prefix+"3".repeat(20),status:"auto_merged",
+      category:"auto_merged",title:"虚构：系统自动合并",
+      source_event:{timestamp:"2026-11-05T10:00:00Z"}}
+  ];
+  const page = harness([], () => true, [], reviews);
+  await page.api.loadNotifications();
+  const bulk = page.el("review-copy-all");
+  assert.equal(bulk.disabled,true);
+  assert.equal(bulk.textContent,"没有待核查消息");
+  assert.equal(page.el("review-total").textContent,"3 条消息");
+  assert.equal(page.el("review-list").children.length,3);
+  assert.equal(page.copied.length,0,"no empty clipboard message");
+  const single = findTreeNode(page.el("review-list").children[0],
+    node => node.tag === "button" && node.textContent === "复制给 ChatGPT 核查");
+  assert.ok(single,"historical individual message can still be copied on purpose");
+  await single.handlers.get("click")[0]();
+  assert.equal(page.copied.length,1);
+  assert.match(page.copied[0],/"message_count": 1/);
+  assert.equal(page.writes.length,0);
+});
+
+test("filtered bulk message IDs remain stable despite excluded terminal ID collision", async () => {
+  const prefix="E".repeat(12);
+  const reviews=[
+    {anomaly_id:"ANOM-"+prefix+"1".repeat(20),status:"applied",
+      title:"虚构：已修复相同前缀",source_event:{timestamp:"2026-11-05T10:00:00Z"}},
+    {anomaly_id:"ANOM-"+prefix+"2".repeat(20),status:"pending",
+      title:"虚构：仍待核查",source_event:{timestamp:"2026-11-05T10:00:00Z"}}
+  ];
+  const page=harness([],()=>true,[],reviews);
+  await page.api.loadNotifications();
+  await page.el("review-copy-all").handlers.get("click")[0]();
+  assert.match(page.copied[0],new RegExp("MSG-261105-"+prefix+"2".repeat(20)),
+    "must not shorten a colliding visible ID when a closed sibling is filtered");
+  assert.doesNotMatch(page.copied[0],/虚构：已修复相同前缀/);
+  assert.equal(page.writes.length,0);
 });
 
 test("notification inbox exposes the full authorize then apply repair path", async () => {
@@ -1427,7 +1673,7 @@ test("navigation presents a notification mailbox instead of a repair center", ()
   assert.match(html, /<h1>通知信箱<\/h1>/);
   assert.match(html, /id="review-refresh">刷新消息/);
   assert.match(html, /id="review-copy-all"/);
-  assert.match(html, /复制全部消息给 ChatGPT 核查/);
+  assert.match(html, /复制待核查消息给 ChatGPT/);
   assert.match(html, /授权这项修复/);
   assert.match(html, /执行修复/);
   assert.match(html, /确认暂不处理/);

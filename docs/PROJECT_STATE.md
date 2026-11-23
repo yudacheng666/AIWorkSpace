@@ -1,3 +1,55 @@
+# 2026-11-23｜最新可发布 PR #61／#62 已合并
+
+- **用户授权**：「最新版合并」。审计全部开放 PR（#59／#61／#62），核对各自依赖、精确测试 SHA、GitHub CI、代码差异、合并冲突与项目高风险测试边界。仅合并符合条件者，没有为了清空 PR 数字而强行合并高风险缺口。
+- **首先合并 #61**（父项递归最近跟进日期，只读）：候选产品／测试 SHA `f009ad6850001579bcd10dc726159998b14bf7ff` → [Actions #44444829541](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44444829541) 3/3 SUCCESS，之后仅更新 Markdown；普通 merge SHA `ea379f3c70d070a14b13892a18b2b9ec997a6a43` → [main Actions #45103981236](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45103981236) **3/3 SUCCESS**。
+- **再合并 #62**（只批量复制仍待核查消息）：原候选产品／测试 SHA `896578f17b82c18ad3ab5e10356a7435d53c77ea` → [Actions #44447834556](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44447834556) 3/3 SUCCESS。#61 合并后 #62 因共享修改文件导致冲突，保留两边所有业务、UI、测试、规则改动并建立双父 merge commit `48539068db19f2cb04848bdd35e20ad58423d558`；准确合并候选 [Actions #45104221503](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45104221503) **3/3 SUCCESS**，再普通 merge SHA `9a618c79400b89315041868fffa74ab5631454c5`。
+- **最终 main 准确验证**：merge SHA **`9a618c79400b89315041868fffa74ab5631454c5`** 的 [main Actions #45104522205](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45104522205) **3/3 SUCCESS**（Ubuntu Python／Node、Windows Python／Node、Windows 真实 Chromium UI／更新回滚）。随后仅提交 `[skip ci]` 的 README、DECISIONS 与 PROJECT_STATE 记忆文档，不冒充另一次产品 SHA 验收。
+- **剩余**：[PR #59](https://github.com/yudacheng666/AIWorkSpace/pull/59) 仍为 Draft/Open，mergeable=false。它的新 `decision correct` 事件格式改变工作记录持久化规则，虽然独立分支准确 SHA `af73a28cbe233f77c2bb71d89d25282ab7691f58` 的 [Actions #44264889818](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44264889818) **3/3 SUCCESS**，但独立高风险安全验收与真实 Drive 双机混用边界仍 NOT TESTED，且与 main 有冲突；保留，不强制合并。
+- **版本与部署**：GitHub main `VERSION=2.11.0`（更新中心比较 commit SHA 也可发现新版构建），已将 README 的过期版本摘要纠正。**未操作用户 Windows 8770 程序、未修改 Google Drive 实际业务数据**，未宣称真实双电脑 Drive 离线／恢复或旧客户端混用通过。下一步优先处理 #59 的独立风险验证、冲突与兼容保护，然后再单独发布。
+
+---
+
+# 2026-11-19｜最近跟进日期向父项递归汇总（独立候选）
+- **需求**：用户指出子项有更近跟进日期时，父项也应显示该日期。
+- **基线**：main ff54384e81c76a4cd94ffbde6c14330da7ca0209；PR #59 仍为 Draft，涉及独立高风险工作记录更正，当前改动与之不混合。
+- **实现**：浏览器只读计算项目→任务→子任务→步骤最早未完成跟进日期；任务列表、详情、项目列表及详情显示来源，跟进日期筛选／日历读取派生日期；原手工字段不变。跳过已完成／冲突／已删除等不可靠项，递归防循环。
+- **准确测试**：产品／测试 SHA `f009ad6850001579bcd10dc726159998b14bf7ff`，[GitHub Actions #44444829541](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44444829541) **3/3 SUCCESS**：Ubuntu Python+Node UI、Windows Python+Node UI、Windows 真实 Chromium 应用和更新回滚。新增回归覆盖多级子任务、步骤提前跟进、项目级归集、已完成／冲突／已删除候选排除、手工日期保留和页面零业务写入。初始 SHA `72b04a3c7d1759511f58c9cfd339ba2bc1aff048` 的 Node 测试有 1 项既有用例按项目详情固定 child index 断言，因新增日期提示位置变化而失败；已改按组件类定位，准确最终 SHA 3/3 PASS，未重复派 Codex。
+- **边界**：无事件格式和后端写入逻辑变化，无用户真实 Drive 数据操作；未经合并授权不发布 main。
+
+---
+# 2026-11-19｜通知信箱批量复制排除已处理消息（独立候选 PR）
+- **用户问题**：「复制全部消息给chatgpt不应该把已解决的也重复复制」。
+- **代码基线**：main `ff54384e81c76a4cd94ffbde6c14330da7ca0209`；本轮 PR 独立于未合并的 #59（高风险工作记录更正）和 #61（父项跟进日期汇总），不改业务数据。
+- **原因**：当前 copyAllNotifications 使用 sortedNotificationItems 全量数组，包含 applied、dismissed、auto_merged；相应旧开发规则也要求复制全部可见消息，需同步更新以免回归。
+- **变更范围**：只修改前端复制按钮、批量选择逻辑、文字及对应自动化测试，并同步 AGENTS/REQUIREMENTS/DECISIONS/PROJECT_STATE。未知状态保守纳入，不遗漏尚未识别的问题；有待核查项才允许批量复制；完整历史列表、单条手动复制、异常核查和授权动作保持不变。标识保持完整列表的稳定消息 ID。
+- **安全**：仅写剪贴板，不向服务器追加通知审计或业务事件，不改实际 Google Drive 数据。
+- **准确测试证据**：产品／测试 SHA `896578f17b82c18ad3ab5e10356a7435d53c77ea`，[GitHub Actions #44447834556](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44447834556) **3/3 SUCCESS**（Ubuntu Python + Node、Windows Python + Node、Windows 真实应用/Chromium 更新回滚与通知信箱 E2E）。单元/UI 覆盖 pending、authorized、stale、failed、conflict、未知状态保留，applied、dismissed、auto_merged 排除；全部已处理时禁用批量按钮；历史单条可主动复制；ID 在过滤碰撞时稳定；剪贴板操作没有业务写入。Windows E2E 验证「两条待核查→修复一条只复制另一条→全部处理后按钮禁用」。此前候选 SHA `67fc0ba9de62ead8b925e7f875ac0d30fb3a71bf` 的浏览器回归失败，是旧测试仍要求 UI 反馈“已复制全部”，与新产品文案不一致；已更新测试后按最终 SHA 3/3 PASS，不重复派 Codex。
+- **发布边界**：当前 [PR #62](https://github.com/yudacheng666/AIWorkSpace/pull/62) 仍为 Draft，未合并、未部署。main `ff54384e81c76a4cd94ffbde6c14330da7ca0209`；另有 Draft #59（数据写入高风险，独立验收未完成）和 #61（跟进日期汇总），均不能因本轮测试自动合并。未接触实际 Google Drive 工作台业务数据，用户 Windows 本机体验 NOT TESTED。
+
+---
+
+# 2026-11-18｜按用户授权合并 PR #60：步骤级今日工作与默认本人
+
+- **用户授权**：本轮明确指示「合并」。合并前核对全部开放 PR：#59（决策工作记录更正及文案）和 #60（步骤级今日工作、默认本人），逐项核对基线、精确产品 SHA、CI、风险门槛与相互依赖。
+- **实际合并**：PR [#60](https://github.com/yudacheng666/AIWorkSpace/pull/60) 已从 Draft 标记为 ready 后以普通 merge 合入 main；合并 SHA `6712445891ea6070e1913214fc0be86db1c4e007`。#60 基于此前 main 独立开发、无 PR #59 依赖；功能是只读每日分类、步骤定位与浏览器 localStorage 默认本人，未更改事件保存和冲突保护。默认本人仅在当前浏览器，不能自动跨设备或 Google Drive 同步。
+- **准确测试**：#60 产品/测试 SHA `e1e6845b4ee7215bf67e2184dc25094f83054db8` → [PR CI #44278664445](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44278664445) **3/3 SUCCESS**；最终 **main 合并 SHA `6712445891ea6070e1913214fc0be86db1c4e007`** → [main CI #44279588286](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44279588286) **3/3 SUCCESS**（Ubuntu/Windows Python+Node、Windows 真实 Chromium UI/更新回滚）。不重复派 Codex 做相同覆盖。此后纯文档记忆提交 `[skip ci]` 不冒充已测产品 SHA。
+- **保留 PR**：[#59](https://github.com/yudacheng666/AIWorkSpace/pull/59) 仍为 Draft／未合并，涉及高风险业务事件更正，虽产品 SHA `af73a28cbe233f77c2bb71d89d25282ab7691f58` 已有 3/3 CI，通过仍不能代替规则要求的独立安全专项和真实双电脑 Drive 混用边界；合入 #60 后 GitHub 暂显示 #59 不能直接合并，后续需处理重叠前端及文档变动并取得独立发布授权。此次不得误报为所有 PR 已清空。
+- **当前范围**：代码已在 GitHub main，VERSION 仍为 2.11.0；**未操作用户真实 Windows 软件升级、未读写 Google Drive 实际工作台业务数据**。真实桌面部署／双机同步、旧客户端混用仍 NOT TESTED。合并代码不等于用户电脑已经更新。
+
+---
+
+# 2026-11-18｜步骤级今日工作与默认本人（独立 PR 候选）
+
+- **需求授权**：用户指示「修改，另外增加设置默认选择一个人是本人的功能。不用work」。
+- **基线**：正式 main `6ace9a06f19772094ba4145e5dcadc17f6ac01c0`（2.11.0）。此前 PR #59 尚处 Draft，此功能不依赖其事件更正功能，因此单独开发，避免混入其他高风险改动。
+- **功能**：今日处理按本人计划执行、他人步骤／任务跟进、到期或逾期关注三类展示，并以具体步骤为优先；跟进他人筛选纳入步骤日期，任务提醒不与步骤重复；点击明细定位对应任务及步骤。
+- **默认本人**：系统设置从已有负责人名单选择并显式保存，当前浏览器 localStorage 重启恢复，可取消，不改变任务负责人或 Google Drive 业务数据，跨设备须单独设置。
+- **安全边界**：无事件 schema、API、主数据与完成状态写入修改；浏览器偏好只在本地存储。未读取或改写真实 Google Drive 业务数据。
+- **准确测试**：产品／测试 SHA `e1e6845b4ee7215bf67e2184dc25094f83054db8`，[GitHub Actions #44278664445](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44278664445) **3/3 SUCCESS**：Ubuntu Python+Node UI、Windows Python+Node UI、Windows 真实应用+Chromium 更新／回滚与业务 UI 回归（含步骤级跟进、偏好刷新恢复、取消默认、零业务写入）。此前 `9348ff35` 的 Node 测试因合成冲突步骤遗漏正常投影的 `conflict_fields` 字段而失败，真实 Chromium 通过；补齐测试样例后本 SHA 完整 PASS，不安排重复 Codex。
+- **发布状态**：[PR #60](https://github.com/yudacheng666/AIWorkSpace/pull/60) 保持 Draft，未合并 main，未部署。实际用户 Windows 电脑、双电脑差异、旧客户端与 Google Drive 数据同步仍 NOT TESTED；默认本人仅在当前浏览器设置，不能跨设备自动同步。PR #59 尚未合并，未来合并前先核对两个 PR 对同一前端文件的变动与依赖，不能盲目自动合并。
+
+---
+
 # 2026-11-18｜已批准 UI 文案精简及说明标题回退修复（PR #59）
 
 - **授权**：用户在只读审查报告后明确指示「执行，不用 work」；范围为报告中的建议文案与安全保留项。
