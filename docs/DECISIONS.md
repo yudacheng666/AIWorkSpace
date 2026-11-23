@@ -391,3 +391,11 @@
 - **#62**：通知信箱批量复制只含仍待核查消息；全部历史仍可见并可单条复制，不更改审计或任务数据。原产品 SHA `896578f17b82c18ad3ab5e10356a7435d53c77ea` 的 [PR CI #44447834556](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44447834556) 3/3 PASS；#61 先合入后 #62 出现同文件冲突，通过保留两边变更的双父 merge commit `48539068db19f2cb04848bdd35e20ad58423d558` 解决，并以该精确组合 SHA 的 [PR CI #45104221503](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45104221503) 再验 3/3 PASS；标准 merge SHA `9a618c79400b89315041868fffa74ab5631454c5`。
 - **保留**：#59 决策记录更正引入 `correct` 新事件动作，旧版本客户端兼容及真实 Google Drive 双电脑同步风险未通过独立安全专项，且目前与 main 存在合并冲突；虽然既有独立分支 CI 3/3 PASS，仍不合入。
 - **边界**：正式 `VERSION` 仍 2.11.0（更新中心还能按 main commit 发现新构建）；只变更 GitHub 代码和项目 Markdown，未操作用户 Windows 工作台或真实 Google Drive 事件。真实双机同步／旧客户端混用仍 NOT TESTED。项目状态文档另记录最终主干 CI 结果。
+
+## 2026-11-23：D-20261123-CORRECT-RELEASE（2.12.0 决策记录更正发布及兼容边界）
+
+- **授权范围**：用户在了解 #59 的合并冲突、新 `correct` 事件及旧客户端兼容风险后，明确指示「59有什么问题，分析解决后合并。不用work」，授权修复并将符合验收条件的代码合入 GitHub main；不等于授权操作真实工作记录、软件自动部署或抹除历史。
+- **设计决定**：既有 `decision` 通过普通 `update` 仍不得覆盖核心判断／结论／记录类型；实际录入错误由用户明确确认后使用追加式 `correct` 同 RECORD ID 更正 `content`／`outcome`（可一并更正发生日期），原始事件完全保留；仅日期／普通元数据修订继续使用 `update`；后来业务判断发生变化必须「另记新决策」。
+- **安全加固**：`correct` 必须声明 `actor=user`；非决策对象、缺基础 revision、错误字段／非法 record_type、竞争更正、旧客户端迟到的同版本更新均校验或确定性冻结，不按 timestamp 覆盖；业务事件文件只追加不覆盖。该 actor 字段是应用级声明，不替代真实身份认证或外部 Drive 直写治理。
+- **合并过程**：PR #59 与 main 的 #60／#61／#62 在界面和测试中冲突。用同时包含 PR 旧 HEAD 与最新 main 的合并提交 `3b5e3a82d569567a8df819b091aef592cdadc019` 保留双方有效功能，额外加入针对迟到旧版更新、竞争更正及 actor 约束的故障注入用例。第一次准确集成 CI [#45106893503](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45106893503) 因旧 Node UI 断言仍要求 #62 以前的「复制全部消息」文案而失败；已仅修正该过时断言。最终 PR HEAD `88bd85d93c75c0342a3803e285ee9b3c525a5ec9` 的 [CI #45107140374](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45107140374) **3/3 SUCCESS**（Ubuntu／Windows Python+Node、Windows Chromium 应用和更新回滚）；普通 merge SHA `08afe7142cc4732700695a3eae428ee4105efb92`，`VERSION=2.12.0`。
+- **必须保留的未验收边界**：代码合并与虚构数据 CI 不证明用户真实 Windows／Google Drive 双电脑离线—重连、旧版客户端混用或数据恢复已通过。升级前先备份并确保所有共享同一 Drive 数据目录的电脑都使用支持 `correct` 的 2.12.0 及以上版本，然后才使用更正功能；旧版不认识 `correct`，回滚到旧版继续编辑同一目录可能引发冲突，必须禁止未经验证的混用。此次未改真实工作台数据。
