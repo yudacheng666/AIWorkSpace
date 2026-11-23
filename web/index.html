@@ -826,6 +826,9 @@
     .object-description-form textarea { width:100%; min-height:78px; resize:vertical; }
     .object-description-actions { display:flex; justify-content:flex-end; }
 
+
+    .task-followup-rollup { display:block; color:#58708a; line-height:1.5; overflow-wrap:anywhere; }
+    .task-followup-note, .project-followup-rollup { color:#58708a; line-height:1.6; font-size:12px; overflow-wrap:anywhere; }
     .day-agenda { margin:0 0 17px; padding:15px 17px; border:1px solid var(--line); border-radius:11px; background:#fff; }
     .day-agenda[hidden] { display:none; }
     .day-agenda-title { margin:0 0 8px; color:#34445c; font-size:15px; font-weight:750; }
@@ -1980,7 +1983,11 @@
       }
       const go=element("button","","在任务列表中查看");
       go.type="button";go.addEventListener("click",()=>openProjectTasks(project.project_id));
-      target.replaceChildren(title,projectIdControls(project),objectDescriptionPanel("project",project),
+      const next = nearestProjectFollowUp(project.project_id);
+      const followNote = element("p", "project-followup-rollup", next
+        ? "最近跟进（自动汇总）：" + next.date + " · 来源：" + followUpOrigin(next)
+        : "最近跟进：没有未完成事项的有效跟进日期");
+      target.replaceChildren(title,projectIdControls(project),followNote,objectDescriptionPanel("project",project),
         progressPanel({type:"project",project_id:project.project_id,disabled:!!(project.conflict||project.missing)}),
         ...blocks,go);target.hidden=false;
     }
@@ -2040,6 +2047,9 @@
       const metric=projectCounts(project.project_id);
       card.append(element("div","project-card-stats",
         "主要 "+metric.primary+" · 关联 "+metric.related+" · 风险 "+metric.risk));
+      const projectNext = nearestProjectFollowUp(project.project_id);
+      if (projectNext) card.append(element("div", "project-followup-rollup",
+        "最近跟进：" + projectNext.date + " · 来源：" + followUpOrigin(projectNext)));
       const actions=element("div","project-card-actions");
       const detail=element("button","","查看项目任务");
       detail.type="button";detail.addEventListener("click",()=>{
@@ -2695,6 +2705,13 @@
         form.append(element("p", "step-order-warning",
           "父子关系或同步信息不完整，已暂停不可靠的状态联动；请先核查。"));
       }
+      const nextFollowUp = nearestTaskFollowUp(task);
+      if (nextFollowUp) {
+        form.append(element("p", "task-followup-note",
+          "最近跟进（含未完成子项，自动汇总）：" + nextFollowUp.date +
+          " · 来源：" + followUpOrigin(nextFollowUp, task) +
+          "。上方「下次跟进日期」为手工日期，不会被自动覆盖。"));
+      }
       if (task.step_completion_pending) {
         form.append(element("p", "step-message",
           task.child_task_ids?.length
@@ -3193,6 +3210,9 @@
       const priorityName = priorities[task.priority || "normal"] || "普通";
       const priorityClass = task.priority || "normal";
       const dueDate = taskEffectiveDate(task,"due_date") || "未设置";
+      const followUp = nearestTaskFollowUp(task);
+      if (followUp) main.append(element("small", "task-followup-rollup",
+        "最近跟进：" + followUp.date + " · " + followUpOrigin(followUp, task)));
       const overdue = !!(taskEffectiveDate(task,"due_date") && taskEffectiveDate(task,"due_date") < localDayISO(new Date()) &&
                          task.status !== "done" && !task.conflict);
       card.append(
@@ -3291,7 +3311,57 @@
         return task.recurrence_period_start || "";
       if (task.recurrence_active && field === "due_date")
         return task.recurrence_period_end || "";
+      if (field === "follow_up_date")
+        return nearestTaskFollowUp(task)?.date || "";
       return task[field] || "";
+    }
+
+    // Read-only rollup. Inherited values never change the manually saved date.
+    function nearestTaskFollowUp(task, tasks = current, ancestors = new Set()) {
+      if (!task || !task.task_id || ancestors.has(task.task_id) ||
+          task.conflict || task.trashed_at || task.status === "done" ||
+          task.recurrence_ended || task.parent_cycle) return null;
+      const visited = new Set(ancestors);
+      visited.add(task.task_id);
+      let best = null;
+      const take = candidate => {
+        if (candidate && (!best || candidate.date < best.date)) best = candidate;
+      };
+      if (isoDayParts(task.follow_up_date))
+        take({date: task.follow_up_date, task, step: null});
+      if (!task.step_order_conflict && !task.step_order_incomplete) {
+        for (const step of task.steps || []) {
+          if (isOpenStep(step) && isoDayParts(step.follow_up_date))
+            take({date: step.follow_up_date, task, step});
+        }
+      }
+      if (!task.status_rollup_incomplete) {
+        for (const child of tasks) {
+          if (child.parent_task_id === task.task_id)
+            take(nearestTaskFollowUp(child, tasks, visited));
+        }
+      }
+      return best;
+    }
+
+    function nearestProjectFollowUp(id) {
+      const scope = projectTasks(id);
+      let best = null;
+      for (const task of [...scope.primary, ...scope.related]) {
+        const value = nearestTaskFollowUp(task);
+        if (value && (!best || value.date < best.date)) best = value;
+      }
+      return best;
+    }
+
+    function followUpOrigin(value, parentTask = null) {
+      if (!value) return "";
+      if (!parentTask) return "任务「" + value.task.title + "」" +
+        (value.step ? "的步骤「" + value.step.title + "」" : "");
+      const prefix = parentTask.task_id === value.task.task_id
+        ? (value.step ? "" : "本任务手工设置")
+        : "子任务「" + value.task.title + "」";
+      return value.step ? (prefix ? prefix + "的" : "") + "步骤「" + value.step.title + "」" : prefix;
     }
 
     function overviewDates(now = new Date()) {
@@ -3583,7 +3653,7 @@
       for (const task of tasks) {
         items.push({kind:"task", task, title:task.title, id:taskDisplayId(task),
           status:task.status, conflict:task.conflict, due_date:taskEffectiveDate(task,"due_date"),
-          planned_date:taskEffectiveDate(task,"planned_date"), follow_up_date:task.follow_up_date});
+          planned_date:taskEffectiveDate(task,"planned_date"), follow_up_date:taskEffectiveDate(task,"follow_up_date")});
         for (const step of task.steps || []) {
           items.push({kind:"step", task, step, title:step.title, id:step.step_id,
             status:step.status, conflict:step.conflict, due_date:step.due_date,
@@ -3640,7 +3710,10 @@
       }
       const undated = items.filter(item => !isoDayParts(item[field]));
       container.replaceChildren(
-        element("p", "view-explainer", "当前显示任务和步骤的" + dateFields[field] + "日期；三种日期独立，未填的不推算。" +
+        element("p", "view-explainer", "当前显示任务和步骤的" + dateFields[field] +
+          "日期；" + (field === "follow_up_date"
+            ? "任务日期按未完成子项自动汇总，可能与步骤同日显示；这不是两条独立提醒。"
+            : "三种日期独立，未填的不推算。") +
           (isWeek ? "可按周导航查看当天事项。" : "跨月浅色日期用于对齐周次。")),
         weekHead, grid, undatedTaskPanel(undated, "未设置" + dateFields[field] + "日期")
       );
