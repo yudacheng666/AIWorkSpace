@@ -143,6 +143,37 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.reload(wait_until="networkidle")
         expect(page.locator("#nav-today")).to_be_disabled()
 
+    def test_parent_followup_uses_earliest_unfinished_step_without_mutation(self):
+        """A real browser shows rollup next to parent while saved manual date stays unchanged."""
+        today = date.today()
+        earlier = (today + timedelta(days=1)).isoformat()
+        manual = (today + timedelta(days=8)).isoformat()
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "rollup-manual-parent",
+            "task_id": self.task_id, "action": "update", "actor": "user",
+            "timestamp": "2026-11-19T09:00:00Z", "base_revision": 1,
+            "changes": {"follow_up_date": manual},
+        })
+        step_id = "STEP-" + "A" * 32
+        append_step_event(self.data_dir, {
+            "version": 1, "event_id": "rollup-step-create",
+            "task_id": self.task_id, "step_id": step_id, "action": "create",
+            "actor": "user", "timestamp": "2026-11-19T09:01:00Z",
+            "base_revision": 0,
+            "changes": {"title": "虚构步骤：检查执行情况", "position": 1,
+                        "follow_up_date": earlier},
+        })
+        before = self._file_hashes()
+        page = self._open_browser(open_detail=False)
+        expect(page.locator(".task-followup-rollup").first).to_contain_text(earlier)
+        page.locator(".task-summary-title").first.click()
+        expect(page.locator(".task-followup-note")).to_contain_text(earlier)
+        expect(page.locator(".task-followup-note")).to_contain_text("虚构步骤：检查执行情况")
+        task = next(x for x in read_workspace(self.data_dir)["tasks"] if x["task_id"] == self.task_id)
+        self.assertEqual(task["follow_up_date"], manual)
+        self.assertEqual(self._file_hashes(), before,
+                         "read-only derived date must never append an event")
+
     def test_task_title_opens_detail_and_list_id_copies_without_opening(self):
         page = self._open_browser(open_detail=False)
         row = page.locator(".task-summary").first
