@@ -2857,7 +2857,7 @@ test("approved concise interface copy preserves irreversible and authorization l
   assert.match(html,/id="work-record-featured"[^>]*> 加入成果库<\/label>/);
   assert.match(html,/id="work-record-cancel">清空<\/button>/);
   assert.match(html,/id="work-summary-cancel">清空<\/button>/);
-  assert.match(html,/id="review-copy-all"[^>]*>复制全部消息给 ChatGPT 核查<\/button>/);
+  assert.match(html,/id="review-copy-all"[^>]*>复制待核查消息给 ChatGPT<\/button>/);
   assert.match(html,/id="trash-purge-selected"[^>]*>彻底删除选中项<\/button>/);
   const h=harness([sampleTask()]);
   await h.api.refresh(true);
