@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AIWorkSpace · 我的任务</title>
+  <title>AIWorkSpace · 工作台</title>
   <style>
     :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; color: #1c2940; }
     * { box-sizing: border-box; }
@@ -862,7 +862,7 @@
       <button type="button" class="nav-item" id="nav-tasks"><span class="nav-icon">☷</span><span>全部任务</span></button>
       <button type="button" class="nav-item" id="nav-board"><span class="nav-icon">▥</span><span>状态看板</span></button>
       <button type="button" class="nav-item" id="nav-calendar"><span class="nav-icon">▦</span><span>任务日历</span></button>
-      <button type="button" class="nav-item" id="nav-gantt"><span class="nav-icon">▰</span><span>日期甘特图</span></button>
+      <button type="button" class="nav-item" id="nav-gantt"><span class="nav-icon">▰</span><span>甘特图</span></button>
       <button type="button" class="nav-item" id="nav-today"><span class="nav-icon">◷</span><span>今日处理</span></button>
       <button type="button" class="nav-item" id="nav-followup"><span class="nav-icon">↗</span><span>跟进他人</span></button>
       <button type="button" class="nav-item" id="nav-due"><span class="nav-icon">▣</span><span>7 天内到期</span></button>
@@ -893,7 +893,7 @@
           <input id="global-search" type="search" placeholder="搜索任务名称或编号" aria-label="搜索任务名称或编号">
           <span class="search-shortcut" aria-hidden="true">Enter</span>
         </form>
-        <button type="button" class="icon-button refresh-top" id="refresh" title="刷新任务">↻</button>
+        <button type="button" class="icon-button refresh-top" id="refresh" title="刷新数据">↻</button>
         <button type="button" class="secondary-action" id="open-create-record">＋ 补记工作</button>
         <button type="button" class="primary-action" id="open-create-task"><span aria-hidden="true">＋</span> 新建任务</button>
       </div>
@@ -939,7 +939,7 @@
       <section class="trash-card trash-settings-card" aria-labelledby="trash-settings-heading">
         <div class="trash-card-head">
           <div>
-            <h2 id="trash-settings-heading">自动清理设置</h2>
+            <h2 id="trash-settings-heading">自动清理</h2>
             <p class="trash-card-caption">设置已删除任务的保留期限。</p>
           </div>
           <div class="trash-retention-form">
@@ -1012,13 +1012,13 @@
       </div>
       <nav class="work-quick-nav" aria-label="工作记录常用操作">
         <span>我要：</span>
-        <a href="#work-create-heading">补记已做的事</a>
+        <a href="#work-create-heading">补记工作</a>
         <a href="#work-inbox-heading">整理零碎笔记</a>
-        <a href="#work-stage-heading">查看项目阶段线</a>
+        <a href="#work-stage-heading">查看项目时间线</a>
         <a href="#work-summary-heading">写个人或汇报总结</a>
       </nav>
       <section class="work-card" aria-labelledby="work-create-heading">
-        <h2 id="work-create-heading">补记已做工作</h2>
+        <h2 id="work-create-heading">补记工作</h2>
         <form class="work-record-form" id="work-record-form">
           <label for="work-record-content">记录内容（必填）
             <textarea id="work-record-content" maxlength="4000" required placeholder="选择记录类型后，填写实际发生的进展、沟通、决策或随手记。"></textarea>
@@ -1043,7 +1043,7 @@
           <label for="work-record-outcome">成果／结论（可选）
             <textarea id="work-record-outcome" maxlength="2000" rows="2" placeholder="决策类记录可填写最终结论；例如：暂不采用该方案。"></textarea>
           </label>
-          <label class="work-check"><input type="checkbox" id="work-record-featured"> 归入我的成果库（可用于未来项目总结和职业档案）</label>
+          <label class="work-check" title="用于项目总结和职业档案；不更改任务完成状态"><input type="checkbox" id="work-record-featured"> 加入成果库</label>
           <div class="work-archive-row">
             <label>关联任务或步骤
               <select id="work-link-target"><option value="">选择关联对象（可选）</option></select>
@@ -1067,7 +1067,7 @@
           <p class="work-archive-hint">关联只记录引用，不自动将任务设为已完成；Google Drive 文件权限保持原状。</p>
           <div class="work-form-actions">
             <button type="submit" class="save" id="work-record-submit">保存记录</button>
-            <button type="button" id="work-record-cancel">清空 / 取消编辑</button>
+            <button type="button" id="work-record-cancel">清空</button>
             <span class="work-hint">发生日期可以补填过去日期；实际录入时间由系统另行保存。</span>
           </div>
         </form>
@@ -1096,13 +1096,13 @@
         </div>
       </section>
       <section class="work-card" aria-labelledby="work-stage-heading">
-        <h2 id="work-stage-heading">项目阶段事件线</h2>
+        <h2 id="work-stage-heading">项目时间线</h2>
         <p class="work-archive-hint">按实际发生日，把同一项目的工作事实、任务与步骤进展、已人工确认完成的事件合成一条可追溯时间线，不重复统计。此处属于完整个人记录；正式对外汇报请使用上方「汇报版」逐条选材。</p>
         <div class="work-archive-row">
           <label>项目<select id="work-stage-project"><option value="">请选择项目</option></select></label>
           <label>起始日期<input id="work-stage-start" type="date"></label>
           <label>结束日期<input id="work-stage-end" type="date"></label>
-          <button type="button" id="work-stage-show">查看阶段事件线</button>
+          <button type="button" id="work-stage-show">查看时间线</button>
           <button type="button" id="work-stage-copy" disabled>复制来源供 ChatGPT 整理</button>
           <button type="button" id="work-stage-report" disabled>用该项目生成月度汇报</button>
         </div>
@@ -1110,11 +1110,11 @@
         <div id="work-stage-list" aria-live="polite"></div>
       </section>
       <section class="work-card" aria-labelledby="work-action-heading">
-        <h2 id="work-action-heading">从工作记录安排后续待办</h2>
+        <h2 id="work-action-heading">后续待办</h2>
         <p class="work-archive-hint">选择一条已有工作记录，复制信息交给 ChatGPT 提出待办建议，再粘贴结构化结果。所有建议先查重、人工审核，不会自动完成或新建任务。</p>
         <form id="work-action-form">
           <div class="work-archive-row">
-            <label for="work-action-source">工作记录来源
+            <label for="work-action-source">来源记录
               <select id="work-action-source"><option value="">请先选择工作记录</option></select>
             </label>
             <button type="button" id="work-action-copy-prompt">复制 ChatGPT 分析说明</button>
@@ -1156,7 +1156,7 @@
         <p id="work-task-convert-message" role="status" aria-live="polite"></p>
       </section>
       <section class="work-card" aria-labelledby="work-inbox-heading">
-        <h2 id="work-inbox-heading">待整理收件箱 <span class="inbox-total" id="work-inbox-count"></span></h2>
+        <h2 id="work-inbox-heading">待整理笔记 <span class="inbox-total" id="work-inbox-count"></span></h2>
         <p class="work-archive-hint">暂存原始工作笔记。整理成正式记录后自动标记已整理，不重复创建任务；此处不运行后台 AI。</p>
         <form id="work-inbox-form">
           <label for="work-inbox-content">临时笔记 / 语音转文字内容</label>
@@ -1171,7 +1171,7 @@
         <div id="work-inbox-list" aria-live="polite"></div>
       </section>
       <section class="work-card" aria-labelledby="work-split-heading">
-        <h2 id="work-split-heading">一段笔记拆分为多条工作事实</h2>
+        <h2 id="work-split-heading">笔记拆分</h2>
         <p class="work-archive-hint">原文始终保留。可按换行拆分，或主动复制原文给 ChatGPT 整理，再粘贴建议逐条核对。未来待办只提出建议，不会当作已经完成的工作。</p>
         <form id="work-split-form">
           <div class="work-archive-row">
@@ -1222,10 +1222,10 @@
           <textarea id="work-summary-body" class="work-archive-textarea" maxlength="12000" placeholder="先选择周期并生成底稿，再核实和补充。" required></textarea>
           <div class="work-archive-row">
             <label class="work-check"><input type="checkbox" id="work-summary-confirm"> 我已核对内容，可用于正式总结</label>
-            <button type="button" id="work-summary-copy">复制当前总结正文</button>
-            <button type="button" id="work-summary-copy-sources">复制含来源的 ChatGPT 分析说明</button>
+            <button type="button" id="work-summary-copy">复制总结正文</button>
+            <button type="button" id="work-summary-copy-sources" title="仅复制本次选中的记录及来源，供 ChatGPT 分析">复制分析材料</button>
             <button type="submit" id="work-summary-save">保存总结</button>
-            <button type="button" id="work-summary-cancel">清空 / 退出编辑</button>
+            <button type="button" id="work-summary-cancel">清空</button>
           </div>
         </form>
         <p id="work-summary-message" role="status" aria-live="polite"></p>
@@ -1233,10 +1233,10 @@
         <div id="work-summary-list" aria-live="polite"></div>
       </section>
       <section class="work-card" aria-labelledby="work-outcomes-heading">
-        <h2 id="work-outcomes-heading">个人成果库</h2>
+        <h2 id="work-outcomes-heading">成果库</h2>
         <p class="work-archive-hint">从已核实的工作记录中选出有代表性的成果，保留日期、项目、原始记录和证据引用，便于以后编写项目总结或简历。</p>
         <div class="work-archive-row">
-          <label for="work-portfolio-project">成果项目范围
+          <label for="work-portfolio-project">项目范围
             <select id="work-portfolio-project"><option value="">全部项目</option></select>
           </label>
           <button type="button" id="work-portfolio-copy">复制成果证据供 ChatGPT 整理</button>
@@ -1307,9 +1307,8 @@
     <section id="page-tasks" class="workspace-page" hidden>
       <div class="page-heading"><div><h1 id="tasks-page-title">全部任务</h1><p class="subtitle">统一任务数据 · 多视图查看与管理</p></div></div>
     <details id="task-filter-disclosure" class="task-filter-disclosure">
-      <summary>条件筛选 <small>项目 · 状态 · 负责人 · 日期</small></summary>
-    <section class="query-panel" aria-labelledby="query-heading">
-      <h2 id="query-heading">任务查询</h2>
+      <summary>筛选任务 <small>项目 · 状态 · 负责人 · 日期</small></summary>
+    <section class="query-panel" aria-label="任务筛选条件">
       <p class="overview-note" title="支持任务名称、任务编号、步骤名称、步骤编号、项目、状态、负责人和日期范围组合筛选。">可组合筛选任务、项目、负责人和日期。</p>
       <form id="task-query" aria-label="任务查询条件">
         <div class="query-form">
@@ -1410,10 +1409,10 @@
         <label for="new-task-title">任务名称
           <input id="new-task-title" type="text" maxlength="200" required placeholder="输入要处理的事项" autocomplete="off">
         </label>
-        <label for="new-task-project">主要所属项目
+        <label for="new-task-project" title="每项任务最多一个主项目；还可关联其他项目">主项目
           <select id="new-task-project"><option value="">未归类 / 收件箱</option></select>
         </label>
-        <label for="new-task-related">关联项目（可多选）
+        <label for="new-task-related" title="可选择多个关联项目，不改变主项目">关联项目
           <select id="new-task-related" multiple size="3"></select>
         </label>
         <label for="new-task-parent" title="仅明确指定上级任务才建立子任务联动关系。">上级任务（可选）
@@ -1734,7 +1733,7 @@
         wrap.append(conclusion);
       }
       const box = element("details", "progress-panel");
-      box.append(element("summary", "", "记录与结论 · 快速填写"));
+      box.append(element("summary", "", "记录与结论"));
       if (!matched.length) box.append(element("p", "work-archive-hint",
         related.some(record => record.conflict)
           ? "有记录存在同步冲突，暂未展示；请在完整工作轨迹中查看冲突记录。"
@@ -1849,7 +1848,7 @@
       const panel = element("details", "object-description");
       const typeLabel = objectType === "project" ? "项目说明" :
         objectType === "step" ? "步骤说明" : "任务说明";
-      const summary = element("summary", "", target.description ? typeLabel : "填写" + typeLabel);
+      const summary = element("summary", "", typeLabel);
       if (target.description_inherited) summary.textContent += " · 从转换前事项保留";
       panel.append(summary);
       const form = element("form", "object-description-form");
@@ -1919,7 +1918,7 @@
               description_conflict:false, description_inherited:false
             });
           }
-          summary.textContent = target.description ? typeLabel : "填写" + typeLabel;
+          summary.textContent = typeLabel;
           help.textContent = "说明是稳定背景信息，不作为独立工作事件或成果计入时间线；生成总结时可作为理解背景。工作过程和结论请使用下方记录入口。";
           watcher.markClean(sent);
           message.textContent = result.saved
@@ -2185,11 +2184,11 @@
       const content = element("div", "step-content");
       content.append(element("small", "step-id", step.step_id));
       const form = element("form", "step-edit-form");
-      const titleLabel = element("label", "", "步骤内容");
+      const titleLabel = element("label", "", "步骤名称");
       const title = element("input");
       title.type = "text"; title.maxLength = 200; title.required = true;
       title.value = step.conflict && step.conflict_fields.includes("title")
-        ? "步骤内容存在冲突（未裁决）" : step.title;
+        ? "步骤名称存在冲突（未裁决）" : step.title;
       title.disabled = task.conflict || step.conflict;
       titleLabel.append(title);
       const statusLabel = element("label", "", "步骤状态");
@@ -2236,7 +2235,7 @@
         const nextStatus = status.value;
         if (!nextTitle || nextTitle.length > 200) {
           message.className = "step-message error";
-          message.textContent = "步骤内容须为 1–200 字。";
+          message.textContent = "步骤名称须为 1–200 字。";
           return;
         }
         const completing = nextStatus === "done" && step.status !== "done";
@@ -2251,7 +2250,7 @@
         if (completing) changes.confirmed_done = true;
         if (!("title" in changes) && !("status" in changes) &&
             !Object.keys(dateFields).some(field => field in changes)) {
-          message.textContent = "步骤内容没有变化";
+          message.textContent = "步骤名称没有变化";
           return;
         }
         const draftAtSubmit = stepDraftSnapshot();
@@ -2455,7 +2454,7 @@
         const title = input.value.trim();
         if (!title || title.length > 200) {
           message.className = "step-message error";
-          message.textContent = "步骤内容须为 1–200 字。";
+          message.textContent = "步骤名称须为 1–200 字。";
           return;
         }
         const revisionAtSubmit = draftRevision;
@@ -2493,7 +2492,7 @@
     function taskToStepPanel(task) {
       const panel = element("section", "task-conversion-panel");
       const head = element("div", "steps-head");
-      head.append(element("strong", "", "任务转换"));
+      head.append(element("strong", "", "转为步骤"));
       panel.append(head);
       const sourceIsLeaf = !task.conflict && !task.trashed_at &&
         !(task.steps || []).length && !(task.all_child_task_ids || task.child_task_ids || []).length &&
@@ -2587,7 +2586,8 @@
       title.value = hasTitleConflict ? "任务名称存在冲突（未裁决）" : task.title;
       title.required = true; title.disabled = task.conflict;
       titleLabel.append(title);
-      const statusLabel = element("label", "", "状态（实际显示可由下级联动）");
+      const statusLabel = element("label", "", "状态");
+      statusLabel.title = "实际显示状态可能根据下级任务和步骤自动联动；完成仍须由本人确认。";
       const status = element("select");
       if (hasStatusConflict) {
         const option = element("option", "", "状态存在冲突（未裁决）");
@@ -2607,12 +2607,14 @@
       parentTaskOptions(parentSelect, task.parent_task_id || "", task.task_id);
       parentSelect.disabled = task.conflict;
       parentLabel.append(parentSelect);
-      const projectLabelInput = element("label", "", "主要所属项目");
+      const projectLabelInput = element("label", "", "主项目");
+      projectLabelInput.title = "每项任务最多一个主项目；还可关联其他项目。";
       const project = element("select");
       projectOptions(project, task.project_id || "");
       project.disabled = task.conflict;
       projectLabelInput.append(project);
-      const relatedLabel = element("label", "", "关联项目（可多选）");
+      const relatedLabel = element("label", "", "关联项目");
+      relatedLabel.title = "可多选，不改变主项目。";
       const related = element("select");
       related.multiple = true; related.size = 3;
       projectOptions(related, task.related_project_ids || [], true);
@@ -3777,7 +3779,7 @@
 
     function updateTaskViewControls() {
       const headings = {list: "任务列表", board: "状态看板",
-                        calendar: "任务日历", gantt: "日期甘特图"};
+                        calendar: "任务日历", gantt: "甘特图"};
       $("task-view-title").textContent = headings[taskViewMode];
       for (const view of taskViewModes) {
         const button = $("task-view-" + view);
@@ -3797,7 +3799,7 @@
           monthText(currentPeriod)) :
         localDayISO(currentPeriod) + " 起 42 天";
       if (activePage === "tasks") {
-        const heading = {list: "全部任务", board: "状态看板", calendar: "任务日历", gantt: "日期甘特图"}[taskViewMode];
+        const heading = {list: "全部任务", board: "状态看板", calendar: "任务日历", gantt: "甘特图"}[taskViewMode];
         const viewHeading = {today:"今日处理", mine:"今日亲自处理",
           followup:"跟进他人", due:"7 天内到期", risk:"风险事项"};
         $("tasks-page-title").textContent = viewHeading[overviewView] || heading;
@@ -5524,6 +5526,7 @@
       renderWorkDraftLinks();
       renderWorkDraftEvidence();
       $("work-record-submit").textContent = "保存记录";
+      $("work-record-cancel").textContent = "清空";
       workDraftWatcher.markClean();
       $("work-record-message").textContent = "";
     }
@@ -5597,6 +5600,7 @@
             "从原任务转换（历史编号：" + record.source_task_id + "）"));
           if (record.duration_minutes) meta.append(element("span", "", "耗时：" + record.duration_minutes + " 分钟"));
           if (record.featured) meta.append(element("span", "", "已收录成果库"));
+          if (record.corrected_at) meta.append(element("span", "", "已更正（原始版本保留）"));
           for (const link of record.action_link_labels || []) {
             meta.append(element("span", "", (workLinkRelationLabels[link.relation] || "关联") + "：" + link.label));
           }
@@ -5615,11 +5619,17 @@
           }
           const footer = element("div", "work-entry-footer");
           const edit = element("button", "", record.conflict ? "存在冲突，暂不可编辑" :
-            record.record_type === "decision" ? "形成新记录" : "编辑记录");
+            record.record_type === "decision" ? "更正录入" : "编辑记录");
           edit.type = "button";
           edit.disabled = !!record.conflict;
           edit.addEventListener("click", () => editWorkRecord(record.record_id));
           footer.append(edit);
+          if (!record.conflict && record.record_type === "decision") {
+            const newDecision = element("button", "", "另记新决策");
+            newDecision.type = "button";
+            newDecision.addEventListener("click", () => editWorkRecord(record.record_id, true));
+            footer.append(newDecision);
+          }
           if (!record.conflict) {
             const suggest = element("button", "", "安排后续待办");
             suggest.type = "button";
@@ -5675,12 +5685,13 @@
       }
     }
 
-    function editWorkRecord(id) {
+    function editWorkRecord(id, asNewDecision = false) {
       const record = workRecords.find(item => item.record_id === id);
       if (!record || record.conflict) return;
       if (unsavedPersistentEditors.has($("work-record-form"))
           && !window.confirm("当前补记内容尚未保存，确定放弃并编辑其他记录吗？")) return;
-      editingRecordId = record.record_type === "decision" ? "" : id;
+      if (!setActivePage("worklog")) return;
+      editingRecordId = asNewDecision ? "" : id;
       $("work-record-content").value = record.content || "";
       $("work-record-type").value = record.record_type || "progress";
       $("work-record-date").value = record.occurred_on || localDayISO(new Date());
@@ -5697,12 +5708,15 @@
       $("work-link-target").value = "";
       renderWorkDraftLinks();
       renderWorkDraftEvidence();
-      $("work-record-submit").textContent = record.record_type === "decision"
-        ? "保存为新记录" : "保存修改";
+      $("work-record-submit").textContent = asNewDecision ? "保存为新决策" :
+        record.record_type === "decision" ? "保存更正" : "保存修改";
+      $("work-record-cancel").textContent = asNewDecision ? "清空" : "取消编辑";
       workDraftWatcher.markClean();
-      $("work-record-message").textContent = record.record_type === "decision"
-        ? "决策记录不会被覆盖；保存会新增一条记录，原决策保留在历史中。"
-        : "正在编辑 " + record.display_id + "；原始记录会保留。";
+      $("work-record-message").textContent = asNewDecision
+        ? "将另外新增一条决策，原有决策及编号不变。"
+        : record.record_type === "decision"
+          ? "正在更正 " + record.display_id + " 的录入错误；原始版本保留在事件历史。业务决策发生变化时，请使用「另记新决策」。"
+          : "正在编辑 " + record.display_id + "；原始记录会保留。";
       $("work-record-content").focus();
     }
 
@@ -5734,6 +5748,18 @@
       };
       if (!record && snapshot.source_inbox_id) payload.source_inbox_id = snapshot.source_inbox_id;
       if (record) payload.revision = record.revision;
+      if (record?.record_type === "decision") {
+        if (payload.record_type !== "decision") {
+          $("work-record-message").textContent = "已形成的决策类型不能更改；如需记录其他事实，请新增记录。";
+          return;
+        }
+        const coreChanged = payload.content !== record.content ||
+          payload.outcome !== (record.outcome || null);
+        if (coreChanged) {
+          if (!window.confirm("仅确认更正这条决策的录入错误？原始内容会完整保留在历史中。若是后来改变决定，应使用「另记新决策」。")) return;
+          payload.correct_decision = true;
+        }
+      }
       isSaving = true;
       $("work-record-submit").disabled = true;
       $("work-record-cancel").disabled = true;
@@ -5807,7 +5833,7 @@
       container.replaceChildren();
       const featured = workRecords.filter(record => record.featured && !record.conflict);
       if (!featured.length) {
-        container.append(element("p", "work-archive-hint", "还没有选入成果库的工作记录。可编辑某条已完成的工作记录，勾选「归入我的成果库」。"));
+        container.append(element("p", "work-archive-hint", "还没有选入成果库的工作记录。可编辑某条已完成的工作记录，勾选「加入成果库」。"));
         return;
       }
       for (const record of featured) {
@@ -5925,7 +5951,7 @@
       $(id).addEventListener("change",()=>{
         workStagePreview=null;
         $("work-stage-copy").disabled=true;$("work-stage-report").disabled=true;
-        $("work-stage-message").textContent="范围已变化，请重新查看阶段事件线。";
+        $("work-stage-message").textContent="范围已变化，请重新查看项目时间线。";
       });
     }
     $("work-stage-show").addEventListener("click",async()=>{
@@ -6504,7 +6530,7 @@
           important:summaryRecordRecommended(r),
           reason:r.record_type==="note"?"随手记（汇报版默认不推荐）":
             r.record_type==="decision"?"决策／结论（建议重点核对）":
-            r.featured?"已选入个人成果库（仍须核对）":
+            r.featured?"已加入成果库（仍须核对）":
             r.outcome?"记录了成果（请核实）":"一般工作事实",
           detail:[
             "来源："+(r.display_id||r.record_id),
@@ -6587,6 +6613,7 @@
       $("work-summary-project").disabled = false;
       $("work-summary-generate").disabled = false;
       $("work-summary-save").textContent = "保存总结";
+      $("work-summary-cancel").textContent = "清空";
       workSummaryWatcher.markClean();
     }
     async function generateWorkSummary() {
@@ -6648,6 +6675,7 @@
       $("work-summary-project").disabled = true;
       $("work-summary-generate").disabled = true;
       $("work-summary-save").textContent = "保存修订";
+      $("work-summary-cancel").textContent = "取消编辑";
       workSummaryWatcher.markClean();
       $("work-summary-message").textContent = "正在修订已有总结；修改会追加历史事件，不覆盖旧版本。";
       $("work-summary-body").focus();

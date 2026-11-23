@@ -66,6 +66,22 @@ class WorkRecordValidationTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 app.validate_work_record_event(value)
 
+    def test_explicit_decision_correction_schema_is_narrow(self):
+        valid = work_event("work-correct-0001", "correct", 1,
+                           {"content": "更正原始录入", "occurred_on": "2026-11-17"})
+        self.assertEqual(app.validate_work_record_event(valid), valid)
+        with self.assertRaisesRegex(ValueError, "user-confirmed"):
+            app.validate_work_record_event({**valid, "actor": "chatgpt"})
+        for action, revision, changes in (
+            ("correct", 0, {"content": "无基础版本"}),
+            ("correct", 1, {"occurred_on": "2026-11-17"}),
+            ("correct", 1, {"record_type": "note", "content": "无效改型"}),
+            ("correct", 1, {"outcome": "x", "status": "done"}),
+        ):
+            with self.subTest(action=action, changes=changes), self.assertRaises(ValueError):
+                app.validate_work_record_event(work_event(
+                    "invalid-correct-0001", action, revision, changes))
+
     def test_output_id_uses_capture_day_not_edited_work_day(self):
         self.assertEqual(app.work_record_display_id(RECORD, "2026-11-05T03:25:00Z"),
                          "R-261105-AAAAAAAAAAAA")
@@ -143,6 +159,87 @@ class WorkRecordReducerTests(unittest.TestCase):
         self.assertEqual(record["outcome"], "暂不采用")
         self.assertTrue(any("decision record content/outcome/type is immutable" in warning
                             for warning in state["warnings"]))
+
+    def test_explicit_correction_retains_original_decision_and_stable_id(self):
+        create = work_event("decision-correction-create", "create", 0, {
+            "content": "按原方案报价", "occurred_on": "2026-11-18",
+            "record_type": "decision", "outcome": "执行"})
+        app.append_work_record_event(self.data_dir, create)
+        source = (self.data_dir / "work_archive" / "record_events" /
+                  "evt_decision-correction-create.json")
+        original_bytes = source.read_bytes()
+        app.append_work_record_event(self.data_dir, work_event(
+            "decision-correction-revision", "correct", 1, {
+                "content": "更正报价比例", "occurred_on": "2026-11-17", "outcome": "调整"}))
+        state = app.read_work_records(self.data_dir)
+        revised = state["records"][0]
+        self.assertEqual(state["warnings"], [])
+        self.assertFalse(revised["conflict"])
+        self.assertEqual(revised["revision"], 2)
+        self.assertEqual(revised["record_id"], RECORD)
+        self.assertEqual(revised["content"], "更正报价比例")
+        self.assertEqual(revised["outcome"], "调整")
+        self.assertEqual(revised["occurred_on"], "2026-11-17")
+        self.assertIn("corrected_at", revised)
+        self.assertEqual(source.read_bytes(), original_bytes)
+        self.assertEqual(len(list(source.parent.glob("*.json"))), 2)
+        app.append_work_record_event(self.data_dir, work_event(
+            "decision-invalid-new-type", "update", 2, {"record_type": "note"}))
+        frozen = app.read_work_records(self.data_dir)["records"][0]
+        self.assertTrue(frozen["conflict"])
+        self.assertEqual(frozen["revision"], 2)
+
+    def test_late_old_client_edit_after_correction_freezes_without_overwriting(self):
+        original = work_event("old-late-root", "create", 0, {
+            "content": "原有报价判断", "occurred_on": "2026-11-18",
+            "record_type": "decision", "outcome": "执行原方案"})
+        app.append_work_record_event(self.data_dir, original)
+        root = self.data_dir / "work_archive" / "record_events" / "evt_old-late-root.json"
+        original_bytes = root.read_bytes()
+        app.append_work_record_event(self.data_dir, work_event(
+            "new-correction", "correct", 1, {
+                "content": "原录入错误：采用修订方案", "outcome": "更正已记录内容"}))
+        updated = app.read_work_records(self.data_dir)["records"][0]
+        self.assertFalse(updated["conflict"])
+        self.assertEqual(updated["revision"], 2)
+        self.assertEqual(updated["content"], "原录入错误：采用修订方案")
+        # A disconnected old client may still append a valid metadata update
+        # from its stale revision. Neither branch may silently win.
+        app.append_work_record_event(self.data_dir, work_event(
+            "late-old-client-update", "update", 1,
+            {"occurred_on": "2026-11-20"}))
+        result = app.read_work_records(self.data_dir)
+        self.assertTrue(result["records"][0]["conflict"])
+        self.assertEqual(result["records"][0]["revision"], 1)
+        self.assertEqual(result["records"][0]["content"], "原有报价判断")
+        self.assertTrue(any("concurrent work record edits" in w for w in result["warnings"]))
+        self.assertEqual(root.read_bytes(), original_bytes)
+        self.assertEqual(len(list(root.parent.glob("*.json"))), 3)
+
+    def test_two_competing_explicit_corrections_never_choose_latest_timestamp(self):
+        app.append_work_record_event(self.data_dir, work_event(
+            "dual-correction-root", "create", 0, {
+                "content": "原判断", "occurred_on": "2026-11-18",
+                "record_type": "decision", "outcome": "执行"}))
+        for eid, content in (
+            ("competing-correction-a", "方案甲"),
+            ("competing-correction-b", "方案乙"),
+        ):
+            app.append_work_record_event(self.data_dir, work_event(
+                eid, "correct", 1, {"content": content}))
+        result = app.read_work_records(self.data_dir)
+        self.assertTrue(result["records"][0]["conflict"])
+        self.assertEqual(result["records"][0]["content"], "原判断")
+        self.assertEqual(result["records"][0]["revision"], 1)
+        self.assertTrue(any("concurrent work record edits" in w for w in result["warnings"]))
+
+    def test_correct_action_for_non_decision_is_rejected_by_reducer(self):
+        app.append_work_record_event(self.data_dir, work_event())
+        app.append_work_record_event(self.data_dir, work_event(
+            "work-invalid-correct", "correct", 1, {"content": "不能用于普通记录"}))
+        state = app.read_work_records(self.data_dir)
+        self.assertTrue(state["records"][0]["conflict"])
+        self.assertEqual(state["records"][0]["content"], "上午沟通交期，下午问题解决")
 
     def test_conflict_bad_event_and_partial_sync_fail_closed(self):
         app.append_work_record_event(self.data_dir, work_event())
@@ -244,6 +341,44 @@ class WorkRecordHTTPTests(unittest.TestCase):
         self.assertEqual(state["records"][0]["revision"], 2)
         self.assertEqual(state["records"][0]["occurred_on"], "2026-11-01")
         self.assertEqual(len(list((self.data_dir / "work_archive" / "record_events").glob("*.json"))), 2)
+
+    def test_decision_edit_date_and_explicit_text_correction(self):
+        code, created = self.call("POST", "/api/work-records", {
+            "content": "根据方案报价", "occurred_on": "2026-11-18",
+            "record_type": "decision", "task_id": TASK})
+        self.assertEqual(code, 201, created)
+        record_id = created["record_id"]
+        endpoint = "/api/work-records/" + record_id + "/update"
+        folder = self.data_dir / "work_archive" / "record_events"
+        original = {p.name: p.read_bytes() for p in folder.glob("*.json")}
+        self.assertEqual(self.call("POST", endpoint, {
+            "revision": 1, "content": "调整后报价"})[0], 409)
+        self.assertEqual(self.call("POST", endpoint, {
+            "revision": 1, "content": "调整后报价", "correct_decision": "yes"})[0], 400)
+        self.assertEqual(self.call("POST", endpoint, {
+            "revision": 1, "record_type": "progress"})[0], 409)
+        code, date_edit = self.call("POST", endpoint, {
+            "revision": 1, "occurred_on": "2026-11-17"})
+        self.assertEqual(code, 200, date_edit)
+        self.assertEqual(date_edit["display_id"], created["display_id"])
+        code, corrected = self.call("POST", endpoint, {
+            "revision": 2, "content": "更正录入：按九折报价",
+            "occurred_on": "2026-11-16", "correct_decision": True})
+        self.assertEqual(code, 200, corrected)
+        self.assertEqual(corrected["display_id"], created["display_id"])
+        self.assertEqual(corrected["record_id"], record_id)
+        self.assertEqual(self.call("POST", endpoint, {
+            "revision": 2, "content": "旧版本覆盖", "correct_decision": True})[0], 409)
+        _, state = self.call("GET", "/api/work-records")
+        record = state["records"][0]
+        self.assertFalse(record["conflict"])
+        self.assertEqual(record["content"], "更正录入：按九折报价")
+        self.assertEqual(record["occurred_on"], "2026-11-16")
+        self.assertEqual(record["revision"], 3)
+        self.assertIn("corrected_at", record)
+        self.assertEqual(len(list(folder.glob("*.json"))), 3)
+        for name, raw in original.items():
+            self.assertEqual((folder / name).read_bytes(), raw)
 
     def test_invalid_bad_links_and_external_origin_have_no_write(self):
         base = {"content": "记录事实", "occurred_on": "2026-11-05"}

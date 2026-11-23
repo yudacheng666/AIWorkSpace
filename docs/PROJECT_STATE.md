@@ -50,6 +50,37 @@
 
 ---
 
+# 2026-11-18｜已批准 UI 文案精简及说明标题回退修复（PR #59）
+
+- **授权**：用户在只读审查报告后明确指示「执行，不用 work」；范围为报告中的建议文案与安全保留项。
+- **实现**：统一项目／任务／步骤说明标题，修复说明清空保存后显示「填写」的回退；缩短工作记录、笔记、成果库、筛选、甘特、项目时间线等标题；为状态联动和项目归属保留提示；区分新建「清空」与编辑「取消编辑」。
+- **安全**：不修改 API、event schema、状态、审批、删除或恢复逻辑；高风险标签保留完整语义；只更新 web/index.html、Node UI 定向测试及必要 Markdown 记忆。
+- **测试证据**：准确代码／测试 SHA `af73a28cbe233f77c2bb71d89d25282ab7691f58`；[Actions #44264889818](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44264889818) **3/3 SUCCESS**：Ubuntu Python+Node、Windows Python+Node、Windows 真实应用+Chromium 更新／回滚及 UI 回归。首次文案候选 `97c4416c` 的 Chrome 测试因「日期甘特图」旧断言失败，第二轮 `10c189b7` 因主项目／关联项目旧标签断言失败；两者仅属测试文字预期未同步，均已修复，并以最终完整成功 SHA 为准。未安排重复 Codex 测试。
+- **发布状态**：[PR #59](https://github.com/yudacheng666/AIWorkSpace/pull/59) 保持 Draft，未合并、未发布、未部署，不改 Google Drive 真实业务数据。真实两台电脑的同步与旧客户端混用仍 NOT TESTED，风险沿用先前更正记录事件格式的评估。文档最终提交不冒充产品／测试 SHA。
+
+---
+
+# 2026-11-18｜任务／步骤说明标题文案微调（并入 PR #59）
+
+- **用户要求**：空白任务和步骤的说明区标题由「填写任务说明」／「填写步骤说明」分别改成「任务说明」／「步骤说明」。
+- **范围**：仅调整标题文案，仍保留项目原有「填写项目说明」；不修改说明保存逻辑、事件和数据结构。增加空白／非空标题定向 UI 测试。
+- **准确测试**：产品／测试 SHA `8029af5d3a2aed027ea96f2bbbf2e33164df65ac`，GitHub Actions [#44262797528](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44262797528) **3/3 SUCCESS**（Ubuntu Python + Node、Windows Python + Node、Windows 真实应用 + Chromium 回归），含空白／非空任务与步骤说明标题断言。未额外重复 Codex 测试。
+- **状态**：并入 Draft PR #59；未合并、未发布、未部署。文档记忆提交不代表新的产品代码 SHA。
+
+---
+
+# 2026-11-18｜决策工作记录正文与日期更正（2.12.0 开发候选）
+
+- **问题与定位**：现有 main 2.11.0 中普通 RECORD 支持 edit；已保存 decision 的正文／结论被 API 与 reducer 拒绝更新，前端点击“形成新记录”会产生新 ID，因此无法直接修改原记录内容，也无法从同一操作中单独修正日期。
+- **修复**：新入口「更正录入」可对原 decision 追加 correct 事件，更新当前显示的内容、结论及发生日期而不覆盖原始事件；日期等元数据单独修改仍走 update；明确区分「另记新决策」。普通记录维持原有编辑行为、原 ID 和 revision 冲突保护。
+- **安全边界**：新的 correct 事件不能由旧客户端正确识别，必须先将共享数据目录的全部设备升级后再用此功能；未改动任何真实工作记录、Drive 台账或用户 Windows 工作台。
+- **代码和测试**：分支 `fix/20261118-decision-record-correction`，修改 app.py、web/index.html、tests/test_work_records.py、tests/test_ui_shell.mjs、VERSION、规则／需求／决策；用虚构数据覆盖更正、历史不变、旧式非法覆盖拒绝、date-only 修改、同 revision 冲突与新决策独立创建。
+- **准确自动化证据**：产品与测试 SHA `049b14f97d8b016960ca5bbff703e9aad274b73d`，GitHub Actions [#44259921296](https://github.com/yudacheng666/AIWorkSpace/actions/runs/44259921296) **3/3 SUCCESS**：Ubuntu、Windows 的 Python 单元测试与 Node UI，以及 Windows 真实应用 + Chromium 更新／回滚和业务界面回归。初次候选 `fcec5129a38f048bf8224b7b76d76db03e44a762` 因历史错误消息断言未匹配而出现 FAIL，已改正并以新 SHA 完整重测，不沿用旧 FAIL 作为验收。
+- **PR 与状态**：[PR #59](https://github.com/yudacheng666/AIWorkSpace/pull/59) 保持 Draft、open、mergeable；**未合并／未发布／未安装**。后续状态记忆若仅 Markdown 更新，不能将其 SHA 冒充前述准确产品／测试 SHA。
+- **后续**：在明确合并发布授权前保持 PR 草稿。新增 `correct` 数据动作属于同步兼容风险，真实双电脑 Google Drive 离线／恢复、旧版客户端混用与额外独立探索性验收 **NOT TESTED**，不能因 3/3 自动化通过就宣称全部完成。
+
+---
+
 # 2026-11-16｜2.11.0 全部 PR 合并发布（PR #55／#57／#58）
 
 - **用户授权**：用户在得知 #58 的独立探索性验收和真实双电脑 Drive/旧客户端混用尚未覆盖、但准确 SHA 自动化 3/3 PASS 后，明确指示「全部合并」。本轮据此依赖顺序完成三个 PR 的 GitHub 合并；没有把未做的高风险专项验收标记为 PASS，也不改变后续项目长期测试规则。
