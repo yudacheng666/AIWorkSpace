@@ -204,7 +204,7 @@
     }
     body { background: var(--canvas); color: var(--ink); overflow-x: hidden; }
     .app-shell { min-height: 100vh; display: grid; grid-template-columns: 244px minmax(0, 1fr); }
-    .sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; padding: 22px 15px 16px; background: #fff; border-right: 1px solid var(--line); z-index: 30; }
+    .sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; padding: 22px 15px 16px; background: #fff; border-right: 1px solid var(--line); z-index: 30; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; }
     .sidebar-brand { display: flex; align-items: center; gap: 11px; padding: 3px 9px 26px; }
     .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: linear-gradient(145deg,#3679ed,#2454bd); color: #fff; font-size: 21px; font-weight: 800; box-shadow: 0 4px 10px #2864d522; }
     .brand-copy { display: grid; gap: 3px; }
@@ -428,7 +428,7 @@
     }
     @media (max-width: 820px) {
       .app-shell { width:100%;max-width:100vw;grid-template-columns:minmax(0,1fr); }
-      .sidebar { min-width:0;max-width:100vw;position: sticky; top: 0; height: auto; display: block; padding: 9px 12px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .sidebar { min-width:0;max-width:100vw;position: sticky; top: 0; height: auto; display: block; padding: 9px 12px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
       .sidebar-brand, .sidebar-section-label, .sidebar-divider, .sidebar-spacer, .sidebar-footnote { display: none; }
       .sidebar-bottom { display: flex; margin-top: 4px; }
       .side-nav { display:flex; min-width:0; max-width:100%; gap:4px; overflow-x:auto; overscroll-behavior-x:contain; }
@@ -827,6 +827,16 @@
     .object-description-actions { display:flex; justify-content:flex-end; }
 
 
+    .recurrence-subitems,.recurrence-history {margin-top:10px;padding:10px;border-radius:9px;background:#f6f9fd;font-size:12px;line-height:1.6}
+    .recurrence-subitems p,.recurrence-history p {margin:5px 0}
+    .recurrence-review {display:grid;gap:9px;margin:12px 0;padding:12px;border:1px solid #dde6ee;border-radius:9px}
+    .recurrence-review h4 {margin:0;font-size:13px}
+    .recurrence-review textarea {min-height:85px;resize:vertical;border:1px solid #cbd7e3;border-radius:8px;padding:9px;font:inherit}
+    .recurrence-review .save {justify-self:start}
+    .recurring-center {margin:12px 0;padding:13px 15px;background:#f7fafd;border:1px solid #dce6f3;border-radius:12px}
+    .recurring-center[hidden] {display:none}
+    .recurring-center-counts {display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:#52657c;margin:8px 0}
+    .recurring-center-counts span {border-radius:8px;background:#fff;padding:7px 11px;border:1px solid #e3eaf3}
     .task-followup-rollup { display:block; color:#58708a; line-height:1.5; overflow-wrap:anywhere; }
     .task-followup-note, .project-followup-rollup { color:#58708a; line-height:1.6; font-size:12px; overflow-wrap:anywhere; }
     .day-agenda { margin:0 0 17px; padding:15px 17px; border:1px solid var(--line); border-radius:11px; background:#fff; }
@@ -860,6 +870,7 @@
       <button type="button" class="nav-item is-active" id="nav-overview"><span class="nav-icon">▦</span><span>工作总览</span></button>
       <button type="button" class="nav-item" id="nav-worklog"><span class="nav-icon">▤</span><span>工作记录</span></button>
       <button type="button" class="nav-item" id="nav-tasks"><span class="nav-icon">☷</span><span>全部任务</span></button>
+      <button type="button" class="nav-item" id="nav-recurring"><span class="nav-icon">↻</span><span>周期任务中心</span></button>
       <button type="button" class="nav-item" id="nav-board"><span class="nav-icon">▥</span><span>状态看板</span></button>
       <button type="button" class="nav-item" id="nav-calendar"><span class="nav-icon">▦</span><span>任务日历</span></button>
       <button type="button" class="nav-item" id="nav-gantt"><span class="nav-icon">▰</span><span>甘特图</span></button>
@@ -1395,6 +1406,8 @@
         </label>
       </div>
     </div>
+    <div id="recurring-center" class="recurring-center" hidden aria-label="周期任务概览"></div>
+    <label id="include-recurring-label" class="field-hint"><input id="include-recurring" type="checkbox"> 普通任务视图包含周期任务</label>
     <div class="alert" id="warnings" role="alert" hidden></div>
     <div id="task-list-columns" class="task-list-columns" aria-label="任务列表字段标题与列筛选" hidden></div>
     <section class="task-list" id="tasks" aria-label="任务列表"></section>
@@ -2600,7 +2613,10 @@
           status.append(option);
         }
       }
-      status.disabled = task.conflict || !!task.recurrence_ended;
+      status.disabled = task.conflict || !!task.recurrence_ended ||
+        !!(task.recurrence_active && task.recurrence_mode === "tracking");
+      if (task.recurrence_active && task.recurrence_mode === "tracking")
+        statusLabel.title = "周期跟踪请在下方「记录本次跟进」办理，不能直接修改任务状态。";
       statusLabel.append(status);
       const parentLabel = element("label", "", "上级任务（可选）");
       const parentSelect = element("select");
@@ -2896,23 +2912,43 @@
 
     function recurrencePanel(task) {
       const panel = element("section", "recurrence-panel");
-      panel.append(element("h3", "", "周期性任务"));
+      panel.append(element("h3", "", "周期性任务 · 已有任务可直接转入"));
       const rule = task.recurrence || null;
-      const names = {daily:"天", weekly:"周", monthly:"月", yearly:"年"};
-      const details = !rule ? "尚未设置重复周期；设置后只保留一个任务编号。"
-        : task.recurrence_ended ? "已彻底结束循环；历史周期完成记录保留。"
+      const existingMode = task.recurrence_mode || "execution";
+      const names = {daily:"天",weekly:"周",monthly:"月",yearly:"年"};
+      const details = !rule ? "设置后沿用原任务编号，已有历史和关联关系不改变。"
+        : task.recurrence_ended ? "已彻底结束循环；历史处理记录仍保留。"
         : task.recurrence_period_start
           ? "本周期：" + task.recurrence_period_start + " 至 " + task.recurrence_period_end +
-            " · " + (task.status === "done" ? "本周期已完成" : "本周期未完成")
+            " · " + (task.status === "done" ? (existingMode === "tracking" ? "本期已处理" : "本周期已完成") : (existingMode === "tracking" ? "本期待处理" : "本周期未完成"))
           : "周期尚未开始（" + rule.start_date + " 起）。";
       panel.append(element("p", "overview-note", details));
-      const hasDependents = !!((task.steps || []).length || (task.all_child_task_ids || []).length ||
-        task.step_order_conflict || task.step_order_incomplete || task.status_rollup_incomplete);
-      const locked = !!(task.conflict || hasDependents || task.parent_missing || task.parent_cycle);
+      const hasDependents = !!((task.steps || []).length || (task.all_child_task_ids || []).length);
+      const unsafe = !!(task.conflict || task.status_rollup_incomplete ||
+        task.step_order_conflict || task.step_order_incomplete || task.parent_missing || task.parent_cycle);
+      if (hasDependents) {
+        const info = element("div", "recurrence-subitems");
+        info.append(element("strong", "", "已有步骤及子任务保留"));
+        for (const step of task.steps || [])
+          info.append(element("p", "", "步骤 · " + step.title + " · " +
+            (labels[step.status] || "状态需核查")));
+        if ((task.all_child_task_ids || []).length)
+          info.append(element("p", "", "关联子任务 " + task.all_child_task_ids.length +
+            " 项将继续独立管理，不自动完成、删除或重置。"));
+        info.append(element("p", "", "有下级事项的任务只支持「周期跟踪」；未完成的步骤和子任务仍可单独处理。"));
+        panel.append(info);
+      }
       const form = element("form", "recurrence-fields");
+      const modeLabel = element("label", "", "周期管理方式");
+      const mode = element("select");
+      for (const [value, name] of Object.entries({execution:"周期执行",tracking:"周期跟踪"})) {
+        const option = element("option", "", name); option.value = value;
+        option.selected = existingMode === value; mode.append(option);
+      }
+      modeLabel.append(mode);
       const unitLabel = element("label", "", "重复单位");
       const unit = element("select");
-      for (const [value, title] of Object.entries({daily:"每天", weekly:"每周", monthly:"每月", yearly:"每年"})) {
+      for (const [value, title] of Object.entries({daily:"每天",weekly:"每周",monthly:"每月",yearly:"每年"})) {
         const option = element("option", "", title);
         option.value = value;
         option.selected = (rule?.unit || "weekly") === value;
@@ -2930,15 +2966,22 @@
       start.value = rule?.start_date || localDayISO(new Date());
       startLabel.append(start);
       const save = element("button", "save", rule ? "保存周期规则" : "启用周期任务");
-      save.type = "submit"; save.disabled = locked;
-      form.append(unitLabel, intervalLabel, startLabel, save);
-      panel.append(form);
+      save.type = "submit";
+      const canConfigure = () => !unsafe && (!hasDependents || mode.value === "tracking");
+      save.disabled = !canConfigure();
       const feedback = element("p", "message");
-      const snapshot = () => [unit.value, interval.value, start.value];
-      const watcher = watchUnsavedEditor(form, snapshot);
+      mode.addEventListener("change", () => {
+        save.disabled = !canConfigure();
+        feedback.textContent = hasDependents && mode.value !== "tracking"
+          ? "含步骤或子任务，请选择周期跟踪；现有执行周期不能携带下级事项。" : "";
+      });
+      form.append(modeLabel, unitLabel, intervalLabel, startLabel, save);
+      panel.append(form);
+      const snapshot = () => [mode.value,unit.value,interval.value,start.value];
+      const watcher = watchUnsavedEditor(form,snapshot);
       form.addEventListener("submit", async event => {
         event.preventDefault();
-        if (isSaving || locked) return;
+        if (isSaving || !canConfigure()) return;
         const count = Number(interval.value);
         if (!Number.isInteger(count) || count < 1 || count > 99 || !start.value) {
           feedback.textContent = "请输入 1～99 的间隔及有效起始日期。"; return;
@@ -2947,43 +2990,79 @@
             unsavedPersistentEditors.size || unsavedProjectEditors.size) {
           feedback.textContent = "请先保存其他未完成的编辑草稿。"; return;
         }
-        const next = {unit:unit.value, interval:count, start_date:start.value, enabled:true};
-        if (rule && JSON.stringify(rule) === JSON.stringify(next)) {
+        const next = {unit:unit.value,interval:count,start_date:start.value,enabled:true};
+        if (rule && JSON.stringify(rule) === JSON.stringify(next) && mode.value === existingMode) {
           feedback.textContent = "周期规则没有变化。"; return;
         }
-        if (!window.confirm("确认保存周期规则？本周期进度将重新从待处理开始；原事件历史不会删除。")) return;
+        const question = hasDependents
+          ? "确认转为周期跟踪？原有步骤和子任务（包括未完成事项）全部保留，且不会被自动完成或重置。周期仅管理本次跟进。"
+          : "确认保存周期规则？当前周期从待处理开始，原始记录保持不变。";
+        if (!window.confirm(question)) return;
         const submitted = snapshot();
         isSaving = true; save.disabled = true; feedback.textContent = "正在保存…";
         try {
           const response = await fetch("/api/tasks/" + encodeURIComponent(task.task_id) + "/recurrence", {
             method:"POST",headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({action:"configure",revision:task.revision,recurrence:next})
+            body:JSON.stringify({action:"configure",revision:task.revision,
+              recurrence:next,mode:mode.value,confirmed_subitems:hasDependents})
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || "周期规则保存失败");
           watcher.markClean(submitted);
-          if (JSON.stringify(snapshot()) === JSON.stringify(submitted)) {
-            await refresh(true);
-          } else {
-            feedback.textContent = "规则已保存；输入期间产生的新草稿仍未保存，请核对后刷新。";
-          }
+          if (JSON.stringify(snapshot()) === JSON.stringify(submitted)) await refresh(true);
+          else feedback.textContent = "规则已保存；新输入草稿仍保留，请核对后刷新。";
         } catch (error) {
           feedback.textContent = "保存失败：" + error.message + "。请刷新确认版本。";
-        } finally {isSaving = false; save.disabled = locked;}
+        } finally {isSaving = false; save.disabled = !canConfigure();}
       });
+      if (rule && existingMode === "tracking" && rule.enabled) {
+        const review = element("form", "recurrence-review");
+        review.append(element("h4", "", "记录本次跟进"));
+        const note = element("textarea");
+        note.maxLength = 2000; note.placeholder = "填写这次的实际反馈或进展（必填）；不代表整个任务完成。";
+        const reviewSave = element("button", "save", "保存跟进并完成本期");
+        reviewSave.type = "submit";
+        reviewSave.disabled = !!(unsafe || task.status === "done" || !task.recurrence_period_start);
+        const reviewMessage = element("p", "message");
+        review.append(note,reviewSave,reviewMessage);
+        const reviewWatch = watchUnsavedEditor(review,()=>note.value,unsavedTaskEditors);
+        review.addEventListener("submit",async event => {
+          event.preventDefault();
+          if (isSaving || reviewSave.disabled) return;
+          const content = note.value.trim();
+          if (!content || content.length > 2000) {
+            reviewMessage.textContent = "请填写本次跟进结果（1～2000 字）。"; return;
+          }
+          if (!window.confirm("确认记录本次跟进并结束当前周期？整体任务保持周期跟踪，下期自动重新待办。")) return;
+          isSaving = true; reviewSave.disabled = true;
+          const submitted = note.value;
+          try {
+            const response = await fetch("/api/tasks/" + encodeURIComponent(task.task_id) + "/recurrence",{
+              method:"POST",headers:{"Content-Type":"application/json"},
+              body:JSON.stringify({action:"review",revision:task.revision,note:content,confirmed:true})
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "保存本次跟进失败");
+            reviewWatch.markClean(submitted);
+            if (note.value === submitted) await refresh(true);
+            else reviewMessage.textContent = "本次跟进已保存；保存期间产生的新文字仍是草稿。";
+          } catch(error) {
+            reviewMessage.textContent = "保存失败：" + error.message + "；草稿保留，请刷新后检查。";
+          } finally {isSaving = false; reviewSave.disabled = false;}
+        });
+        panel.append(review);
+      }
       if (rule) {
-        const actions = element("div", "recurrence-controls");
+        const actions = element("div","recurrence-controls");
         const toggle = element("button",
           "recurrence-toggle " + (rule.enabled ? "recurrence-toggle--end" : "recurrence-toggle--resume"),
           rule.enabled ? "彻底结束循环" : "恢复循环");
-        toggle.type = "button"; toggle.disabled = locked;
-        toggle.addEventListener("click", async () => {
-          if (isSaving || locked || !confirmDiscardUnsaved()) return;
-          const action = rule.enabled ? "end" : "resume";
-          if (!window.confirm(rule.enabled
-            ? "确定彻底结束此周期任务？未来不再自动回到待办，仍可在此恢复循环。"
-            : "确定恢复周期循环？将重新启用原规则，并从当前周期待办开始。")) return;
-          isSaving = true; toggle.disabled = true; feedback.textContent = "正在保存…";
+        toggle.type = "button"; toggle.disabled = unsafe;
+        const exit = element("button","recurrence-toggle","转回普通任务");
+        exit.type = "button"; exit.disabled = unsafe;
+        const operate = async (action,button,question) => {
+          if (isSaving || unsafe || !confirmDiscardUnsaved() || !window.confirm(question)) return;
+          isSaving = true; button.disabled = true; feedback.textContent = "正在保存…";
           try {
             const response = await fetch("/api/tasks/" + encodeURIComponent(task.task_id) + "/recurrence", {
               method:"POST",headers:{"Content-Type":"application/json"},
@@ -2992,15 +3071,26 @@
             const result = await response.json();
             if (!response.ok) throw new Error(result.error || "操作失败");
             await refresh(true);
-          } catch (error) {
-            feedback.textContent = "操作失败：" + error.message + "。请刷新后核查。";
-          } finally {isSaving = false; toggle.disabled = locked;}
-        });
-        actions.append(toggle);
+          } catch(error) {feedback.textContent = "操作失败：" + error.message + "。请刷新后核查。";}
+          finally {isSaving = false; button.disabled = unsafe;}
+        };
+        toggle.addEventListener("click",()=>operate(rule.enabled ? "end" : "resume",toggle,
+          rule.enabled ? "确定彻底结束该周期任务？未来不会再自动提醒，可恢复循环。"
+                       : "确定重新启用周期？将从当前周期待处理开始。"));
+        exit.addEventListener("click",()=>operate("exit",exit,
+          "确定转回普通任务？停止周期提醒，任务回到待处理；原步骤、子任务和周期历史全部保留。"));
+        actions.append(toggle,exit);
         panel.append(actions);
       }
-      if (locked) panel.append(element("p", "recurrence-warning",
-        "周期任务目前仅支持无步骤、无子任务且没有同步冲突的任务；请先处理下级事项。"));
+      if ((task.recurrence_log || []).length) {
+        const history = element("div","recurrence-history");
+        history.append(element("strong","","历史跟进（保留原始事件）"));
+        for (const item of task.recurrence_log.slice(-10).reverse())
+          history.append(element("p","","周期 " + item.period + " · " + item.content));
+        panel.append(history);
+      }
+      if (unsafe) panel.append(element("p","recurrence-warning",
+        "该任务或关联关系需要核查，暂不能改变周期规则。"));
       panel.append(feedback);
       return panel;
     }
@@ -3063,7 +3153,7 @@
         ["steps", "children", "steps_and_children"].includes(task.status_source));
     }
     function taskQuickStatusOptions(task) {
-      if (task.recurrence_ended) return [];
+      if (task.recurrence_ended || (task.recurrence_active && task.recurrence_mode === "tracking")) return [];
       if (!taskHasProgressDependents(task)) return Object.entries(labels);
       return (task.manual_status ?? task.status) === "done"
         ? [["todo", "重新打开（恢复自动联动）"]]
@@ -3078,7 +3168,9 @@
         quickFieldFeedback(feedback, "有尚未保存的草稿，请先保存或取消草稿后重试。", true);
         return false;
       }
-      if (field === "status" && (task.recurrence_ended || task.status_rollup_incomplete ||
+      if (field === "status" && (task.recurrence_ended ||
+          (task.recurrence_active && task.recurrence_mode === "tracking") ||
+          task.status_rollup_incomplete ||
           task.step_order_incomplete || task.step_order_conflict || task.parent_missing ||
           task.parent_cycle)) {
         quickFieldFeedback(feedback, "下级状态或同步信息不完整，请先打开任务详情核查。", true);
@@ -3124,7 +3216,9 @@
       const isStatus = field === "status";
       const choices = isStatus ? labels : priorities;
       const value = isStatus ? task.status : (task.priority || "normal");
-      const unsafeStatus = isStatus && (task.recurrence_ended || task.status_rollup_incomplete ||
+      const unsafeStatus = isStatus && (task.recurrence_ended ||
+        (task.recurrence_active && task.recurrence_mode === "tracking") ||
+        task.status_rollup_incomplete ||
         task.step_order_incomplete || task.step_order_conflict || task.parent_missing ||
         task.parent_cycle);
       const disabled = !!(task.conflict || unsafeStatus);
@@ -3132,14 +3226,19 @@
       const trigger = element("button",
         (isStatus ? "status-pill " : "priority-pill ") +
           (task.conflict && isStatus ? "conflict" : value) + " task-quick-trigger",
-        isStatus && task.conflict ? "需要人工核查" : (choices[value] || "未知"));
+        isStatus && task.conflict ? "需要人工核查" :
+        isStatus && task.recurrence_active && task.recurrence_mode === "tracking"
+          ? (value === "done" ? "本期已处理" : "本期待处理")
+          : (choices[value] || "未知"));
       trigger.type = "button";
       trigger.disabled = disabled;
       trigger.setAttribute("aria-expanded", "false");
       trigger.setAttribute("aria-haspopup", "true");
       trigger.setAttribute("aria-label", "修改任务" + (isStatus ? "状态" : "优先级") + "：" + trigger.textContent);
       trigger.title = disabled
-        ? "存在冲突或联动数据不完整，请先在任务详情中核查"
+        ? (isStatus && task.recurrence_active && task.recurrence_mode === "tracking"
+          ? "请在任务详情中记录本次周期跟进"
+          : "存在冲突或联动数据不完整，请先在任务详情中核查")
         : isStatus && taskHasProgressDependents(task)
           ? "由下级进度自动计算；点击确认完成或重新打开"
           : "点击快速修改任务" + (isStatus ? "状态" : "优先级");
@@ -3200,7 +3299,7 @@
       main.append(title, id, copyFeedback);
       if (task.recurrence) {
         const recurrenceText = task.recurrence_ended ? "周期已彻底结束（可恢复）"
-          : "循环：每 " + task.recurrence.interval +
+          : (task.recurrence_mode === "tracking" ? "周期跟踪" : "周期执行") + "：每 " + task.recurrence.interval +
             ({daily:"天",weekly:"周",monthly:"月",yearly:"年"}[task.recurrence.unit] || "") +
             " · " + (task.recurrence_period_start || "尚未开始");
         main.append(element("small", "task-recurrence-note", recurrenceText));
@@ -3314,7 +3413,9 @@
       if (task.recurrence_active && field === "due_date")
         return task.recurrence_period_end || "";
       if (field === "follow_up_date")
-        return nearestTaskFollowUp(task)?.date || "";
+        return task.recurrence_active && task.recurrence_mode === "tracking"
+          ? (task.status === "done" ? "" : task.recurrence_period_start || "")
+          : nearestTaskFollowUp(task)?.date || "";
       return task[field] || "";
     }
 
@@ -3379,6 +3480,11 @@
       return !!step && !step.conflict && step.status !== "done" && !step.deleted_at;
     }
 
+    function handledTrackingParent(task) {
+      return !!(task.recurrence_active && task.recurrence_mode === "tracking" &&
+        task.status === "done" && !task.conflict && !task.trashed_at);
+    }
+
     // Steps have their own follow-up dates; do not confuse a supervisor with the assigned owner.
     function dayAgendaForTasks(tasks, selfOwner, dates) {
       const groups = {mine: [], followup: [], attention: []};
@@ -3392,23 +3498,25 @@
         groups[group].push({task, step, group, date, field});
       };
       for (const task of tasks) {
-        if (!isOpenTask(task) || task.trashed_at) continue;
+        if (task.conflict || task.trashed_at) continue;
+        const cycleHandled = handledTrackingParent(task);
+        if (!isOpenTask(task) && !cycleHandled) continue;
         const steps = (task.steps || []).filter(isOpenStep);
         if (selfOwner && task.owner === selfOwner) {
           const plannedSteps = steps.filter(step => due(step.planned_date));
           for (const step of plannedSteps) take("mine", task, step, "planned_date");
-          if (!plannedSteps.length && due(taskEffectiveDate(task, "planned_date")))
+          if (!plannedSteps.length && !cycleHandled && due(taskEffectiveDate(task, "planned_date")))
             take("mine", task, null, "planned_date");
         }
         if (selfOwner && task.owner && task.owner !== selfOwner) {
           const followSteps = steps.filter(step => due(step.follow_up_date));
           for (const step of followSteps) take("followup", task, step, "follow_up_date");
-          if (!followSteps.length && due(task.follow_up_date))
+          if (!followSteps.length && !cycleHandled && due(taskEffectiveDate(task,"follow_up_date")))
             take("followup", task, null, "follow_up_date");
         }
         const deadlineSteps = steps.filter(step => due(step.due_date));
         for (const step of deadlineSteps) take("attention", task, step, "due_date");
-        if (!deadlineSteps.length && due(taskEffectiveDate(task, "due_date")))
+        if (!deadlineSteps.length && !cycleHandled && due(taskEffectiveDate(task, "due_date")))
           take("attention", task, null, "due_date");
       }
       for (const items of Object.values(groups)) items.sort((a,b) =>
@@ -3463,14 +3571,20 @@
     }
 
     function matchesOverview(task, view, selfOwner, dates) {
+      if (view === "recurring") return !!task.recurrence;
       if (view === "all") return true;
       if (view === "risk") {
         return task.conflict || (task.status !== "done" &&
           (task.status === "blocked" || !!(taskEffectiveDate(task,"due_date") && taskEffectiveDate(task,"due_date") < dates.today)));
       }
-      if (!isOpenTask(task)) return false;
-      if (view === "due") return !!(taskEffectiveDate(task,"due_date") &&
-        taskEffectiveDate(task,"due_date") >= dates.today && taskEffectiveDate(task,"due_date") <= dates.sevenDays);
+      if (!isOpenTask(task) && !handledTrackingParent(task)) return false;
+      if (view === "due") {
+        if (handledTrackingParent(task)) return (task.steps || []).some(step =>
+          isOpenStep(step) && step.due_date && step.due_date >= dates.today &&
+          step.due_date <= dates.sevenDays);
+        return !!(taskEffectiveDate(task,"due_date") &&
+          taskEffectiveDate(task,"due_date") >= dates.today && taskEffectiveDate(task,"due_date") <= dates.sevenDays);
+      }
       if (!selfOwner) return false;
       if (["mine", "followup", "today"].includes(view)) {
         const agenda = dayAgendaForTasks([task], selfOwner, dates);
@@ -3800,7 +3914,7 @@
         localDayISO(currentPeriod) + " 起 42 天";
       if (activePage === "tasks") {
         const heading = {list: "全部任务", board: "状态看板", calendar: "任务日历", gantt: "甘特图"}[taskViewMode];
-        const viewHeading = {today:"今日处理", mine:"今日亲自处理",
+        const viewHeading = {recurring:"周期任务中心",today:"今日处理", mine:"今日亲自处理",
           followup:"跟进他人", due:"7 天内到期", risk:"风险事项"};
         $("tasks-page-title").textContent = viewHeading[overviewView] || heading;
         if (overviewView !== "all") $("topbar-context").textContent = $("tasks-page-title").textContent;
@@ -4073,12 +4187,32 @@
       host.replaceChildren(...cells);
     }
 
+    function renderRecurringCenter() {
+      const host = $("recurring-center");
+      const shown = activePage === "tasks" && overviewView === "recurring";
+      host.hidden = !shown;
+      $("include-recurring-label").hidden = shown || activePage !== "tasks" || overviewView !== "all";
+      if (!shown) {host.replaceChildren();return;}
+      const items = current.filter(t => !!t.recurrence && !t.trashed_at);
+      const due = items.filter(t => t.recurrence_active && t.recurrence_period_start && t.status !== "done").length;
+      const processed = items.filter(t => t.recurrence_active && t.status === "done").length;
+      const ended = items.filter(t => t.recurrence_ended).length;
+      const future = items.length - due - processed - ended;
+      const counts = element("div","recurring-center-counts");
+      for (const title of ["本期待处理："+due,"本期已处理："+processed,"尚未开始："+future,"已结束："+ended])
+        counts.append(element("span","",title));
+      host.replaceChildren(element("strong","","周期任务中心"),counts,
+        element("p","field-hint","重复执行与周期跟踪共用此处；本期跟进处理后自动等下期，任务编号和历史不变。"));
+    }
+
     function renderTaskList() {
       closeTaskQuickMenu();
       updateTaskViewControls();
       renderTaskColumnHeaders();
       const days = overviewDates();
+      renderRecurringCenter();
       const visible = current.filter(task =>
+        (overviewView !== "all" || $("include-recurring").checked || !task.recurrence) &&
         matchesOverview(task, overviewView, selectedSelfOwner, days) &&
         matchesQuery(task, appliedQuery) &&
         (taskViewMode !== "list" || matchesColumnFilters(task)));
@@ -4231,14 +4365,14 @@
         $("page-" + id).className = "workspace-page" + (id === page ? " is-active" : "");
       }
       for (const id of ["nav-overview", "nav-tasks", "nav-board", "nav-calendar", "nav-gantt",
-                        "nav-projects", "nav-trash", "nav-reviews", "nav-settings", "nav-worklog", "nav-today", "nav-followup", "nav-due", "nav-risk"]) {
+                        "nav-projects", "nav-trash", "nav-reviews", "nav-settings", "nav-worklog", "nav-recurring", "nav-today", "nav-followup", "nav-due", "nav-risk"]) {
         const button = $(id);
         button.className = "nav-item";
       }
       if (view) {
         overviewView = view;
         const navByView = {mine:"nav-today", today:"nav-today",
-                           followup:"nav-followup", due:"nav-due", risk:"nav-risk"};
+                           followup:"nav-followup", due:"nav-due", risk:"nav-risk", recurring:"nav-recurring"};
         if (navByView[view]) $(navByView[view]).className = "nav-item is-active";
         else $("nav-tasks").className = "nav-item is-active";
       } else {
@@ -5549,17 +5683,17 @@
                  ...(record.action_link_labels || []).map(link => link.label)]
                  .join(" ").toLocaleLowerCase()
       })).concat(workTaskCompletions.map(item => ({
-        kind: "completion", day: localActivityDay(item.occurred_at),
+        kind: item.tracking_note ? "tracking" : "completion", day: localActivityDay(item.occurred_at),
         timestamp: item.occurred_at, sourceId: item.source_event_id,
         projectId: item.project_id, item,
         search: [item.task_title, item.task_id].join(" ").toLocaleLowerCase()
       }))).filter(item => (!from || item.day >= from) && (!to || item.day <= to)
-        && (!project || (item.kind === "completion" ? item.projectId === project :
+        && (!project || (item.kind !== "record" ? item.projectId === project :
           recordBelongsTo(item.record,{type:"project",project_id:project})))
         && (!workFocusedStepId || (item.kind === "record" &&
           (item.record.action_links||[]).some(link => link.target_type === "step" && link.target_id === workFocusedStepId)))
         && (!keyword || item.search.includes(keyword))
-        && (!workFocusedTaskId || (item.kind === "completion" ? item.item.task_id === workFocusedTaskId
+        && (!workFocusedTaskId || (item.kind !== "record" ? item.item.task_id === workFocusedTaskId
           : item.record.task_id === workFocusedTaskId ||
             (item.record.action_links || []).some(link =>
               (link.target_type === "task" ? link.target_id : link.task_id) === workFocusedTaskId))));
@@ -5567,8 +5701,9 @@
         || (b.timestamp || "").localeCompare(a.timestamp || "")
         || a.sourceId.localeCompare(b.sourceId));
       const records = entries.filter(item => item.kind === "record").length;
-      const completions = entries.length - records;
-      $("work-record-count").textContent = records + " 条工作记录 · " + completions + " 次任务完成";
+      const completions = entries.filter(item => item.kind === "completion").length;
+      const reviews = entries.filter(item => item.kind === "tracking").length;
+      $("work-record-count").textContent = records + " 条工作记录 · " + completions + " 次任务完成 · " + reviews + " 次周期跟进";
       const container = $("work-record-list");
       container.replaceChildren();
       if (!entries.length) {
@@ -5580,7 +5715,8 @@
         const header = element("div", "work-entry-head");
         header.append(element("span", "work-entry-date", entry.day || "日期未知"));
         header.append(element("span", "work-entry-kind",
-          entry.kind === "record" ? workRecordTypeLabel(entry.record.record_type) : "已确认任务完成"));
+          entry.kind === "record" ? workRecordTypeLabel(entry.record.record_type) :
+            entry.kind === "tracking" ? "周期跟进" : "已确认任务完成"));
         row.append(header);
         if (entry.kind === "record") {
           const record = entry.record;
@@ -5647,9 +5783,12 @@
           row.append(footer);
         } else {
           const activity = entry.item;
-          row.append(element("p", "work-entry-content", activity.task_title));
+          row.append(element("p", "work-entry-content",
+            entry.kind === "tracking" ? activity.task_title + "： " + activity.tracking_note : activity.task_title));
           const meta = element("div", "work-entry-meta");
-          meta.append(element("span", "", "来自任务人工完成事件，不额外生成工作记录"));
+          meta.append(element("span", "", entry.kind === "tracking"
+            ? "本期跟进结果来自任务追加事件，不会将整个任务标记为完成"
+            : "来自任务人工完成事件，不额外生成工作记录"));
           if (activity.recurrence_period) meta.append(element("span", "", "周期：" + activity.recurrence_period));
           row.append(meta);
           const footer = element("div", "work-entry-footer");
@@ -7319,6 +7458,7 @@
       ["nav-overview", "overview", null],
       ["nav-worklog", "worklog", null],
       ["nav-tasks", "tasks", "all", "list"],
+      ["nav-recurring", "tasks", "recurring", "list"],
       ["nav-board", "tasks", "all", "board"],
       ["nav-calendar", "tasks", "all", "calendar"],
       ["nav-gantt", "tasks", "all", "gantt"],
@@ -7334,6 +7474,7 @@
     for (const [id, page, view, mode] of navBindings) {
       $(id).addEventListener("click", () => setActivePage(page, view, mode));
     }
+    $("include-recurring").addEventListener("change", () => renderTaskList());
     $("task-sort").addEventListener("change", () => renderTaskList());
     $("task-columns-clear").addEventListener("click", () => {
       if (isSaving || !confirmDiscardUnsaved()) return;

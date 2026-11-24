@@ -108,7 +108,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, loadTrash, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, editWorkSummary, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask, progressPanel, recordBelongsTo, objectDescriptionPanel, summaryRecordRecommended, workRecordTypeLabel, dayAgendaForTasks, overviewDates, nearestTaskFollowUp, nearestProjectFollowUp, taskEffectiveDate, followUpOrigin})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, loadTrash, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, editWorkSummary, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask, progressPanel, recordBelongsTo, objectDescriptionPanel, summaryRecordRecommended, workRecordTypeLabel, dayAgendaForTasks, overviewDates, nearestTaskFollowUp, nearestProjectFollowUp, taskEffectiveDate, followUpOrigin, recurrencePanel, renderRecurringCenter, matchesOverview})", {
       document, window, navigator, fetch, Date, localStorage, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes,
@@ -2902,3 +2902,90 @@ test("object descriptions save independently and inherited conversion descriptio
   assert.equal(h2.writes[0].body.task_id,"TASK-UI-V2-001");
 });
 
+
+test("recurring center separates normal tasks and keeps tracking history in one task", async () => {
+  const plain=sampleTask();
+  const tracked={...sampleTask(),task_id:"TASK-TRACK-001",
+    title:"虚构定期检查",status:"todo",revision:3,recurrence_mode:"tracking",
+    recurrence:{unit:"weekly",interval:1,start_date:"2026-11-01",enabled:true},
+    recurrence_active:true,recurrence_period_start:"2026-11-22",
+    recurrence_period_end:"2026-11-28",recurrence_log:[
+      {period:"2026-11-15",content:"此前已检查",timestamp:"2026-11-15T03:00:00Z"}],
+    steps:[{step_id:"STEP-TEST-001",title:"历史执行步骤",status:"todo"}]};
+  const h=harness([plain,tracked]);
+  await h.api.refresh(true);
+  assert.match(html,/id="nav-recurring"/);
+  assert.match(html,/id="recurring-center"/);
+  h.api.setActivePage("tasks","all","list");
+  assert.equal(h.el("query-result-count").textContent,"（1 / 2）");
+  h.api.setActivePage("tasks","recurring","list");
+  assert.equal(h.el("query-result-count").textContent,"（1 / 2）");
+  assert.equal(h.el("recurring-center").hidden,false);
+  assert.match(h.el("recurring-center").children[0].textContent,/周期任务中心/);
+  const detail=h.api.recurrencePanel(tracked);
+  const review=detail.children.find(x=>x.tag==="form" && x.className==="recurrence-review");
+  assert.ok(review);
+  review.children.find(x=>x.tag==="textarea").value="本周检查已完成，尚待进一步反馈";
+  await review.handlers.get("submit")[0]({preventDefault(){}});
+  assert.equal(h.writes[0].body.action,"review");
+  assert.equal(h.writes[0].body.revision,3);
+  assert.equal(h.writes[0].body.note,"本周检查已完成，尚待进一步反馈");
+  assert.equal(h.writes[0].body.confirmed,true);
+  assert.equal(tracked.steps[0].status,"todo","historical steps are never changed");
+});
+test("complex existing task offers tracking conversion, not execution reset", async () => {
+  const task={...sampleTask(),recurrence:null,steps:[
+    {step_id:"STEP-HISTORY",title:"原有未完成步骤",status:"doing"}]};
+  const h=harness([task]);
+  await h.api.refresh(true);
+  const panel=h.api.recurrencePanel(task);
+  const form=panel.children.find(x=>x.tag==="form" && x.className==="recurrence-fields");
+  const mode=form.children[0].children[0];
+  const save=form.children.at(-1);
+  assert.equal(save.disabled,true,"execution with subitems is blocked");
+  mode.value="tracking";
+  mode.handlers.get("change")[0]();
+  assert.equal(save.disabled,false);
+  await form.handlers.get("submit")[0]({preventDefault(){}});
+  assert.equal(h.writes[0].body.action,"configure");
+  assert.equal(h.writes[0].body.mode,"tracking");
+  assert.equal(h.writes[0].body.confirmed_subitems,true);
+  assert.equal(h.writes[0].body.recurrence.enabled,true);
+  assert.equal(task.steps[0].status,"doing");
+});
+
+test("handled tracking cycle keeps older unfinished steps visible but not the parent reminder", async () => {
+  const parent={...sampleTask(),task_id:"TASK-TRACK-PARENT",status:"done",revision:3,
+    recurrence_active:true,recurrence_mode:"tracking",recurrence_period_start:"2026-11-23",
+    recurrence_period_end:"2026-11-30",recurrence:{enabled:true},
+    steps:[{step_id:"STEP-TRACK-OPEN",title:"历史未完成检查步骤",status:"todo",
+      planned_date:"2026-11-23",follow_up_date:"2026-11-23",due_date:"2026-11-27"}]};
+  const h=harness([parent]);
+  await h.api.refresh(true);
+  const agenda=h.api.dayAgendaForTasks([parent],"演示负责人",
+    {today:"2026-11-24",sevenDays:"2026-12-01"});
+  assert.equal(agenda.mine.length,1,"unfinished step still needs attention");
+  assert.equal(agenda.mine[0].step.step_id,"STEP-TRACK-OPEN");
+  assert.equal(agenda.attention.length,0,"not-yet-due step not a past due item");
+  assert.equal(h.api.matchesOverview(parent,"due","",
+    {today:"2026-11-24",sevenDays:"2026-12-01"}),true,
+    "handled parent is still visible when an unfinished step has a near due date");
+  const due=h.api.dayAgendaForTasks([parent],"",
+    {today:"2026-11-28",sevenDays:"2026-12-05"});
+  assert.equal(due.attention.length,1);
+  assert.equal(due.attention[0].step.step_id,"STEP-TRACK-OPEN");
+});
+
+test("tracking status reads as this-period handled and cannot be quickly overwritten", async () => {
+  const task={...sampleTask(),status:"done",recurrence_active:true,recurrence_mode:"tracking"};
+  const h=harness([task]);
+  await h.api.refresh(true);
+  const card=h.api.taskSummaryRow(task);
+  const field=h.api.taskQuickField(task,"status");
+  assert.equal(field.children[0].textContent,"本期已处理");
+  assert.equal(field.children[0].disabled,true);
+  assert.equal(card.className,"task-summary");
+  const draft=h.api.recurrencePanel(task);
+  assert.ok(draft,"recurring detail retains the explicit review control");
+  assert.equal(h.writes.length,0);
+});
