@@ -290,6 +290,19 @@ class RecurrenceServerTests(unittest.TestCase):
                                                        app.read_workspace(self.data_dir))
         self.assertEqual(len(activities), 1)
         self.assertEqual(activities[0]["tracking_note"], handled["recurrence_log"][0]["content"])
+        day = date.today().isoformat()
+        preview = app.preview_work_review(self.data_dir, app.read_workspace(self.data_dir),
+                                          "daily", day, None)
+        self.assertEqual(preview["tracking_count"], 1)
+        self.assertEqual(preview["completion_count"], 0)
+        self.assertIn("周期跟进记录", preview["body"])
+        self.assertIn("供应商确认仍在处理", preview["body"])
+        self.assertIn("无已确认完成事件", preview["body"])
+        handoff = app.work_analysis_context(self.data_dir,
+                                            app.read_workspace(self.data_dir),
+                                            "daily", day, None)
+        self.assertIn("periodic_followups", handoff["prompt"])
+        self.assertEqual(handoff["completion_count"], 0)
         self.assertEqual(self.post(path + "/recurrence", {
             "action": "review", "revision": handled["revision"], "confirmed": True,
             "note": "不应重复"})[0], 409)
@@ -329,10 +342,12 @@ class RecurrenceServerTests(unittest.TestCase):
         self.assertEqual(next(t for t in tasks if t["task_id"] == TASK_ID)["status"], "done")
         self.assertEqual(next(t for t in tasks if t["task_id"] == child["task_id"])["status"], "todo")
         self.assertEqual(self.post(path + "/recurrence", {
-            "action": "end", "revision": 3, "confirmed": True})[0], 200)
+            "action": "end", "revision": 3, "confirmed": True})[0], 409,
+            "unfinished children must not be silently treated as completed")
         self.assertEqual(self.post(path + "/recurrence", {
-            "action": "resume", "revision": 4, "confirmed": True})[0], 200)
-        self.assertEqual(self.task()["status"], "todo")
+            "action": "exit", "revision": 3, "confirmed": True})[0], 200)
+        self.assertIsNone(next(t for t in app.read_workspace(self.data_dir)["tasks"]
+                               if t["task_id"] == TASK_ID)["recurrence"])
 
     def test_tracking_event_schema_rejects_unconfirmed_or_inconsistent_notes(self):
         for changes, actor, done in [
