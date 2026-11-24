@@ -7650,9 +7650,16 @@
     loadUpdateStatus();
 
     $("refresh").addEventListener("click", () => { refresh(true, true); if (activePage === "trash") loadTrash(); });
-    // Load machine preference before the first task refresh; changes of browser
-    // storage, address or a full service restart must not reset the saved owner.
-    loadDefaultSelfOwner().then(() => refresh(true).then(() => loadWorkRecords()));
+    // Start the first task refresh immediately (draft protection depends on it).
+    // Load the per-machine preference independently and update the existing view
+    // when ready; never trigger a second async startup refresh that can hide drafts.
+    loadDefaultSelfOwner().then(() => {
+      if (current.length || currentProjects.length) {
+        refreshOverviewControls();
+        renderTaskList();
+      }
+    });
+    refresh(true).then(() => loadWorkRecords());
     setInterval(() => refresh(false), 5000);
   </script>
 </body>
