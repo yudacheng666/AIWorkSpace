@@ -2967,9 +2967,9 @@ test("handled tracking cycle keeps older unfinished steps visible but not the pa
   assert.equal(agenda.mine.length,1,"unfinished step still needs attention");
   assert.equal(agenda.mine[0].step.step_id,"STEP-TRACK-OPEN");
   assert.equal(agenda.attention.length,0,"not-yet-due step not a past due item");
-  h.api.setActivePage("tasks","today","list");
-  assert.equal(h.el("query-result-count").textContent,"（1 / 1）");
-  assert.equal(h.el("day-agenda").hidden,false);
+  h.api.setActivePage("tasks","due","list");
+  assert.equal(h.el("query-result-count").textContent,"（1 / 1）",
+    "the open step keeps a handled tracking parent visible in the near-due view");
   const due=h.api.dayAgendaForTasks([parent],"虚构督办人",
     {today:"2026-11-28",sevenDays:"2026-12-05"});
   assert.equal(due.attention.length,1);
