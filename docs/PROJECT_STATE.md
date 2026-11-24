@@ -1,11 +1,12 @@
-# 2026-11-24｜系统设置对齐与默认本人重启持久化（开发候选）
+# 2026-11-24｜系统设置对齐与默认本人重启持久化（已合并 main）
 
 - **用户反馈**：系统设置右侧“本人”选择框与两个按钮参差不齐、风格不统一；重新启动工作台后“默认本人”丢失。截图显示本机仍为 **v2.11.0**（build eb33a51），与当前 GitHub main **VERSION 2.12.0**不同，不能将仓库功能直接说成已经在本机生效。
 - **开发基线**：main `eba4499c1df95620c895fcda23f452be8b47acb0`，最初开放 PR 0。候选分支 `fix/20261124-settings-default-self`；不使用 Work，不修改真实 Google Drive 数据，也不自动合并或部署。
 - **根因与修复**：旧代码只在浏览器 `localStorage` 保存默认本人，未设计跨浏览器/源站的本机持久化。新增仅电脑本地配置的 GET/POST、安全原子写、非法输入拒绝及旧浏览器偏好一次性迁移；清除后不可被旧缓存复活。对应界面控制组统高 36px、主次按钮统一边框/字体/圆角并底部对齐。
 - **测试最终结果 PASS**：准确产品／测试 HEAD `1a16307be088b177fd1be6fce1d3b2bd20152c6c`，PR [#64](https://github.com/yudacheng666/AIWorkSpace/pull/64)，[GitHub Actions #45364823707](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45364823707) **3/3 SUCCESS**（Ubuntu Python+Node、Windows Python+Node、Windows 真实 Chromium UI / 软件更新及回滚）。专项覆盖 HTTP 配置读写、单机服务重启、JSON 不合法或被破坏拒绝覆盖、跨域写入拒绝、原始 Drive 业务事件字节不变、无浏览器 localStorage 的新会话恢复、浏览器缓存一次性迁移及清空防复活；Windows Chromium 验证三控件底边和高度误差小于 2px。
 - **测试故障闭环**：最初 SHA `bfd42593c46fa016fb4e371139ea5fab67099e0c` 的 [CI #45364437533](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45364437533) Windows Chromium PASS，但 Ubuntu/Windows Node UI 回归因启动异步偏好读取触发第二次任务刷新，造成“未保存草稿”及刷新状态测试竞态失败。已恢复立即执行首次任务刷新，让偏好异步读取只更新现有界面，不再触发额外刷新；最终精确 SHA 的 #45364823707 3/3 PASS。
-- **剩余边界**：当前只在 Draft PR 候选分支，`main` 仍为 `eba4499c1df95620c895fcda23f452be8b47acb0` / VERSION 2.12.0；用户截图本机仍为 v2.11.0。未得到本次合并／本机安装授权，没有直接修改用户 Windows 工作台、真实 Chrome/Edge 配置或任何 Google Drive 数据；公司实机跨服务重启、真实双机同步仍 NOT TESTED。
+- **授权与合并**：用户明确要求合并最新 PR，已核查全部开放 PR（仅 #64），候选 HEAD `b2c87114df917f8f8bad0a6083011342957d3c29` 相对已测 SHA 仅改本项目状态 Markdown，无需重复 CI；基于最新 main、无冲突，转 Ready 后以普通 merge 合入。合并 SHA `a530cbd7115833114585ec96d6cd7e6ee49a0569`，GitHub 已复核 PR merged、开放 PR 0，VERSION 仍为 2.12.0。合并后 main CI 尚未核实，不冒充 PASS。
+- **剩余边界**：用户截图本机仍为 v2.11.0；本次未直接修改用户 Windows 工作台、真实 Chrome/Edge 配置或任何 Google Drive 数据。公司实机跨服务重启、真实双机同步仍 NOT TESTED；升级前备份并统一升级共享目录的设备，更新后在每台电脑设置默认本人。
 
 ---
 
