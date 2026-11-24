@@ -951,7 +951,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page = self._open_browser()
         panel = page.locator(".recurrence-panel")
         expect(panel).to_contain_text("周期性任务")
-        panel.locator("select").select_option("daily")
+        panel.locator(".recurrence-fields select").nth(1).select_option("daily")
         panel.locator('input[type="number"]').fill("1")
         panel.locator('input[type="date"]').fill(date.today().isoformat())
         page.once("dialog", lambda dialog: dialog.accept())
