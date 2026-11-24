@@ -4737,11 +4737,60 @@ def read_tailnet_origin(root: Path) -> str | None:
     return validate_tailnet_origin(config["tailscale_origin"])
 
 
+
+def local_preference_path() -> Path:
+    """Per-computer settings, outside the synced Drive workspace and source tree."""
+    root = os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_CONFIG_HOME")
+    return (Path(root).expanduser() if root else Path.home() / ".config") / "AIWorkSpace" / "preferences.json"
+
+
+def read_local_preferences(path: Path) -> dict:
+    """Do not silently reset an unreadable/corrupt local preference file."""
+    if not path.exists():
+        return {"configured": False, "default_self_owner": None}
+    if not path.is_file() or path.stat().st_size > 4096:
+        raise ValueError("local preference file invalid")
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise ValueError("local preference file unreadable") from exc
+    if (not isinstance(raw, dict) or set(raw) != {"default_self_owner"} or
+            (raw["default_self_owner"] is not None and
+             (not isinstance(raw["default_self_owner"], str) or
+              not 1 <= len(raw["default_self_owner"]) <= 100 or
+              raw["default_self_owner"] != raw["default_self_owner"].strip()))):
+        raise ValueError("local preference file invalid")
+    return {"configured": True, "default_self_owner": raw["default_self_owner"]}
+
+
+def save_local_preferences(path: Path, owner: str | None) -> None:
+    """Atomic per-device write; never append task, step, or Drive events."""
+    if owner is not None and (not isinstance(owner, str) or
+                              not 1 <= len(owner) <= 100 or owner != owner.strip()):
+        raise ValueError("invalid default self owner")
+    read_local_preferences(path)  # Refuse to overwrite unexpected local state.
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with temporary.open("w", encoding="utf-8", newline="\n") as handle:
+            json.dump({"default_self_owner": owner}, handle, ensure_ascii=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
+
 def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
-                    control_token: str | None = None):
+                    control_token: str | None = None,
+                    preferences_path: Path | None = None):
     if tailscale_origin is not None:
         validate_tailnet_origin(tailscale_origin)
     tailscale_host = tailscale_origin.removeprefix("https://") if tailscale_origin else None
+    preferences_path = preferences_path if preferences_path is not None else local_preference_path()
 
     class Handler(BaseHTTPRequestHandler):
         def allowed_hosts(self) -> set[str]:
@@ -4814,6 +4863,13 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
             path = urlsplit(self.path).path
             if path == "/api/health":
                 return self.json_response(200, {"service": "AIWorkSpace", "status": "ok"})
+            if path == "/api/local-preferences":
+                try:
+                    with _write_lock:
+                        state = read_local_preferences(preferences_path)
+                    return self.json_response(200, state)
+                except (OSError, ValueError) as exc:
+                    return self.json_response(500, {"error": "cannot read local preferences: " + str(exc)})
             if path == "/api/tasks":
                 with _write_lock:
                     expire_trashed_tasks(data_dir)
@@ -4923,6 +4979,27 @@ def handler_factory(data_dir: Path, tailscale_origin: str | None = None,
 
         def do_POST(self):
             path = unquote(urlsplit(self.path).path)
+            if path == "/api/local-preferences":
+                if not self.local_request_allowed():
+                    return self.json_response(403, {"error": "local requests only"})
+                try:
+                    payload = self.read_payload()
+                    if set(payload) != {"default_self_owner"}:
+                        raise ValueError("only default_self_owner is supported")
+                    owner = payload["default_self_owner"]
+                    if owner is not None and (not isinstance(owner, str) or
+                                              not 1 <= len(owner) <= 100 or owner != owner.strip()):
+                        raise ValueError("invalid default self owner")
+                    with _write_lock:
+                        prior = read_local_preferences(preferences_path)
+                        if prior["configured"] and prior["default_self_owner"] == owner:
+                            return self.json_response(200, {"saved": False, "default_self_owner": owner})
+                        save_local_preferences(preferences_path, owner)
+                    return self.json_response(200, {"saved": True, "default_self_owner": owner})
+                except (ValueError, TypeError, UnicodeError, json.JSONDecodeError) as exc:
+                    return self.json_response(400, {"error": str(exc)})
+                except OSError:
+                    return self.json_response(500, {"error": "unable to save local preferences"})
             if path == "/api/local/shutdown":
                 if not self.local_request_allowed():
                     return self.json_response(403, {"error": "local requests only"})

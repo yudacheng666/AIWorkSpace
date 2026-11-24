@@ -75,9 +75,19 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     if (options?.method === "POST") {
       const body = JSON.parse(options.body);
       writes.push({path, body});
+      if (path === "/api/local-preferences") {
+        if (work.preferences_blocked) return {ok:false,status:500,
+          json:async()=>({error:"local preferences unavailable"})};
+        work.machine_preferences = {configured:true,default_self_owner:body.default_self_owner};
+        return {ok:true,json:async()=>({saved:true,default_self_owner:body.default_self_owner})};
+      }
       if (onPost) return onPost(path, body);
       return {ok: true, json: async () => ({saved: true, task_id: "TASK-MOCK"})};
     }
+    if (path === "/api/local-preferences") return work.preferences_blocked
+      ? {ok:false,status:500,json:async()=>({error:"local preferences unavailable"})}
+      : {ok:true,json:async()=>work.machine_preferences ||
+          {configured:false,default_self_owner:null}};
     if (path === "/api/update/status") {
       return {ok: true, json: async () => ({version: "1.0.0", build_short: "abcdef0"})};
     }
@@ -108,7 +118,7 @@ function harness(tasks = [], confirm = () => true, projects = [], reviews = [], 
     assert.equal(path, "/api/tasks");
     return {ok: true, json: async () => ({tasks, projects, warnings: []})};
   };
-  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, loadTrash, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, editWorkSummary, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask, progressPanel, recordBelongsTo, objectDescriptionPanel, summaryRecordRecommended, workRecordTypeLabel, dayAgendaForTasks, overviewDates, nearestTaskFollowUp, nearestProjectFollowUp, taskEffectiveDate, followUpOrigin, recurrencePanel, renderRecurringCenter, matchesOverview})", {
+  const api = vm.runInNewContext(scriptMatch[1] + "\n;({setActivePage, openTaskDetail, closeTaskDetail, refresh, loadTrash, renderTaskList, setTaskView, moveTaskPeriod, resetTaskPeriod, isoDayParts, projectCounts, openProjectTasks, matchesQuery, stepRow, taskToStepPanel, documentPanel, legacyDocumentPanel, taskSummaryRow, taskQuickField, updateTaskQuickField, renderCalendarView, renderGanttView, scheduleItems, renderNotificationList, loadNotifications, notificationIdFor, notificationRecommendation, loadWorkRecords, renderWorkRecords, editWorkRecord, saveWorkRecord, workFormSnapshot, loadWorkArchive, saveWorkInbox, renderWorkInbox, generateWorkSummary, saveWorkSummary, workSummarySnapshot, editWorkSummary, renderWorkOutcomes, populateWorkLinkTargets, populateWorkActionSources, copyActionAnalysisPrompt, previewWorkActions, applyWorkAction, resetWorkActionForm, workActionSnapshot, taskConvertSnapshot, populateTaskRecordSources, convertibleStandaloneTask, progressPanel, recordBelongsTo, objectDescriptionPanel, summaryRecordRecommended, workRecordTypeLabel, dayAgendaForTasks, overviewDates, nearestTaskFollowUp, nearestProjectFollowUp, taskEffectiveDate, followUpOrigin, recurrencePanel, renderRecurringCenter, matchesOverview, loadDefaultSelfOwner})", {
       document, window, navigator, fetch, Date, localStorage, setInterval() {}
     }, {timeout: 2500});
   return {api, document, copied, writes,
@@ -268,44 +278,85 @@ test("step-level daily agenda prioritizes precise steps, de-duplicates parent an
   assert.equal(followSections[0].children.length,2,"follow-up displays one precise step rather than the parent");
 });
 
-test("default self preference persists locally, can be cleared, and fails safely on blocked storage", async () => {
-  const tasks = [{...sampleTask(),task_id:"TASK-SELF",owner:"演示本人",planned_date:"2020-01-01"},
+test("machine-local default self persists across new browsers and explicit clear, without business events", async () => {
+  const tasks=[{...sampleTask(),task_id:"TASK-SELF",owner:"演示本人",planned_date:"2020-01-01"},
     {...sampleTask(),task_id:"TASK-OTHER",owner:"演示同事",follow_up_date:"2020-01-01"}];
-  const values = new Map();
-  const storage = {getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value),
-    removeItem:key=>values.delete(key)};
-  const h=harness(tasks,()=>true,[],[],null,{},storage);
+  const work={};
+  const h=harness(tasks,()=>true,[],[],null,work,null);
+  await h.api.loadDefaultSelfOwner();
   await h.api.refresh(true);
   assert.equal(h.el("nav-today").disabled,true);
   h.api.setActivePage("settings");
   h.el("default-self-owner").value="演示本人";
-  h.el("default-self-save").handlers.get("click")[0]();
-  assert.equal(values.get("aiworkspace.defaultSelfOwner.v1"),"演示本人");
+  await h.el("default-self-save").handlers.get("click")[0]();
+  assert.equal(work.machine_preferences.default_self_owner,"演示本人");
   assert.equal(h.el("overview-owner").value,"演示本人");
   assert.equal(h.el("nav-today").disabled,false);
-  assert.equal(h.writes.length,0);
-  // Recreating the page is equivalent to browser reload with the same localStorage.
-  const reopened=harness(tasks,()=>true,[],[],null,{},storage);
+  assert.equal(h.writes.filter(x=>x.path.startsWith("/api/tasks")).length,0);
+  // A freshly opened browser has no shared localStorage; the machine config restores the choice.
+  const reopened=harness(tasks,()=>true,[],[],null,work,null);
+  await reopened.api.loadDefaultSelfOwner();
   await reopened.api.refresh(true);
   assert.equal(reopened.el("overview-owner").value,"演示本人");
   reopened.el("overview-owner").value="演示同事";
   reopened.el("overview-owner").handlers.get("change")[0]();
-  assert.equal(values.get("aiworkspace.defaultSelfOwner.v1"),"演示本人",
-    "temporary owner selection must never overwrite the saved default");
-  reopened.el("default-self-clear").handlers.get("click")[0]();
-  assert.equal(values.has("aiworkspace.defaultSelfOwner.v1"),false);
-  const cleared=harness(tasks,()=>true,[],[],null,{},storage);
+  assert.equal(work.machine_preferences.default_self_owner,"演示本人",
+    "temporary owner switching must not change the saved setting");
+  await reopened.el("default-self-clear").handlers.get("click")[0]();
+  assert.equal(work.machine_preferences.default_self_owner,null);
+  const cleared=harness(tasks,()=>true,[],[],null,work,null);
+  await cleared.api.loadDefaultSelfOwner();
   await cleared.api.refresh(true);
-  assert.equal(cleared.el("nav-today").disabled,true);
-  const failing={getItem:()=>null,setItem:()=>{throw new Error("denied");},
-    removeItem:()=>{throw new Error("denied");}};
-  const denied=harness(tasks,()=>true,[],[],null,{},failing);
+  assert.equal(cleared.el("nav-today").disabled,true,
+    "explicit server-side clear prevents stale browser defaults from returning");
+  // Browser localStorage blocked: persistent computer setting still works.
+  const failingStorage={getItem:()=>null,setItem:()=>{throw Error("denied");},
+    removeItem:()=>{throw Error("denied");}};
+  const storageDeniedWork={};
+  const storageDenied=harness(tasks,()=>true,[],[],null,storageDeniedWork,failingStorage);
+  await storageDenied.api.loadDefaultSelfOwner();
+  await storageDenied.api.refresh(true);
+  storageDenied.el("default-self-owner").value="演示本人";
+  await storageDenied.el("default-self-save").handlers.get("click")[0]();
+  assert.equal(storageDeniedWork.machine_preferences.default_self_owner,"演示本人");
+  // Server write failure: no success claim, no change to prior persisted setting.
+  const blockedWork={preferences_blocked:true};
+  const denied=harness(tasks,()=>true,[],[],null,blockedWork,null);
+  await denied.api.loadDefaultSelfOwner();
   await denied.api.refresh(true);
   denied.el("default-self-owner").value="演示本人";
-  denied.el("default-self-save").handlers.get("click")[0]();
-  assert.match(denied.el("default-self-message").textContent,/无法保存/);
+  await denied.el("default-self-save").handlers.get("click")[0]();
+  assert.match(denied.el("default-self-message").textContent,/保存本机默认本人失败/);
+  assert.equal(blockedWork.machine_preferences,undefined);
   assert.equal(denied.el("nav-today").disabled,true);
-  assert.equal(denied.writes.length,0);
+});
+
+test("browser legacy default migrates once but explicit cleared machine preference wins", async () => {
+  const tasks=[{...sampleTask(),owner:"虚构本人"}],values=new Map();
+  const storage={getItem:key=>values.get(key)||null,
+    setItem:(key,value)=>values.set(key,value),
+    removeItem:key=>values.delete(key)};
+  values.set("aiworkspace.defaultSelfOwner.v1","虚构本人");
+  const work={};
+  const first=harness(tasks,()=>true,[],[],null,work,storage);
+  await first.api.loadDefaultSelfOwner();
+  await first.api.refresh(true);
+  assert.equal(work.machine_preferences.default_self_owner,"虚构本人");
+  assert.equal(first.el("overview-owner").value,"虚构本人");
+  await first.el("default-self-clear").handlers.get("click")[0]();
+  values.set("aiworkspace.defaultSelfOwner.v1","虚构本人"); // stale browser cache
+  const again=harness(tasks,()=>true,[],[],null,work,storage);
+  await again.api.loadDefaultSelfOwner();
+  await again.api.refresh(true);
+  assert.equal(again.el("overview-owner").value,"");
+  assert.equal(work.machine_preferences.default_self_owner,null);
+});
+
+test("default self settings controls use one aligned design system", () => {
+  assert.match(html,/\.user-preference-actions\s*\{\s*display:grid;/);
+  assert.match(html,/\.user-preference-actions button\s*\{[^}]*height:36px/s);
+  assert.match(html,/\.user-preference-panel \.user-preference-actions select\s*\{[^}]*height:36px/s);
+  assert.match(html,/\.user-preference-actions \.save\s*\{[^}]*background:var\(--blue\)/s);
 });
 
 test("last refresh status lives in the sidebar footer, outside the task toolbar", async () => {

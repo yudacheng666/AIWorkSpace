@@ -57,6 +57,96 @@ def step_order_event(event_id="step-order-001", task_id="TASK-DEMO-001",
 
 
 
+
+class LocalPreferencesTests(unittest.TestCase):
+    """Per-computer preference survives local service restart and never writes Drive events."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.data_dir = Path(self.temp.name) / "drive-data"
+        self.data_dir.mkdir()
+        self.pref_path = Path(self.temp.name) / "machine-config" / "preferences.json"
+        append_event(self.data_dir, event(
+            "local-preference-create-001", changes={
+                "title": "虚构日常任务", "status": "todo", "owner": "演示本人"}))
+        self.original = {p.name: p.read_bytes() for p in
+                         (self.data_dir / "events").glob("*.json")}
+        self.start_server()
+
+    def start_server(self):
+        self.server = ThreadingHTTPServer(
+            ("127.0.0.1", 0), handler_factory(
+                self.data_dir, preferences_path=self.pref_path))
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base = f"http://127.0.0.1:{self.server.server_port}"
+
+    def stop_server(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=3)
+
+    def tearDown(self):
+        self.stop_server()
+        self.temp.cleanup()
+
+    def request_json(self, method="GET", payload=None, origin=None):
+        headers = {"Content-Type": "application/json"}
+        if origin:
+            headers["Origin"] = origin
+        request = Request(self.base + "/api/local-preferences",
+                          data=json.dumps(payload).encode("utf-8") if payload is not None else None,
+                          headers=headers, method=method)
+        try:
+            with urlopen(request, timeout=4) as response:
+                return response.status, json.load(response)
+        except HTTPError as exc:
+            return exc.code, json.load(exc)
+
+    def test_save_restart_new_browser_and_clear_without_drive_writes(self):
+        self.assertEqual(self.request_json(), (200, {
+            "configured": False, "default_self_owner": None}))
+        code, result = self.request_json("POST", {"default_self_owner": "演示本人"})
+        self.assertEqual(code, 200)
+        self.assertTrue(result["saved"])
+        self.assertEqual(json.loads(self.pref_path.read_text("utf-8")),
+                         {"default_self_owner": "演示本人"})
+        self.assertFalse((self.data_dir / "preferences.json").exists())
+        self.stop_server()
+        self.start_server()  # New service; client need not retain any browser storage.
+        self.assertEqual(self.request_json(), (200, {
+            "configured": True, "default_self_owner": "演示本人"}))
+        code, result = self.request_json("POST", {"default_self_owner": "演示本人"})
+        self.assertEqual((code, result["saved"]), (200, False))
+        code, result = self.request_json("POST", {"default_self_owner": None})
+        self.assertEqual((code, result["saved"]), (200, True))
+        self.stop_server()
+        self.start_server()
+        self.assertEqual(self.request_json(), (200, {
+            "configured": True, "default_self_owner": None}))
+        self.assertEqual({p.name: p.read_bytes() for p in
+                          (self.data_dir / "events").glob("*.json")}, self.original)
+
+    def test_malformed_and_cross_origin_requests_do_not_overwrite_preferences(self):
+        for invalid in ({}, {"default_self_owner": ""}, {"default_self_owner": " "},
+                        {"default_self_owner": 1}, {"default_self_owner": True},
+                        {"default_self_owner": "a" * 101},
+                        {"default_self_owner": "演示本人", "extra": "bad"}):
+            with self.subTest(invalid=invalid):
+                self.assertEqual(self.request_json("POST", invalid)[0], 400)
+                self.assertFalse(self.pref_path.exists())
+        self.assertEqual(self.request_json("POST", {"default_self_owner": "演示本人"},
+                                           "https://cross-site.example")[0], 403)
+        self.assertFalse(self.pref_path.exists())
+        self.pref_path.parent.mkdir(parents=True)
+        self.pref_path.write_text('{"unexpected":"schema"}', encoding="utf-8")
+        original = self.pref_path.read_bytes()
+        self.assertEqual(self.request_json()[0], 500)
+        self.assertNotEqual(self.request_json("POST", {"default_self_owner": "演示本人"})[0], 200)
+        self.assertEqual(self.pref_path.read_bytes(), original)
+
+
+
 class TailnetAccessTests(unittest.TestCase):
     """Loopback-only app with a strictly opt-in Tailscale Serve HTTPS proxy."""
 

@@ -851,10 +851,34 @@
     .day-agenda-item strong { font-size:12px; overflow-wrap:anywhere; }
     .day-agenda-item small { font-size:11px; line-height:1.6; color:#708197; overflow-wrap:anywhere; }
     .day-agenda-empty { margin:0; padding:8px 0; font-size:12px; color:#7c8797; }
-    .user-preference-panel label { font-size:12px; color:#4b5e77; }
-    .user-preference-panel select { min-width:170px; margin-left:7px; }
-    .user-preference-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-    .user-preference-message { width:100%; margin:5px 0 0; font-size:11px; color:#58708a; }
+    /* A consistent 36px control baseline: select and both actions form one row. */
+    .user-preference-actions { display:grid; grid-template-columns:minmax(170px,190px) auto auto;
+      align-items:end; column-gap:8px; row-gap:7px; }
+    .user-preference-panel .user-preference-actions label { display:flex; flex-direction:column;
+      min-width:0; gap:5px; margin:0; font-size:12px; color:#4b5e77; }
+    .user-preference-panel .user-preference-actions select { box-sizing:border-box; width:100%;
+      min-width:0; height:36px; margin:0; padding:0 9px; border:1px solid #dce4ee;
+      border-radius:7px; background:#fff; color:#405771; font:inherit; font-size:12px; }
+    .user-preference-actions button { box-sizing:border-box; display:inline-flex;
+      align-items:center; justify-content:center; min-width:95px; height:36px; min-height:36px;
+      margin:0; padding:0 12px; border:1px solid #dce4ee; border-radius:7px;
+      background:#fff; color:#405771; font-size:12px; font-weight:600; white-space:nowrap; }
+    .user-preference-actions button:hover:not(:disabled) { border-color:#aac3e7; background:#f4f8ff; }
+    .user-preference-actions .save { border:1px solid var(--blue); background:var(--blue); color:#fff; }
+    .user-preference-actions .save:hover:not(:disabled) { background:#1f55c0; border-color:#1f55c0; }
+    .user-preference-actions button:disabled { opacity:.5; cursor:not-allowed; }
+    .user-preference-actions button:focus-visible,
+    .user-preference-actions select:focus-visible { outline:2px solid #8db6f6; outline-offset:2px; }
+    .user-preference-message { grid-column:1 / -1; margin:0; min-height:14px;
+      font-size:11px; line-height:1.5; color:#58708a; overflow-wrap:anywhere; }
+    @media (max-width:650px) {
+      .user-preference-actions { width:100%; grid-template-columns:minmax(0,1fr) auto auto; }
+    }
+    @media (max-width:440px) {
+      .user-preference-actions { grid-template-columns:1fr 1fr; }
+      .user-preference-actions label { grid-column:1 / -1; }
+      .user-preference-actions button { width:100%; }
+    }
 </style>
 </head>
 <body>
@@ -915,7 +939,7 @@
     <section class="update-panel user-preference-panel" aria-labelledby="default-self-heading">
       <div class="update-copy">
         <div class="update-title-row"><strong class="update-title" id="default-self-heading">默认本人</strong></div>
-        <p class="update-message">从已有任务负责人中选择自己。仅存当前浏览器，不修改任务数据，也不通过 Google Drive 跨设备同步。</p>
+        <p class="update-message">从已有任务负责人中选择自己。保存在运行工作台的电脑本地，重启仍有效；不修改任务数据，也不通过 Google Drive 跨设备同步。</p>
       </div>
       <div class="user-preference-actions">
         <label for="default-self-owner">本人<select id="default-self-owner" aria-label="默认本人"><option value="">请选择</option></select></label>
@@ -1493,15 +1517,56 @@
     let currentProjects = [];
     let createDraftRevision = 0;
     let overviewView = "all";
-    const defaultSelfOwnerStorageKey = "aiworkspace.defaultSelfOwner.v1";
-    function readDefaultSelfOwner() {
+    const defaultSelfOwnerStorageKey = "aiworkspace.defaultSelfOwner.v1"; // Legacy migration only.
+    function readLegacyDefaultSelfOwner() {
       try {
         const value = globalThis.localStorage?.getItem(defaultSelfOwnerStorageKey);
         return typeof value === "string" && value.length <= 100 ? value : "";
       } catch (_) { return ""; }
     }
-    let defaultSelfOwner = readDefaultSelfOwner();
-    let selectedSelfOwner = defaultSelfOwner;
+    let defaultSelfOwner = "";
+    let selectedSelfOwner = "";
+    let defaultSelfBusy = false;
+    async function writeDefaultSelfOwner(owner) {
+      const response = await fetch("/api/local-preferences", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({default_self_owner:owner})
+      });
+      const result = await response.json();
+      if (!response.ok || result.default_self_owner !== owner)
+        throw new Error(result.error || "本机偏好保存未确认");
+      try {
+        if (owner) globalThis.localStorage?.setItem(defaultSelfOwnerStorageKey, owner);
+        else globalThis.localStorage?.removeItem(defaultSelfOwnerStorageKey);
+      } catch (_) { /* Browser storage is a legacy cache, not the source of truth. */ }
+      return result;
+    }
+    async function loadDefaultSelfOwner() {
+      try {
+        const response = await fetch("/api/local-preferences", {cache:"no-store"});
+        const result = await response.json();
+        if (!response.ok || typeof result.configured !== "boolean" ||
+            (result.default_self_owner !== null && typeof result.default_self_owner !== "string"))
+          throw new Error(result.error || "本机偏好读取失败");
+        let owner = result.default_self_owner || "";
+        if (!result.configured) {
+          const legacy = readLegacyDefaultSelfOwner();
+          if (legacy) {
+            // Migrate only when no per-computer preference was ever saved.
+            await writeDefaultSelfOwner(legacy);
+            owner = legacy;
+          }
+        }
+        defaultSelfOwner = owner;
+        selectedSelfOwner = owner;
+      } catch (_) {
+        // Do not overwrite an unreadable server file or claim persistence.
+        defaultSelfOwner = readLegacyDefaultSelfOwner();
+        selectedSelfOwner = defaultSelfOwner;
+        $("default-self-message").textContent =
+          "本机默认本人读取失败，可能仅显示旧浏览器记录；请检查电脑本地设置后重试。";
+      }
+    }
     let activeDetailTaskId = "";
     let activePage = "overview";
     let notificationItems = [];
@@ -3638,8 +3703,8 @@
         [["", "请选择"], ...owners.map(owner => [owner, owner])],
         owners.includes(candidate) ? candidate :
         (owners.includes(defaultSelfOwner) ? defaultSelfOwner : ""));
-      $("default-self-save").disabled = !owners.length;
-      $("default-self-clear").disabled = !defaultSelfOwner;
+      $("default-self-save").disabled = defaultSelfBusy || !owners.length;
+      $("default-self-clear").disabled = defaultSelfBusy || !defaultSelfOwner;
       if (!selectedSelfOwner && ["mine", "followup", "today"].includes(overviewView))
         overviewView = "all";
       const projectIds = new Set(currentProjects.map(project => project.project_id));
@@ -5320,34 +5385,49 @@
       refreshOverviewControls();
       renderTaskList();
     });
-    $("default-self-save").addEventListener("click", () => {
+    $("default-self-save").addEventListener("click", async () => {
+      if (defaultSelfBusy || isSaving) return;
       const chosen = $("default-self-owner").value;
       if (!chosen || !current.some(task => task.owner === chosen)) {
         $("default-self-message").textContent = "请从已有任务负责人中选择本人。";
         return;
       }
+      defaultSelfBusy = true;
+      $("default-self-save").disabled = true;
+      $("default-self-clear").disabled = true;
       try {
-        if (!globalThis.localStorage?.setItem) throw new Error("storage unavailable");
-        globalThis.localStorage.setItem(defaultSelfOwnerStorageKey, chosen);
+        await writeDefaultSelfOwner(chosen);
         defaultSelfOwner = chosen;
         selectedSelfOwner = chosen;
-        $("default-self-message").textContent = "已保存默认本人：" + chosen + "；仅在当前浏览器生效。";
+        $("default-self-message").textContent =
+          "已保存默认本人：" + chosen + "；工作台重启后仍有效（本电脑）。";
         refreshOverviewControls();
         renderTaskList();
-      } catch (_) {
-        $("default-self-message").textContent = "无法保存浏览器本地偏好；未修改默认本人。";
+      } catch (error) {
+        $("default-self-message").textContent =
+          "保存本机默认本人失败：" + error.message + "；原设置保持不变。";
+      } finally {
+        defaultSelfBusy = false;
+        refreshOverviewControls();
       }
     });
-    $("default-self-clear").addEventListener("click", () => {
+    $("default-self-clear").addEventListener("click", async () => {
+      if (defaultSelfBusy || isSaving) return;
+      defaultSelfBusy = true;
+      $("default-self-save").disabled = true;
+      $("default-self-clear").disabled = true;
       try {
-        if (!globalThis.localStorage?.removeItem) throw new Error("storage unavailable");
-        globalThis.localStorage.removeItem(defaultSelfOwnerStorageKey);
+        await writeDefaultSelfOwner(null);
         defaultSelfOwner = "";
         $("default-self-owner").value = "";
-        $("default-self-message").textContent = "已取消默认本人；当前页面的选择仍保留。";
+        $("default-self-message").textContent = "已取消本机默认本人；当前页面临时选择仍保留。";
         refreshOverviewControls();
-      } catch (_) {
-        $("default-self-message").textContent = "无法取消本地默认本人，请检查浏览器站点存储权限。";
+      } catch (error) {
+        $("default-self-message").textContent =
+          "取消默认失败：" + error.message + "；原设置保持不变。";
+      } finally {
+        defaultSelfBusy = false;
+        refreshOverviewControls();
       }
     });
     for (const view of overviewViews) {
@@ -7570,6 +7650,15 @@
     loadUpdateStatus();
 
     $("refresh").addEventListener("click", () => { refresh(true, true); if (activePage === "trash") loadTrash(); });
+    // Start the first task refresh immediately (draft protection depends on it).
+    // Load the per-machine preference independently and update the existing view
+    // when ready; never trigger a second async startup refresh that can hide drafts.
+    loadDefaultSelfOwner().then(() => {
+      if (current.length || currentProjects.length) {
+        refreshOverviewControls();
+        renderTaskList();
+      }
+    });
     refresh(true).then(() => loadWorkRecords());
     setInterval(() => refresh(false), 5000);
   </script>
