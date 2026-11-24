@@ -1,11 +1,13 @@
-# 2026-11-24｜周期任务中心与已有任务转周期（开发候选）
+# 2026-11-24｜PR #63 周期任务中心与已有任务转周期（已合并 main）
 
-- **授权**：「开发，不用work」。新功能仅在 `feat/20261124-unified-recurring-center` 候选分支；尚未获本轮 GitHub 合并／部署授权，不修改 main 或真实工作台数据。
-- **基线**：main `d3c53770f76c4932e3bdde240099cfde63f7b25b`，VERSION 2.12.0、开发开始时开放 PR 为 0。
+- **授权与合并**：用户先明确「开发，不用work」，后明确「合并」。已审查全部开放 PR（仅 #63）、无代码冲突、精确代码 CI 和仅 Markdown 的收尾提交，按 GitHub 普通 merge 正式合并 [PR #63](https://github.com/yudacheng666/AIWorkSpace/pull/63)；**合并 SHA** `3dc64cbec56883e814ba2bae626f1f4599bb5b4a`，开放 PR 归零。此次仅代码进入 main，未升级用户电脑、未变更真实 Google Drive 数据，也不等同于已部署／正式版本发布。
+- **前后基线**：开发前 main `d3c53770f76c4932e3bdde240099cfde63f7b25b`；合并后 main `3dc64cbec56883e814ba2bae626f1f4599bb5b4a`。`VERSION` 暂仍为 `2.12.0`；本轮没有单独升级版本号或操作本机更新。
 - **范围**：沿用原周期引擎，新增执行/跟踪模式、保留带步骤和子任务任务的安全跟踪转换、追加式本期跟进结果和工作轨迹、结束／恢复／返回普通任务、周期任务中心导航和主清单收纳，同时在今日处理保留提醒。跟进事件在日周月报与 AI 分析中另列为「周期跟进」而非「整项完成」；下级未完毕时拒绝误将整个周期任务结束。
-- **安全**：复杂任务仅可跟踪，转换须核对历史子项并确认，原 TASK 和原始事件不改写。异步／旧版混用、步骤冲突、版本竞争由现有 revision 防护和新增专项测试承担；用户真实 Windows 和 Google Drive 双机同步仍 NOT TESTED。
+- **安全及发布门槛**：复杂任务仅可跟踪，转换须核对历史子项并确认，原 TASK 和原始事件不改写。同步/步骤冲突及版本竞争仍由现有 revision 防护和新增专项测试承担。**用户真实 Windows 双电脑共享 Google Drive 数据、离线/重连及新旧客户端混用 NOT TESTED**；合并授权不是实机验收或自动部署授权。投入真实数据前须备份并统一升级所有共用数据目录的电脑，避免旧版客户端误读新事件。
 - **准确候选验收 PASS**：PR [#63](https://github.com/yudacheng666/AIWorkSpace/pull/63) 的最终产品／测试 SHA `ece19c39770e1b92b632a72d67c8d1502ee08205` → [GitHub Actions #45317612254](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45317612254) **3/3 SUCCESS**（Ubuntu Python/Node、Windows Python/Node、Windows 真实 Chromium UI 与更新/回滚）。专项覆盖带历史步骤/子任务转换、原始事件不变、当期跟进记录与日报周报区分、未完成步骤继续提醒、旧周期 UI 兼容，包含真实 Windows Chromium 隔离虚构数据从转换到本次跟进的用户流程。真实双 Windows 设备共享 Google Drive 离线／重连／旧客户端混用仍 NOT TESTED；本轮不授权发布。
 - **验收问题闭环**：首版 SHA `dbe7c8b978adeef843bd9ea35f09129e111cd37a` [CI #45316076440](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45316076440) Ubuntu/Windows Python+Node 通过、Chromium 因旧文案断言及新增导航越过 800px 高侧栏失败；已恢复原周期标题/状态文案，侧栏支持滚动。随后新 Windows E2E 专项发现测试构造中的步骤 create 不允许 status 字段，已仅修正虚构 fixture。步骤提醒专项进一步统一按同一步骤在一个提醒组展示，避免重复计数；最终 SHA 通过准确 CI，旧失败不被当作 PASS。
+
+- **合并后主干 CI**：GitHub 自动发起 [main Actions #45352611860](https://github.com/yudacheng666/AIWorkSpace/actions/runs/45352611860)，针对合并产品 SHA `3dc64cbec56883e814ba2bae626f1f4599bb5b4a`；截至此条记录编写时仍在运行，结论须后续读取，不可先宣称 PASS。此前 PR 精确代码 SHA 的 #45317612254 为 3/3 SUCCESS，后续唯一增量为 `[skip ci]` 项目状态 Markdown。
 
 ---
 
