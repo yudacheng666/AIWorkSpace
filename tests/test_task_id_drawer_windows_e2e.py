@@ -54,7 +54,10 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         })
         self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["display_id"], self.short_id)
         self.before = self._file_hashes()
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), handler_factory(self.data_dir))
+        self.preference_path = Path(self.temp.name) / "machine-only" / "preferences.json"
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0),
+                                          handler_factory(self.data_dir,
+                                                          preferences_path=self.preference_path))
         self.port = self.server.server_port
         self.worker = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.worker.start()
@@ -117,11 +120,30 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page = self._open_browser(open_detail=False)
         expect(page.locator("#nav-followup")).to_be_disabled()
         page.locator("#nav-settings").click()
+        # The select and both action buttons must share the same bottom edge and height.
+        boxes=[page.locator(selector).bounding_box() for selector in
+               ("#default-self-owner", "#default-self-save", "#default-self-clear")]
+        self.assertTrue(all(box is not None for box in boxes))
+        self.assertLess(max(box["y"]+box["height"] for box in boxes) -
+                        min(box["y"]+box["height"] for box in boxes), 2.0)
+        self.assertLess(max(box["height"] for box in boxes) -
+                        min(box["height"] for box in boxes), 2.0)
         page.locator("#default-self-owner").select_option("虚构本人")
         page.locator("#default-self-save").click()
         expect(page.locator("#default-self-message")).to_contain_text("已保存默认本人")
         page.reload(wait_until="networkidle")
         expect(page.locator("#overview-owner")).to_have_value("虚构本人")
+        # Brand-new browser context, no localStorage: restore from server machine file.
+        new_context=page.context.browser.new_context(viewport={"width":1280,"height":800})
+        try:
+            new_page=new_context.new_page()
+            new_page.goto(f"http://127.0.0.1:{self.port}/",wait_until="networkidle")
+            expect(new_page.locator("#overview-owner")).to_have_value("虚构本人")
+            expect(new_page.locator("#nav-followup")).to_be_enabled()
+        finally:
+            new_context.close()
+        self.assertEqual(json.loads(self.preference_path.read_text("utf-8")),
+                         {"default_self_owner":"虚构本人"})
         expect(page.locator("#nav-followup")).to_be_enabled()
         page.locator("#nav-followup").click()
         expect(page.locator("#day-agenda .day-agenda-item")).to_have_count(1)
@@ -140,8 +162,11 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
                          "default self and daily views must never append task events")
         page.locator("#nav-settings").click()
         page.locator("#default-self-clear").click()
+        expect(page.locator("#default-self-message")).to_contain_text("已取消本机默认本人")
         page.reload(wait_until="networkidle")
         expect(page.locator("#nav-today")).to_be_disabled()
+        self.assertEqual(json.loads(self.preference_path.read_text("utf-8")),
+                         {"default_self_owner":None})
 
     def test_parent_followup_uses_earliest_unfinished_step_without_mutation(self):
         """A real browser shows rollup next to parent while saved manual date stays unchanged."""
