@@ -945,6 +945,56 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         expect(page.locator(".gantt-step-row").filter(
             has_text="虚构采购步骤：整理报价")).to_have_count(1)
 
+    def test_existing_task_with_steps_uses_tracking_cycle_and_preserves_original_steps(self):
+        """Chromium checks the real conversion and current-cycle follow-up path."""
+        today = date.today().isoformat()
+        step_id = "STEP-" + "9" * 32
+        append_step_event(self.data_dir, {
+            "version": 1, "event_id": "tracking-browser-step-001",
+            "task_id": self.task_id, "step_id": step_id, "action": "create",
+            "actor": "user", "timestamp": "2026-11-20T08:00:00Z",
+            "base_revision": 0,
+            "changes": {"title": "虚构历史步骤：等待供应商反馈",
+                        "position": 1, "status": "todo"},
+        })
+        original_files = self._file_hashes()
+        page = self._open_browser()
+        panel = page.locator(".recurrence-panel")
+        expect(panel).to_contain_text("已有步骤及子任务保留")
+        save = panel.get_by_role("button", name="启用周期任务")
+        expect(save).to_be_disabled()
+        panel.locator(".recurrence-fields select").first.select_option("tracking")
+        expect(save).to_be_enabled()
+        panel.locator(".recurrence-fields select").nth(1).select_option("weekly")
+        panel.locator('.recurrence-fields input[type="number"]').fill("1")
+        panel.locator('.recurrence-fields input[type="date"]').fill(today)
+        page.once("dialog", lambda dialog: dialog.accept())
+        save.click()
+        expect(page.locator(".recurrence-panel")).to_contain_text("本周期：")
+        task = next(t for t in read_workspace(self.data_dir)["tasks"] if t["task_id"] == self.task_id)
+        self.assertEqual(task["recurrence_mode"], "tracking")
+        self.assertEqual(task["status"], "todo")
+        self.assertEqual(len(task["steps"]), 1)
+        self.assertEqual(task["steps"][0]["status"], "todo")
+        page.locator("#task-detail-close").click()
+        page.locator("#nav-recurring").click()
+        expect(page.locator("#recurring-center")).to_be_visible()
+        expect(page.locator(".task-summary")).to_have_count(1)
+        page.locator(".task-summary-title").first.click()
+        panel = page.locator(".recurrence-panel")
+        panel.locator(".recurrence-review textarea").fill("已与虚构供应商核对，仍需等待后续结果")
+        page.once("dialog", lambda dialog: dialog.accept())
+        panel.get_by_role("button", name="保存跟进并完成本期").click()
+        expect(page.locator(".recurrence-panel")).to_contain_text("本期已处理")
+        task = next(t for t in read_workspace(self.data_dir)["tasks"] if t["task_id"] == self.task_id)
+        self.assertEqual(task["status"], "done")
+        self.assertEqual(task["steps"][0]["status"], "todo")
+        self.assertEqual(len(task["recurrence_log"]), 1)
+        self.assertIn("仍需等待", task["recurrence_log"][0]["content"])
+        for relative, digest in original_files.items():
+            self.assertEqual(self._file_hashes().get(relative), digest,
+                             "conversion and follow-up must never overwrite original event bytes")
+
     def test_recurring_task_ui_completion_end_and_resume(self):
         """Real Chromium demonstrates the recurring task user workflow and append-only writes."""
         initial = self._file_hashes()
