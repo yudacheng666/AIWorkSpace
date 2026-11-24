@@ -3468,6 +3468,11 @@
       return !!step && !step.conflict && step.status !== "done" && !step.deleted_at;
     }
 
+    function handledTrackingParent(task) {
+      return !!(task.recurrence_active && task.recurrence_mode === "tracking" &&
+        task.status === "done" && !task.conflict && !task.trashed_at);
+    }
+
     // Steps have their own follow-up dates; do not confuse a supervisor with the assigned owner.
     function dayAgendaForTasks(tasks, selfOwner, dates) {
       const groups = {mine: [], followup: [], attention: []};
@@ -3481,23 +3486,25 @@
         groups[group].push({task, step, group, date, field});
       };
       for (const task of tasks) {
-        if (!isOpenTask(task) || task.trashed_at) continue;
+        if (task.conflict || task.trashed_at) continue;
+        const cycleHandled = handledTrackingParent(task);
+        if (!isOpenTask(task) && !cycleHandled) continue;
         const steps = (task.steps || []).filter(isOpenStep);
         if (selfOwner && task.owner === selfOwner) {
           const plannedSteps = steps.filter(step => due(step.planned_date));
           for (const step of plannedSteps) take("mine", task, step, "planned_date");
-          if (!plannedSteps.length && due(taskEffectiveDate(task, "planned_date")))
+          if (!plannedSteps.length && !cycleHandled && due(taskEffectiveDate(task, "planned_date")))
             take("mine", task, null, "planned_date");
         }
         if (selfOwner && task.owner && task.owner !== selfOwner) {
           const followSteps = steps.filter(step => due(step.follow_up_date));
           for (const step of followSteps) take("followup", task, step, "follow_up_date");
-          if (!followSteps.length && due(taskEffectiveDate(task,"follow_up_date")))
+          if (!followSteps.length && !cycleHandled && due(taskEffectiveDate(task,"follow_up_date")))
             take("followup", task, null, "follow_up_date");
         }
         const deadlineSteps = steps.filter(step => due(step.due_date));
         for (const step of deadlineSteps) take("attention", task, step, "due_date");
-        if (!deadlineSteps.length && due(taskEffectiveDate(task, "due_date")))
+        if (!deadlineSteps.length && !cycleHandled && due(taskEffectiveDate(task, "due_date")))
           take("attention", task, null, "due_date");
       }
       for (const items of Object.values(groups)) items.sort((a,b) =>
@@ -3558,9 +3565,14 @@
         return task.conflict || (task.status !== "done" &&
           (task.status === "blocked" || !!(taskEffectiveDate(task,"due_date") && taskEffectiveDate(task,"due_date") < dates.today)));
       }
-      if (!isOpenTask(task)) return false;
-      if (view === "due") return !!(taskEffectiveDate(task,"due_date") &&
-        taskEffectiveDate(task,"due_date") >= dates.today && taskEffectiveDate(task,"due_date") <= dates.sevenDays);
+      if (!isOpenTask(task) && !handledTrackingParent(task)) return false;
+      if (view === "due") {
+        if (handledTrackingParent(task)) return (task.steps || []).some(step =>
+          isOpenStep(step) && step.due_date && step.due_date >= dates.today &&
+          step.due_date <= dates.sevenDays);
+        return !!(taskEffectiveDate(task,"due_date") &&
+          taskEffectiveDate(task,"due_date") >= dates.today && taskEffectiveDate(task,"due_date") <= dates.sevenDays);
+      }
       if (!selfOwner) return false;
       if (["mine", "followup", "today"].includes(view)) {
         const agenda = dayAgendaForTasks([task], selfOwner, dates);

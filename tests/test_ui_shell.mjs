@@ -2953,3 +2953,25 @@ test("complex existing task offers tracking conversion, not execution reset", as
   assert.equal(h.writes[0].body.recurrence.enabled,true);
   assert.equal(task.steps[0].status,"doing");
 });
+
+test("handled tracking cycle keeps older unfinished steps visible but not the parent reminder", async () => {
+  const parent={...sampleTask(),task_id:"TASK-TRACK-PARENT",status:"done",revision:3,
+    recurrence_active:true,recurrence_mode:"tracking",recurrence_period_start:"2026-11-23",
+    recurrence_period_end:"2026-11-30",recurrence:{enabled:true},
+    steps:[{step_id:"STEP-TRACK-OPEN",title:"历史未完成检查步骤",status:"todo",
+      planned_date:"2026-11-23",follow_up_date:"2026-11-23",due_date:"2026-11-27"}]};
+  const h=harness([parent]);
+  await h.api.refresh(true);
+  const agenda=h.api.dayAgendaForTasks([parent],"演示负责人",
+    {today:"2026-11-24",sevenDays:"2026-12-01"});
+  assert.equal(agenda.mine.length,1,"unfinished step still needs attention");
+  assert.equal(agenda.mine[0].step.step_id,"STEP-TRACK-OPEN");
+  assert.equal(agenda.attention.length,0,"not-yet-due step not a past due item");
+  h.api.setActivePage("tasks","today","list");
+  assert.equal(h.el("query-result-count").textContent,"（1 / 1）");
+  assert.equal(h.el("day-agenda").hidden,false);
+  const due=h.api.dayAgendaForTasks([parent],"虚构督办人",
+    {today:"2026-11-28",sevenDays:"2026-12-05"});
+  assert.equal(due.attention.length,1);
+  assert.equal(due.attention[0].step.step_id,"STEP-TRACK-OPEN");
+});
