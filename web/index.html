@@ -2613,7 +2613,10 @@
           status.append(option);
         }
       }
-      status.disabled = task.conflict || !!task.recurrence_ended;
+      status.disabled = task.conflict || !!task.recurrence_ended ||
+        !!(task.recurrence_active && task.recurrence_mode === "tracking");
+      if (task.recurrence_active && task.recurrence_mode === "tracking")
+        statusLabel.title = "周期跟踪请在下方「记录本次跟进」办理，不能直接修改任务状态。";
       statusLabel.append(status);
       const parentLabel = element("label", "", "上级任务（可选）");
       const parentSelect = element("select");
@@ -3150,7 +3153,7 @@
         ["steps", "children", "steps_and_children"].includes(task.status_source));
     }
     function taskQuickStatusOptions(task) {
-      if (task.recurrence_ended) return [];
+      if (task.recurrence_ended || (task.recurrence_active && task.recurrence_mode === "tracking")) return [];
       if (!taskHasProgressDependents(task)) return Object.entries(labels);
       return (task.manual_status ?? task.status) === "done"
         ? [["todo", "重新打开（恢复自动联动）"]]
@@ -3165,7 +3168,9 @@
         quickFieldFeedback(feedback, "有尚未保存的草稿，请先保存或取消草稿后重试。", true);
         return false;
       }
-      if (field === "status" && (task.recurrence_ended || task.status_rollup_incomplete ||
+      if (field === "status" && (task.recurrence_ended ||
+          (task.recurrence_active && task.recurrence_mode === "tracking") ||
+          task.status_rollup_incomplete ||
           task.step_order_incomplete || task.step_order_conflict || task.parent_missing ||
           task.parent_cycle)) {
         quickFieldFeedback(feedback, "下级状态或同步信息不完整，请先打开任务详情核查。", true);
@@ -3211,7 +3216,9 @@
       const isStatus = field === "status";
       const choices = isStatus ? labels : priorities;
       const value = isStatus ? task.status : (task.priority || "normal");
-      const unsafeStatus = isStatus && (task.recurrence_ended || task.status_rollup_incomplete ||
+      const unsafeStatus = isStatus && (task.recurrence_ended ||
+        (task.recurrence_active && task.recurrence_mode === "tracking") ||
+        task.status_rollup_incomplete ||
         task.step_order_incomplete || task.step_order_conflict || task.parent_missing ||
         task.parent_cycle);
       const disabled = !!(task.conflict || unsafeStatus);
@@ -3219,14 +3226,19 @@
       const trigger = element("button",
         (isStatus ? "status-pill " : "priority-pill ") +
           (task.conflict && isStatus ? "conflict" : value) + " task-quick-trigger",
-        isStatus && task.conflict ? "需要人工核查" : (choices[value] || "未知"));
+        isStatus && task.conflict ? "需要人工核查" :
+        isStatus && task.recurrence_active && task.recurrence_mode === "tracking"
+          ? (value === "done" ? "本期已处理" : "本期待处理")
+          : (choices[value] || "未知"));
       trigger.type = "button";
       trigger.disabled = disabled;
       trigger.setAttribute("aria-expanded", "false");
       trigger.setAttribute("aria-haspopup", "true");
       trigger.setAttribute("aria-label", "修改任务" + (isStatus ? "状态" : "优先级") + "：" + trigger.textContent);
       trigger.title = disabled
-        ? "存在冲突或联动数据不完整，请先在任务详情中核查"
+        ? (isStatus && task.recurrence_active && task.recurrence_mode === "tracking"
+          ? "请在任务详情中记录本次周期跟进"
+          : "存在冲突或联动数据不完整，请先在任务详情中核查")
         : isStatus && taskHasProgressDependents(task)
           ? "由下级进度自动计算；点击确认完成或重新打开"
           : "点击快速修改任务" + (isStatus ? "状态" : "优先级");

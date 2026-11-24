@@ -2975,3 +2975,17 @@ test("handled tracking cycle keeps older unfinished steps visible but not the pa
   assert.equal(due.attention.length,1);
   assert.equal(due.attention[0].step.step_id,"STEP-TRACK-OPEN");
 });
+
+test("tracking status reads as this-period handled and cannot be quickly overwritten", async () => {
+  const task={...sampleTask(),status:"done",recurrence_active:true,recurrence_mode:"tracking"};
+  const h=harness([task]);
+  await h.api.refresh(true);
+  const card=h.api.taskSummaryRow(task);
+  const field=h.api.taskQuickField(task,"status");
+  assert.equal(field.children[0].textContent,"本期已处理");
+  assert.equal(field.children[0].disabled,true);
+  assert.equal(card.className,"task-summary");
+  const draft=h.api.recurrencePanel(task);
+  assert.ok(draft,"recurring detail retains the explicit review control");
+  assert.equal(h.writes.length,0);
+});

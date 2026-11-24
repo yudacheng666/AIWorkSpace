@@ -955,7 +955,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
             "actor": "user", "timestamp": "2026-11-20T08:00:00Z",
             "base_revision": 0,
             "changes": {"title": "虚构历史步骤：等待供应商反馈",
-                        "position": 1, "status": "todo"},
+                        "position": 1},
         })
         original_files = self._file_hashes()
         page = self._open_browser()
