@@ -251,5 +251,102 @@ class RecurrenceServerTests(unittest.TestCase):
         self.assertEqual(self.task()["revision"], 1)
 
 
+    def test_tracking_with_existing_steps_preserves_history_and_reopens(self):
+        path = "/api/tasks/" + TASK_ID
+        code, created = self.post(path + "/steps", {"title": "历史准备步骤"})
+        self.assertEqual(code, 201, created)
+        before = {p.name: p.read_bytes() for p in (self.data_dir / "events").glob("*.json")}
+        proposed = {"action": "configure", "revision": 1, "mode": "tracking",
+                    "recurrence": rule(start=date.today().isoformat())}
+        self.assertEqual(self.post(path + "/recurrence", proposed)[0], 400)
+        self.assertEqual(self.post(path + "/recurrence", {
+            **proposed, "mode": "execution", "confirmed_subitems": True})[0], 409)
+        code, result = self.post(path + "/recurrence", {
+            **proposed, "confirmed_subitems": True})
+        self.assertEqual(code, 200, result)
+        active = self.task()
+        self.assertEqual(active["recurrence_mode"], "tracking")
+        self.assertTrue(active["recurrence_active"])
+        self.assertEqual(len(active["steps"]), 1)
+        self.assertEqual(active["steps"][0]["status"], "todo")
+        self.assertEqual(active["status"], "todo")
+        for name, raw in before.items():
+            self.assertEqual((self.data_dir / "events" / name).read_bytes(), raw)
+        self.assertEqual(self.post(path + "/update", {
+            "title": active["title"], "status": "done",
+            "revision": active["revision"], "confirmed_done": True})[0], 409)
+        self.assertEqual(self.post(path + "/recurrence", {
+            "action": "review", "revision": active["revision"], "confirmed": True,
+            "note": "   "})[0], 400)
+        code, result = self.post(path + "/recurrence", {
+            "action": "review", "revision": active["revision"], "confirmed": True,
+            "note": "供应商确认仍在处理，七天后再次核对"})
+        self.assertEqual(code, 200, result)
+        handled = self.task()
+        self.assertEqual(handled["status"], "done")
+        self.assertEqual(handled["steps"][0]["status"], "todo")
+        self.assertEqual(handled["recurrence_log"][0]["content"], "供应商确认仍在处理，七天后再次核对")
+        activities = app.read_task_completion_activity(self.data_dir,
+                                                       app.read_workspace(self.data_dir))
+        self.assertEqual(len(activities), 1)
+        self.assertEqual(activities[0]["tracking_note"], handled["recurrence_log"][0]["content"])
+        self.assertEqual(self.post(path + "/recurrence", {
+            "action": "review", "revision": handled["revision"], "confirmed": True,
+            "note": "不应重复"})[0], 409)
+        future = dict(handled)
+        app.project_recurrence([future], [], date.today() + timedelta(days=1))
+        self.assertEqual(future["status"], "todo")
+        self.assertEqual(future["steps"][0]["status"], "todo")
+        self.assertEqual(future["recurrence_log"], handled["recurrence_log"])
+        code, _ = self.post(path + "/recurrence", {
+            "action": "exit", "revision": handled["revision"], "confirmed": True})
+        self.assertEqual(code, 200)
+        exited = self.task()
+        self.assertIsNone(exited["recurrence"])
+        self.assertEqual(exited["status"], "todo")
+        self.assertEqual(len(exited["steps"]), 1)
+        self.assertEqual(len(exited["recurrence_log"]), 1)
+
+    def test_tracking_with_child_task_does_not_complete_or_hide_child(self):
+        path = "/api/tasks/" + TASK_ID
+        code, child = self.post("/api/tasks", {
+            "title": "仍需执行的子任务", "parent_task_id": TASK_ID})
+        self.assertEqual(code, 201, child)
+        self.assertEqual(self.post(path + "/recurrence", {
+            "action": "configure", "revision": 1, "mode": "tracking",
+            "confirmed_subitems": True,
+            "recurrence": rule(start=date.today().isoformat())})[0], 200)
+        tasks = app.read_workspace(self.data_dir)["tasks"]
+        parent = next(t for t in tasks if t["task_id"] == TASK_ID)
+        related = next(t for t in tasks if t["task_id"] == child["task_id"])
+        self.assertEqual(parent["status"], "todo")
+        self.assertIn(related["task_id"], parent["all_child_task_ids"])
+        self.assertEqual(related["status"], "todo")
+        self.assertEqual(self.post(path + "/recurrence", {
+            "action": "review", "revision": parent["revision"], "confirmed": True,
+            "note": "例行检查，子任务继续执行"})[0], 200)
+        tasks = app.read_workspace(self.data_dir)["tasks"]
+        self.assertEqual(next(t for t in tasks if t["task_id"] == TASK_ID)["status"], "done")
+        self.assertEqual(next(t for t in tasks if t["task_id"] == child["task_id"])["status"], "todo")
+        self.assertEqual(self.post(path + "/recurrence", {
+            "action": "end", "revision": 3, "confirmed": True})[0], 200)
+        self.assertEqual(self.post(path + "/recurrence", {
+            "action": "resume", "revision": 4, "confirmed": True})[0], 200)
+        self.assertEqual(self.task()["status"], "todo")
+
+    def test_tracking_event_schema_rejects_unconfirmed_or_inconsistent_notes(self):
+        for changes, actor, done in [
+            ({"recurrence_review_note": "绕过完成标记"}, "user", False),
+            ({"status": "done", "recurrence_status_period": "2026-11-01",
+              "recurrence_review_note": "外部直接写入"}, "chatgpt", True),
+            ({"status": "done", "recurrence_status_period": "2026-11-01",
+              "recurrence_review_note": ""}, "user", True),
+            ({"recurrence_mode": "tracking"}, "user", False),
+        ]:
+            value = record("bad-tracking-note-001", 1, changes, done=done)
+            value["actor"] = actor
+            with self.subTest(changes=changes, actor=actor), self.assertRaises(ValueError):
+                app.validate_event(value)
+
 if __name__ == "__main__":
     unittest.main()
