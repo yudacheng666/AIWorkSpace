@@ -1389,6 +1389,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
                 "due_date": root["changes"].get("due_date"),
                 "planned_date": root["changes"].get("planned_date"),
                 "follow_up_date": root["changes"].get("follow_up_date"),
+                "agenda_previous_dates": {"planned_date": [], "follow_up_date": []},
                 "converted_task_metadata": root["changes"].get("converted_task_metadata"),
                 "deleted_at": None,
             }
@@ -1409,6 +1410,17 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
                     for conversion in conversions or []
                     for part in (conversion["source"], conversion["target"]))
             )
+            # Read-only evidence of dates actually superseded in the accepted
+            # step chain. A matching parent fallback must not reappear when a
+            # dated step is completed, cleared, or rescheduled.
+            def remember_agenda_dates(changes):
+                for field in ("planned_date", "follow_up_date"):
+                    old = step.get(field)
+                    if old and field in changes and changes[field] != old:
+                        history = step["agenda_previous_dates"][field]
+                        if old not in history:
+                            history.append(old)
+
             required_basis = None
             while step["revision"] in updates:
                 candidates = updates.pop(step["revision"])
@@ -1433,6 +1445,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
                         step["conflict_candidates"].extend(summarize_conflict_events(candidates))
                         warnings.append(f"{step_id}: conflicting edits at revision {step['revision']}")
                         break
+                    remember_agenda_dates(merged["changes"])
                     step.update(merged["changes"])
                     step["title"] = step["title"].strip()
                     step["revision"] += 1
@@ -1449,6 +1462,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
                     step["conflict_candidates"].extend(summarize_conflict_events(candidates))
                     warnings.append(f"{step_id}: invalid edit or restore after step deletion")
                     break
+                remember_agenda_dates(selected["changes"])
                 step.update(selected["changes"])
                 if "title" in step:
                     step["title"] = step["title"].strip()
