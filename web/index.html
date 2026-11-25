@@ -855,6 +855,15 @@
     .day-agenda-item:focus-visible { outline:2px solid #2b64c8; outline-offset:2px; }
     .day-agenda-item strong { font-size:12px; overflow-wrap:anywhere; }
     .day-agenda-item small { font-size:11px; line-height:1.6; color:#708197; overflow-wrap:anywhere; }
+    .day-agenda-entry {border:1px solid #e5ebf3;border-radius:8px;background:#fbfcff;padding:0 0 8px;}
+    .day-agenda-entry .day-agenda-item {border:0;background:transparent;}
+    .agenda-follow-actions {display:flex;gap:6px;flex-wrap:wrap;padding:0 12px;align-items:center;}
+    .agenda-follow-actions button,.agenda-follow-actions input {font:inherit;font-size:11px;padding:6px 9px;border:1px solid #dce4ee;border-radius:6px;background:#fff;color:#405771;}
+    .agenda-follow-actions .agenda-follow-complete {background:#2564bd;color:white;border-color:#2564bd;}
+    .agenda-follow-form {display:flex;gap:7px;align-items:center;flex-wrap:wrap;width:100%;padding:6px 0;}
+    .agenda-follow-form[hidden] {display:none;}
+    .agenda-follow-form label {display:flex;gap:6px;align-items:center;font-size:11px;}
+    .agenda-follow-note {width:100%;margin:0;font-size:11px;color:#65778d;line-height:1.5;}
     .day-agenda-empty { margin:0; padding:8px 0; font-size:12px; color:#7c8797; }
     /* A consistent 36px control baseline: select and both actions form one row. */
     .user-preference-actions { display:grid; grid-template-columns:minmax(170px,190px) auto auto;
@@ -3564,6 +3573,20 @@
         task.status === "done" && !task.conflict && !task.trashed_at);
     }
 
+    // Parent reminders are independent only when they are not the same
+    // scheduled occurrence already represented by a reliable direct step.
+    function agendaTaskDate(task, field) {
+      if (field === "follow_up_date" && !(task.recurrence_active && task.recurrence_mode === "tracking"))
+        return task.follow_up_date || "";
+      return taskEffectiveDate(task, field);
+    }
+    function agendaStepCoversDate(task, field, date) {
+      if (!date || task.step_order_conflict || task.step_order_incomplete ||
+          task.status_rollup_incomplete || task.parent_missing || task.parent_cycle) return false;
+      return (task.steps || []).some(step => !step.conflict && !step.deleted_at &&
+        (step[field] === date || (step.agenda_previous_dates?.[field] || []).includes(date)));
+    }
+
     // Steps have their own follow-up dates; do not confuse a supervisor with the assigned owner.
     function dayAgendaForTasks(tasks, selfOwner, dates) {
       const groups = {mine: [], followup: [], attention: []};
@@ -3573,7 +3596,7 @@
         const key = step ? "step:" + task.task_id + ":" + step.step_id : "task:" + task.task_id;
         if (seen.has(key)) return;
         seen.add(key);
-        const date = step ? step[field] : taskEffectiveDate(task, field);
+        const date = step ? step[field] : agendaTaskDate(task, field);
         groups[group].push({task, step, group, date, field});
       };
       for (const task of tasks) {
@@ -3584,13 +3607,18 @@
         if (selfOwner && task.owner === selfOwner) {
           const plannedSteps = steps.filter(step => due(step.planned_date));
           for (const step of plannedSteps) take("mine", task, step, "planned_date");
-          if (!plannedSteps.length && !cycleHandled && due(taskEffectiveDate(task, "planned_date")))
+          const ownDate = agendaTaskDate(task, "planned_date");
+          if (!plannedSteps.length && !cycleHandled && due(ownDate) &&
+              !agendaStepCoversDate(task, "planned_date", ownDate))
             take("mine", task, null, "planned_date");
         }
         if (selfOwner && task.owner && task.owner !== selfOwner) {
           const followSteps = steps.filter(step => due(step.follow_up_date));
           for (const step of followSteps) take("followup", task, step, "follow_up_date");
-          if (!followSteps.length && !cycleHandled && due(taskEffectiveDate(task,"follow_up_date")))
+          const ownDate = agendaTaskDate(task, "follow_up_date");
+          if (!followSteps.length && !cycleHandled && due(ownDate) &&
+              ((task.recurrence_active && task.recurrence_mode === "tracking") ||
+                !agendaStepCoversDate(task, "follow_up_date", ownDate)))
             take("followup", task, null, "follow_up_date");
         }
         const deadlineSteps = steps.filter(step => due(step.due_date));
@@ -3602,6 +3630,89 @@
         a.date.localeCompare(b.date) || String(a.task.title).localeCompare(String(b.task.title), "zh-CN") ||
         String(a.step?.title || "").localeCompare(String(b.step?.title || ""), "zh-CN"));
       return groups;
+    }
+
+    function agendaFollowupActions(item, dates) {
+      const task = item.task, step = item.step, target = step || task;
+      const actions = element("div", "agenda-follow-actions");
+      if (task.conflict || task.trashed_at || task.status_rollup_incomplete ||
+          task.step_order_conflict || task.step_order_incomplete ||
+          task.parent_missing || task.parent_cycle || target.conflict ||
+          target.status === "done" || (!step && task.recurrence_active && task.recurrence_mode === "tracking") ||
+          !target.follow_up_date) return actions;
+      const complete = element("button", "agenda-follow-complete", "本次跟进完成");
+      const adjust = element("button", "", "调整跟进日期");
+      complete.type = adjust.type = "button";
+      const form = element("form", "agenda-follow-form");
+      form.hidden = true;
+      const dateLabel = element("label", "", "下次跟进日期");
+      const input = element("input");
+      input.type = "date";
+      input.setAttribute("aria-label", "下次跟进日期");
+      dateLabel.append(input);
+      const note = element("p", "agenda-follow-note");
+      const submit = element("button", "agenda-follow-complete", "确认保存");
+      submit.type = "submit";
+      const cancel = element("button", "", "取消");
+      cancel.type = "button";
+      form.append(dateLabel, submit, cancel, note);
+      actions.append(complete, adjust, form);
+      let mode = "complete";
+      function open(nextMode) {
+        if (isSaving || unsavedTaskEditors.size || unsavedProjectEditors.size ||
+            unsavedPersistentEditors.size || unsavedProgressEditors.size) {
+          note.textContent = "请先保存或取消当前草稿。";
+          form.hidden = false; submit.disabled = true; return;
+        }
+        mode = nextMode;
+        input.value = "";
+        input.required = mode === "adjust";
+        submit.disabled = false;
+        note.textContent = mode === "complete"
+          ? "留空表示暂不安排下次跟进；仅更新跟进日期，不改变任务或步骤状态。"
+          : "请选择新的未来跟进日期；不改变任务或步骤状态。";
+        form.hidden = false;
+        unsavedTaskEditors.add(form); // Also protect an explicitly opened empty form.
+        input.focus();
+      }
+      complete.addEventListener("click", () => open("complete"));
+      adjust.addEventListener("click", () => open("adjust"));
+      cancel.addEventListener("click", () => {
+        if (isSaving) return;
+        unsavedTaskEditors.delete(form);
+        form.hidden = true;
+      });
+      form.addEventListener("submit", async event => {
+        event.preventDefault();
+        if (isSaving || !unsavedTaskEditors.has(form)) return;
+        const value = input.value || null;
+        if ((mode === "adjust" && !value) || (value && (!isoDayParts(value) || value <= overviewDates().today))) {
+          note.textContent = "请选择今天之后的有效日期，或使用本次跟进完成并留空。";
+          return;
+        }
+        const path = "/api/tasks/" + encodeURIComponent(task.task_id) +
+          (step ? "/steps/" + encodeURIComponent(step.step_id) : "") + "/update";
+        const payload = {revision: target.revision, follow_up_date: value};
+        if (!step) payload.title = task.title;
+        isSaving = true;
+        submit.disabled = cancel.disabled = input.disabled = true;
+        try {
+          const response = await fetch(path, {method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify(payload)});
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "保存失败");
+          unsavedTaskEditors.delete(form);
+          form.hidden = true;
+          await refresh(true);
+          setRefreshStatus("跟进日期已保存 · 页面已更新");
+        } catch (error) {
+          note.textContent = "保存失败：" + error.message + "；请核对版本后重试，未自动改动其他事项。";
+        } finally {
+          isSaving = false;
+          submit.disabled = cancel.disabled = input.disabled = false;
+        }
+      });
+      return actions;
     }
 
     function renderDayAgenda(tasks, dates) {
@@ -3617,7 +3728,7 @@
       host.replaceChildren(
         element("h2", "day-agenda-title", "今日工作清单 · " + total + " 项"),
         element("p", "day-agenda-caption",
-          "按本机日期汇总；步骤优先，同一事项不重复提醒。点击进入所属任务及具体步骤。此清单只读。")
+          "按本机日期汇总；步骤优先，同一事项不重复提醒。跟进可单独完成或延期，任务状态不变。")
       );
       if (!total) host.append(element("p", "day-agenda-empty",
         "当前没有符合条件的工作；请检查任务与步骤日期、负责人是否已设置。"));
@@ -3643,7 +3754,11 @@
               if (target?.scrollIntoView) target.scrollIntoView({block:"nearest"});
             }
           });
-          section.append(button);
+          if (key === "followup") {
+            const entry = element("div", "day-agenda-entry");
+            entry.append(button, agendaFollowupActions(item, dates));
+            section.append(entry);
+          } else section.append(button);
         }
         host.append(section);
       }
