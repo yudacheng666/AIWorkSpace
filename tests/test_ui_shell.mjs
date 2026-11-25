@@ -903,27 +903,45 @@ function dateInCurrentMonth(day) {
     "-" + String(day).padStart(2,"0");
 }
 
-test("phase 2 status board groups conflicts separately and only opens task detail", async () => {
-  const doing = sampleTask();
-  const conflict = {...sampleTask(), task_id: "TASK-UI-CONFLICT", title: "冲突样本", conflict: true};
-  const blocked = {...sampleTask(), task_id: "TASK-UI-BLOCKED", title: "阻塞样本", status: "blocked"};
-  const page = harness([doing, conflict, blocked]);
+test("status board keeps four columns and surfaces conflicts in an optional notice", async () => {
+  const doing=sampleTask();
+  const conflict={...sampleTask(),task_id:"TASK-UI-CONFLICT",title:"冲突样本",conflict:true};
+  const blocked={...sampleTask(),task_id:"TASK-UI-BLOCKED",title:"阻塞样本",status:"blocked"};
+  const tasks=[doing,blocked];
+  const page=harness(tasks);
   await page.api.refresh(true);
-  assert.equal(page.api.setTaskView("board"), true);
-  assert.equal(page.el("tasks").className, "task-list is-board");
-  const note = page.el("tasks").children[0].children[0];
-  const board = page.el("tasks").children[1];
-  assert.match(note.textContent, /只读/);
-  assert.equal(board.children.length, 5);
-  assert.equal(board.children[1].children[1].children.length, 1);
-  assert.equal(board.children[2].children[1].children.length, 1);
-  assert.equal(board.children[4].children[1].children.length, 1);
-  const card = board.children[4].children[1].children[0];
-  card.handlers.get("click")[0]();
-  assert.equal(page.el("task-detail-title").textContent, "冲突样本");
-  assert.equal(page.writes.length, 0);
+  assert.equal(page.api.setTaskView("board"),true);
+  const intro=()=>page.el("tasks").children[0];
+  const board=()=>page.el("tasks").children[1];
+  assert.equal(page.el("tasks").className,"task-list is-board");
+  assert.match(intro().children[0].textContent,/只读/);
+  assert.equal(board().children.length,4);
+  assert.equal(intro().children.length,2,"no empty review panel");
+  tasks.push(conflict);
+  await page.api.refresh(true);
+  assert.equal(board().children.length,4);
+  assert.equal(board().children[1].children[1].children.length,1,"conflict is not counted in doing");
+  assert.equal(board().children[2].children[1].children.length,1);
+  const notice=()=>intro().children[2];
+  assert.equal(notice().className,"board-review-notice");
+  assert.match(notice().children[0].children[0].textContent,/1 项任务/);
+  assert.equal(notice().children[2].hidden,true);
+  notice().children[0].children[1].handlers.get("click")[0]();
+  assert.equal(notice().children[2].hidden,false);
+  await page.api.refresh(true);
+  assert.equal(notice().children[2].hidden,false,"refresh preserves expanded state");
+  notice().children[2].children[0].handlers.get("click")[0]();
+  assert.equal(page.el("task-detail-title").textContent,"冲突样本");
+  page.api.closeTaskDetail();
+  notice().children[0].children[2].handlers.get("click")[0]();
+  assert.match(page.el("nav-reviews").className,/is-active/);
+  page.el("nav-board").handlers.get("click")[0]();
+  tasks.pop();
+  await page.api.refresh(true);
+  assert.equal(intro().children.length,2,"notice disappears when no conflict remains");
+  assert.equal(board().children.length,4);
+  assert.equal(page.writes.length,0);
 });
-
 
 test("board defaults to latest actual completion, retains unknowns and allows independent sorting and date filtering", async () => {
   const tasks = [
