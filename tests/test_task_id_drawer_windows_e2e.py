@@ -168,6 +168,64 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(json.loads(self.preference_path.read_text("utf-8")),
                          {"default_self_owner":None})
 
+
+    def test_followup_completion_or_reschedule_never_recreates_parent_reminder(self):
+        today = date.today()
+        old = (today - timedelta(days=1)).isoformat()
+        future = (today + timedelta(days=5)).isoformat()
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "agenda-parent-date", "task_id": self.task_id,
+            "action": "update", "actor": "user", "timestamp": "2026-11-17T08:00:00Z",
+            "base_revision": 1, "changes": {"owner": "虚构同事", "follow_up_date": old}})
+        self_id = "TASK-" + "B" * 32
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "agenda-self-create", "task_id": self_id,
+            "action": "create", "actor": "user", "timestamp": "2026-11-17T08:00:00Z",
+            "base_revision": 0, "changes": {"title": "虚构本人任务", "status": "todo",
+                "owner": "虚构本人"}})
+        sid = "STEP-" + "C" * 32
+        append_step_event(self.data_dir, {
+            "version": 1, "event_id": "agenda-step-create", "task_id": self.task_id,
+            "step_id": sid, "action": "create", "actor": "user", "timestamp": "2026-11-17T08:00:00Z",
+            "base_revision": 0, "changes": {"title": "虚构跟进步骤", "position": 1, "follow_up_date": old}})
+        originals = self._file_hashes()
+        page = self._open_browser(open_detail=False)
+        page.locator("#overview-owner").select_option("虚构本人")
+        page.locator("#nav-followup").click()
+        agenda = page.locator("#day-agenda")
+        expect(agenda.locator(".day-agenda-item")).to_have_count(1)
+        expect(agenda.locator(".day-agenda-item")).to_contain_text("虚构跟进步骤")
+        agenda.get_by_role("button", name="调整跟进日期", exact=True).click()
+        form = agenda.locator(".agenda-follow-form")
+        form.get_by_label("下次跟进日期", exact=True).fill(future)
+        form.get_by_role("button", name="确认保存").click()
+        expect(agenda.locator(".day-agenda-item")).to_have_count(0)
+        page.locator("#refresh").click()
+        expect(agenda.locator(".day-agenda-item")).to_have_count(0)
+        task = next(t for t in read_workspace(self.data_dir)["tasks"] if t["task_id"] == self.task_id)
+        self.assertEqual(task["follow_up_date"], old)
+        self.assertEqual(task["steps"][0]["follow_up_date"], future)
+        self.assertEqual(task["steps"][0]["status"], "todo")
+        self.assertEqual(task["revision"], 2)
+        # Reintroduce a different, independent task-level follow-up date.
+        separate = (today - timedelta(days=2)).isoformat()
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "agenda-parent-independent", "task_id": self.task_id,
+            "action": "update", "actor": "user", "timestamp": "2026-11-17T08:02:00Z",
+            "base_revision": 2, "changes": {"follow_up_date": separate}})
+        page.locator("#refresh").click()
+        expect(agenda.locator(".day-agenda-item")).to_have_count(1)
+        expect(agenda.locator(".day-agenda-item")).to_contain_text("任务 ·")
+        agenda.get_by_role("button", name="本次跟进完成", exact=True).click()
+        agenda.locator(".agenda-follow-form").get_by_role("button", name="确认保存").click()
+        expect(agenda.locator(".day-agenda-item")).to_have_count(0)
+        task = next(t for t in read_workspace(self.data_dir)["tasks"] if t["task_id"] == self.task_id)
+        self.assertIsNone(task["follow_up_date"])
+        self.assertEqual(task["status"], "todo")
+        self.assertEqual(task["steps"][0]["follow_up_date"], future)
+        for path, digest in originals.items():
+            self.assertEqual(self._file_hashes()[path], digest)
+
     def test_parent_followup_uses_earliest_unfinished_step_without_mutation(self):
         """A real browser shows rollup next to parent while saved manual date stays unchanged."""
         today = date.today()
@@ -897,8 +955,7 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.locator("#refresh").click()
         expect(done.locator(".board-task-title")).to_have_text(["虚构较早完成", "虚构较晚完成"])
         page.get_by_label("已完成时间范围").select_option("custom")
-        page.get_by_label("起始日期").fill("2026-11-02")
-        page.get_by_label("起始日期").dispatch_event("change")
+        page.locator(".board-tools").get_by_label("起始日期", exact=True).fill("2026-11-02")
         expect(done.locator(".board-task-title")).to_have_text(["虚构较晚完成"])
         page.get_by_label("已完成时间范围").select_option("all")
         page.get_by_role("button", name="恢复默认排序").click()
