@@ -492,6 +492,11 @@
     .board-heading {display:flex;justify-content:space-between;align-items:center;gap:8px;padding:3px 3px 11px;color:#4c5b71;font-size:12px;font-weight:750;}
     .board-heading span {padding:3px 7px;border-radius:7px;background:#fff;color:#667b97;font-size:10px;}
     .board-stack {display:grid;gap:9px;align-content:start;}
+    .board-heading {flex-wrap:wrap;}
+    .board-sort {width:100%;min-width:0;font-size:11px;padding:5px;border:1px solid #dce4ee;border-radius:6px;background:#fff;color:#405771;}
+    .board-tools {display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px;font-size:12px;}
+    .board-tools select,.board-tools input,.board-tools button {font:inherit;padding:5px 8px;border:1px solid #dce4ee;border-radius:6px;background:#fff;color:#405771;}
+    .board-tools label {display:flex;align-items:center;gap:5px;}
     .board-task {display:flex;flex-direction:column;gap:9px;width:100%;padding:13px 12px;border:1px solid #e6ebf2;border-radius:9px;background:#fff;text-align:left;}
     .board-task:hover {border-color:#a7c1e9;box-shadow:0 3px 10px #142b490d;}
     .board-task-title {color:#283b56;font-size:12px;font-weight:660;overflow-wrap:anywhere;line-height:1.5;}
@@ -2664,7 +2669,10 @@
       title.value = hasTitleConflict ? "任务名称存在冲突（未裁决）" : task.title;
       title.required = true; title.disabled = task.conflict;
       titleLabel.append(title);
-      const statusLabel = element("label", "", "状态");
+      const dependent = taskHasProgressDependents(task) && !task.recurrence_active;
+      const manualChoice = task.manual_status === "blocked" ? "blocked" : task.manual_status === "done" ? "done" : "todo";
+      const initialStatusChoice = dependent ? manualChoice : task.status;
+      const statusLabel = element("label", "", dependent ? "状态设置" : "状态");
       statusLabel.title = "实际显示状态可能根据下级任务和步骤自动联动；完成仍须由本人确认。";
       const status = element("select");
       if (hasStatusConflict) {
@@ -2672,13 +2680,15 @@
         option.value = "__conflict__"; option.selected = true; option.disabled = true;
         status.append(option);
       } else {
-        for (const [key, value] of Object.entries(labels)) {
+        const choices = dependent ? [["todo", "自动联动"], ["blocked", "人工设为受阻"], ["done", "已完成"]] : Object.entries(labels);
+        for (const [key, value] of choices) {
           const option = element("option", "", value);
-          option.value = key; option.selected = task.status === key;
+          option.value = key; option.selected = initialStatusChoice === key;
           status.append(option);
         }
       }
-      status.disabled = task.conflict || !!task.recurrence_ended ||
+      status.disabled = task.conflict || task.status_rollup_incomplete || task.step_order_incomplete ||
+        task.step_order_conflict || task.parent_missing || task.parent_cycle || !!task.recurrence_ended ||
         !!(task.recurrence_active && task.recurrence_mode === "tracking");
       if (task.recurrence_active && task.recurrence_mode === "tracking")
         statusLabel.title = "周期跟踪请在下方「记录本次跟进」办理，不能直接修改任务状态。";
@@ -2723,10 +2733,10 @@
         const nextMetadata = readTaskMetadata(metadataControls);
         const metaChanged = metadataFields.some(field =>
           nextMetadata[field] !== (task[field] ?? (field === "priority" ? "normal" : null)));
-        const completedNow = nextStatus === "done" && task.status !== "done";
+        const completedNow = nextStatus === "done" && initialStatusChoice !== "done";
         if (completedNow && !window.confirm("确认亲自将此任务标记为完成？")) return;
         const parentChanged = (parentSelect.value || null) !== (task.parent_task_id || null);
-        const statusChanged = nextStatus !== task.status;
+        const statusChanged = !status.disabled && nextStatus !== initialStatusChoice;
         const primaryChanged = nextProject !== (task.project_id || null);
         const originalRelated = task.related_project_ids || [];
         const relatedChanged = nextRelated.length !== originalRelated.length ||
@@ -2776,6 +2786,9 @@
           message.textContent = `保存失败：${error.message}。请刷新后重试。`;
         } finally { isSaving = false; button.disabled = false; }
       });
+      if (task.status_source === "manual_blocked") {
+        form.append(element("p", "step-status-note", "当前状态：受阻（人工设置）。下级状态保持不变；选择「自动联动」并保存即可解除人工受阻。若下级仍受阻，任务仍显示受阻。"));
+      }
       if (["steps", "children", "steps_and_children"].includes(task.status_source)) {
         form.append(element("p", "step-status-note",
           "当前状态：" + (labels[task.status] || task.status) + "（由" +
@@ -3222,13 +3235,13 @@
       if (!taskHasProgressDependents(task)) return Object.entries(labels);
       return (task.manual_status ?? task.status) === "done"
         ? [["todo", "重新打开（恢复自动联动）"]]
-        : [["done", "确认完成任务"]];
+        : [...((task.manual_status === "blocked") ? [["todo", "解除受阻（恢复自动联动）"]] : [["blocked", "人工设为受阻"]]), ["done", "确认完成任务"]];
     }
     async function updateTaskQuickField(task, field, value, feedback) {
       if (isSaving || task.conflict || !["status", "priority"].includes(field)) return false;
       const choices = field === "status" ? labels : priorities;
       if (!Object.prototype.hasOwnProperty.call(choices, value)) return false;
-      if (value === (field === "status" ? task.status : (task.priority || "normal"))) return false;
+      if (value === (field === "status" ? (taskHasProgressDependents(task) ? (task.manual_status ?? task.status) : task.status) : (task.priority || "normal"))) return false;
       if (unsavedTaskEditors.size || unsavedProjectEditors.size || unsavedPersistentEditors.size) {
         quickFieldFeedback(feedback, "有尚未保存的草稿，请先保存或取消草稿后重试。", true);
         return false;
@@ -3243,8 +3256,8 @@
       }
       if (field === "status" && taskHasProgressDependents(task)) {
         const reopening = (task.manual_status ?? task.status) === "done";
-        if (value !== (reopening ? "todo" : "done")) {
-          quickFieldFeedback(feedback, "此任务状态由下级自动计算；只能确认完成或重新打开。", true);
+        if (!taskQuickStatusOptions(task).some(([key]) => key === value)) {
+          quickFieldFeedback(feedback, "此任务状态由下级自动计算；可人工受阻、解除受阻或确认完成。", true);
           return false;
         }
         if (reopening && !window.confirm(
@@ -3305,7 +3318,7 @@
           ? "请在任务详情中记录本次周期跟进"
           : "存在冲突或联动数据不完整，请先在任务详情中核查")
         : isStatus && taskHasProgressDependents(task)
-          ? "由下级进度自动计算；点击确认完成或重新打开"
+          ? "由下级进度自动计算；可人工受阻、解除受阻或确认完成"
           : "点击快速修改任务" + (isStatus ? "状态" : "优先级");
       const menu = element("div", "task-quick-menu");
       menu.hidden = true;
@@ -3318,7 +3331,8 @@
         const isCompleted = (task.manual_status ?? task.status) === "done";
         menu.append(element("span", "task-quick-hint", isCompleted
           ? "重新打开后，由子任务和执行步骤自动计算状态。"
-          : "当前状态由下级进度自动计算，不支持直接覆盖。"));
+          : task.manual_status === "blocked" ? "当前状态由人工设置受阻；可恢复自动联动。"
+          : "当前状态由下级进度自动计算，可人工标记受阻。"));
       }
       for (const [key, label] of menuOptions) {
         const option = element("button", "task-quick-option" + (key === value ? " is-selected" : ""), label);
@@ -3778,32 +3792,148 @@
       return button;
     }
 
+    // Independent, read-only board preferences; never write business events.
+    const boardPreferenceKey = "aiworkspace.boardOrder.v1";
+    const boardFields = [["created","创建时间"],["follow","跟进日期"],["due","截止日期"],
+      ["priority","优先级"],["title","任务名称"],["project","所属项目"],["owner","负责人"]];
+    const boardDefaultLabels = {todo:"优先级／日期",doing:"跟进／截止日期",
+      blocked:"跟进日期／优先级",done:"最新完成",conflict:"任务编号"};
+    let boardOrders = {};
+    let boardRange = "all", boardFrom = "", boardTo = "";
+    try {
+      const saved = JSON.parse(globalThis.localStorage?.getItem(boardPreferenceKey) || "{}");
+      if (saved && typeof saved === "object" && !Array.isArray(saved)) boardOrders = saved;
+    } catch (_) { /* local preference is optional */ }
+    function saveBoardOrders() {
+      try { globalThis.localStorage?.setItem(boardPreferenceKey, JSON.stringify(boardOrders)); } catch (_) {}
+    }
+    function boardStamp(value) {
+      const stamp = typeof value === "string" && /(?:Z|[+-]\d\d:\d\d)$/.test(value) ? Date.parse(value) : NaN;
+      return Number.isFinite(stamp) ? stamp : null;
+    }
+    function boardDate(task, field) {
+      const value = taskEffectiveDate(task,field);
+      return isoDayParts(value) ? value : "";
+    }
+    function boardValue(task, field) {
+      if (field === "completed") return boardStamp(task.completed_at);
+      if (field === "created") return boardStamp(task.created_at);
+      if (field === "follow") return boardDate(task,"follow_up_date");
+      if (field === "due") return boardDate(task,"due_date");
+      if (field === "priority") return ({low:0,normal:1,high:2,urgent:3})[task.priority || "normal"] ?? null;
+      if (field === "next") return [boardDate(task,"follow_up_date"),boardDate(task,"due_date")].filter(Boolean).sort()[0] || "";
+      if (field === "project") return task.project_name || "";
+      return task[field] || "";
+    }
+    function boardCompare(a,b,field,direction) {
+      const x = boardValue(a,field), y = boardValue(b,field);
+      const emptyX = x === null || x === "", emptyY = y === null || y === "";
+      if (emptyX !== emptyY) return emptyX ? 1 : -1;
+      if (emptyX) return 0;
+      const cmp = typeof x === "number" && typeof y === "number" ? x-y :
+        String(x).localeCompare(String(y),"zh-CN",{numeric:true});
+      return direction === "desc" ? -cmp : cmp;
+    }
+    function boardSortOptions(status) {
+      return [["default","默认："+boardDefaultLabels[status]], ...(
+        status === "done" ? [["completed","完成时间"], ...boardFields] : boardFields
+      ).flatMap(([key,label]) => [[key+":asc",label+" ↑"],[key+":desc",label+" ↓"]])];
+    }
+    function boardCompareTasks(a,b,status) {
+      const selected = boardOrders[status];
+      const valid = boardSortOptions(status).some(([key]) => key === selected);
+      let rules = valid && selected !== "default" ? [selected.split(":")] :
+        ({todo:[["priority","desc"],["next","asc"]],doing:[["next","asc"],["priority","desc"]],
+          blocked:[["follow","asc"],["priority","desc"]],done:[["completed","desc"]],conflict:[]})[status];
+      for (const [field,direction] of rules) {
+        const result = boardCompare(a,b,field,direction);
+        if (result) return result;
+      }
+      return String(a.task_id).localeCompare(String(b.task_id));
+    }
+    function boardCompletionDay(task) {
+      const stamp = boardStamp(task.completed_at);
+      return stamp === null ? "" : localDayISO(new Date(stamp));
+    }
+    function boardCompletedInRange(task) {
+      if (boardRange === "all") return true;
+      const day = boardCompletionDay(task);
+      if (!day) return false;
+      if (boardRange === "custom") return (!boardFrom || day >= boardFrom) && (!boardTo || day <= boardTo);
+      const today = new Date(), from = new Date(today.getFullYear(),today.getMonth(),today.getDate());
+      from.setDate(from.getDate() - (Number(boardRange)-1));
+      return day >= localDayISO(from) && day <= localDayISO(today);
+    }
     function renderBoardView(tasks, container) {
+      const oldBoard = Array.from(container.children).find(node=>node.className==="task-board");
+      const scrollLeft = oldBoard?.scrollLeft || 0;
       const note = element("p", "view-explainer",
         "按当前状态分组，只读查看。调整任务状态请打开详情后明确保存；需要核查的任务不会被当成普通状态。");
+      const tools = element("div","board-tools");
+      const rangeLabel = element("label","","已完成时间范围 ");
+      const range = element("select");
+      updateFilterSelect(range,[["all","全部"],["1","今天"],["7","近7天"],["30","近30天"],["custom","自定义"]],boardRange);
+      range.setAttribute("aria-label","已完成时间范围");
+      range.addEventListener("change",()=>{boardRange=range.value;renderTaskList();});
+      rangeLabel.append(range); tools.append(rangeLabel);
+      if (boardRange === "custom") {
+        for (const [label,value] of [["起始日期",boardFrom],["结束日期",boardTo]]) {
+          const wrap = element("label","",label+" "), input = element("input");
+          input.type="date"; input.value=value; input.setAttribute("aria-label",label);
+          input.addEventListener("change",()=>{
+            if (label==="起始日期") boardFrom=input.value; else boardTo=input.value;
+            renderTaskList();
+          });
+          wrap.append(input); tools.append(wrap);
+        }
+        if (boardFrom && boardTo && boardFrom > boardTo)
+          tools.append(element("span","board-empty","起始日期不得晚于结束日期"));
+      }
+      const reset = element("button","","恢复默认排序");
+      reset.type="button";reset.addEventListener("click",()=>{
+        boardOrders={};saveBoardOrders();renderTaskList();
+      });tools.append(reset);
       const board = element("div", "task-board");
       for (const [status, name] of boardBuckets) {
-        const items = tasks.filter(task => (task.conflict ? "conflict" : task.status) === status);
+        const allItems = tasks.filter(task => (task.conflict ? "conflict" : task.status) === status);
+        const items = allItems.filter(task=>status!=="done" || boardCompletedInRange(task))
+          .sort((a,b)=>boardCompareTasks(a,b,status));
         const column = element("section", "board-column");
         const heading = element("div", "board-heading");
-        heading.append(element("strong", "", name), element("span", "", String(items.length)));
+        heading.append(element("strong", "", name), element("span", "", items.length === allItems.length
+          ? String(items.length) : items.length+"/"+allItems.length));
+        const sort = element("select","board-sort");
+        const options=boardSortOptions(status);
+        updateFilterSelect(sort,options,options.some(([key])=>key===boardOrders[status])?boardOrders[status]:"default");
+        sort.setAttribute("aria-label",name+"排序");
+        sort.addEventListener("change",()=>{
+          boardOrders[status]=sort.value;saveBoardOrders();renderTaskList();
+        });
+        heading.append(sort);
         const stack = element("div", "board-stack");
         if (!items.length) stack.append(element("p", "board-empty", "暂无任务"));
         for (const task of items) {
           const card = detailOpenButton(task, "board-task", "");
+          const stamp = boardStamp(task.completed_at);
+          const follow=boardDate(task,"follow_up_date"), due=boardDate(task,"due_date");
+          const dateText=status==="done" ? (stamp===null ? (task.recurrence_ended?"周期已结束 · 完成时间未知":"完成时间未知") :
+            (task.recurrence_active?"本期完成 ":"完成 ")+new Date(stamp).toLocaleString("zh-CN",{hour12:false})) :
+            (follow?"跟进 "+follow+(due?" · 截止 "+due:""):due?"截止 "+due:"未设置日期");
           card.append(
             element("strong", "board-task-title", task.title || "未命名任务"),
             element("small", "board-task-id", taskDisplayId(task)),
-            element("span", "board-task-meta",
-              (task.owner || "未指派") + " · " + (task.due_date ? "截止 " + task.due_date : "未设置截止日期"))
+            element("span", "board-task-meta", (task.owner || "未指派") + " · " + (task.project_name || "未归类")),
+            element("span", "board-task-meta",dateText)
           );
-          // The button is the only interactive surface; status drag-and-drop is intentionally disabled.
           stack.append(card);
         }
         column.append(heading, stack);
         board.append(column);
       }
-      container.replaceChildren(note, board);
+      // Keep the established note/board structure; controls are attached to the note area.
+      const wrapper = element("div","board-intro");wrapper.append(note,tools);
+      container.replaceChildren(wrapper, board);
+      board.scrollLeft=scrollLeft;
     }
 
     function undatedTaskPanel(tasks, title) {
