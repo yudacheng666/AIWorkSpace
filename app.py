@@ -144,6 +144,9 @@ def resolve_step_status(task: dict) -> None:
     if task["status"] == "done":
         task["status_source"] = "user_confirmed"
         return
+    if task["manual_status"] == "blocked":
+        task["status_source"] = "manual_blocked"
+        return
     task["status"] = ("blocked" if "blocked" in statuses else
                       "doing" if "done" in statuses or "doing" in statuses else "todo")
     task["status_source"] = "steps"
@@ -246,6 +249,11 @@ def resolve_task_hierarchy(tasks: list[dict], warnings: list[str]) -> None:
             task["step_completion_pending"] = False
             return
         statuses = [step["status"] for step in steps] + [child["status"] for child in children]
+        if task.get("manual_status") == "blocked":
+            task["status"] = "blocked"
+            task["status_source"] = "manual_blocked"
+            task["step_completion_pending"] = all(v == "done" for v in statuses)
+            return
         task["status"] = ("blocked" if "blocked" in statuses else
                           "doing" if any(v in {"doing", "done"} for v in statuses) else "todo")
         task["status_source"] = "steps_and_children" if steps else "children"
@@ -1381,6 +1389,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
                 "due_date": root["changes"].get("due_date"),
                 "planned_date": root["changes"].get("planned_date"),
                 "follow_up_date": root["changes"].get("follow_up_date"),
+                "agenda_previous_dates": {"planned_date": [], "follow_up_date": []},
                 "converted_task_metadata": root["changes"].get("converted_task_metadata"),
                 "deleted_at": None,
             }
@@ -1401,6 +1410,17 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
                     for conversion in conversions or []
                     for part in (conversion["source"], conversion["target"]))
             )
+            # Read-only evidence of dates actually superseded in the accepted
+            # step chain. A matching parent fallback must not reappear when a
+            # dated step is completed, cleared, or rescheduled.
+            def remember_agenda_dates(changes):
+                for field in ("planned_date", "follow_up_date"):
+                    old = step.get(field)
+                    if old and field in changes and changes[field] != old:
+                        history = step["agenda_previous_dates"][field]
+                        if old not in history:
+                            history.append(old)
+
             required_basis = None
             while step["revision"] in updates:
                 candidates = updates.pop(step["revision"])
@@ -1425,6 +1445,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
                         step["conflict_candidates"].extend(summarize_conflict_events(candidates))
                         warnings.append(f"{step_id}: conflicting edits at revision {step['revision']}")
                         break
+                    remember_agenda_dates(merged["changes"])
                     step.update(merged["changes"])
                     step["title"] = step["title"].strip()
                     step["revision"] += 1
@@ -1441,6 +1462,7 @@ def read_steps(data_dir: Path, tasks: list[dict], warnings: list[str],
                     step["conflict_candidates"].extend(summarize_conflict_events(candidates))
                     warnings.append(f"{step_id}: invalid edit or restore after step deletion")
                     break
+                remember_agenda_dates(selected["changes"])
                 step.update(selected["changes"])
                 if "title" in step:
                     step["title"] = step["title"].strip()
@@ -1872,7 +1894,7 @@ def read_workspace(data_dir: Path, include_trashed: bool = False,
             })
             continue
         task = {"task_id": task_id, **roots[0]["changes"],
-                "recurrence_log": [], "trashed_at": None,
+                "recurrence_log": [], "trashed_at": None, "completed_at": None,
                 "title": roots[0]["changes"]["title"].strip(),
                 "status": roots[0]["changes"].get("status", "todo"),
                 "revision": 1, "conflict": False,
@@ -1924,7 +1946,24 @@ def read_workspace(data_dir: Path, include_trashed: bool = False,
                     "timestamp": candidates[0]["timestamp"],
                     "period": candidates[0]["changes"]["recurrence_status_period"],
                     "content": candidates[0]["changes"]["recurrence_review_note"]})
-            task.update(candidates[0]["changes"])
+            # Only applied, confirmed completion transitions count. Never infer
+            # a date from a later title edit, file timestamp or conflict candidate.
+            candidate = candidates[0]
+            changes = candidate["changes"]
+            if changes.get("status") == "done" and candidate.get("confirmed_done") is True:
+                new_period = changes.get("recurrence_status_period")
+                if task["status"] != "done" or (
+                        new_period is not None and new_period != task.get("recurrence_status_period")):
+                    task["completed_at"] = None
+                    try:
+                        stamp = datetime.fromisoformat(candidate["timestamp"].replace("Z", "+00:00"))
+                        if stamp.tzinfo is not None:
+                            task["completed_at"] = stamp.astimezone(timezone.utc).isoformat()
+                    except (ValueError, TypeError, KeyError, AttributeError):
+                        pass
+            elif "status" in changes and changes["status"] != "done":
+                task["completed_at"] = None
+            task.update(changes)
             task["title"] = task["title"].strip()
             task["revision"] += 1
         if not task["conflict"]:
@@ -2041,6 +2080,12 @@ def read_workspace(data_dir: Path, include_trashed: bool = False,
         resolve_step_status(task)
     project_recurrence(tasks, warnings)
     resolve_task_hierarchy(tasks, warnings)
+    for task in tasks:
+        if (task["status"] != "done" or task.get("conflict") or
+                task.get("status_rollup_incomplete") or task.get("recurrence_ended")):
+            task["completed_at"] = None
+        # Candidate timestamps describe the conflicting edits, not discovery time.
+        # The board deliberately leaves unknown discovery times unsorted by date.
     if hide_work_record_sources:
         active, archive_warnings = active_task_record_conversions(data_dir, tasks)
         warnings.extend(archive_warnings)

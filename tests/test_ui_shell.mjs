@@ -266,9 +266,10 @@ test("step-level daily agenda prioritizes precise steps, de-duplicates parent an
   assert.equal(h.el("tasks-page-title").textContent,"今日处理");
   const sections=h.el("day-agenda").children.filter(child=>child.className==="day-agenda-group");
   assert.equal(sections.length,3);
-  assert.match(sections[1].children[1].children[0].textContent,/检查他人步骤/);
-  assert.match(sections[1].children[1].children[1].textContent,/所属任务/);
-  sections[1].children[1].handlers.get("click")[0]();
+  const followButton=sections[1].children[1].children[0];
+  assert.match(followButton.children[0].textContent,/检查他人步骤/);
+  assert.match(followButton.children[1].textContent,/所属任务/);
+  followButton.handlers.get("click")[0]();
   assert.equal(h.el("task-detail-drawer").hidden,false);
   assert.equal(h.writes.length,0,"daily agenda must not alter business data");
   h.api.closeTaskDetail();
@@ -276,6 +277,64 @@ test("step-level daily agenda prioritizes precise steps, de-duplicates parent an
   const followSections=h.el("day-agenda").children.filter(child=>child.className==="day-agenda-group");
   assert.equal(followSections.length,1);
   assert.equal(followSections[0].children.length,2,"follow-up displays one precise step rather than the parent");
+});
+
+
+test("completed or rescheduled step cannot resurrect matching parent reminder; independent dates remain", () => {
+  const task={...sampleTask(),task_id:"TASK-AGENDA-PARENT",owner:"演示同事",status:"doing",
+    planned_date:null,due_date:null,follow_up_date:"2026-11-24",steps:[
+      {step_id:"STEP-AGENDA-DONE",title:"虚构已检查步骤",status:"done",follow_up_date:"2026-11-24"},
+      {step_id:"STEP-AGENDA-FUTURE",title:"虚构未来步骤",status:"todo",follow_up_date:"2026-11-30"}]};
+  const h=harness([task]), days={today:"2026-11-25"};
+  const follow=()=>h.api.dayAgendaForTasks([task],"本人演示",days).followup;
+  assert.equal(follow().length,0);
+  task.steps[0].status="doing";task.steps[0].follow_up_date=null;
+  task.steps[0].agenda_previous_dates={follow_up_date:["2026-11-24"]};
+  assert.equal(follow().length,0);
+  task.follow_up_date="2026-11-23";
+  assert.equal(follow().length,1);
+  assert.equal(follow()[0].step,null);
+  task.follow_up_date=null;
+  task.steps=[];task.child_task_ids=["TASK-AGENDA-CHILD"];
+  const child={...sampleTask(),task_id:"TASK-AGENDA-CHILD",parent_task_id:task.task_id,
+    owner:"演示同事",follow_up_date:"2026-11-24",due_date:null,planned_date:null};
+  assert.equal(h.api.dayAgendaForTasks([task,child],"本人演示",days).followup.length,1);
+  task.follow_up_date="2026-11-24";task.steps=[{step_id:"STEP-UNRELIABLE",status:"done",
+    follow_up_date:"2026-11-24",conflict:true}];
+  assert.equal(follow().length,1,"conflict cannot suppress an independent reminder");
+  task.owner="本人演示";task.planned_date="2026-11-24";task.due_date="2026-11-24";
+  task.steps=[{step_id:"STEP-OWN-DONE",status:"done",planned_date:"2026-11-24",due_date:"2026-11-24"}];
+  const own=h.api.dayAgendaForTasks([task],"本人演示",days);
+  assert.equal(own.mine.length,0);
+  assert.equal(own.attention.length,1,"independent task deadline must remain");
+});
+
+test("explicit follow-up completion clears only the target date and stale failures retain the reminder", async () => {
+  const task={...sampleTask(),task_id:"TASK-FOLLOW-A",owner:"演示同事",status:"doing",
+    due_date:null,planned_date:null,follow_up_date:"2020-01-01",revision:4};
+  const own={...sampleTask(),task_id:"TASK-FOLLOW-SELF",owner:"本人演示",status:"doing",
+    due_date:null,planned_date:null,follow_up_date:null};
+  let reject=true;
+  const h=harness([task,own],()=>true,[],[],async (_path,body)=>{
+    if(reject)return {ok:false,status:409,json:async()=>({error:"revision changed"})};
+    task.follow_up_date=body.follow_up_date;task.revision++;return successReply();
+  });
+  await h.api.refresh(true);
+  h.el("overview-owner").value="本人演示";h.el("overview-owner").handlers.get("change")[0]();
+  h.el("nav-followup").handlers.get("click")[0]();
+  const group=()=>h.el("day-agenda").children.find(x=>x.className==="day-agenda-group");
+  const controls=group().children[1].children[1],form=controls.children[2];
+  controls.children[0].handlers.get("click")[0]();
+  assert.equal(form.hidden,false);
+  await form.handlers.get("submit")[0]({preventDefault(){}});
+  assert.match(form.children[3].textContent,/revision changed/);
+  assert.equal(task.follow_up_date,"2020-01-01");
+  assert.equal(task.status,"doing");
+  reject=false;
+  await form.handlers.get("submit")[0]({preventDefault(){}});
+  assert.deepEqual(h.writes.at(-1).body,{revision:4,follow_up_date:null,title:task.title});
+  assert.equal(task.status,"doing");
+  assert.equal(group(),undefined);
 });
 
 test("machine-local default self persists across new browsers and explicit clear, without business events", async () => {
@@ -852,7 +911,7 @@ test("phase 2 status board groups conflicts separately and only opens task detai
   await page.api.refresh(true);
   assert.equal(page.api.setTaskView("board"), true);
   assert.equal(page.el("tasks").className, "task-list is-board");
-  const note = page.el("tasks").children[0];
+  const note = page.el("tasks").children[0].children[0];
   const board = page.el("tasks").children[1];
   assert.match(note.textContent, /只读/);
   assert.equal(board.children.length, 5);
@@ -863,6 +922,45 @@ test("phase 2 status board groups conflicts separately and only opens task detai
   card.handlers.get("click")[0]();
   assert.equal(page.el("task-detail-title").textContent, "冲突样本");
   assert.equal(page.writes.length, 0);
+});
+
+
+test("board defaults to latest actual completion, retains unknowns and allows independent sorting and date filtering", async () => {
+  const tasks = [
+    {...sampleTask(),task_id:"TASK-BOARD-A",title:"较早完成",status:"done",completed_at:"2026-11-01T10:00:00Z"},
+    {...sampleTask(),task_id:"TASK-BOARD-B",title:"较晚完成",status:"done",completed_at:"2026-11-03T10:00:00+08:00"},
+    {...sampleTask(),task_id:"TASK-BOARD-C",title:"时间未知",status:"done",completed_at:null},
+    {...sampleTask(),task_id:"TASK-BOARD-D",title:"进行中",status:"doing"},
+  ];
+  const store=new Map();
+  const storage={getItem:key=>store.get(key),setItem:(key,value)=>store.set(key,value),removeItem:key=>store.delete(key)};
+  const page=harness(tasks,()=>true,[],[],null,{},storage);
+  await page.api.refresh(true);
+  page.api.setTaskView("board");
+  const board=()=>page.el("tasks").children[1];
+  const done=()=>board().children[3];
+  const names=()=>done().children[1].children.map(card=>card.children[0].textContent);
+  assert.deepEqual(names(),["较晚完成","较早完成","时间未知"]);
+  assert.match(done().children[1].children[2].children[3].textContent,/完成时间未知/);
+  let sort=done().children[0].children[2];sort.value="completed:asc";sort.handlers.get("change")[0]();
+  assert.deepEqual(names(),["较早完成","较晚完成","时间未知"]);
+  await page.api.refresh(true);
+  assert.deepEqual(names(),["较早完成","较晚完成","时间未知"]);
+  assert.equal(board().children[1].children[1].children.length,1);
+  const intro=page.el("tasks").children[0].children[1];
+  const range=intro.children[0].children[0];range.value="custom";range.handlers.get("change")[0]();
+  let tools=page.el("tasks").children[0].children[1];
+  let input=tools.children[1].children[0];input.value="2026-11-02";input.handlers.get("change")[0]();
+  assert.deepEqual(names(),["较晚完成"]);
+  assert.equal(board().children[1].children[1].children.length,1);
+  tools=page.el("tasks").children[0].children[1];
+  const all=tools.children[0].children[0];all.value="all";all.handlers.get("change")[0]();
+  assert.deepEqual(names(),["较早完成","较晚完成","时间未知"]);
+  const reopened=harness(tasks,()=>true,[],[],null,{},storage);await reopened.api.refresh(true);reopened.api.setTaskView("board");
+  assert.equal(reopened.el("tasks").children[1].children[3].children[0].children[2].value,"completed:asc");
+  const reset=page.el("tasks").children[0].children[1].children[1];reset.handlers.get("click")[0]();
+  assert.deepEqual(names(),["较晚完成","较早完成","时间未知"]);
+  assert.equal(page.writes.length,0);
 });
 
 test("phase 2 calendar renders 42 cells and distinguishes due, planned and followup dates", async () => {
@@ -1885,7 +1983,7 @@ test("quick status blocks 409 stale-revision writes and shows a local error with
 });
 
 
-test("derived parent status menu permits confirmed completion but no manual override", async () => {
+test("derived parent status menu permits manual blocking, release and confirmed completion", async () => {
   const parent = {...sampleTask(), manual_status:"todo", status_source:"children",
     child_task_ids:["TASK-SYNTHETIC-CHILD-1"]};
   let approved = false;
@@ -1896,6 +1994,10 @@ test("derived parent status menu permits confirmed completion but no manual over
         parent.manual_status = "done";
         parent.status_source = "user_confirmed";
         parent.status = "done";
+      } else if (body.status === "blocked") {
+        parent.manual_status = "blocked"; parent.status = "blocked"; parent.status_source = "manual_blocked";
+      } else if (body.status === "todo") {
+        parent.manual_status = "todo"; parent.status = "doing"; parent.status_source = "children";
       }
       parent.revision += 1;
       return successReply();
@@ -1904,22 +2006,28 @@ test("derived parent status menu permits confirmed completion but no manual over
   const original = taskQuickControl(taskRows(page)[0], "status");
   original.trigger.handlers.get("click")[0]();
   assert.match(original.trigger.title, /下级进度自动计算/);
-  assert.equal(original.menu.children.length, 2, "hint plus one deliberate completion action");
-  assert.match(original.menu.children[0].textContent, /不支持直接覆盖/);
-  assert.equal(original.menu.children[1].textContent, "确认完成任务");
-  const blocked = await page.api.updateTaskQuickField(parent, "status", "blocked", original.feedback);
-  assert.equal(blocked, false, "even programmatic attempts cannot override a derived parent");
-  assert.match(original.feedback.textContent, /只能确认完成或重新打开/);
-  assert.equal(page.writes.length, 0);
-  await chooseQuick(original, "确认完成任务");
+  assert.equal(original.menu.children.length, 3);
+  assert.match(original.menu.children[0].textContent, /可人工标记受阻/);
+  assert.equal(original.menu.children[1].textContent, "人工设为受阻");
+  await chooseQuick(original, "人工设为受阻");
+  assert.equal(parent.status,"blocked");
+  assert.deepEqual(page.writes[0].body,{title:parent.title,revision:1,status:"blocked"});
+  const held = taskQuickControl(taskRows(page)[0],"status");
+  held.trigger.handlers.get("click")[0]();
+  await chooseQuick(held,"解除受阻（恢复自动联动）");
+  assert.equal(parent.status,"doing");
+  assert.deepEqual(page.writes[1].body,{title:parent.title,revision:2,status:"todo"});
+  const resumed = taskQuickControl(taskRows(page)[0],"status");
+  resumed.trigger.handlers.get("click")[0]();
+  await chooseQuick(resumed, "确认完成任务");
   assert.equal(confirms, 1);
-  assert.equal(page.writes.length, 0, "declined completion cannot write");
+  assert.equal(page.writes.length, 2, "declined completion cannot write");
   approved = true;
-  original.trigger.handlers.get("click")[0]();
-  await chooseQuick(original, "确认完成任务");
+  resumed.trigger.handlers.get("click")[0]();
+  await chooseQuick(resumed, "确认完成任务");
   assert.equal(confirms, 2);
-  assert.deepEqual(page.writes[0].body, {
-    title:parent.title, revision:1, status:"done", confirmed_done:true
+  assert.deepEqual(page.writes[2].body, {
+    title:parent.title, revision:3, status:"done", confirmed_done:true
   });
   assert.equal(parent.status, "done");
   assert.equal(parent.manual_status, "done");
@@ -1980,8 +2088,8 @@ test("step-only aggregate follows the same safety gate and unreliable parents st
   const status=taskQuickControl(taskRows(page)[0],"status");
   status.trigger.handlers.get("click")[0]();
   assert.deepEqual(status.menu.children.filter(x=>x.tag==="button").map(x=>x.textContent),
-    ["确认完成任务"]);
-  const guard=await page.api.updateTaskQuickField(parent,"status","todo",status.feedback);
+    ["人工设为受阻","确认完成任务"]);
+  const guard=await page.api.updateTaskQuickField(parent,"status","doing",status.feedback);
   assert.equal(guard,false);
   assert.equal(page.writes.length,0);
   const incomplete={...parent,status_rollup_incomplete:true};

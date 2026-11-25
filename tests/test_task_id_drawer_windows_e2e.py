@@ -168,6 +168,68 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(json.loads(self.preference_path.read_text("utf-8")),
                          {"default_self_owner":None})
 
+
+    def test_followup_completion_or_reschedule_never_recreates_parent_reminder(self):
+        today = date.today()
+        old = (today - timedelta(days=1)).isoformat()
+        future = (today + timedelta(days=5)).isoformat()
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "agenda-parent-date", "task_id": self.task_id,
+            "action": "update", "actor": "user", "timestamp": "2026-11-17T08:00:00Z",
+            "base_revision": 1, "changes": {"owner": "虚构同事", "follow_up_date": old}})
+        self_id = "TASK-" + "B" * 32
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "agenda-self-create", "task_id": self_id,
+            "action": "create", "actor": "user", "timestamp": "2026-11-17T08:00:00Z",
+            "base_revision": 0, "changes": {"title": "虚构本人任务", "status": "todo",
+                "owner": "虚构本人"}})
+        sid = "STEP-" + "C" * 32
+        append_step_event(self.data_dir, {
+            "version": 1, "event_id": "agenda-step-create", "task_id": self.task_id,
+            "step_id": sid, "action": "create", "actor": "user", "timestamp": "2026-11-17T08:00:00Z",
+            "base_revision": 0, "changes": {"title": "虚构跟进步骤", "position": 1, "follow_up_date": old}})
+        originals = self._file_hashes()
+        page = self._open_browser(open_detail=False)
+        page.locator("#nav-settings").click()
+        page.locator("#default-self-owner").select_option("虚构本人")
+        page.locator("#default-self-save").click()
+        expect(page.locator("#default-self-message")).to_contain_text("已保存默认本人")
+        expect(page.locator("#nav-followup")).to_be_enabled()
+        page.locator("#nav-followup").click()
+        agenda = page.locator("#day-agenda")
+        expect(agenda.locator(".day-agenda-item")).to_have_count(1)
+        expect(agenda.locator(".day-agenda-item")).to_contain_text("虚构跟进步骤")
+        agenda.get_by_role("button", name="调整跟进日期", exact=True).click()
+        form = agenda.locator(".agenda-follow-form")
+        form.get_by_label("下次跟进日期", exact=True).fill(future)
+        form.get_by_role("button", name="确认保存").click()
+        expect(agenda.locator(".day-agenda-item")).to_have_count(0)
+        page.locator("#refresh").click()
+        expect(agenda.locator(".day-agenda-item")).to_have_count(0)
+        task = next(t for t in read_workspace(self.data_dir)["tasks"] if t["task_id"] == self.task_id)
+        self.assertEqual(task["follow_up_date"], old)
+        self.assertEqual(task["steps"][0]["follow_up_date"], future)
+        self.assertEqual(task["steps"][0]["status"], "todo")
+        self.assertEqual(task["revision"], 2)
+        # Reintroduce a different, independent task-level follow-up date.
+        separate = (today - timedelta(days=2)).isoformat()
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "agenda-parent-independent", "task_id": self.task_id,
+            "action": "update", "actor": "user", "timestamp": "2026-11-17T08:02:00Z",
+            "base_revision": 2, "changes": {"follow_up_date": separate}})
+        page.locator("#refresh").click()
+        expect(agenda.locator(".day-agenda-item")).to_have_count(1)
+        expect(agenda.locator(".day-agenda-item")).to_contain_text("任务 ·")
+        agenda.get_by_role("button", name="本次跟进完成", exact=True).click()
+        agenda.locator(".agenda-follow-form").get_by_role("button", name="确认保存").click()
+        expect(agenda.locator(".day-agenda-item")).to_have_count(0)
+        task = next(t for t in read_workspace(self.data_dir)["tasks"] if t["task_id"] == self.task_id)
+        self.assertIsNone(task["follow_up_date"])
+        self.assertEqual(task["status"], "todo")
+        self.assertEqual(task["steps"][0]["follow_up_date"], future)
+        for path, digest in originals.items():
+            self.assertEqual(self._file_hashes()[path], digest)
+
     def test_parent_followup_uses_earliest_unfinished_step_without_mutation(self):
         """A real browser shows rollup next to parent while saved manual date stays unchanged."""
         today = date.today()
@@ -323,9 +385,10 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         status.click()
         status_menu = parent.locator(".task-quick-editor--status .task-quick-menu")
         expect(status_menu).to_contain_text("当前状态由下级进度自动计算")
-        expect(status_menu.locator("button")).to_have_count(1)
+        expect(status_menu.locator("button")).to_have_count(2)
+        expect(status_menu.get_by_role("button", name="人工设为受阻")).to_be_visible()
         expect(status_menu.get_by_role("button", name="确认完成任务")).to_be_visible()
-        for blocked_label in ("设为待处理", "设为进行中", "设为受阻"):
+        for blocked_label in ("设为待处理", "设为进行中"):
             self.assertEqual(status_menu.get_by_role("button", name=blocked_label).count(), 0)
         page.keyboard.press("Escape")
         self.assertEqual(self._file_hashes(), originals, "opening menus must be read-only")
@@ -725,15 +788,16 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         page.locator(".step-row").wait_for(state="visible")
         page.locator(".step-edit-form select").first.select_option("doing")
         page.locator(".step-edit-form button.save").first.click()
-        expect(page.locator("#task-detail-content .task-form select").first).to_have_value("doing", timeout=10000)
+        expect(page.locator("#task-detail-content .step-status-note")).to_contain_text("当前状态：进行中", timeout=10000)
         self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["status"], "doing")
 
         page.locator(".step-edit-form select").first.select_option("blocked")
         page.locator(".step-edit-form button.save").first.click()
-        expect(page.locator("#task-detail-content .task-form select").first).to_have_value("blocked", timeout=10000)
+        expect(page.locator("#task-detail-content .step-status-note")).to_contain_text("当前状态：受阻", timeout=10000)
         page.locator("#task-detail-content .step-status-note").wait_for(state="visible")
         self.assertEqual(read_workspace(self.data_dir)["tasks"][0]["status"], "blocked")
-        self.assertEqual(page.locator(".task-form select").first.input_value(), "blocked")
+        self.assertEqual(page.locator(".task-form select").first.input_value(), "todo",
+                         "automatic rollup is not a manual block")
 
         page.locator(".step-edit-form select").first.select_option("done")
         page.once("dialog", lambda dialog: dialog.accept())
@@ -846,6 +910,68 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(parent["manual_status"], "todo",
                          "title-only save must not convert derived doing into manual status")
         self.assertEqual(parent["revision"], 2)
+
+
+    def test_manual_block_detail_and_list_release_and_board_completion_sort(self):
+        child_id = "TASK-" + "D" * 32
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "board-manual-child-create", "task_id": child_id,
+            "action": "create", "actor": "user", "timestamp": "2026-11-01T08:00:00Z",
+            "base_revision": 0, "changes": {"title": "虚构进行中子任务",
+                "status": "todo", "parent_task_id": self.task_id}})
+        append_event(self.data_dir, {
+            "version": 1, "event_id": "board-manual-child-doing", "task_id": child_id,
+            "action": "update", "actor": "user", "timestamp": "2026-11-01T08:05:00Z",
+            "base_revision": 1, "changes": {"status": "doing"}})
+        for suffix, title, stamp in [("E", "虚构较早完成", "2026-11-01T10:00:00Z"),
+                                     ("F", "虚构较晚完成", "2026-11-03T10:00:00+08:00")]:
+            tid = "TASK-" + suffix * 32
+            append_event(self.data_dir, {
+                "version": 1, "event_id": "board-done-create-" + suffix, "task_id": tid,
+                "action": "create", "actor": "user", "timestamp": "2026-10-30T08:00:00Z",
+                "base_revision": 0, "changes": {"title": title, "status": "todo"}})
+            append_event(self.data_dir, {
+                "version": 1, "event_id": "board-done-update-" + suffix, "task_id": tid,
+                "action": "update", "actor": "user", "timestamp": stamp, "base_revision": 1,
+                "changes": {"status": "done"}, "confirmed_done": True})
+        original = self._file_hashes()
+        page = self._open_browser()
+        detail = page.locator("#task-detail-content")
+        detail.locator(".task-form select").first.select_option("blocked")
+        detail.locator(".task-form button.save").first.click()
+        expect(detail.locator(".step-status-note")).to_contain_text("人工设置")
+        page.locator("#task-detail-close").click()
+        parent = page.locator(".task-summary").filter(has_text="虚构任务：验证短编号及抽屉")
+        status = parent.locator(".task-quick-editor--status .task-quick-trigger")
+        expect(status).to_have_text("受阻")
+        status.click()
+        parent.get_by_role("button", name="解除受阻（恢复自动联动）").click()
+        expect(status).to_have_text("进行中")
+        status.click()
+        parent.get_by_role("button", name="人工设为受阻").click()
+        expect(status).to_have_text("受阻")
+        page.locator("#nav-board").click()
+        done = page.locator(".board-column").nth(3)
+        expect(done.locator(".board-task-title")).to_have_text(["虚构较晚完成", "虚构较早完成"])
+        expect(done.locator(".board-task-meta").last).to_contain_text("完成")
+        done.get_by_label("已完成排序").select_option("completed:asc")
+        expect(done.locator(".board-task-title")).to_have_text(["虚构较早完成", "虚构较晚完成"])
+        page.locator("#refresh").click()
+        expect(done.locator(".board-task-title")).to_have_text(["虚构较早完成", "虚构较晚完成"])
+        page.get_by_label("已完成时间范围").select_option("custom")
+        page.locator(".board-tools").get_by_label("起始日期", exact=True).fill("2026-11-02")
+        expect(done.locator(".board-task-title")).to_have_text(["虚构较晚完成"])
+        page.get_by_label("已完成时间范围").select_option("all")
+        page.get_by_role("button", name="恢复默认排序").click()
+        expect(done.locator(".board-task-title")).to_have_text(["虚构较晚完成", "虚构较早完成"])
+        tasks = {t["task_id"]: t for t in read_workspace(self.data_dir)["tasks"]}
+        self.assertEqual(tasks[child_id]["status"], "doing")
+        self.assertEqual(tasks[child_id]["revision"], 2)
+        self.assertEqual(tasks[self.task_id]["status"], "blocked")
+        self.assertEqual(tasks[self.task_id]["revision"], 4)
+        current = self._file_hashes()
+        for relative_path, digest in original.items():
+            self.assertEqual(current[relative_path], digest)
 
     def test_unsaved_draft_cannot_be_silently_discarded(self):
         page = self._open_browser()
