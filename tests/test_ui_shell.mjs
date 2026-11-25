@@ -852,7 +852,7 @@ test("phase 2 status board groups conflicts separately and only opens task detai
   await page.api.refresh(true);
   assert.equal(page.api.setTaskView("board"), true);
   assert.equal(page.el("tasks").className, "task-list is-board");
-  const note = page.el("tasks").children[0];
+  const note = page.el("tasks").children[0].children[0];
   const board = page.el("tasks").children[1];
   assert.match(note.textContent, /只读/);
   assert.equal(board.children.length, 5);
@@ -863,6 +863,45 @@ test("phase 2 status board groups conflicts separately and only opens task detai
   card.handlers.get("click")[0]();
   assert.equal(page.el("task-detail-title").textContent, "冲突样本");
   assert.equal(page.writes.length, 0);
+});
+
+
+test("board defaults to latest actual completion, retains unknowns and allows independent sorting and date filtering", async () => {
+  const tasks = [
+    {...sampleTask(),task_id:"TASK-BOARD-A",title:"较早完成",status:"done",completed_at:"2026-11-01T10:00:00Z"},
+    {...sampleTask(),task_id:"TASK-BOARD-B",title:"较晚完成",status:"done",completed_at:"2026-11-03T10:00:00+08:00"},
+    {...sampleTask(),task_id:"TASK-BOARD-C",title:"时间未知",status:"done",completed_at:null},
+    {...sampleTask(),task_id:"TASK-BOARD-D",title:"进行中",status:"doing"},
+  ];
+  const store=new Map();
+  const storage={getItem:key=>store.get(key),setItem:(key,value)=>store.set(key,value),removeItem:key=>store.delete(key)};
+  const page=harness(tasks,()=>true,[],[],null,{},storage);
+  await page.api.refresh(true);
+  page.api.setTaskView("board");
+  const board=()=>page.el("tasks").children[1];
+  const done=()=>board().children[3];
+  const names=()=>done().children[1].children.map(card=>card.children[0].textContent);
+  assert.deepEqual(names(),["较晚完成","较早完成","时间未知"]);
+  assert.match(done().children[1].children[2].children[3].textContent,/完成时间未知/);
+  let sort=done().children[0].children[2];sort.value="completed:asc";sort.handlers.get("change")[0]();
+  assert.deepEqual(names(),["较早完成","较晚完成","时间未知"]);
+  await page.api.refresh(true);
+  assert.deepEqual(names(),["较早完成","较晚完成","时间未知"]);
+  assert.equal(board().children[1].children[1].children.length,1);
+  const intro=page.el("tasks").children[0].children[1];
+  const range=intro.children[0].children[0];range.value="custom";range.handlers.get("change")[0]();
+  let tools=page.el("tasks").children[0].children[1];
+  let input=tools.children[1].children[0];input.value="2026-11-02";input.handlers.get("change")[0]();
+  assert.deepEqual(names(),["较晚完成"]);
+  assert.equal(board().children[1].children[1].children.length,1);
+  tools=page.el("tasks").children[0].children[1];
+  const all=tools.children[0].children[0];all.value="all";all.handlers.get("change")[0]();
+  assert.deepEqual(names(),["较早完成","较晚完成","时间未知"]);
+  const reopened=harness(tasks,()=>true,[],[],null,{},storage);await reopened.api.refresh(true);reopened.api.setTaskView("board");
+  assert.equal(reopened.el("tasks").children[1].children[3].children[0].children[2].value,"completed:asc");
+  const reset=page.el("tasks").children[0].children[1].children[1];reset.handlers.get("click")[0]();
+  assert.deepEqual(names(),["较晚完成","较早完成","时间未知"]);
+  assert.equal(page.writes.length,0);
 });
 
 test("phase 2 calendar renders 42 cells and distinguishes due, planned and followup dates", async () => {
@@ -1885,7 +1924,7 @@ test("quick status blocks 409 stale-revision writes and shows a local error with
 });
 
 
-test("derived parent status menu permits confirmed completion but no manual override", async () => {
+test("derived parent status menu permits manual blocking, release and confirmed completion", async () => {
   const parent = {...sampleTask(), manual_status:"todo", status_source:"children",
     child_task_ids:["TASK-SYNTHETIC-CHILD-1"]};
   let approved = false;
@@ -1896,6 +1935,10 @@ test("derived parent status menu permits confirmed completion but no manual over
         parent.manual_status = "done";
         parent.status_source = "user_confirmed";
         parent.status = "done";
+      } else if (body.status === "blocked") {
+        parent.manual_status = "blocked"; parent.status = "blocked"; parent.status_source = "manual_blocked";
+      } else if (body.status === "todo") {
+        parent.manual_status = "todo"; parent.status = "doing"; parent.status_source = "children";
       }
       parent.revision += 1;
       return successReply();
@@ -1904,22 +1947,28 @@ test("derived parent status menu permits confirmed completion but no manual over
   const original = taskQuickControl(taskRows(page)[0], "status");
   original.trigger.handlers.get("click")[0]();
   assert.match(original.trigger.title, /下级进度自动计算/);
-  assert.equal(original.menu.children.length, 2, "hint plus one deliberate completion action");
-  assert.match(original.menu.children[0].textContent, /不支持直接覆盖/);
-  assert.equal(original.menu.children[1].textContent, "确认完成任务");
-  const blocked = await page.api.updateTaskQuickField(parent, "status", "blocked", original.feedback);
-  assert.equal(blocked, false, "even programmatic attempts cannot override a derived parent");
-  assert.match(original.feedback.textContent, /只能确认完成或重新打开/);
-  assert.equal(page.writes.length, 0);
-  await chooseQuick(original, "确认完成任务");
+  assert.equal(original.menu.children.length, 3);
+  assert.match(original.menu.children[0].textContent, /可人工标记受阻/);
+  assert.equal(original.menu.children[1].textContent, "人工设为受阻");
+  await chooseQuick(original, "人工设为受阻");
+  assert.equal(parent.status,"blocked");
+  assert.deepEqual(page.writes[0].body,{title:parent.title,revision:1,status:"blocked"});
+  const held = taskQuickControl(taskRows(page)[0],"status");
+  held.trigger.handlers.get("click")[0]();
+  await chooseQuick(held,"解除受阻（恢复自动联动）");
+  assert.equal(parent.status,"doing");
+  assert.deepEqual(page.writes[1].body,{title:parent.title,revision:2,status:"todo"});
+  const resumed = taskQuickControl(taskRows(page)[0],"status");
+  resumed.trigger.handlers.get("click")[0]();
+  await chooseQuick(resumed, "确认完成任务");
   assert.equal(confirms, 1);
-  assert.equal(page.writes.length, 0, "declined completion cannot write");
+  assert.equal(page.writes.length, 2, "declined completion cannot write");
   approved = true;
-  original.trigger.handlers.get("click")[0]();
-  await chooseQuick(original, "确认完成任务");
+  resumed.trigger.handlers.get("click")[0]();
+  await chooseQuick(resumed, "确认完成任务");
   assert.equal(confirms, 2);
-  assert.deepEqual(page.writes[0].body, {
-    title:parent.title, revision:1, status:"done", confirmed_done:true
+  assert.deepEqual(page.writes[2].body, {
+    title:parent.title, revision:3, status:"done", confirmed_done:true
   });
   assert.equal(parent.status, "done");
   assert.equal(parent.manual_status, "done");
@@ -1980,8 +2029,8 @@ test("step-only aggregate follows the same safety gate and unreliable parents st
   const status=taskQuickControl(taskRows(page)[0],"status");
   status.trigger.handlers.get("click")[0]();
   assert.deepEqual(status.menu.children.filter(x=>x.tag==="button").map(x=>x.textContent),
-    ["确认完成任务"]);
-  const guard=await page.api.updateTaskQuickField(parent,"status","todo",status.feedback);
+    ["人工设为受阻","确认完成任务"]);
+  const guard=await page.api.updateTaskQuickField(parent,"status","doing",status.feedback);
   assert.equal(guard,false);
   assert.equal(page.writes.length,0);
   const incomplete={...parent,status_rollup_incomplete:true};
