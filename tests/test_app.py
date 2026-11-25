@@ -153,6 +153,33 @@ class BoardAndManualBlockTests(unittest.TestCase):
                 self.assertEqual(read_workspace(root)["tasks"][0]["completed_at"], today + "T12:00:00+00:00")
 
 
+
+    def test_agenda_superseded_step_dates_are_read_only_and_ignore_unapplied_edits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            append_event(root, event("agenda-parent-create", changes={
+                "title": "虚构跟进任务", "status": "todo", "follow_up_date": "2026-11-24"}))
+            append_step_event(root, step_event("agenda-step-create", changes={
+                "title": "虚构跟进步骤", "planned_date": "2026-11-24", "follow_up_date": "2026-11-24"}))
+            append_step_event(root, step_event("agenda-step-reschedule", action="update", revision=1,
+                changes={"follow_up_date": "2026-11-30", "planned_date": "2026-12-01"}, actor="user"))
+            append_step_event(root, step_event("agenda-step-clear", action="update", revision=2,
+                changes={"follow_up_date": None}, actor="user"))
+            before = {p: p.read_bytes() for p in root.rglob("*.json")}
+            task = read_workspace(root)["tasks"][0]
+            step = task["steps"][0]
+            self.assertEqual(step["agenda_previous_dates"], {
+                "planned_date": ["2026-11-24"], "follow_up_date": ["2026-11-24", "2026-11-30"]})
+            self.assertIsNone(step["follow_up_date"])
+            self.assertEqual(task["follow_up_date"], "2026-11-24")
+            self.assertEqual({p: p.read_bytes() for p in root.rglob("*.json")}, before)
+            append_step_event(root, step_event("agenda-step-conflicting", action="update", revision=2,
+                changes={"follow_up_date": "2026-12-03"}, actor="user"))
+            step = read_workspace(root)["tasks"][0]["steps"][0]
+            self.assertTrue(step["conflict"])
+            self.assertEqual(step["agenda_previous_dates"]["follow_up_date"], ["2026-11-24"])
+
+
 class LocalPreferencesTests(unittest.TestCase):
     """Per-computer preference survives local service restart and never writes Drive events."""
 
