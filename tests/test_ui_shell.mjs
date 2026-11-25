@@ -266,9 +266,10 @@ test("step-level daily agenda prioritizes precise steps, de-duplicates parent an
   assert.equal(h.el("tasks-page-title").textContent,"今日处理");
   const sections=h.el("day-agenda").children.filter(child=>child.className==="day-agenda-group");
   assert.equal(sections.length,3);
-  assert.match(sections[1].children[1].children[0].textContent,/检查他人步骤/);
-  assert.match(sections[1].children[1].children[1].textContent,/所属任务/);
-  sections[1].children[1].handlers.get("click")[0]();
+  const followButton=sections[1].children[1].children[0];
+  assert.match(followButton.children[0].textContent,/检查他人步骤/);
+  assert.match(followButton.children[1].textContent,/所属任务/);
+  followButton.handlers.get("click")[0]();
   assert.equal(h.el("task-detail-drawer").hidden,false);
   assert.equal(h.writes.length,0,"daily agenda must not alter business data");
   h.api.closeTaskDetail();
@@ -276,6 +277,64 @@ test("step-level daily agenda prioritizes precise steps, de-duplicates parent an
   const followSections=h.el("day-agenda").children.filter(child=>child.className==="day-agenda-group");
   assert.equal(followSections.length,1);
   assert.equal(followSections[0].children.length,2,"follow-up displays one precise step rather than the parent");
+});
+
+
+test("completed or rescheduled step cannot resurrect matching parent reminder; independent dates remain", () => {
+  const task={...sampleTask(),task_id:"TASK-AGENDA-PARENT",owner:"演示同事",status:"doing",
+    planned_date:null,due_date:null,follow_up_date:"2026-11-24",steps:[
+      {step_id:"STEP-AGENDA-DONE",title:"虚构已检查步骤",status:"done",follow_up_date:"2026-11-24"},
+      {step_id:"STEP-AGENDA-FUTURE",title:"虚构未来步骤",status:"todo",follow_up_date:"2026-11-30"}]};
+  const h=harness([task]), days={today:"2026-11-25"};
+  const follow=()=>h.api.dayAgendaForTasks([task],"本人演示",days).followup;
+  assert.equal(follow().length,0);
+  task.steps[0].status="doing";task.steps[0].follow_up_date=null;
+  task.steps[0].agenda_previous_dates={follow_up_date:["2026-11-24"]};
+  assert.equal(follow().length,0);
+  task.follow_up_date="2026-11-23";
+  assert.equal(follow().length,1);
+  assert.equal(follow()[0].step,null);
+  task.follow_up_date=null;
+  task.steps=[];task.child_task_ids=["TASK-AGENDA-CHILD"];
+  const child={...sampleTask(),task_id:"TASK-AGENDA-CHILD",parent_task_id:task.task_id,
+    owner:"演示同事",follow_up_date:"2026-11-24",due_date:null,planned_date:null};
+  assert.equal(h.api.dayAgendaForTasks([task,child],"本人演示",days).followup.length,1);
+  task.follow_up_date="2026-11-24";task.steps=[{step_id:"STEP-UNRELIABLE",status:"done",
+    follow_up_date:"2026-11-24",conflict:true}];
+  assert.equal(follow().length,1,"conflict cannot suppress an independent reminder");
+  task.owner="本人演示";task.planned_date="2026-11-24";task.due_date="2026-11-24";
+  task.steps=[{step_id:"STEP-OWN-DONE",status:"done",planned_date:"2026-11-24",due_date:"2026-11-24"}];
+  const own=h.api.dayAgendaForTasks([task],"本人演示",days);
+  assert.equal(own.mine.length,0);
+  assert.equal(own.attention.length,1,"independent task deadline must remain");
+});
+
+test("explicit follow-up completion clears only the target date and stale failures retain the reminder", async () => {
+  const task={...sampleTask(),task_id:"TASK-FOLLOW-A",owner:"演示同事",status:"doing",
+    due_date:null,planned_date:null,follow_up_date:"2020-01-01",revision:4};
+  const own={...sampleTask(),task_id:"TASK-FOLLOW-SELF",owner:"本人演示",status:"doing",
+    due_date:null,planned_date:null,follow_up_date:null};
+  let reject=true;
+  const h=harness([task,own],()=>true,[],[],async (_path,body)=>{
+    if(reject)return {ok:false,status:409,json:async()=>({error:"revision changed"})};
+    task.follow_up_date=body.follow_up_date;task.revision++;return successReply();
+  });
+  await h.api.refresh(true);
+  h.el("overview-owner").value="本人演示";h.el("overview-owner").handlers.get("change")[0]();
+  h.el("nav-followup").handlers.get("click")[0]();
+  const group=()=>h.el("day-agenda").children.find(x=>x.className==="day-agenda-group");
+  const controls=group().children[1].children[1],form=controls.children[2];
+  controls.children[0].handlers.get("click")[0]();
+  assert.equal(form.hidden,false);
+  await form.handlers.get("submit")[0]({preventDefault(){}});
+  assert.match(form.children[3].textContent,/revision changed/);
+  assert.equal(task.follow_up_date,"2020-01-01");
+  assert.equal(task.status,"doing");
+  reject=false;
+  await form.handlers.get("submit")[0]({preventDefault(){}});
+  assert.deepEqual(h.writes.at(-1).body,{revision:4,follow_up_date:null,title:task.title});
+  assert.equal(task.status,"doing");
+  assert.equal(group(),undefined);
 });
 
 test("machine-local default self persists across new browsers and explicit clear, without business events", async () => {
