@@ -139,7 +139,7 @@ class BoardAndManualBlockTests(unittest.TestCase):
             today = date.today().isoformat()
             append_event(root, event("board-cycle-create", changes={"title": "虚构周期", "status": "todo"}))
             append_event(root, event("board-cycle-config", action="update", revision=1, actor="user",
-                changes={"recurrence": {"unit": "day", "interval": 1, "start_date": "2026-01-01", "enabled": True}}))
+                changes={"recurrence": {"unit": "daily", "interval": 1, "start_date": "2026-01-01", "enabled": True}}))
             first = event("board-cycle-first", action="update", revision=2, actor="user",
                 changes={"status": "done", "recurrence_status_period": "2026-01-01"}, confirmed_done=True)
             first["timestamp"] = "2026-01-01T12:00:00Z"
