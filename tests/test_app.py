@@ -58,6 +58,101 @@ def step_order_event(event_id="step-order-001", task_id="TASK-DEMO-001",
 
 
 
+
+class BoardAndManualBlockTests(unittest.TestCase):
+    def test_manual_block_survives_step_and_child_rollups_and_can_be_released(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            parent_id = "TASK-" + "A" * 32
+            child_id = "TASK-" + "B" * 32
+            append_event(root, event("board-parent-create", parent_id))
+            append_event(root, event("board-child-create", child_id, changes={
+                "title": "虚构子任务", "status": "todo", "parent_task_id": parent_id}))
+            append_event(root, event("board-child-doing", child_id, "update", 1,
+                                     {"status": "doing"}))
+            append_step_event(root, step_event("board-step-create", parent_id))
+            append_step_event(root, step_event("board-step-doing", parent_id,
+                action="update", revision=1, changes={"status": "doing"}))
+            def task():
+                return next(t for t in read_workspace(root)["tasks"] if t["task_id"] == parent_id)
+            self.assertEqual(task()["status"], "doing")
+            append_event(root, event("board-parent-block", parent_id, "update", 1,
+                                     {"status": "blocked"}))
+            before = {p: p.read_bytes() for p in root.rglob("*.json")}
+            self.assertEqual((task()["status"], task()["status_source"], task()["revision"]),
+                             ("blocked", "manual_blocked", 2))
+            self.assertEqual(task()["steps"][0]["status"], "doing")
+            self.assertEqual({p: p.read_bytes() for p in root.rglob("*.json")}, before)
+            append_event(root, event("board-parent-release", parent_id, "update", 2,
+                                     {"status": "todo"}, actor="user"))
+            self.assertEqual((task()["status"], task()["status_source"]), ("doing", "steps_and_children"))
+            append_event(root, event("board-child-blocked", child_id, "update", 2,
+                                     {"status": "blocked"}))
+            self.assertEqual(task()["status"], "blocked")
+            append_event(root, event("board-parent-done", parent_id, "update", 3,
+                                     {"status": "done"}, actor="user", confirmed_done=True))
+            self.assertEqual((task()["status"], task()["status_source"]), ("done", "user_confirmed"))
+
+    def test_step_only_manual_block_and_incomplete_guard(self):
+        task = {"status": "blocked", "steps": [{"status": "doing"}]}
+        app_module.resolve_step_status(task)
+        self.assertEqual((task["status"], task["status_source"]), ("blocked", "manual_blocked"))
+        task["status"] = "todo"
+        app_module.resolve_step_status(task)
+        self.assertEqual((task["status"], task["status_source"]), ("doing", "steps"))
+        task.update(status="blocked", step_order_incomplete=True)
+        app_module.resolve_step_status(task)
+        self.assertEqual(task["status_source"], "task")
+
+    def test_completion_timestamp_uses_applied_transitions_not_metadata_edits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def add(eid, revision, changes, stamp, **kwargs):
+                item = event(eid, action="update", revision=revision, changes=changes,
+                             actor="user", **kwargs)
+                item["timestamp"] = stamp
+                append_event(root, item)
+            append_event(root, event("board-completion-create"))
+            add("board-completion-first", 1, {"status": "done"},
+                "2026-11-01T12:00:00+08:00", confirmed_done=True)
+            add("board-completion-rename", 2, {"title": "虚构修改"},
+                "2026-11-05T20:00:00Z")
+            def task():
+                return read_workspace(root)["tasks"][0]
+            self.assertEqual(task()["completed_at"], "2026-11-01T04:00:00+00:00")
+            add("board-completion-reopen", 3, {"status": "todo"}, "2026-11-06T00:00:00Z")
+            self.assertIsNone(task()["completed_at"])
+            add("board-completion-second", 4, {"status": "done"},
+                "2026-11-07T02:00:00Z", confirmed_done=True)
+            self.assertEqual(task()["completed_at"], "2026-11-07T02:00:00+00:00")
+            add("board-completion-repeat", 5, {"status": "done"},
+                "2026-11-08T02:00:00Z", confirmed_done=True)
+            self.assertEqual(task()["completed_at"], "2026-11-07T02:00:00+00:00")
+            add("board-completion-conflict", 5, {"status": "todo"}, "2026-11-08T03:00:00Z")
+            self.assertTrue(task()["conflict"])
+            self.assertIsNone(task()["completed_at"])
+
+    def test_current_recurring_completion_does_not_use_previous_period(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            from datetime import date
+            today = date.today().isoformat()
+            append_event(root, event("board-cycle-create", changes={"title": "虚构周期", "status": "todo"}))
+            append_event(root, event("board-cycle-config", action="update", revision=1, actor="user",
+                changes={"recurrence": {"unit": "day", "interval": 1, "start_date": "2026-01-01", "enabled": True}}))
+            first = event("board-cycle-first", action="update", revision=2, actor="user",
+                changes={"status": "done", "recurrence_status_period": "2026-01-01"}, confirmed_done=True)
+            first["timestamp"] = "2026-01-01T12:00:00Z"
+            append_event(root, first)
+            with patch.object(app_module, "recurrence_bounds", return_value=(today, today)):
+                self.assertIsNone(read_workspace(root)["tasks"][0]["completed_at"])
+                second = event("board-cycle-second", action="update", revision=3, actor="user",
+                    changes={"status": "done", "recurrence_status_period": today}, confirmed_done=True)
+                second["timestamp"] = today + "T12:00:00Z"
+                append_event(root, second)
+                self.assertEqual(read_workspace(root)["tasks"][0]["completed_at"], today + "T12:00:00+00:00")
+
+
 class LocalPreferencesTests(unittest.TestCase):
     """Per-computer preference survives local service restart and never writes Drive events."""
 
