@@ -912,6 +912,38 @@ class TaskIdDrawerChromiumTests(unittest.TestCase):
         self.assertEqual(parent["revision"], 2)
 
 
+    def test_four_column_board_conflict_notice_and_inbox_navigation(self):
+        page = self._open_browser(open_detail=False)
+        page.locator("#nav-board").click()
+        expect(page.locator(".board-column")).to_have_count(4)
+        expect(page.locator(".board-heading strong")).to_have_text(["待处理", "进行中", "受阻", "已完成"])
+        expect(page.locator(".board-review-notice")).to_have_count(0)
+        for suffix, status in [("a", "doing"), ("b", "blocked")]:
+            append_event(self.data_dir, {
+                "version": 1, "event_id": "board-review-conflict-" + suffix,
+                "task_id": self.task_id, "action": "update", "actor": "user",
+                "timestamp": "2026-11-25T08:00:00Z", "base_revision": 1,
+                "changes": {"status": status}})
+        original = self._file_hashes()
+        page.locator("#refresh").click()
+        notice = page.locator(".board-review-notice")
+        expect(notice).to_contain_text("有 1 项任务存在数据冲突")
+        expect(page.locator(".board-column")).to_have_count(4)
+        expect(page.locator(".task-board .board-task")).to_have_count(0)
+        expect(notice.locator(".board-review-items")).to_be_hidden()
+        notice.get_by_role("button", name="查看异常任务").click()
+        expect(notice.locator(".board-review-task")).to_have_count(1)
+        expect(notice.locator(".board-review-task")).to_be_visible()
+        page.locator("#refresh").click()
+        expect(notice.locator(".board-review-task")).to_be_visible()
+        notice.locator(".board-review-task").click()
+        expect(page.locator("#task-detail-drawer")).to_be_visible()
+        page.locator("#task-detail-close").click()
+        notice.get_by_role("button", name="打开通知信箱").click()
+        expect(page.locator("#nav-reviews")).to_have_class("nav-item is-active")
+        self.assertEqual(self._file_hashes(), original,
+                         "review notice navigation must not mutate data")
+
     def test_manual_block_detail_and_list_release_and_board_completion_sort(self):
         child_id = "TASK-" + "D" * 32
         append_event(self.data_dir, {
